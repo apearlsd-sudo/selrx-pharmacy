@@ -72,12 +72,7 @@ const CATEGORIES = [
   { value: 'CONSUMABLES', label: 'Consumables' },
 ]
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
-}
+import { formatCurrency } from '@/lib/currency'
 
 export function POSView() {
   // Local state

@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore, type ViewName } from '@/store/app-store'
+import { initCurrencyGetter, CURRENCIES, type CurrencyCode } from '@/lib/currency'
 import { LoginScreen } from '@/components/gazpharm/login-screen'
 import { DashboardView } from '@/components/gazpharm/views/dashboard-view'
 import { POSView } from '@/components/gazpharm/views/pos-view'
@@ -34,6 +35,9 @@ import { HardwareView } from '@/components/gazpharm/views/hardware-view'
 import { ReportsView } from '@/components/gazpharm/views/reports-view'
 import { MasterDataView } from '@/components/gazpharm/views/master-data-view'
 import { SalesHistoryView } from '@/components/gazpharm/views/sales-history-view'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 interface NavItem {
   name: ViewName
@@ -66,6 +70,13 @@ export default function Home() {
   const logout = useAppStore((s) => s.logout)
   const toasts = useAppStore((s) => s.toasts)
   const removeToast = useAppStore((s) => s.removeToast)
+  const currency = useAppStore((s) => s.currency)
+  const setCurrency = useAppStore((s) => s.setCurrency)
+
+  // Wire the currency getter once so the shared formatCurrency works
+  useEffect(() => {
+    initCurrencyGetter(() => useAppStore.getState().currency)
+  }, [])
 
   // Show login if not authenticated
   if (!isAuthenticated) {
@@ -219,6 +230,21 @@ export default function Home() {
           <h2 className="text-sm font-semibold text-gray-900">{currentLabel}</h2>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Currency Selector */}
+            <Select value={currency} onValueChange={(val) => setCurrency(val as CurrencyCode)}>
+              <SelectTrigger className="h-8 w-[110px] text-xs">
+                <span className="font-medium">{CURRENCIES[currency].symbol}</span>
+                <span className="text-muted-foreground">{currency}</span>
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(CURRENCIES) as CurrencyCode[]).map((code) => (
+                  <SelectItem key={code} value={code}>
+                    <span className="font-medium">{CURRENCIES[code].symbol}</span>
+                    <span className="ml-1.5">{CURRENCIES[code].name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button variant="ghost" size="icon" className="h-9 w-9 relative">
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-emerald-500 rounded-full" />

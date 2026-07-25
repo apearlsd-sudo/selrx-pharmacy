@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CurrencyCode } from '@/lib/currency'
 
 // ============ TYPE EXPORTS ============
 
@@ -116,6 +117,11 @@ export interface InventoryUIState {
   setStockAlerts: (alerts: any[]) => void
 }
 
+export interface CurrencyState {
+  currency: CurrencyCode
+  setCurrency: (code: CurrencyCode) => void
+}
+
 export interface UIState {
   isModalOpen: boolean
   modalContent: string | null
@@ -134,6 +140,7 @@ export type AppState = NavigationState &
   AuthState &
   POSState &
   InventoryUIState &
+  CurrencyState &
   UIState
 
 // ============ STORE ============
@@ -251,6 +258,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   isLoading: false,
   setIsLoading: (val) => set({ isLoading: val }),
+
+  // ---- Currency ----
+  currency: 'USD' as CurrencyCode,
+  setCurrency: (code) => set({ currency: code }),
 }))
 
 // ============ COMPUTED VALUES (selectors) ============
