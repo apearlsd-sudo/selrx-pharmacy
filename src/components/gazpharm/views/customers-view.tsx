@@ -55,7 +55,10 @@ export function CustomersView() {
       const params = new URLSearchParams()
       if (searchQuery) params.set('search', searchQuery)
       const res = await fetch(`/api/customers?${params}`)
-      if (res.ok) setCustomers(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setCustomers(Array.isArray(data) ? data : data.customers || [])
+      }
     } catch {
       addToast({ title: 'Error', description: 'Failed to load customers', variant: 'destructive' })
     } finally {

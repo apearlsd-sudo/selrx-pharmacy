@@ -49,9 +49,9 @@ export function ReportsView() {
         fetch('/api/prescriptions'),
       ])
       if (statsRes.ok) setSalesStats(await statsRes.json())
-      if (txRes.ok) setTransactions(await txRes.json())
+      if (txRes.ok) { const d = await txRes.json(); setTransactions(Array.isArray(d) ? d : d.transactions || []) }
       if (invRes.ok) setInventory(await invRes.json())
-      if (rxRes.ok) setPrescriptions(await rxRes.json())
+      if (rxRes.ok) { const d = await rxRes.json(); setPrescriptions(Array.isArray(d) ? d : d.prescriptions || []) }
     } catch {
       addToast({ title: 'Error', description: 'Failed to load report data', variant: 'destructive' })
     } finally {

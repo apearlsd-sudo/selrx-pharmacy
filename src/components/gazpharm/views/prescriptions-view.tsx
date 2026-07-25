@@ -92,7 +92,10 @@ export function PrescriptionsView() {
       if (statusFilter !== 'ALL') params.set('status', statusFilter)
       if (searchQuery) params.set('search', searchQuery)
       const res = await fetch(`/api/prescriptions?${params}`)
-      if (res.ok) setPrescriptions(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setPrescriptions(Array.isArray(data) ? data : data.prescriptions || [])
+      }
     } catch {
       addToast({ title: 'Error', description: 'Failed to load prescriptions', variant: 'destructive' })
     } finally {
