@@ -4,6 +4,7 @@ import type { CurrencyCode } from '@/lib/currency'
 // ============ TYPE EXPORTS ============
 
 export type ViewName =
+  | 'company-setup'
   | 'login'
   | 'dashboard'
   | 'pos'
@@ -118,6 +119,25 @@ export interface InventoryUIState {
   setStockAlerts: (alerts: any[]) => void
 }
 
+export interface CompanyState {
+  company: {
+    id: string
+    name: string
+    slug: string
+    logo: string | null
+    tagline: string | null
+    businessType: string
+    currency: string
+    phone: string | null
+    email: string | null
+    city: string | null
+    country: string | null
+  } | null
+  setCompany: (company: CompanyState['company']) => void
+  isCompanySetup: boolean
+  setIsCompanySetup: (val: boolean) => void
+}
+
 export interface CurrencyState {
   currency: CurrencyCode
   setCurrency: (code: CurrencyCode) => void
@@ -141,6 +161,7 @@ export type AppState = NavigationState &
   AuthState &
   POSState &
   InventoryUIState &
+  CompanyState &
   CurrencyState &
   UIState
 
@@ -259,6 +280,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   isLoading: false,
   setIsLoading: (val) => set({ isLoading: val }),
+
+  // ---- Company ----
+  company: null,
+  setCompany: (company) => set({ company }),
+  isCompanySetup: false,
+  setIsCompanySetup: (val) => set({ isCompanySetup: val }),
 
   // ---- Currency ----
   currency: 'USD' as CurrencyCode,

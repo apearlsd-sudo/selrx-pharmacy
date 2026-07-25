@@ -37,6 +37,7 @@ import { ReportsView } from '@/components/gazpharm/views/reports-view'
 import { MasterDataView } from '@/components/gazpharm/views/master-data-view'
 import { SalesHistoryView } from '@/components/gazpharm/views/sales-history-view'
 import { GoodsReturnView } from '@/components/gazpharm/views/goods-return-view'
+import { CompanySetupView } from '@/components/gazpharm/company-setup-view'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -76,10 +77,43 @@ export default function Home() {
   const currency = useAppStore((s) => s.currency)
   const setCurrency = useAppStore((s) => s.setCurrency)
 
+  const isCompanySetup = useAppStore((s) => s.isCompanySetup)
+  const setIsCompanySetup = useAppStore((s) => s.setIsCompanySetup)
+  const setCompany = useAppStore((s) => s.setCompany)
+
   // Wire the currency getter once so the shared formatCurrency works
   useEffect(() => {
     initCurrencyGetter(() => useAppStore.getState().currency)
   }, [])
+
+  // Check if a company has been set up
+  useEffect(() => {
+    if (!isCompanySetup) {
+      fetch('/api/company-setup')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.isSetup && data.company) {
+            setCompany(data.company)
+            setIsCompanySetup(true)
+            if (data.company.currency) {
+              const code = data.company.currency as CurrencyCode
+              setCurrency(code)
+            }
+          } else {
+            setCurrentView('company-setup')
+          }
+        })
+        .catch(() => {
+          // On error, still try to show login
+          setIsCompanySetup(true)
+        })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Show company setup if not yet configured
+  if (!isCompanySetup) {
+    return <CompanySetupView />
+  }
 
   // Show login if not authenticated
   if (!isAuthenticated) {

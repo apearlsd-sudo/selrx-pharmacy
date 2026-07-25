@@ -37,6 +37,7 @@ model User {
   prescriptionsFilled Prescription[] @relation("Dispenser")
   prescriptionsVerified Prescription[] @relation("Verifier")
   logs               AuditLog[]
+  ownedCompany      Company?  @relation("CompanyOwner")
 }
 
 // ============ CUSTOMERS / PATIENTS ============
@@ -304,6 +305,37 @@ model Return {
   product          Product          @relation(fields: [productId], references: [id])
   user             User             @relation(fields: [userId], references: [id])
   approvedBy       User?            @relation("ReturnApprover", fields: [approvedById], references: [id])
+}
+
+// ============ COMPANY / STORE ============
+
+model Company {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  slug              String   @unique // URL-friendly name
+  logo              String?  // Logo URL or base64
+  tagline           String?
+  businessType      String   @default("Pharmacy") // Pharmacy, Clinic, Hospital, Retail
+  registrationNo    String?  // Business registration number
+  pharmacyLicense   String?  // Pharmacy license number
+  taxId             String?
+  phone             String?
+  email             String?
+  website           String?
+  address           String?
+  city              String?
+  state             String?
+  country           String?
+  postalCode        String?
+  currency          String   @default("USD")
+  timezone          String   @default("UTC")
+  active            Boolean  @default(true)
+  ownerName         String?
+  ownerId           String?  @unique // User ID of the company owner
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  owner             User?    @relation("CompanyOwner", fields: [ownerId], references: [id])
 }
 
 // ============ VENDORS ============
