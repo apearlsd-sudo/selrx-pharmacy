@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         dosage,
         quantity,
         refillsTotal: refillsTotal || 0,
-        refillsRemaining: refillsRemaining ?? (refillsTotal || 0),
+        refillsRemaining: refillsRemaining !== undefined && refillsRemaining !== null ? refillsRemaining : (refillsTotal || 0),
         daysSupply,
         dispenseAsWritten: dispenseAsWritten || false,
         priority: priority || 'ROUTINE',
