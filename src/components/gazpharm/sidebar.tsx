@@ -1,0 +1,366 @@
+'use client'
+
+import { useCallback, useMemo } from 'react'
+import {
+  Pill,
+  LayoutDashboard,
+  ShoppingCart,
+  Package,
+  FileText,
+  Users,
+  UserCog,
+  Printer,
+  BarChart3,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  X,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { useAppStore } from '@/store/app-store'
+import type { ViewName } from '@/store/app-store'
+import { useIsMobile } from '@/hooks/use-mobile'
+
+interface NavItem {
+  label: string
+  icon: React.ElementType
+  view: ViewName
+  roles: string[]
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    view: 'dashboard',
+    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
+  },
+  {
+    label: 'POS Terminal',
+    icon: ShoppingCart,
+    view: 'pos',
+    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER'],
+  },
+  {
+    label: 'Inventory',
+    icon: Package,
+    view: 'inventory',
+    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'],
+  },
+  {
+    label: 'Prescriptions',
+    icon: FileText,
+    view: 'prescriptions',
+    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'],
+  },
+  {
+    label: 'Customers',
+    icon: Users,
+    view: 'customers',
+    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
+  },
+  {
+    label: 'User Management',
+    icon: UserCog,
+    view: 'users',
+    roles: ['SUPER_ADMIN'],
+  },
+  {
+    label: 'Hardware',
+    icon: Printer,
+    view: 'hardware',
+    roles: ['SUPER_ADMIN', 'PHARMACIST'],
+  },
+  {
+    label: 'Reports',
+    icon: BarChart3,
+    view: 'reports',
+    roles: ['SUPER_ADMIN', 'PHARMACIST'],
+  },
+]
+
+function getRoleBadgeColor(role: string) {
+  switch (role) {
+    case 'SUPER_ADMIN':
+      return 'bg-amber-100 text-amber-800'
+    case 'PHARMACIST':
+      return 'bg-emerald-100 text-emerald-800'
+    case 'TECHNICIAN':
+      return 'bg-sky-100 text-sky-800'
+    case 'CASHIER':
+      return 'bg-violet-100 text-violet-800'
+    case 'CLERK':
+      return 'bg-gray-100 text-gray-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function SidebarNavContent({
+  collapsed,
+  onNavClick,
+  onLogout,
+}: {
+  collapsed: boolean
+  onNavClick?: () => void
+  onLogout?: () => void
+}) {
+  const currentView = useAppStore((s) => s.currentView)
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const user = useAppStore((s) => s.user)
+  const hasPermission = useAppStore((s) => s.hasPermission)
+  const logout = useAppStore((s) => s.logout)
+
+  const visibleItems = useMemo(
+    () => NAV_ITEMS.filter((item) => hasPermission(item.roles)),
+    [hasPermission]
+  )
+
+  const handleNavClick = useCallback(
+    (view: ViewName) => {
+      setCurrentView(view)
+      onNavClick?.()
+    },
+    [setCurrentView, onNavClick]
+  )
+
+  const handleLogout = useCallback(() => {
+    logout()
+    onNavClick?.()
+  }, [logout, onNavClick])
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Branding */}
+      <div
+        className={`flex items-center gap-3 px-4 py-5 ${collapsed ? 'justify-center' : ''}`}
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600">
+          <Pill className="h-5 w-5 text-white" />
+        </div>
+        {!collapsed && (
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-white tracking-tight">
+              GAZPharm
+            </span>
+            <span className="text-[10px] text-gray-400 -mt-0.5">
+              Pharmacy POS
+            </span>
+          </div>
+        )}
+      </div>
+
+      <Separator className="bg-gray-700/50" />
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        {visibleItems.map((item) => {
+          const isActive = currentView === item.view
+          const Icon = item.icon
+
+          if (collapsed) {
+            return (
+              <Tooltip key={item.view}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`w-full h-10 rounded-lg ${
+                      isActive
+                        ? 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-400'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                    }`}
+                    onClick={() => handleNavClick(item.view)}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            )
+          }
+
+          return (
+            <Button
+              key={item.view}
+              variant="ghost"
+              className={`w-full justify-start gap-3 h-10 rounded-lg px-3 ${
+                isActive
+                  ? 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-400'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+              }`}
+              onClick={() => handleNavClick(item.view)}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="text-sm font-medium">{item.label}</span>
+              {isActive && (
+                <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              )}
+            </Button>
+          )
+        })}
+      </nav>
+
+      {/* User Section */}
+      <Separator className="bg-gray-700/50" />
+      <div className={`p-3 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
+        {user && (
+          <>
+            {collapsed ? (
+              <>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="" alt={user.name} />
+                  <AvatarFallback className="bg-emerald-600 text-white text-xs font-semibold">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-400 hover:bg-gray-800 hover:text-red-400"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    Sign Out
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src="" alt={user.name} />
+                  <AvatarFallback className="bg-emerald-600 text-white text-xs font-semibold">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-200">
+                    {user.name}
+                  </p>
+                  <Badge
+                    variant="secondary"
+                    className={`mt-0.5 text-[10px] px-1.5 py-0 ${getRoleBadgeColor(user.role)}`}
+                  >
+                    {user.role.replace('_', ' ')}
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-gray-400 hover:bg-gray-800 hover:text-red-400 shrink-0"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function Sidebar() {
+  const isMobile = useIsMobile()
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar)
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated)
+
+  if (!isAuthenticated) return null
+
+  // Mobile: use Sheet (drawer)
+  if (isMobile) {
+    return (
+      <div className="md:hidden">
+        {/* Top bar with menu button */}
+        <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Menu className="h-5 w-5 text-gray-700" />
+                <span className="sr-only">Open navigation</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 bg-gray-900 border-r-gray-700">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation</SheetTitle>
+              </SheetHeader>
+              <SidebarNavContent
+                collapsed={false}
+                onNavClick={() => {
+                  // Sheet auto-closes on trigger click
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600">
+              <Pill className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-bold text-gray-900">
+              GAZPharm
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Desktop: use fixed sidebar
+  return (
+    <div className="hidden md:block">
+      <aside
+        className={`fixed left-0 top-0 z-40 h-screen bg-gray-900 border-r border-gray-700/50 transition-all duration-300 ease-in-out ${
+          sidebarOpen ? 'w-64' : 'w-[68px]'
+        }`}
+      >
+        {/* Collapse toggle */}
+        <button
+          onClick={toggleSidebar}
+          className="absolute -right-3 top-7 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-gray-600 bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors shadow-md"
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          {sidebarOpen ? (
+            <ChevronLeft className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
+        <SidebarNavContent collapsed={!sidebarOpen} />
+      </aside>
+    </div>
+  )
+}

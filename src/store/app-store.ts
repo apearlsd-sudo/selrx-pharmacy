@@ -1,0 +1,270 @@
+import { create } from 'zustand'
+
+// ============ TYPE EXPORTS ============
+
+export type ViewName =
+  | 'login'
+  | 'dashboard'
+  | 'pos'
+  | 'inventory'
+  | 'prescriptions'
+  | 'customers'
+  | 'users'
+  | 'hardware'
+  | 'settings'
+  | 'reports'
+
+export type PaymentMethodType =
+  | 'CASH'
+  | 'CREDIT_CARD'
+  | 'DEBIT_CARD'
+  | 'INSURANCE'
+  | 'FSA_HSA'
+  | 'SPLIT'
+
+export interface UserState {
+  id: string
+  name: string
+  email: string
+  role: string
+}
+
+export interface CartItem {
+  product: {
+    id: string
+    name: string
+    ndc?: string
+    sellingPrice: number
+    requiresPrescription: boolean
+    unitOfMeasure: string
+    strength?: string
+    dosageForm?: string
+  }
+  quantity: number
+}
+
+export interface Customer {
+  id: string
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  dateOfBirth?: string | null
+  gender?: string | null
+  address?: string | null
+  insuranceProvider?: string | null
+  insurancePolicyNo?: string | null
+  allergies?: string | null
+  notes?: string | null
+}
+
+export interface Toast {
+  id: string
+  title?: string
+  description?: string
+  variant?: 'default' | 'destructive' | 'success'
+  duration?: number
+}
+
+// ============ SLICE TYPES ============
+
+export interface NavigationState {
+  currentView: ViewName
+  setCurrentView: (view: ViewName) => void
+  sidebarOpen: boolean
+  toggleSidebar: () => void
+}
+
+export interface AuthState {
+  user: UserState | null
+  isAuthenticated: boolean
+  setUser: (user: UserState | null) => void
+  logout: () => void
+  hasPermission: (requiredRoles: string[]) => boolean
+}
+
+export interface POSState {
+  cart: CartItem[]
+  addToCart: (
+    product: CartItem['product'],
+    quantity: number
+  ) => void
+  removeFromCart: (productId: string) => void
+  updateCartQuantity: (productId: string, quantity: number) => void
+  clearCart: () => void
+  cartSubtotal: number
+  cartTax: number
+  cartTotal: number
+  selectedCustomer: Customer | null
+  setSelectedCustomer: (customer: Customer | null) => void
+  paymentMethod: PaymentMethodType
+  setPaymentMethod: (method: PaymentMethodType) => void
+  isProcessingPayment: boolean
+  setIsProcessingPayment: (val: boolean) => void
+}
+
+export interface InventoryUIState {
+  inventoryItems: any[]
+  setInventoryItems: (items: any[]) => void
+  searchQuery: string
+  setSearchQuery: (q: string) => void
+  filterCategory: string
+  setFilterCategory: (cat: string) => void
+  stockAlerts: any[]
+  setStockAlerts: (alerts: any[]) => void
+}
+
+export interface UIState {
+  isModalOpen: boolean
+  modalContent: string | null
+  openModal: (content: string) => void
+  closeModal: () => void
+  toasts: Toast[]
+  addToast: (toast: Omit<Toast, 'id'>) => void
+  removeToast: (id: string) => void
+  isLoading: boolean
+  setIsLoading: (val: boolean) => void
+}
+
+// ============ COMBINED APP STATE TYPE ============
+
+export type AppState = NavigationState &
+  AuthState &
+  POSState &
+  InventoryUIState &
+  UIState
+
+// ============ STORE ============
+
+export const useAppStore = create<AppState>((set, get) => ({
+  // ---- Navigation ----
+  currentView: 'login',
+  setCurrentView: (view) => set({ currentView: view }),
+  sidebarOpen: true,
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  // ---- Auth ----
+  user: null,
+  isAuthenticated: false,
+  setUser: (user) =>
+    set({
+      user,
+      isAuthenticated: !!user,
+    }),
+  logout: () =>
+    set({
+      user: null,
+      isAuthenticated: false,
+      currentView: 'login',
+      cart: [],
+      selectedCustomer: null,
+    }),
+  hasPermission: (requiredRoles) => {
+    const state = get()
+    if (!state.user) return false
+    return requiredRoles.includes(state.user.role)
+  },
+
+  // ---- POS / Cart ----
+  cart: [],
+  addToCart: (product, quantity) =>
+    set((state) => {
+      const existing = state.cart.find(
+        (item) => item.product.id === product.id
+      )
+      if (existing) {
+        return {
+          cart: state.cart.map((item) =>
+            item.product.id === product.id
+              ? { ...item, quantity: item.quantity + quantity }
+              : item
+          ),
+        }
+      }
+      return {
+        cart: [...state.cart, { product, quantity }],
+      }
+    }),
+  removeFromCart: (productId) =>
+    set((state) => ({
+      cart: state.cart.filter((item) => item.product.id !== productId),
+    })),
+  updateCartQuantity: (productId, quantity) =>
+    set((state) => ({
+      cart:
+        quantity <= 0
+          ? state.cart.filter((item) => item.product.id !== productId)
+          : state.cart.map((item) =>
+              item.product.id === productId ? { ...item, quantity } : item
+            ),
+    })),
+  clearCart: () =>
+    set({
+      cart: [],
+      selectedCustomer: null,
+      paymentMethod: 'CASH',
+    }),
+  cartSubtotal: 0,
+  cartTax: 0,
+  cartTotal: 0,
+  selectedCustomer: null,
+  setSelectedCustomer: (customer) => set({ selectedCustomer: customer }),
+  paymentMethod: 'CASH',
+  setPaymentMethod: (method) => set({ paymentMethod: method }),
+  isProcessingPayment: false,
+  setIsProcessingPayment: (val) => set({ isProcessingPayment: val }),
+
+  // ---- Inventory UI ----
+  inventoryItems: [],
+  setInventoryItems: (items) => set({ inventoryItems: items }),
+  searchQuery: '',
+  setSearchQuery: (q) => set({ searchQuery: q }),
+  filterCategory: '',
+  setFilterCategory: (cat) => set({ filterCategory: cat }),
+  stockAlerts: [],
+  setStockAlerts: (alerts) => set({ stockAlerts: alerts }),
+
+  // ---- UI ----
+  isModalOpen: false,
+  modalContent: null,
+  openModal: (content) =>
+    set({ isModalOpen: true, modalContent: content }),
+  closeModal: () =>
+    set({ isModalOpen: false, modalContent: null }),
+  toasts: [],
+  addToast: (toast) => {
+    const id = crypto.randomUUID()
+    set((state) => ({
+      toasts: [...state.toasts, { ...toast, id }],
+    }))
+    // Auto-remove after duration (default 5s)
+    const duration = toast.duration ?? 5000
+    setTimeout(() => {
+      get().removeToast(id)
+    }, duration)
+  },
+  removeToast: (id) =>
+    set((state) => ({
+      toasts: state.toasts.filter((t) => t.id !== id),
+    })),
+  isLoading: false,
+  setIsLoading: (val) => set({ isLoading: val }),
+}))
+
+// ============ COMPUTED VALUES (selectors) ============
+
+/**
+ * Derived cart totals selector.
+ * Because Zustand doesn't auto-compute, we provide a selector
+ * that reads cart and returns computed values.
+ */
+export const useCartTotals = () =>
+  useAppStore((state) => {
+    const subtotal = state.cart.reduce(
+      (sum, item) => sum + item.product.sellingPrice * item.quantity,
+      0
+    )
+    const tax = 0 // 0% tax for pharmacy
+    const total = subtotal + tax
+    return { subtotal, tax, total }
+  })
