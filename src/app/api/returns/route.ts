@@ -1,118 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { PrismaClient } from '@prisma/client'
 
-// Helper: Generate return number RTN-YYYYMMDD-XXXX
-function generateReturnNo(): string {
-  const now = new Date()
-  const date = now.toISOString().slice(0, 10).replace(/-/g, '')
-  const random = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, '0')
-  return `RTN-${date}-${random}`
-}
+const prisma = new PrismaClient()
 
-// GET /api/returns - List returns with filters
-export async function GET(request: NextRequest) {
+// GET /api/returns — list returns with optional filters
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const from = searchParams.get('from')
-    const to = searchParams.get('to')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const action = searchParams.get('action')
+    const url = req.nextUrl
+    const status = url.searchParams.get('status')
+    const reason = url.searchParams.get('reason')
+    const search = url.searchParams.get('search')
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
+    const page = parseInt(url.searchParams.get('page') || '1', 10)
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10)
 
-    // GET /api/returns?action=stats - Return statistics
-    if (action === 'stats') {
-      const now = new Date()
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-      const [todayReturns, monthReturns, pendingReturns, totalRefunded] = await Promise.all([
-        db.return.count({
-          where: { createdAt: { gte: startOfDay } },
-        }),
-        db.return.count({
-          where: { createdAt: { gte: startOfMonth } },
-        }),
-        db.return.count({
-          where: { status: 'PENDING_APPROVAL' },
-        }),
-        db.return.aggregate({
-          where: { status: { in: ['APPROVED', 'COMPLETED'] } },
-          _sum: { refundAmount: true },
-        }),
-      ])
-
-      const todayRefunded = await db.return.aggregate({
-        where: {
-          createdAt: { gte: startOfDay },
-          status: { in: ['APPROVED', 'COMPLETED'] },
-        },
-        _sum: { refundAmount: true, quantity: true },
-      })
-
-      return NextResponse.json({
-        today: {
-          count: todayReturns,
-          refundAmount: todayRefunded._sum.refundAmount || 0,
-          itemsReturned: todayRefunded._sum.quantity || 0,
-        },
-        thisMonth: {
-          count: monthReturns,
-        },
-        pendingApproval: pendingReturns,
-        totalRefunded: totalRefunded._sum.refundAmount || 0,
-      })
-    }
-
-    // Regular return list
     const where: Record<string, unknown> = {}
 
-    if (status) {
+    if (status && status !== 'ALL') {
       where.status = status
     }
-
+    if (reason && reason !== 'ALL') {
+      where.reason = reason
+    }
+    if (search) {
+      where.OR = [
+        { returnNo: { contains: search } },
+        { productName: { contains: search } },
+        { customerName: { contains: search } },
+      ]
+    }
     if (from || to) {
       where.createdAt = {}
-      if (from) {
-        ;(where.createdAt as Record<string, unknown>).gte = new Date(from)
-      }
-      if (to) {
-        const toDate = new Date(to)
-        toDate.setHours(23, 59, 59, 999)
-        ;(where.createdAt as Record<string, unknown>).lte = toDate
-      }
+      if (from) (where.createdAt as Record<string, unknown>).gte = new Date(from)
+      if (to) (where.createdAt as Record<string, unknown>).lte = new Date(to)
     }
 
-    const skip = (page - 1) * limit
-
     const [returns, total] = await Promise.all([
-      db.return.findMany({
+      prisma.return.findMany({
         where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
         include: {
-          transaction: {
-            select: { id: true, transactionNo: true },
-          },
-          transactionItem: {
-            select: { id: true, productName: true, unitPrice: true, quantity: true },
-          },
-          product: {
-            select: { id: true, name: true, sellingPrice: true, dosageForm: true, strength: true },
-          },
-          user: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-          approvedBy: {
-            select: { id: true, name: true },
-          },
+          user: { select: { id: true, name: true, role: true } },
+          approvedBy: { select: { id: true, name: true } },
+          transaction: { select: { transactionNo: true } },
+          product: { select: { id: true, name: true, ndc: true } },
         },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
       }),
-      db.return.count({ where }),
+      prisma.return.count({ where }),
     ])
+
+    // Summary stats
+    const [totalReturns, pendingCount, completedCount, totalRefundAmount] = await Promise.all([
+      prisma.return.count(),
+      prisma.return.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.return.count({ where: { status: 'COMPLETED' } }),
+      prisma.return.aggregate({
+        where: { status: { in: ['APPROVED', 'COMPLETED'] } },
+        _sum: { refundAmount: true },
+      }),
+    ])
+
+    const topReasons = await prisma.return.groupBy({
+      by: ['reason'],
+      _count: { reason: true },
+      orderBy: { _count: { reason: 'desc' } },
+      take: 5,
+    })
 
     return NextResponse.json({
       returns,
@@ -122,9 +78,16 @@ export async function GET(request: NextRequest) {
         total,
         pages: Math.ceil(total / limit),
       },
+      summary: {
+        totalReturns,
+        pendingCount,
+        completedCount,
+        totalRefundAmount: totalRefundAmount._sum.refundAmount || 0,
+        topReasons,
+      },
     })
   } catch (error) {
-    console.error('Error fetching returns:', error)
+    console.error('GET /api/returns error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch returns' },
       { status: 500 }
@@ -132,11 +95,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/returns - Create a new return (restock + refund)
-export async function POST(request: NextRequest) {
+// POST /api/returns — create a return (restock product + create ticket)
+export async function POST(req: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id') || 'demo-user'
-    const body = await request.json()
+    const body = await req.json()
     const {
       transactionId,
       transactionItemId,
@@ -149,94 +111,68 @@ export async function POST(request: NextRequest) {
       reasonNote,
       customerId,
       customerName,
+      userId,
       refundMethod,
-      notes,
     } = body
 
     // Validate required fields
-    if (!transactionId || !transactionItemId || !productId || !quantity || !refundAmount) {
+    if (!transactionId || !transactionItemId || !productId || !productName || !quantity || !unitPrice || !reason || !userId) {
       return NextResponse.json(
-        { error: 'Transaction ID, Transaction Item ID, Product ID, quantity, and refund amount are required' },
+        { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    if (!reason) {
+    if (quantity <= 0) {
       return NextResponse.json(
-        { error: 'Return reason is required' },
+        { error: 'Quantity must be greater than 0' },
         { status: 400 }
       )
     }
 
-    // Verify the transaction item exists
-    const txItem = await db.transactionItem.findUnique({
-      where: { id: transactionItemId },
-      include: {
-        transaction: {
-          select: { id: true, status: true, customer: { select: { firstName: true, lastName: true } } },
-        },
-      },
-    })
-
-    if (!txItem) {
-      return NextResponse.json(
-        { error: 'Transaction item not found' },
-        { status: 404 }
-      )
-    }
-
-    // Check quantity doesn't exceed original purchase
-    const existingReturns = await db.return.findMany({
+    // Generate return number: RTN-YYYYMMDD-XXXX
+    const now = new Date()
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const todayReturns = await prisma.return.count({
       where: {
-        transactionItemId,
-        status: { in: ['PENDING_APPROVAL', 'APPROVED', 'COMPLETED'] },
+        createdAt: { gte: todayStart },
       },
-      _sum: { quantity: true },
     })
-
-    const alreadyReturned = existingReturns.length > 0 ? (existingReturns[0]._sum.quantity || 0) : 0
-    if (quantity > (txItem.quantity - alreadyReturned)) {
-      return NextResponse.json(
-        {
-          error: `Return quantity exceeds purchasable amount. Already returned: ${alreadyReturned}, Original: ${txItem.quantity}`,
-        },
-        { status: 400 }
-      )
-    }
-
-    const returnNo = generateReturnNo()
+    const seq = String(todayReturns + 1).padStart(4, '0')
+    const returnNo = `RTN-${dateStr}-${seq}`
 
     // Create the return record
-    const returnRecord = await db.return.create({
+    const returnRecord = await prisma.return.create({
       data: {
         returnNo,
         transactionId,
         transactionItemId,
         productId,
-        productName: productName || txItem.productName,
+        productName,
         quantity,
-        unitPrice: unitPrice || txItem.unitPrice,
-        refundAmount,
+        unitPrice,
+        refundAmount: refundAmount || unitPrice * quantity,
         reason,
-        reasonNote: reasonNote || null,
+        reasonNote,
         customerId: customerId || null,
-        customerName: customerName || (txItem.transaction.customer
-          ? `${txItem.transaction.customer.firstName} ${txItem.transaction.customer.lastName}`
-          : null),
+        customerName: customerName || null,
         userId,
         refundMethod: refundMethod || 'CASH',
-        notes: notes || null,
+        status: 'PENDING_APPROVAL',
+        restocked: false,
+        refundProcessed: false,
       },
       include: {
+        user: { select: { id: true, name: true, role: true } },
         transaction: { select: { transactionNo: true } },
-        product: { select: { name: true } },
-        user: { select: { name: true } },
+        product: { select: { id: true, name: true } },
       },
     })
 
-    return NextResponse.json(returnRecord, { status: 201 })
+    return NextResponse.json({ return: returnRecord }, { status: 201 })
   } catch (error) {
-    console.error('Error creating return:', error)
+    console.error('POST /api/returns error:', error)
     return NextResponse.json(
       { error: 'Failed to create return' },
       { status: 500 }

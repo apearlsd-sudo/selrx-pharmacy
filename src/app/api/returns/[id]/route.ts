@@ -1,35 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { PrismaClient } from '@prisma/client'
 
-// GET /api/returns/[id] - Get single return
+const prisma = new PrismaClient()
+
+// GET /api/returns/[id] — single return detail
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-
-    const returnRecord = await db.return.findUnique({
+    const returnRecord = await prisma.return.findUnique({
       where: { id },
       include: {
+        user: { select: { id: true, name: true, role: true } },
+        approvedBy: { select: { id: true, name: true } },
         transaction: {
-          select: { transactionNo: true, paymentMethod: true, createdAt: true },
-          include: {
-            user: { select: { name: true, role: true } },
-          },
+          select: { transactionNo: true, items: true },
         },
-        transactionItem: {
-          select: { productName: true, unitPrice: true, quantity: true },
-        },
-        product: {
-          select: { name: true, sellingPrice: true, dosageForm: true, strength: true, unitOfMeasure: true },
-        },
-        user: {
-          select: { id: true, name: true, email: true, role: true },
-        },
-        approvedBy: {
-          select: { id: true, name: true },
-        },
+        transactionItem: true,
+        product: { select: { id: true, name: true, ndc: true, category: true } },
       },
     })
 
@@ -37,167 +27,145 @@ export async function GET(
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
 
-    return NextResponse.json(returnRecord)
+    return NextResponse.json({ return: returnRecord })
   } catch (error) {
-    console.error('Error fetching return:', error)
+    console.error('GET /api/returns/[id] error:', error)
     return NextResponse.json({ error: 'Failed to fetch return' }, { status: 500 })
   }
 }
 
-// PUT /api/returns/[id] - Approve/complete/reject/cancel a return
+// PUT /api/returns/[id] — approve, reject, complete, or cancel a return
 export async function PUT(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const userId = request.headers.get('x-user-id') || 'demo-user'
-    const body = await request.json()
-    const { action, refundMethod, notes } = body
+    const body = await req.json()
+    const { action, approvedById, refundMethod, notes } = body
 
-    const returnRecord = await db.return.findUnique({ where: { id } })
-
-    if (!returnRecord) {
+    const existing = await prisma.return.findUnique({ where: { id } })
+    if (!existing) {
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
 
+    let updated
+
     switch (action) {
       case 'approve': {
-        if (returnRecord.status !== 'PENDING_APPROVAL') {
+        if (existing.status !== 'PENDING_APPROVAL') {
           return NextResponse.json(
             { error: 'Only pending returns can be approved' },
             { status: 400 }
           )
         }
-
-        const approved = await db.return.update({
+        updated = await prisma.return.update({
           where: { id },
           data: {
             status: 'APPROVED',
-            approvedById: userId,
+            approvedById: approvedById || null,
             approvedAt: new Date(),
-            notes: notes || returnRecord.notes,
+            notes: notes || existing.notes,
           },
           include: {
+            user: { select: { id: true, name: true, role: true } },
+            approvedBy: { select: { id: true, name: true } },
+            product: { select: { id: true, name: true } },
             transaction: { select: { transactionNo: true } },
-            product: { select: { name: true } },
-            user: { select: { name: true } },
-            approvedBy: { select: { name: true } },
           },
         })
+        break
+      }
 
-        return NextResponse.json(approved)
+      case 'reject': {
+        if (existing.status !== 'PENDING_APPROVAL') {
+          return NextResponse.json(
+            { error: 'Only pending returns can be rejected' },
+            { status: 400 }
+          )
+        }
+        updated = await prisma.return.update({
+          where: { id },
+          data: {
+            status: 'REJECTED',
+            approvedById: approvedById || null,
+            approvedAt: new Date(),
+            notes: notes || existing.notes,
+          },
+          include: {
+            user: { select: { id: true, name: true, role: true } },
+            approvedBy: { select: { id: true, name: true } },
+            product: { select: { id: true, name: true } },
+            transaction: { select: { transactionNo: true } },
+          },
+        })
+        break
       }
 
       case 'complete': {
-        if (returnRecord.status !== 'APPROVED') {
+        if (existing.status !== 'APPROVED') {
           return NextResponse.json(
             { error: 'Only approved returns can be completed' },
             { status: 400 }
           )
         }
 
-        // Restock the product back to inventory
-        await db.inventory.update({
-          where: { productId: returnRecord.productId },
-          data: {
-            quantity: { increment: returnRecord.quantity },
-            lastCounted: new Date(),
-          },
+        // Restock the product inventory
+        await prisma.inventory.upsert({
+          where: { productId: existing.productId },
+          update: { quantity: { increment: existing.quantity } },
+          create: { productId: existing.productId, quantity: existing.quantity },
         })
 
-        const completed = await db.return.update({
+        updated = await prisma.return.update({
           where: { id },
           data: {
             status: 'COMPLETED',
             restocked: true,
             refundProcessed: true,
-            refundMethod: refundMethod || returnRecord.refundMethod,
-            notes: notes || returnRecord.notes,
+            refundMethod: refundMethod || existing.refundMethod,
+            notes: notes || existing.notes,
           },
           include: {
+            user: { select: { id: true, name: true, role: true } },
+            approvedBy: { select: { id: true, name: true } },
+            product: { select: { id: true, name: true } },
             transaction: { select: { transactionNo: true } },
-            product: { select: { name: true } },
-            user: { select: { name: true } },
-            approvedBy: { select: { name: true } },
           },
         })
-
-        return NextResponse.json(completed)
-      }
-
-      case 'reject': {
-        if (returnRecord.status !== 'PENDING_APPROVAL') {
-          return NextResponse.json(
-            { error: 'Only pending returns can be rejected' },
-            { status: 400 }
-          )
-        }
-
-        const rejected = await db.return.update({
-          where: { id },
-          data: {
-            status: 'REJECTED',
-            approvedById: userId,
-            approvedAt: new Date(),
-            notes: notes || returnRecord.notes,
-          },
-          include: {
-            transaction: { select: { transactionNo: true } },
-            product: { select: { name: true } },
-            user: { select: { name: true } },
-            approvedBy: { select: { name: true } },
-          },
-        })
-
-        return NextResponse.json(rejected)
+        break
       }
 
       case 'cancel': {
-        if (returnRecord.status === 'COMPLETED') {
+        if (existing.status === 'COMPLETED') {
           return NextResponse.json(
             { error: 'Completed returns cannot be cancelled' },
             { status: 400 }
           )
         }
-
-        // If restocked, undo the restock
-        if (returnRecord.restocked) {
-          await db.inventory.update({
-            where: { productId: returnRecord.productId },
-            data: {
-              quantity: { decrement: returnRecord.quantity },
-              lastCounted: new Date(),
-            },
-          })
-        }
-
-        const cancelled = await db.return.update({
+        updated = await prisma.return.update({
           where: { id },
           data: {
             status: 'CANCELLED',
-            restocked: false,
-            notes: notes || returnRecord.notes,
+            notes: notes || existing.notes,
           },
           include: {
+            user: { select: { id: true, name: true, role: true } },
+            approvedBy: { select: { id: true, name: true } },
+            product: { select: { id: true, name: true } },
             transaction: { select: { transactionNo: true } },
-            product: { select: { name: true } },
-            user: { select: { name: true } },
-            approvedBy: { select: { name: true } },
           },
         })
-
-        return NextResponse.json(cancelled)
+        break
       }
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid action. Use: approve, complete, reject, or cancel' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
+
+    return NextResponse.json({ return: updated })
   } catch (error) {
-    console.error('Error updating return:', error)
+    console.error('PUT /api/returns/[id] error:', error)
     return NextResponse.json({ error: 'Failed to update return' }, { status: 500 })
   }
 }
