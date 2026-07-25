@@ -25,6 +25,7 @@ model User {
   role          Role     @default(CLERK)
   phone         String?
   licenseNumber String?  // For pharmacists
+  permissions   String?  // JSON-encoded array of permission keys
   active        Boolean  @default(true)
   lastLogin     DateTime?
   createdAt     DateTime @default(now())

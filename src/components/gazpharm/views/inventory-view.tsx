@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Package, Search, Plus, AlertTriangle, Edit, ArrowUpDown,
-  Download, Filter, TrendingUp, X, PackagePlus
+  Download, Filter, TrendingUp, X, PackagePlus, Tags, Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,6 +55,11 @@ export function InventoryView() {
   const [adjustDialog, setAdjustDialog] = useState(false)
   const [receiveDialog, setReceiveDialog] = useState(false)
   const [addProductDialog, setAddProductDialog] = useState(false)
+  const [categoryDialog, setCategoryDialog] = useState(false)
+  const [categories, setCategories] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryDesc, setNewCategoryDesc] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [adjustType, setAdjustType] = useState('ADD')
   const [adjustAmount, setAdjustAmount] = useState('')
@@ -88,7 +93,16 @@ export function InventoryView() {
     }
   }, [searchQuery, categoryFilter, addToast])
 
-  useEffect(() => { fetchInventory() }, [fetchInventory])
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categories')
+      if (res.ok) setCategories(await res.json())
+    } catch {
+      // silent — categories are optional enhancement
+    }
+  }, [])
+
+  useEffect(() => { fetchInventory(); fetchCategories() }, [fetchInventory, fetchCategories])
 
   const filteredItems = items.filter((item) => {
     if (stockFilter === 'LOW') return item.quantity <= item.product.reorderPoint
@@ -121,6 +135,20 @@ export function InventoryView() {
       fetchInventory()
     } catch {
       addToast({ title: 'Error', description: 'Failed to adjust stock', variant: 'destructive' })
+    }
+  }
+
+  const handleDeleteCategory = async (catId: string, catName: string) => {
+    try {
+      const res = await fetch(`/api/categories/${catId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete category')
+      }
+      addToast({ title: 'Deleted', description: `Category "${catName}" removed`, variant: 'success' })
+      fetchCategories()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
     }
   }
 
@@ -297,6 +325,10 @@ export function InventoryView() {
               <PackagePlus className="h-4 w-4 mr-2" />
               Add Product
             </Button>
+            <Button onClick={() => setCategoryDialog(true)} variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+              <Tags className="h-4 w-4 mr-2" />
+              Category
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -433,6 +465,9 @@ export function InventoryView() {
                   <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
                   <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
                   <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+                  {categories.filter((c) => !['OTC','PRESCRIPTION','SUPPLEMENT','MEDICAL_DEVICE','PERSONAL_CARE','CONSUMABLES'].includes(c.name)).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -514,6 +549,103 @@ export function InventoryView() {
             >
               {savingProduct ? 'Adding...' : 'Add Product'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Management Dialog */}
+      <Dialog open={categoryDialog} onOpenChange={setCategoryDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tags className="h-5 w-5 text-emerald-600" />
+              Manage Categories
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            {/* Create New Category */}
+            <div className="border rounded-lg p-3 bg-muted/50">
+              <p className="text-sm font-semibold mb-2">Create New Category</p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Category name (e.g., VITAMINS)"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { document.getElementById('create-cat-btn')?.click() } }}
+                />
+                <Input
+                  placeholder="Description (optional)"
+                  value={newCategoryDesc}
+                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  id="create-cat-btn"
+                  className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+                  disabled={!newCategoryName.trim() || savingCategory}
+                  onClick={async () => {
+                    setSavingCategory(true)
+                    try {
+                      const res = await fetch('/api/categories', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newCategoryName, description: newCategoryDesc || null }),
+                      })
+                      if (!res.ok) {
+                        const err = await res.json()
+                        throw new Error(err.error || 'Failed to create category')
+                      }
+                      addToast({ title: 'Created', description: `Category "${newCategoryName.trim()}" created`, variant: 'success' })
+                      setNewCategoryName('')
+                      setNewCategoryDesc('')
+                      fetchCategories()
+                    } catch (err: any) {
+                      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+                    } finally {
+                      setSavingCategory(false)
+                    }
+                  }}
+                >
+                  {savingCategory ? '...' : <Plus className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Existing Categories List */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Existing Categories</p>
+              {categories.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No custom categories yet</p>
+              ) : (
+                <div className="divide-y border rounded-lg">
+                  {categories.map((cat) => (
+                    <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-muted/50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge variant="outline" className="text-xs font-mono shrink-0">{cat.name.replace(/_/g, ' ')}</Badge>
+                        <span className="text-xs text-muted-foreground truncate">{cat.description || 'No description'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">{cat._count?.products || 0} products</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteCategory(cat.id, cat.name.replace(/_/g, ' '))}
+                          disabled={(cat._count?.products || 0) > 0}
+                          title={(cat._count?.products || 0) > 0 ? 'Cannot delete: products assigned' : 'Delete category'}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
