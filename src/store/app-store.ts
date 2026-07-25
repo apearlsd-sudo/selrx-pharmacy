@@ -13,6 +13,7 @@ export type ViewName =
   | 'hardware'
   | 'settings'
   | 'reports'
+  | 'master-data'
 
 export type PaymentMethodType =
   | 'CASH'

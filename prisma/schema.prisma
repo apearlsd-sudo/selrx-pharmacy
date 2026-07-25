@@ -74,6 +74,7 @@ model Product {
   name              String
   genericName       String?
   manufacturer      String?
+  vendorId          String?
   category          String          @default("OTC")
   description       String?
   dosageForm        String?         // Tablet, Capsule, Liquid, Cream, etc.
@@ -94,6 +95,7 @@ model Product {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
+  vendor            Vendor?         @relation(fields: [vendorId], references: [id])
   inventory         Inventory[]
   transactionItems  TransactionItem[]
   categories        Category[]
@@ -244,6 +246,22 @@ model HardwareLog {
   createdAt     DateTime       @default(now())
 
   transaction   Transaction?   @relation(fields: [transactionId], references: [id])
+}
+
+// ============ VENDORS ============
+
+model Vendor {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products      Product[]
 }
 
 // ============ CATEGORIES ============

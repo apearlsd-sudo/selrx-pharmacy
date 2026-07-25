@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
         name: body.name,
         genericName: body.genericName,
         manufacturer: body.manufacturer,
+        vendorId: body.vendorId || null,
         category: body.category || 'OTC',
         description: body.description,
         dosageForm: body.dosageForm,
