@@ -17,6 +17,7 @@ import {
   Pill,
   Bell,
  Database,
+  History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -32,6 +33,7 @@ import { UsersView } from '@/components/gazpharm/views/users-view'
 import { HardwareView } from '@/components/gazpharm/views/hardware-view'
 import { ReportsView } from '@/components/gazpharm/views/reports-view'
 import { MasterDataView } from '@/components/gazpharm/views/master-data-view'
+import { SalesHistoryView } from '@/components/gazpharm/views/sales-history-view'
 
 interface NavItem {
   name: ViewName
@@ -49,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
   { name: 'customers', label: 'Customers', icon: Users, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'] },
   { name: 'reports', label: 'Reports', icon: BarChart3, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
+  { name: 'sales-history', label: 'Sales History', icon: History, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
   { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
   { name: 'users', label: 'User Management', icon: UserCog, roles: ['SUPER_ADMIN'] },
 ]
@@ -79,6 +82,7 @@ export default function Home() {
       case 'users': return <UsersView />
       case 'hardware': return <HardwareView />
       case 'reports': return <ReportsView />
+      case 'sales-history': return <SalesHistoryView />
       case 'master-data': return <MasterDataView />
       default: return <DashboardView />
     }

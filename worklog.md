@@ -183,3 +183,23 @@
 - **Receipt Format**: Monospace dashed-border layout mimicking a real pharmacy receipt printout.
 - **Design System**: Emerald/teal green primary (`emerald-600`, `teal-700`), no indigo/blue. Lucide icons throughout. Professional pharmacy POS feel.
 - **Lint**: Passes cleanly with no errors.
+
+---
+
+Task ID: 1
+Agent: Main Agent
+Task: Create Sales History page showing sales by various users
+
+Work Log:
+- Read and analyzed existing codebase: Prisma schema (Transaction, User, TransactionItem models), Zustand store (ViewName type, navigation), page.tsx (nav items, view router), existing transactions API, and reports view for patterns
+- Created `/api/sales-history` API route (GET) with: overall summary stats (total sales, transaction count, average, top seller), sales aggregated by user (name, role, transaction count, total sales, items sold, avg sale), daily sales trend data, paginated transaction list with user/customer/item details, user list for filter dropdown
+- Created `sales-history-view.tsx` with: 4 summary stat cards (Total Sales, Total Transactions, Avg Transaction, Top Seller), filter bar (date range, quick presets: Today/7 Days/This Month/3 Months/All Time, user filter dropdown), 4 tabs (Overview, By User, Transactions, Trends), Overview tab: bar chart (sales by user) + line chart (daily trend) + top sellers summary table, By User tab: pie chart (sales distribution) + user performance cards with progress bars, Transactions tab: detailed transaction table with 11 columns, pagination, and detail dialog popup, Trends tab: area chart (revenue), bar chart (transaction volume), horizontal bar chart (user comparison)
+- Updated Zustand store: added `'sales-history'` to ViewName type union
+- Updated page.tsx: added History icon import, SalesHistoryView import, nav item with roles (SUPER_ADMIN, PHARMACIST, TECHNICIAN), view router case
+- Build passed with zero errors, dev server running, API verified returning correct grouped data
+
+Stage Summary:
+- New files: `src/app/api/sales-history/route.ts`, `src/components/gazpharm/views/sales-history-view.tsx`
+- Modified files: `src/store/app-store.ts`, `src/app/page.tsx`
+- Sales History page accessible via sidebar "Sales History" nav item with History icon
+- API verified: returns summary, salesByUser array, dailySales array, paginated transactions, and allUsers list

@@ -14,6 +14,7 @@ export type ViewName =
   | 'settings'
   | 'reports'
   | 'master-data'
+  | 'sales-history'
 
 export type PaymentMethodType =
   | 'CASH'
