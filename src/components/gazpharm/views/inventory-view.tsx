@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Package, Search, Plus, AlertTriangle, Edit, ArrowUpDown,
-  Download, Filter, TrendingUp, X
+  Download, Filter, TrendingUp, X, PackagePlus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,6 +54,7 @@ export function InventoryView() {
   const [stockFilter, setStockFilter] = useState('ALL')
   const [adjustDialog, setAdjustDialog] = useState(false)
   const [receiveDialog, setReceiveDialog] = useState(false)
+  const [addProductDialog, setAddProductDialog] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [adjustType, setAdjustType] = useState('ADD')
   const [adjustAmount, setAdjustAmount] = useState('')
@@ -61,7 +62,13 @@ export function InventoryView() {
   const [shipmentItems, setShipmentItems] = useState([{ productId: '', quantity: '', costPrice: '' }])
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [productForm, setProductForm] = useState({
+    name: '', sku: '', category: 'OTC', price: '', stockQuantity: '',
+    minStockLevel: '10', expiryDate: '', barcode: '',
+  })
+  const [savingProduct, setSavingProduct] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
+  const currentUser = useAppStore((s) => s.user)
 
   const fetchInventory = useCallback(async () => {
     setLoading(true)
@@ -114,6 +121,58 @@ export function InventoryView() {
       fetchInventory()
     } catch {
       addToast({ title: 'Error', description: 'Failed to adjust stock', variant: 'destructive' })
+    }
+  }
+
+  const handleAddProduct = async () => {
+    if (!productForm.name || !productForm.price) return
+    setSavingProduct(true)
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+        },
+        body: JSON.stringify({
+          name: productForm.name,
+          ndc: productForm.sku || null,
+          category: productForm.category,
+          sellingPrice: parseFloat(productForm.price),
+          costPrice: parseFloat(productForm.price) * 0.7,
+          reorderPoint: parseInt(productForm.minStockLevel) || 10,
+          expiryDate: productForm.expiryDate || null,
+          batchNumber: productForm.barcode || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create product')
+      }
+      const newProduct = await res.json()
+
+      // Set initial stock quantity if specified
+      const qty = parseInt(productForm.stockQuantity)
+      if (qty > 0) {
+        await fetch('/api/inventory', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: newProduct.id,
+            adjustment: qty,
+            reason: 'Initial stock on product creation',
+          }),
+        })
+      }
+
+      addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
+      setAddProductDialog(false)
+      setProductForm({ name: '', sku: '', category: 'OTC', price: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '' })
+      fetchInventory()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
+    } finally {
+      setSavingProduct(false)
     }
   }
 
@@ -234,6 +293,10 @@ export function InventoryView() {
               <Plus className="h-4 w-4 mr-2" />
               Receive Shipment
             </Button>
+            <Button onClick={() => setAddProductDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+              <PackagePlus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -321,6 +384,139 @@ export function InventoryView() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Add Product Dialog */}
+      <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackagePlus className="h-5 w-5 text-teal-600" />
+              Add New Product
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Product Name */}
+            <div className="col-span-2">
+              <Label htmlFor="prod-name">Product Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="prod-name"
+                placeholder="e.g., Amoxicillin 500mg Capsules"
+                value={productForm.name}
+                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* SKU */}
+            <div>
+              <Label htmlFor="prod-sku">SKU</Label>
+              <Input
+                id="prod-sku"
+                placeholder="e.g., SKU-00123"
+                value={productForm.sku}
+                onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Category */}
+            <div>
+              <Label htmlFor="prod-category">Category</Label>
+              <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OTC">OTC</SelectItem>
+                  <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+                  <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+                  <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+                  <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+                  <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Price */}
+            <div>
+              <Label htmlFor="prod-price">Price ($) <span className="text-red-500">*</span></Label>
+              <Input
+                id="prod-price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={productForm.price}
+                onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Stock Quantity */}
+            <div>
+              <Label htmlFor="prod-stock">Stock Quantity</Label>
+              <Input
+                id="prod-stock"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={productForm.stockQuantity}
+                onChange={(e) => setProductForm({ ...productForm, stockQuantity: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Min Stock Level */}
+            <div>
+              <Label htmlFor="prod-minstock">Min Stock Level</Label>
+              <Input
+                id="prod-minstock"
+                type="number"
+                min="0"
+                placeholder="10"
+                value={productForm.minStockLevel}
+                onChange={(e) => setProductForm({ ...productForm, minStockLevel: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Expiry Date */}
+            <div>
+              <Label htmlFor="prod-expiry">Expiry Date</Label>
+              <Input
+                id="prod-expiry"
+                type="date"
+                value={productForm.expiryDate}
+                onChange={(e) => setProductForm({ ...productForm, expiryDate: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Barcode */}
+            <div>
+              <Label htmlFor="prod-barcode">Barcode</Label>
+              <Input
+                id="prod-barcode"
+                placeholder="e.g., 1234567890123"
+                value={productForm.barcode}
+                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAddProductDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleAddProduct}
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={!productForm.name || !productForm.price || savingProduct}
+            >
+              {savingProduct ? 'Adding...' : 'Add Product'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stock Adjustment Dialog */}
       <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
