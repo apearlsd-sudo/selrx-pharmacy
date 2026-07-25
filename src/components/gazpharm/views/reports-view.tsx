@@ -130,9 +130,9 @@ export function ReportsView() {
                   <DollarSign className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <div className="text-2xl font-bold">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.today?.sales || 0)}
-                  </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">Today&apos;s Sales</p>
                 </div>
               </CardContent>
@@ -143,9 +143,9 @@ export function ReportsView() {
                   <ShoppingCart className="h-5 w-5 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <div className="text-2xl font-bold">
                     {loading ? <Skeleton className="h-8 w-12" /> : salesStats?.today?.count || 0}
-                  </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">Transactions Today</p>
                 </div>
               </CardContent>
@@ -156,9 +156,9 @@ export function ReportsView() {
                   <TrendingUp className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <div className="text-2xl font-bold">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisWeek?.sales || 0)}
-                  </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">This Week</p>
                 </div>
               </CardContent>
@@ -169,9 +169,9 @@ export function ReportsView() {
                   <CalendarDays className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <div className="text-2xl font-bold">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisMonth?.sales || 0)}
-                  </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">This Month</p>
                 </div>
               </CardContent>
