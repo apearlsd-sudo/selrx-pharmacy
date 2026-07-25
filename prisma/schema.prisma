@@ -60,15 +60,6 @@ model Customer {
 
 // ============ PRODUCTS / MEDICATIONS ============
 
-enum ProductCategory {
-  OTC           // Over the counter
-  PRESCRIPTION  // Prescription required
-  SUPPLEMENT    // Supplements & vitamins
-  MEDICAL_DEVICE // Medical devices
-  PERSONAL_CARE // Personal care
-  CONSUMABLES   // Consumables (bags, syringes, etc.)
-}
-
 enum ProductStatus {
   ACTIVE
   INACTIVE
@@ -82,7 +73,7 @@ model Product {
   name              String
   genericName       String?
   manufacturer      String?
-  category          ProductCategory @default(OTC)
+  category          String          @default("OTC")
   description       String?
   dosageForm        String?         // Tablet, Capsule, Liquid, Cream, etc.
   strength          String?         // 500mg, 10ml, etc.
@@ -104,6 +95,7 @@ model Product {
 
   inventory         Inventory[]
   transactionItems  TransactionItem[]
+  categories        Category[]
 }
 
 // ============ INVENTORY ============
@@ -251,6 +243,18 @@ model HardwareLog {
   createdAt     DateTime       @default(now())
 
   transaction   Transaction?   @relation(fields: [transactionId], references: [id])
+}
+
+// ============ CATEGORIES ============
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
 }
 
 // ============ AUDIT LOG ============

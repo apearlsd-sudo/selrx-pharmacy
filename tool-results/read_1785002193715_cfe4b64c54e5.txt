@@ -1,0 +1,624 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  Package, Search, Plus, AlertTriangle, Edit, ArrowUpDown,
+     6→  Download, Filter, TrendingUp, X, PackagePlus
+     7→} from 'lucide-react'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table'
+    16→import {
+    17→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+    18→} from '@/components/ui/dialog'
+    19→import { Label } from '@/components/ui/label'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import {
+    22→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    23→} from '@/components/ui/select'
+    24→import { useAppStore } from '@/store/app-store'
+    25→
+    26→interface InventoryItem {
+    27→  id: string
+    28→  productId: string
+    29→  quantity: number
+    30→  lastCounted: string | null
+    31→  product: {
+    32→    id: string
+    33→    name: string
+    34→    ndc: string | null
+    35→    category: string
+    36→    sellingPrice: number
+    37→    costPrice: number | null
+    38→    status: string
+    39→    reorderPoint: number
+    40→    maxStock: number | null
+    41→    dosageForm: string | null
+    42→    strength: string | null
+    43→    unitOfMeasure: string
+    44→    expiryDate: string | null
+    45→    batchNumber: string | null
+    46→  }
+    47→}
+    48→
+    49→export function InventoryView() {
+    50→  const [items, setItems] = useState<InventoryItem[]>([])
+    51→  const [loading, setLoading] = useState(true)
+    52→  const [searchQuery, setSearchQuery] = useState('')
+    53→  const [categoryFilter, setCategoryFilter] = useState('ALL')
+    54→  const [stockFilter, setStockFilter] = useState('ALL')
+    55→  const [adjustDialog, setAdjustDialog] = useState(false)
+    56→  const [receiveDialog, setReceiveDialog] = useState(false)
+    57→  const [addProductDialog, setAddProductDialog] = useState(false)
+    58→  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+    59→  const [adjustType, setAdjustType] = useState('ADD')
+    60→  const [adjustAmount, setAdjustAmount] = useState('')
+    61→  const [adjustReason, setAdjustReason] = useState('')
+    62→  const [shipmentItems, setShipmentItems] = useState([{ productId: '', quantity: '', costPrice: '' }])
+    63→  const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
+    64→  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+    65→  const [productForm, setProductForm] = useState({
+    66→    name: '', sku: '', category: 'OTC', price: '', stockQuantity: '',
+    67→    minStockLevel: '10', expiryDate: '', barcode: '',
+    68→  })
+    69→  const [savingProduct, setSavingProduct] = useState(false)
+    70→  const addToast = useAppStore((s) => s.addToast)
+    71→  const currentUser = useAppStore((s) => s.user)
+    72→
+    73→  const fetchInventory = useCallback(async () => {
+    74→    setLoading(true)
+    75→    try {
+    76→      const params = new URLSearchParams()
+    77→      if (searchQuery) params.set('search', searchQuery)
+    78→      if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+    79→      const res = await fetch(`/api/inventory?${params}`)
+    80→      if (res.ok) {
+    81→        const data = await res.json()
+    82→        setItems(data)
+    83→      }
+    84→    } catch {
+    85→      addToast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
+    86→    } finally {
+    87→      setLoading(false)
+    88→    }
+    89→  }, [searchQuery, categoryFilter, addToast])
+    90→
+    91→  useEffect(() => { fetchInventory() }, [fetchInventory])
+    92→
+    93→  const filteredItems = items.filter((item) => {
+    94→    if (stockFilter === 'LOW') return item.quantity <= item.product.reorderPoint
+    95→    if (stockFilter === 'OUT') return item.quantity === 0
+    96→    if (stockFilter === 'OK') return item.quantity > item.product.reorderPoint
+    97→    return true
+    98→  }).sort((a, b) => {
+    99→    if (sortBy === 'name') return sortDir === 'asc' ? a.product.name.localeCompare(b.product.name) : b.product.name.localeCompare(a.product.name)
+   100→    if (sortBy === 'stock') return sortDir === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity
+   101→    return sortDir === 'asc' ? a.product.category.localeCompare(b.product.category) : b.product.category.localeCompare(a.product.category)
+   102→  })
+   103→
+   104→  const lowStockCount = items.filter((i) => i.quantity <= i.product.reorderPoint).length
+   105→  const outOfStockCount = items.filter((i) => i.quantity === 0).length
+   106→  const totalValue = items.reduce((sum, i) => sum + i.quantity * (i.product.costPrice || i.product.sellingPrice), 0)
+   107→
+   108→  const handleAdjust = async () => {
+   109→    if (!selectedItem || !adjustAmount || !adjustReason) return
+   110→    try {
+   111→      const adj = adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)
+   112→      await fetch('/api/inventory', {
+   113→        method: 'PUT',
+   114→        headers: { 'Content-Type': 'application/json' },
+   115→        body: JSON.stringify({ productId: selectedItem.productId, adjustment: adj, reason: adjustReason }),
+   116→      })
+   117→      addToast({ title: 'Stock Updated', description: `${selectedItem.product.name} adjusted`, variant: 'success' })
+   118→      setAdjustDialog(false)
+   119→      setAdjustAmount('')
+   120→      setAdjustReason('')
+   121→      fetchInventory()
+   122→    } catch {
+   123→      addToast({ title: 'Error', description: 'Failed to adjust stock', variant: 'destructive' })
+   124→    }
+   125→  }
+   126→
+   127→  const handleAddProduct = async () => {
+   128→    if (!productForm.name || !productForm.price) return
+   129→    setSavingProduct(true)
+   130→    try {
+   131→      const res = await fetch('/api/products', {
+   132→        method: 'POST',
+   133→        headers: {
+   134→          'Content-Type': 'application/json',
+   135→          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+   136→        },
+   137→        body: JSON.stringify({
+   138→          name: productForm.name,
+   139→          ndc: productForm.sku || null,
+   140→          category: productForm.category,
+   141→          sellingPrice: parseFloat(productForm.price),
+   142→          costPrice: parseFloat(productForm.price) * 0.7,
+   143→          reorderPoint: parseInt(productForm.minStockLevel) || 10,
+   144→          expiryDate: productForm.expiryDate || null,
+   145→          batchNumber: productForm.barcode || null,
+   146→        }),
+   147→      })
+   148→      if (!res.ok) {
+   149→        const err = await res.json()
+   150→        throw new Error(err.error || 'Failed to create product')
+   151→      }
+   152→      const newProduct = await res.json()
+   153→
+   154→      // Set initial stock quantity if specified
+   155→      const qty = parseInt(productForm.stockQuantity)
+   156→      if (qty > 0) {
+   157→        await fetch('/api/inventory', {
+   158→          method: 'PUT',
+   159→          headers: { 'Content-Type': 'application/json' },
+   160→          body: JSON.stringify({
+   161→            productId: newProduct.id,
+   162→            adjustment: qty,
+   163→            reason: 'Initial stock on product creation',
+   164→          }),
+   165→        })
+   166→      }
+   167→
+   168→      addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
+   169→      setAddProductDialog(false)
+   170→      setProductForm({ name: '', sku: '', category: 'OTC', price: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '' })
+   171→      fetchInventory()
+   172→    } catch (err: any) {
+   173→      addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
+   174→    } finally {
+   175→      setSavingProduct(false)
+   176→    }
+   177→  }
+   178→
+   179→  const handleReceiveShipment = async () => {
+   180→    const validItems = shipmentItems.filter((i) => i.productId && i.quantity)
+   181→    if (validItems.length === 0) return
+   182→    try {
+   183→      await fetch('/api/inventory', {
+   184→        method: 'POST',
+   185→        headers: { 'Content-Type': 'application/json' },
+   186→        body: JSON.stringify({
+   187→          items: validItems.map((i) => ({
+   188→            productId: i.productId,
+   189→            quantity: parseInt(i.quantity),
+   190→            costPrice: parseFloat(i.costPrice) || 0,
+   191→          })),
+   192→        }),
+   193→      })
+   194→      addToast({ title: 'Shipment Received', description: `${validItems.length} items received`, variant: 'success' })
+   195→      setReceiveDialog(false)
+   196→      setShipmentItems([{ productId: '', quantity: '', costPrice: '' }])
+   197→      fetchInventory()
+   198→    } catch {
+   199→      addToast({ title: 'Error', description: 'Failed to receive shipment', variant: 'destructive' })
+   200→    }
+   201→  }
+   202→
+   203→  return (
+   204→    <div className="space-y-4">
+   205→      {/* Stats Cards */}
+   206→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   207→        <Card>
+   208→          <CardContent className="p-4 flex items-center gap-3">
+   209→            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   210→              <Package className="h-5 w-5 text-emerald-600" />
+   211→            </div>
+   212→            <div>
+   213→              <p className="text-2xl font-bold">{items.length}</p>
+   214→              <p className="text-xs text-muted-foreground">Total Products</p>
+   215→            </div>
+   216→          </CardContent>
+   217→        </Card>
+   218→        <Card>
+   219→          <CardContent className="p-4 flex items-center gap-3">
+   220→            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+   221→              <AlertTriangle className="h-5 w-5 text-red-600" />
+   222→            </div>
+   223→            <div>
+   224→              <p className="text-2xl font-bold text-red-600">{lowStockCount}</p>
+   225→              <p className="text-xs text-muted-foreground">Low Stock Alerts</p>
+   226→            </div>
+   227→          </CardContent>
+   228→        </Card>
+   229→        <Card>
+   230→          <CardContent className="p-4 flex items-center gap-3">
+   231→            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+   232→              <AlertTriangle className="h-5 w-5 text-amber-600" />
+   233→            </div>
+   234→            <div>
+   235→              <p className="text-2xl font-bold text-amber-600">{outOfStockCount}</p>
+   236→              <p className="text-xs text-muted-foreground">Out of Stock</p>
+   237→            </div>
+   238→          </CardContent>
+   239→        </Card>
+   240→        <Card>
+   241→          <CardContent className="p-4 flex items-center gap-3">
+   242→            <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
+   243→              <TrendingUp className="h-5 w-5 text-teal-600" />
+   244→            </div>
+   245→            <div>
+   246→              <p className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+   247→              <p className="text-xs text-muted-foreground">Inventory Value</p>
+   248→            </div>
+   249→          </CardContent>
+   250→        </Card>
+   251→      </div>
+   252→
+   253→      {/* Filters & Actions */}
+   254→      <Card>
+   255→        <CardContent className="p-4">
+   256→          <div className="flex flex-col sm:flex-row gap-3">
+   257→            <div className="relative flex-1">
+   258→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   259→              <Input
+   260→                placeholder="Search by product name or NDC..."
+   261→                value={searchQuery}
+   262→                onChange={(e) => setSearchQuery(e.target.value)}
+   263→                className="pl-9"
+   264→              />
+   265→            </div>
+   266→            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+   267→              <SelectTrigger className="w-full sm:w-40">
+   268→                <Filter className="h-4 w-4 mr-2" />
+   269→                <SelectValue />
+   270→              </SelectTrigger>
+   271→              <SelectContent>
+   272→                <SelectItem value="ALL">All Categories</SelectItem>
+   273→                <SelectItem value="OTC">OTC</SelectItem>
+   274→                <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+   275→                <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+   276→                <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+   277→                <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+   278→                <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+   279→              </SelectContent>
+   280→            </Select>
+   281→            <Select value={stockFilter} onValueChange={setStockFilter}>
+   282→              <SelectTrigger className="w-full sm:w-36">
+   283→                <SelectValue />
+   284→              </SelectTrigger>
+   285→              <SelectContent>
+   286→                <SelectItem value="ALL">All Stock</SelectItem>
+   287→                <SelectItem value="LOW">Low Stock</SelectItem>
+   288→                <SelectItem value="OUT">Out of Stock</SelectItem>
+   289→                <SelectItem value="OK">In Stock OK</SelectItem>
+   290→              </SelectContent>
+   291→            </Select>
+   292→            <Button onClick={() => setReceiveDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+   293→              <Plus className="h-4 w-4 mr-2" />
+   294→              Receive Shipment
+   295→            </Button>
+   296→            <Button onClick={() => setAddProductDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+   297→              <PackagePlus className="h-4 w-4 mr-2" />
+   298→              Add Product
+   299→            </Button>
+   300→          </div>
+   301→        </CardContent>
+   302→      </Card>
+   303→
+   304→      {/* Inventory Table */}
+   305→      <Card>
+   306→        <CardContent className="p-0">
+   307→          <Table>
+   308→            <TableHeader>
+   309→              <TableRow>
+   310→                <TableHead className="cursor-pointer" onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   311→                  <span className="flex items-center gap-1">Product <ArrowUpDown className="h-3 w-3" /></span>
+   312→                </TableHead>
+   313→                <TableHead className="hidden md:table-cell">NDC</TableHead>
+   314→                <TableHead className="cursor-pointer hidden sm:table-cell" onClick={() => { setSortBy('category'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   315→                  <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
+   316→                </TableHead>
+   317→                <TableHead className="cursor-pointer text-right" onClick={() => { setSortBy('stock'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   318→                  <span className="flex items-center justify-end gap-1">In Stock <ArrowUpDown className="h-3 w-3" /></span>
+   319→                </TableHead>
+   320→                <TableHead className="hidden lg:table-cell text-right">Reorder Point</TableHead>
+   321→                <TableHead className="text-right">Status</TableHead>
+   322→                <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
+   323→                <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
+   324→                <TableHead className="text-right">Actions</TableHead>
+   325→              </TableRow>
+   326→            </TableHeader>
+   327→            <TableBody>
+   328→              {loading ? (
+   329→                Array.from({ length: 8 }).map((_, i) => (
+   330→                  <TableRow key={i}>
+   331→                    {Array.from({ length: 9 }).map((_, j) => (
+   332→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   333→                    ))}
+   334→                  </TableRow>
+   335→                ))
+   336→              ) : filteredItems.length === 0 ? (
+   337→                <TableRow>
+   338→                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+   339→                    No inventory items found
+   340→                  </TableCell>
+   341→                </TableRow>
+   342→              ) : (
+   343→                filteredItems.map((item) => {
+   344→                  const isLow = item.quantity <= item.product.reorderPoint
+   345→                  const isOut = item.quantity === 0
+   346→                  return (
+   347→                    <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
+   348→                      <TableCell>
+   349→                        <div>
+   350→                          <p className="font-medium text-sm">{item.product.name}</p>
+   351→                          <p className="text-xs text-muted-foreground">
+   352→                            {item.product.strength} {item.product.dosageForm} · {item.product.unitOfMeasure}
+   353→                          </p>
+   354→                        </div>
+   355→                      </TableCell>
+   356→                      <TableCell className="hidden md:table-cell text-xs font-mono">{item.product.ndc || '—'}</TableCell>
+   357→                      <TableCell className="hidden sm:table-cell">
+   358→                        <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
+   359→                      </TableCell>
+   360→                      <TableCell className="text-right font-bold">{item.quantity}</TableCell>
+   361→                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{item.product.reorderPoint}</TableCell>
+   362→                      <TableCell className="text-right">
+   363→                        {isOut ? (
+   364→                          <Badge className="bg-red-100 text-red-700 border-red-200">Out of Stock</Badge>
+   365→                        ) : isLow ? (
+   366→                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">Low Stock</Badge>
+   367→                        ) : (
+   368→                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">In Stock</Badge>
+   369→                        )}
+   370→                      </TableCell>
+   371→                      <TableCell className="hidden lg:table-cell text-right">${item.product.costPrice?.toFixed(2) || '—'}</TableCell>
+   372→                      <TableCell className="hidden lg:table-cell text-right">${item.product.sellingPrice.toFixed(2)}</TableCell>
+   373→                      <TableCell className="text-right">
+   374→                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustDialog(true) }}>
+   375→                          <Edit className="h-3.5 w-3.5 mr-1" />
+   376→                          Adjust
+   377→                        </Button>
+   378→                      </TableCell>
+   379→                    </TableRow>
+   380→                  )
+   381→                })
+   382→              )}
+   383→            </TableBody>
+   384→          </Table>
+   385→        </CardContent>
+   386→      </Card>
+   387→
+   388→      {/* Add Product Dialog */}
+   389→      <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
+   390→        <DialogContent className="max-w-lg">
+   391→          <DialogHeader>
+   392→            <DialogTitle className="flex items-center gap-2">
+   393→              <PackagePlus className="h-5 w-5 text-teal-600" />
+   394→              Add New Product
+   395→            </DialogTitle>
+   396→          </DialogHeader>
+   397→          <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
+   398→            {/* Product Name */}
+   399→            <div className="col-span-2">
+   400→              <Label htmlFor="prod-name">Product Name <span className="text-red-500">*</span></Label>
+   401→              <Input
+   402→                id="prod-name"
+   403→                placeholder="e.g., Amoxicillin 500mg Capsules"
+   404→                value={productForm.name}
+   405→                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+   406→                className="mt-1"
+   407→              />
+   408→            </div>
+   409→
+   410→            {/* SKU */}
+   411→            <div>
+   412→              <Label htmlFor="prod-sku">SKU</Label>
+   413→              <Input
+   414→                id="prod-sku"
+   415→                placeholder="e.g., SKU-00123"
+   416→                value={productForm.sku}
+   417→                onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+   418→                className="mt-1"
+   419→              />
+   420→            </div>
+   421→
+   422→            {/* Category */}
+   423→            <div>
+   424→              <Label htmlFor="prod-category">Category</Label>
+   425→              <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+   426→                <SelectTrigger className="mt-1">
+   427→                  <SelectValue />
+   428→                </SelectTrigger>
+   429→                <SelectContent>
+   430→                  <SelectItem value="OTC">OTC</SelectItem>
+   431→                  <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+   432→                  <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+   433→                  <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+   434→                  <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+   435→                  <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+   436→                </SelectContent>
+   437→              </Select>
+   438→            </div>
+   439→
+   440→            {/* Price */}
+   441→            <div>
+   442→              <Label htmlFor="prod-price">Price ($) <span className="text-red-500">*</span></Label>
+   443→              <Input
+   444→                id="prod-price"
+   445→                type="number"
+   446→                step="0.01"
+   447→                min="0"
+   448→                placeholder="0.00"
+   449→                value={productForm.price}
+   450→                onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+   451→                className="mt-1"
+   452→              />
+   453→            </div>
+   454→
+   455→            {/* Stock Quantity */}
+   456→            <div>
+   457→              <Label htmlFor="prod-stock">Stock Quantity</Label>
+   458→              <Input
+   459→                id="prod-stock"
+   460→                type="number"
+   461→                min="0"
+   462→                placeholder="0"
+   463→                value={productForm.stockQuantity}
+   464→                onChange={(e) => setProductForm({ ...productForm, stockQuantity: e.target.value })}
+   465→                className="mt-1"
+   466→              />
+   467→            </div>
+   468→
+   469→            {/* Min Stock Level */}
+   470→            <div>
+   471→              <Label htmlFor="prod-minstock">Min Stock Level</Label>
+   472→              <Input
+   473→                id="prod-minstock"
+   474→                type="number"
+   475→                min="0"
+   476→                placeholder="10"
+   477→                value={productForm.minStockLevel}
+   478→                onChange={(e) => setProductForm({ ...productForm, minStockLevel: e.target.value })}
+   479→                className="mt-1"
+   480→              />
+   481→            </div>
+   482→
+   483→            {/* Expiry Date */}
+   484→            <div>
+   485→              <Label htmlFor="prod-expiry">Expiry Date</Label>
+   486→              <Input
+   487→                id="prod-expiry"
+   488→                type="date"
+   489→                value={productForm.expiryDate}
+   490→                onChange={(e) => setProductForm({ ...productForm, expiryDate: e.target.value })}
+   491→                className="mt-1"
+   492→              />
+   493→            </div>
+   494→
+   495→            {/* Barcode */}
+   496→            <div>
+   497→              <Label htmlFor="prod-barcode">Barcode</Label>
+   498→              <Input
+   499→                id="prod-barcode"
+   500→                placeholder="e.g., 1234567890123"
+   501→                value={productForm.barcode}
+   502→                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+   503→                className="mt-1"
+   504→              />
+   505→            </div>
+   506→          </div>
+   507→
+   508→          <DialogFooter className="mt-4">
+   509→            <Button variant="outline" onClick={() => setAddProductDialog(false)}>Cancel</Button>
+   510→            <Button
+   511→              onClick={handleAddProduct}
+   512→              className="bg-teal-600 hover:bg-teal-700"
+   513→              disabled={!productForm.name || !productForm.price || savingProduct}
+   514→            >
+   515→              {savingProduct ? 'Adding...' : 'Add Product'}
+   516→            </Button>
+   517→          </DialogFooter>
+   518→        </DialogContent>
+   519→      </Dialog>
+   520→
+   521→      {/* Stock Adjustment Dialog */}
+   522→      <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
+   523→        <DialogContent>
+   524→          <DialogHeader>
+   525→            <DialogTitle>Adjust Stock</DialogTitle>
+   526→          </DialogHeader>
+   527→          {selectedItem && (
+   528→            <div className="space-y-4">
+   529→              <div className="bg-muted rounded-lg p-3">
+   530→                <p className="font-medium">{selectedItem.product.name}</p>
+   531→                <p className="text-sm text-muted-foreground">Current Stock: {selectedItem.quantity} {selectedItem.product.unitOfMeasure}</p>
+   532→              </div>
+   533→              <div className="space-y-3">
+   534→                <div>
+   535→                  <Label>Adjustment Type</Label>
+   536→                  <Select value={adjustType} onValueChange={setAdjustType}>
+   537→                    <SelectTrigger className="mt-1">
+   538→                      <SelectValue />
+   539→                    </SelectTrigger>
+   540→                    <SelectContent>
+   541→                      <SelectItem value="ADD">Add Stock</SelectItem>
+   542→                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
+   543→                      <SelectItem value="SET">Set Count</SelectItem>
+   544→                    </SelectContent>
+   545→                  </Select>
+   546→                </div>
+   547→                <div>
+   548→                  <Label>Quantity</Label>
+   549→                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" className="mt-1" />
+   550→                </div>
+   551→                <div>
+   552→                  <Label>Reason (required)</Label>
+   553→                  <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
+   554→                </div>
+   555→              </div>
+   556→            </div>
+   557→          )}
+   558→          <DialogFooter>
+   559→            <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
+   560→            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={!adjustAmount || !adjustReason}>
+   561→              Apply Adjustment
+   562→            </Button>
+   563→          </DialogFooter>
+   564→        </DialogContent>
+   565→      </Dialog>
+   566→
+   567→      {/* Receive Shipment Dialog */}
+   568→      <Dialog open={receiveDialog} onOpenChange={setReceiveDialog}>
+   569→        <DialogContent className="max-w-lg">
+   570→          <DialogHeader>
+   571→            <DialogTitle>Receive Shipment</DialogTitle>
+   572→          </DialogHeader>
+   573→          <div className="space-y-3 max-h-96 overflow-y-auto">
+   574→            {shipmentItems.map((si, idx) => (
+   575→              <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+   576→                <div className="col-span-5">
+   577→                  <Label className="text-xs">Product ID</Label>
+   578→                  <Input value={si.productId} onChange={(e) => {
+   579→                    const updated = [...shipmentItems]
+   580→                    updated[idx] = { ...updated[idx], productId: e.target.value }
+   581→                    setShipmentItems(updated)
+   582→                  }} placeholder="Product ID" className="mt-1" />
+   583→                </div>
+   584→                <div className="col-span-3">
+   585→                  <Label className="text-xs">Qty</Label>
+   586→                  <Input type="number" value={si.quantity} onChange={(e) => {
+   587→                    const updated = [...shipmentItems]
+   588→                    updated[idx] = { ...updated[idx], quantity: e.target.value }
+   589→                    setShipmentItems(updated)
+   590→                  }} className="mt-1" />
+   591→                </div>
+   592→                <div className="col-span-3">
+   593→                  <Label className="text-xs">Cost</Label>
+   594→                  <Input type="number" step="0.01" value={si.costPrice} onChange={(e) => {
+   595→                    const updated = [...shipmentItems]
+   596→                    updated[idx] = { ...updated[idx], costPrice: e.target.value }
+   597→                    setShipmentItems(updated)
+   598→                  }} className="mt-1" />
+   599→                </div>
+   600→                <div className="col-span-1">
+   601→                  <Button size="icon" variant="ghost" onClick={() => {
+   602→                    if (shipmentItems.length > 1) {
+   603→                      setShipmentItems(shipmentItems.filter((_, i) => i !== idx))
+   604→                    }
+   605→                  }}><X className="h-4 w-4" /></Button>
+   606→                </div>
+   607→              </div>
+   608→            ))}
+   609→            <Button variant="outline" size="sm" onClick={() => setShipmentItems([...shipmentItems, { productId: '', quantity: '', costPrice: '' }])}>
+   610→              <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
+   611→            </Button>
+   612→          </div>
+   613→          <DialogFooter>
+   614→            <Button variant="outline" onClick={() => setReceiveDialog(false)}>Cancel</Button>
+   615→            <Button onClick={handleReceiveShipment} className="bg-emerald-600 hover:bg-emerald-700">
+   616→              Receive Shipment
+   617→            </Button>
+   618→          </DialogFooter>
+   619→        </DialogContent>
+   620→      </Dialog>
+   621→    </div>
+   622→  )
+   623→}
+   624→
