@@ -203,3 +203,28 @@ Stage Summary:
 - Modified files: `src/store/app-store.ts`, `src/app/page.tsx`
 - Sales History page accessible via sidebar "Sales History" nav item with History icon
 - API verified: returns summary, salesByUser array, dailySales array, paginated transactions, and allUsers list
+
+---
+
+Task ID: 3
+Agent: Main Agent
+Task: Create Goods Return feature with inventory restocking and return ticket generation
+
+Work Log:
+- Added `Return` model to Prisma schema with: id, returnNo (RTN-YYYYMMDD-XXXX), transactionId, transactionItemId, productId, productName, quantity, unitPrice, refundAmount, reason (enum: DEFECTIVE/EXPIRED/WRONG_ITEM/WRONG_QUANTITY/DAMAGED/CUSTOMER_CHANGE_OF_MIND/RECALLED/OTHER), reasonNote, customerId, customerName, userId, status (enum: PENDING_APPROVAL/APPROVED/REJECTED/COMPLETED/CANCELLED), approvedById, approvedAt, refundMethod, refundProcessed, restocked, notes. Added reverse relations on Transaction, TransactionItem, Product, and User models.
+- Pushed schema to database with `prisma db push --accept-data-loss`
+- Created `src/app/api/returns/route.ts` (GET list with status/date filters + pagination, GET ?action=stats for return statistics, POST to create return with quantity validation against original purchase)
+- Created `src/app/api/returns/[id]/route.ts` (GET single with full details, PUT with action-based processing: approve, complete (restocks inventory + marks refund), reject, cancel (un-restocks if needed))
+- Created `src/components/gazpharm/views/return-ticket-modal.tsx` — receipt-style ticket modal with: return number, date, status, product details, original transaction, refund amount/method, restock status, staff info, print button
+- Created `src/components/gazpharm/views/goods-return-view.tsx` — full goods return page with: 4 summary stat cards (Returns Today, Today's Refunds, Pending Approval, Items Restocked), two tabs (New Return, Return History), New Return tab: transaction search with debounced input, select item from transaction, return quantity input with validation, refund amount preview, reason dropdown (8 options), notes for "Other" reason, refund method selector, submit button; Return History tab: status filter dropdown, returns table with 10 columns, pagination, action buttons (view details, approve, reject, complete), detail dialog, action confirmation dialog
+- Added search support to transactions API (search by transactionNo, customer firstName/lastName)
+- Updated Zustand store: added `'returns'` to ViewName type union
+- Updated page.tsx: added RotateCcw icon, GoodsReturnView import, nav item with roles (SUPER_ADMIN, PHARMACIST, TECHNICIAN, CASHIER), view router case
+- Build passed with zero errors, API stats endpoint verified returning correct data structure
+
+Stage Summary:
+- New files: `src/app/api/returns/route.ts`, `src/app/api/returns/[id]/route.ts`, `src/components/gazpharm/views/goods-return-view.tsx`, `src/components/gazpharm/views/return-ticket-modal.tsx`
+- Modified files: `prisma/schema.prisma`, `src/store/app-store.ts`, `src/app/page.tsx`, `src/app/api/transactions/route.ts`
+- Goods Return page accessible via sidebar "Goods Return" nav item with RotateCcw icon
+- Return workflow: Create (PENDING_APPROVAL) → Approve (APPROVED) → Complete (COMPLETED, restocks inventory) or Reject (REJECTED) or Cancel (CANCELLED, un-restocks)
+- Return ticket generated on creation with full receipt-style layout

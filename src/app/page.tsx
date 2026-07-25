@@ -18,6 +18,7 @@ import {
   Bell,
  Database,
   History,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -35,6 +36,7 @@ import { HardwareView } from '@/components/gazpharm/views/hardware-view'
 import { ReportsView } from '@/components/gazpharm/views/reports-view'
 import { MasterDataView } from '@/components/gazpharm/views/master-data-view'
 import { SalesHistoryView } from '@/components/gazpharm/views/sales-history-view'
+import { GoodsReturnView } from '@/components/gazpharm/views/goods-return-view'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -56,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'customers', label: 'Customers', icon: Users, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'] },
   { name: 'reports', label: 'Reports', icon: BarChart3, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
   { name: 'sales-history', label: 'Sales History', icon: History, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
+  { name: 'returns', label: 'Goods Return', icon: RotateCcw, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER'] },
   { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
   { name: 'users', label: 'User Management', icon: UserCog, roles: ['SUPER_ADMIN'] },
 ]
@@ -94,6 +97,7 @@ export default function Home() {
       case 'hardware': return <HardwareView />
       case 'reports': return <ReportsView />
       case 'sales-history': return <SalesHistoryView />
+      case 'returns': return <GoodsReturnView />
       case 'master-data': return <MasterDataView />
       default: return <DashboardView />
     }

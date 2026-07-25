@@ -32,6 +32,8 @@ model User {
   updatedAt     DateTime @updatedAt
 
   transactions       Transaction[]
+  returnsProcessed   Return[]
+  returnsApproved    Return[]          @relation("ReturnApprover")
   prescriptionsFilled Prescription[] @relation("Dispenser")
   prescriptionsVerified Prescription[] @relation("Verifier")
   logs               AuditLog[]
@@ -99,6 +101,7 @@ model Product {
   inventory         Inventory[]
   transactionItems  TransactionItem[]
   categories        Category[]
+  returns           Return[]
 }
 
 // ============ INVENTORY ============
@@ -156,6 +159,7 @@ model Transaction {
   customer        Customer?         @relation(fields: [customerId], references: [id])
   prescription    Prescription?     @relation(fields: [prescriptionId], references: [id])
   items           TransactionItem[]
+  returns         Return[]
 
   hardwareLog     HardwareLog?
 }
@@ -172,8 +176,9 @@ model TransactionItem {
   dispensedQty  Int?
   createdAt     DateTime    @default(now())
 
-  transaction   Transaction @relation(fields: [transactionId], references: [id])
-  product       Product     @relation(fields: [productId], references: [id])
+  transaction       Transaction @relation(fields: [transactionId], references: [id])
+  product           Product     @relation(fields: [productId], references: [id])
+  returns           Return[]
 }
 
 // ============ PRESCRIPTIONS ============
@@ -246,6 +251,59 @@ model HardwareLog {
   createdAt     DateTime       @default(now())
 
   transaction   Transaction?   @relation(fields: [transactionId], references: [id])
+}
+
+// ============ GOODS RETURNS ============
+
+enum ReturnStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DEFECTIVE
+  EXPIRED
+  WRONG_ITEM
+  WRONG_QUANTITY
+  DAMAGED
+  CUSTOMER_CHANGE_OF_MIND
+  RECALLED
+  OTHER
+}
+
+model Return {
+  id              String        @id @default(cuid())
+  returnNo        String        @unique // RTN-YYYYMMDD-XXXX
+  transactionId   String
+  transactionItemId String
+  productId       String
+  productName     String
+  quantity        Int
+  unitPrice       Float
+  refundAmount    Float
+  reason          ReturnReason
+  reasonNote      String?
+  customerId      String?
+  customerName    String?
+  userId          String         // who processed the return
+  status          ReturnStatus  @default(PENDING_APPROVAL)
+  approvedById    String?
+  approvedAt      DateTime?
+  refundMethod     PaymentMethod @default(CASH)
+  refundProcessed Boolean       @default(false)
+  restocked       Boolean       @default(false)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  transaction      Transaction      @relation(fields: [transactionId], references: [id])
+  transactionItem  TransactionItem  @relation(fields: [transactionItemId], references: [id])
+  product          Product          @relation(fields: [productId], references: [id])
+  user             User             @relation(fields: [userId], references: [id])
+  approvedBy       User?            @relation("ReturnApprover", fields: [approvedById], references: [id])
 }
 
 // ============ VENDORS ============

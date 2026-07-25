@@ -102,6 +102,15 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
+    const search = searchParams.get('search')
+    if (search) {
+      where.OR = [
+        { transactionNo: { contains: search } },
+        { customer: { firstName: { contains: search } } },
+        { customer: { lastName: { contains: search } } },
+      ]
+    }
+
     const skip = (page - 1) * limit
 
     const [transactions, total] = await Promise.all([
