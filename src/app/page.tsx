@@ -50,24 +50,25 @@ interface NavItem {
   name: ViewName
   label: string
   icon: typeof LayoutDashboard
-  roles: string[]
+  permission: string
   badge?: string
 }
 
+// Permission key mapping — which permission grants access to which view
 const NAV_ITEMS: NavItem[] = [
-  { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'] },
-  { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER'], badge: 'LIVE' },
-  { name: 'inventory', label: 'Inventory', icon: Package, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
-  { name: 'master-data', label: 'Drug Catalog', icon: Database, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
-  { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
-  { name: 'customers', label: 'Customers', icon: Users, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'] },
-  { name: 'reports', label: 'Reports', icon: BarChart3, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
-  { name: 'product-sales-analytics', label: 'Product Sales Analytics', icon: TrendingUp, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
-  { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
-  { name: 'sales-history', label: 'Sales History', icon: History, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
-  { name: 'returns', label: 'Goods Return', icon: RotateCcw, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER'] },
-  { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
-  { name: 'users', label: 'User Management', icon: UserCog, roles: ['SUPER_ADMIN'] },
+  { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+  { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, permission: 'pos', badge: 'LIVE' },
+  { name: 'inventory', label: 'Inventory', icon: Package, permission: 'inventory' },
+  { name: 'master-data', label: 'Drug Catalog', icon: Database, permission: 'inventory' },
+  { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, permission: 'prescriptions' },
+  { name: 'customers', label: 'Customers', icon: Users, permission: 'customers' },
+  { name: 'reports', label: 'Reports', icon: BarChart3, permission: 'reports' },
+  { name: 'product-sales-analytics', label: 'Product Sales Analytics', icon: TrendingUp, permission: 'inventory' },
+  { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory' },
+  { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos' },
+  { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos' },
+  { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware' },
+  { name: 'users', label: 'User Management', icon: UserCog, permission: 'users' },
 ]
 
 export default function Home() {
@@ -78,6 +79,7 @@ export default function Home() {
   const user = useAppStore((s) => s.user)
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
   const logout = useAppStore((s) => s.logout)
+  const hasPermission = useAppStore((s) => s.hasPermission)
   const toasts = useAppStore((s) => s.toasts)
   const removeToast = useAppStore((s) => s.removeToast)
   const currency = useAppStore((s) => s.currency)
@@ -127,6 +129,14 @@ export default function Home() {
   }
 
   const renderView = () => {
+    // Find the permission required for the current view
+    const navItem = NAV_ITEMS.find((n) => n.name === currentView)
+    if (navItem && !hasPermission([navItem.permission])) {
+      // User doesn't have permission — redirect to dashboard
+      setTimeout(() => setCurrentView('dashboard'), 0)
+      return <DashboardView />
+    }
+
     switch (currentView) {
       case 'dashboard': return <DashboardView />
       case 'pos': return <POSView />
@@ -146,6 +156,9 @@ export default function Home() {
   }
 
   const currentLabel = NAV_ITEMS.find((n) => n.name === currentView)?.label || 'Dashboard'
+
+  // Filter nav items based on user permissions
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission([item.permission]))
 
   return (
     <div className="min-h-screen flex bg-gray-50/50">
@@ -182,7 +195,7 @@ export default function Home() {
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
               Main
             </p>
-            {NAV_ITEMS.slice(0, 2).map((item) => (
+            {visibleNavItems.slice(0, 2).map((item) => (
               <button
                 key={item.name}
                 className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -205,12 +218,15 @@ export default function Home() {
               </button>
             ))}
 
-            <Separator className="my-2" />
-
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
-              Management
-            </p>
-            {NAV_ITEMS.slice(2).map((item) => (
+            {visibleNavItems.length > 2 && (
+              <>
+                <Separator className="my-2" />
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
+                  Management
+                </p>
+              </>
+            )}
+            {visibleNavItems.slice(2).map((item) => (
               <button
                 key={item.name}
                 className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${

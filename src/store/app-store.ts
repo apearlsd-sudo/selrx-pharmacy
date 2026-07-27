@@ -34,6 +34,7 @@ export interface UserState {
   name: string
   email: string
   role: string
+  permissions: string[]
 }
 
 export interface CartItem {
@@ -192,10 +193,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       cart: [],
       selectedCustomer: null,
     }),
-  hasPermission: (requiredRoles) => {
+  hasPermission: (requiredPermissions) => {
     const state = get()
     if (!state.user) return false
-    return requiredRoles.includes(state.user.role)
+    // SUPER_ADMIN always has access
+    if (state.user.role === 'SUPER_ADMIN') return true
+    // If user has custom permissions, check those
+    const perms = state.user.permissions || []
+    if (perms.length > 0) {
+      return requiredPermissions.some((p) => perms.includes(p))
+    }
+    // No custom permissions set — deny access (unless SUPER_ADMIN)
+    return false
   },
 
   // ---- POS / Cart ----

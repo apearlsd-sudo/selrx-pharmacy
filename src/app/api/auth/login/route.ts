@@ -22,12 +22,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Update last login
+    await db.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    })
+
+    // Parse permissions from JSON string
+    let permissions: string[] = []
+    if (user.permissions) {
+      try {
+        permissions = JSON.parse(user.permissions)
+        if (!Array.isArray(permissions)) permissions = []
+      } catch {
+        permissions = []
+      }
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        permissions,
       },
     })
   } catch (error) {
