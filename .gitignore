@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -53,6 +54,9 @@ server.log
 
 # Seed data (contains DB exports)
 prisma/seed-data.json
+
+# Local SQLite database
+db/*.db
 
 # Skills directory
 /skills/
