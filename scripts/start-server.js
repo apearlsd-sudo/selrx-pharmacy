@@ -1,14 +1,12 @@
 // Persistent server startup script for SelRx
-// Handles process keepalive and graceful shutdown
-
-const { createServer } = require('http');
-const { parse } = require('url');
-const path = require('path');
-
-// Set working directory
-process.chdir(path.join(__dirname, '..'));
+// Handles process keepalive with proper error logging
 
 const next = require('next');
+const { createServer } = require('http');
+const path = require('path');
+
+process.chdir(path.join(__dirname, '..'));
+
 const dev = false;
 const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
@@ -18,38 +16,32 @@ const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
-    const parsedUrl = parse(req.url, true);
-    handle(req, res, parsedUrl).catch(err => {
-      console.error('Request error:', err);
-      res.statusCode = 500;
-      res.end('Internal Server Error');
+    // Use WHATWG URL instead of deprecated url.parse
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    handle(req, res, url).catch(err => {
+      console.error('[Request Error]', err.message || err);
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.end('Internal Server Error');
+      }
     });
   });
 
   server.listen(port, hostname, () => {
-    console.log(`> SelRx server running on http://${hostname}:${port}`);
+    const ts = new Date().toISOString();
+    console.log(`[${ts}] SelRx ready on http://${hostname}:${port}`);
   });
 
-  // Keep process alive
   process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down...');
+    console.log('[SIGTERM] Shutting down...');
     server.close(() => process.exit(0));
   });
 
   process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down...');
+    console.log('[SIGINT] Shutting down...');
     server.close(() => process.exit(0));
   });
-
-  // Prevent unhandled rejections from killing the process
-  process.on('unhandledRejection', (err) => {
-    console.error('Unhandled rejection:', err);
-  });
-  
-  process.on('uncaughtException', (err) => {
-    console.error('Uncaught exception:', err);
-  });
 }).catch(err => {
-  console.error('Startup error:', err);
+  console.error('[Startup Error]', err.message || err);
   process.exit(1);
 });

@@ -316,3 +316,24 @@ Stage Summary:
 - Demo accounts: removed from login page entirely ✅
 - Inventory view: verified clean, no embedded sections ✅
 - Modified files: `src/components/gazpharm/views/sales-history-view.tsx`, `src/components/gazpharm/login-screen.tsx`
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Diagnose and fix live preview issues
+
+Work Log:
+- Server was not running (process died between shell sessions)
+- Found `output: 'standalone'` was re-introduced in next.config.ts — this was the root cause of previous 404s and causes "next start does not work with output: standalone" warning
+- Removed `output: 'standalone'` from next.config.ts
+- Rebuilt app — no more standalone warning
+- Discovered the custom `scripts/start-server.js` (createServer wrapper) was causing 308 redirect loops due to malformed URL resolution (`http:/localhost/` instead of `http://localhost/`). The `new URL(req.url, base)` call with Next.js handler was producing broken Location headers
+- Fixed `scripts/start-server.sh` to use `next start` directly instead of the custom Node.js server wrapper
+- Verified all layers: HTML (200, 16446 bytes), CSS/JS static assets (all 200), API routes (dashboard/products/login all 200), SelRx branding present
+- The sandbox environment kills background processes between shell commands — the auto-restart wrapper (`start-server.sh`) catches SIGTERM and restarts the server automatically
+
+Stage Summary:
+- Root cause #1: `output: 'standalone'` in next.config.ts re-introduced — REMOVED
+- Root cause #2: Custom start-server.js createServer wrapper causing 308 redirect loops — REPLACED with direct `next start`
+- All static assets serve correctly (200), APIs respond (200), HTML renders (16446 bytes)
+- Modified files: `next.config.ts`, `scripts/start-server.sh`, `scripts/start-server.js`
