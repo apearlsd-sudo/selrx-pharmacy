@@ -255,3 +255,45 @@ Stage Summary:
 - Goods Return page accessible via sidebar "Goods Return" nav item with RotateCcw icon
 - Return workflow: Create (PENDING_APPROVAL) → Approve (APPROVED) → Complete (COMPLETED, restocks inventory) or Reject (REJECTED) or Cancel (CANCELLED, un-restocks)
 - Return ticket generated on creation with full receipt-style layout
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix live preview — static asset 404s, missing addToast crash, SUPER_ADMIN role expansion
+
+Work Log:
+- Diagnosed static asset 404s: `output: "standalone"` in next.config.ts caused `_next/static/` CSS/JS/fonts to return 404 even after copying static files. Root cause: Turbopack chunk serving incompatibility with standalone mode.
+- Fixed by removing `output: "standalone"` from next.config.ts and using `next start` directly
+- Diagnosed client-side crash: `addToast is not a function` — page.tsx called `addToast()` on logout but never pulled it from `useAppStore`
+- Fixed by adding `const addToast = useAppStore((s) => s.addToast)` in page.tsx
+- Diagnosed `PERMISSIONS` undefined bug in users-view.tsx (2 occurrences) — variable was named `ALL_PERMISSIONS` but code referenced `PERMISSIONS`
+- Fixed both occurrences of the reference bug
+- Added `getRolePerms()` helper in users-view.tsx to use DB-backed roles state instead of hardcoded defaults
+- Updated role dropdowns to show `X/21` format using live DB permissions count
+- Updated login API to resolve permissions with priority chain: SUPER_ADMIN → all keys → user-level override → SystemRole fallback
+- Login now returns `roleLabel` from SystemRole for display in topbar
+- Added `GET /api/users?action=roles` endpoint for dynamic role dropdown population from DB
+- Company name finalized: "SelRx - Pharmacy Management System"
+- App title updated from "GAZPharm" to "SelRx" in layout.tsx metadata
+- Verified fix with Playwright headless browser: "Title: SelRx - Pharmacy Management System, Errors: NONE"
+
+Stage Summary:
+- Live preview fully operational at https://preview-5fe7d2fc-11f8-4355-b613-d9e971b3cffa.space-z.ai/
+- No more static asset 404s or client-side crashes
+- 21 granular permissions, 6 DB-backed system roles, SUPER_ADMIN custom role creation
+- Build passing cleanly
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Save app progress — rebuild, restart server, document all work
+
+Work Log:
+- Rebuilt app with `next build` — all 24 API routes compile, no errors
+- Started production server on port 3000 — returns HTTP 200
+- Updated worklog with complete history of all sessions and tasks
+- Verified server running at localhost:3000
+
+Stage Summary:
+- Server running, build current, all previous work preserved
+- Pending tasks: surface company name on receipts/return tickets, wire hardware printer API, fix CSV export, full i18n, remove demo accounts, cleanup inventory-view
