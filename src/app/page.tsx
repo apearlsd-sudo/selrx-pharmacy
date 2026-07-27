@@ -295,12 +295,32 @@ export default function Home() {
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-emerald-500 rounded-full" />
             </Button>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                <User className="h-3 w-3 text-emerald-600" />
-              </span>
-              <span className="font-medium text-gray-700">{user?.name}</span>
-              <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.role}</span>
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mr-1">
+                <span className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <User className="h-3.5 w-3.5 text-emerald-600" />
+                </span>
+                <div className="flex flex-col leading-none">
+                  <span className="font-medium text-gray-700 text-xs">{user?.name}</span>
+                  <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.role}</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                onClick={() => {
+                  logout()
+                  addToast({
+                    title: 'Signed out',
+                    description: 'You have been logged out successfully',
+                    variant: 'success',
+                  })
+                }}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Logout</span>
+              </Button>
             </div>
           </div>
         </header>
