@@ -176,26 +176,49 @@ export type AppState = NavigationState &
 export const useAppStore = create<AppState>((set, get) => ({
   // ---- Navigation ----
   currentView: 'login',
-  setCurrentView: (view) => set({ currentView: view }),
+  setCurrentView: (view) => {
+    set({ currentView: view })
+    // Persist current view to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_view', view)
+    }
+  },
   sidebarOpen: true,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
   // ---- Auth ----
   user: null,
   isAuthenticated: false,
-  setUser: (user) =>
+  setUser: (user) => {
     set({
       user,
       isAuthenticated: !!user,
-    }),
-  logout: () =>
+    })
+    // Persist session to localStorage
+    if (typeof window !== 'undefined') {
+      if (user) {
+        localStorage.setItem('selrx_session', JSON.stringify({ user }))
+        localStorage.setItem('selrx_view', 'dashboard')
+      } else {
+        localStorage.removeItem('selrx_session')
+        localStorage.removeItem('selrx_view')
+      }
+    }
+  },
+  logout: () => {
     set({
       user: null,
       isAuthenticated: false,
       currentView: 'login',
       cart: [],
       selectedCustomer: null,
-    }),
+    })
+    // Clear persisted session
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('selrx_session')
+      localStorage.removeItem('selrx_view')
+    }
+  },
   hasPermission: (requiredPermissions) => {
     const state = get()
     if (!state.user) return false

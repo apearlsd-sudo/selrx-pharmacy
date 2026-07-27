@@ -96,6 +96,49 @@ export default function Home() {
     initCurrencyGetter(() => useAppStore.getState().currency)
   }, [])
 
+  // Restore session from localStorage on page load
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const sessionData = localStorage.getItem('selrx_session')
+      const savedView = localStorage.getItem('selrx_view')
+
+      if (sessionData) {
+        const { user: savedUser } = JSON.parse(sessionData)
+        // Validate session with server
+        fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: savedUser.id }),
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Session invalid')
+            return res.json()
+          })
+          .then((data) => {
+            if (data.valid && data.user) {
+              useAppStore.getState().setUser(data.user)
+              // Restore the saved view (only non-login views)
+              if (savedView && savedView !== 'login' && savedView !== 'company-setup') {
+                useAppStore.getState().setCurrentView(savedView as ViewName)
+              }
+            } else {
+              localStorage.removeItem('selrx_session')
+              localStorage.removeItem('selrx_view')
+            }
+          })
+          .catch(() => {
+            localStorage.removeItem('selrx_session')
+            localStorage.removeItem('selrx_view')
+          })
+      }
+    } catch {
+      // Corrupted data — clear it
+      localStorage.removeItem('selrx_session')
+      localStorage.removeItem('selrx_view')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check if a company has been set up
   useEffect(() => {
     if (!isCompanySetup) {
