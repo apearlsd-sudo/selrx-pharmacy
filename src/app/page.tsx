@@ -81,6 +81,7 @@ export default function Home() {
   const logout = useAppStore((s) => s.logout)
   const hasPermission = useAppStore((s) => s.hasPermission)
   const toasts = useAppStore((s) => s.toasts)
+  const addToast = useAppStore((s) => s.addToast)
   const removeToast = useAppStore((s) => s.removeToast)
   const currency = useAppStore((s) => s.currency)
   const setCurrency = useAppStore((s) => s.setCurrency)
