@@ -22,10 +22,14 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 echo "=== Step 1: Creating Turso database '$DB_NAME' ==="
-turso db create "$DB_NAME" --if-not-exists 2>&1 || {
-  echo "Failed to create database. Make sure you're logged in: turso auth login"
-  exit 1
-}
+if turso db show "$DB_NAME" >/dev/null 2>&1; then
+  echo "Database '$DB_NAME' already exists, skipping creation."
+else
+  turso db create "$DB_NAME" -w 2>&1 || {
+    echo "Failed to create database. Make sure you're logged in: turso auth login"
+    exit 1
+  }
+fi
 
 echo ""
 echo "=== Step 2: Getting database URL and auth token ==="
@@ -39,7 +43,7 @@ echo ""
 echo "=== Step 3: Pushing Prisma schema to Turso ==="
 DATABASE_URL="$DB_URL" \
 DATABASE_AUTH_TOKEN="$AUTH_TOKEN" \
-npx prisma db push --accept-data-loss 2>&1
+npx prisma db push 2>&1
 
 echo ""
 echo "=== Step 4: Seeding data into Turso ==="
@@ -52,10 +56,8 @@ echo "=== Step 5: Verifying ==="
 DATABASE_URL="$DB_URL" \
 DATABASE_AUTH_TOKEN="$AUTH_TOKEN" \
 npx prisma db execute --stdin <<'SQL'
-SELECT 'SystemRole: ' || COUNT(*) FROM SystemRole
-UNION ALL
-SELECT 'User: ' || COUNT(*) FROM User
-UNION ALL
+SELECT 'SystemRole: ' || COUNT(*) FROM SystemRole;
+SELECT 'User: ' || COUNT(*) FROM User;
 SELECT 'Company: ' || COUNT(*) FROM Company;
 SQL
 
