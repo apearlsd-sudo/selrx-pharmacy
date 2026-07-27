@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { ALL_PERMISSION_KEYS } from '@/lib/permissions'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +14,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Try to find user by email field (which also stores usernames)
-    const user = await db.user.findUnique({ where: { email } })
+    const user = await db.user.findUnique({
+      where: { email },
+      include: { systemRole: true },
+    })
 
     if (!user || user.password !== password || !user.active) {
       return NextResponse.json(
@@ -28,12 +32,32 @@ export async function POST(req: NextRequest) {
       data: { lastLogin: new Date() },
     })
 
-    // Parse permissions from JSON string
+    // Resolve permissions with this priority:
+    // 1. SUPER_ADMIN always gets ALL permissions
+    // 2. User-level override permissions (stored in user.permissions)
+    // 3. SystemRole permissions (fallback when user has no custom override)
     let permissions: string[] = []
-    if (user.permissions) {
+
+    if (user.role === 'SUPER_ADMIN') {
+      permissions = [...ALL_PERMISSION_KEYS]
+    } else if (user.permissions) {
       try {
-        permissions = JSON.parse(user.permissions)
-        if (!Array.isArray(permissions)) permissions = []
+        const parsed = JSON.parse(user.permissions)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          permissions = parsed
+        }
+      } catch {
+        permissions = []
+      }
+    }
+
+    // Fallback: load permissions from the SystemRole
+    if (permissions.length === 0 && user.systemRole) {
+      try {
+        const rolePerms = JSON.parse(user.systemRole.permissions)
+        if (Array.isArray(rolePerms)) {
+          permissions = rolePerms
+        }
       } catch {
         permissions = []
       }
@@ -45,6 +69,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
         email: user.email,
         role: user.role,
+        roleLabel: user.systemRole?.label || user.role,
         permissions,
       },
     })

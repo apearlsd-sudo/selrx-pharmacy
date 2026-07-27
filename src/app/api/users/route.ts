@@ -15,6 +15,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
+    // GET /api/users?action=roles - List available roles for dropdown
+    if (action === 'roles') {
+      const roles = await db.systemRole.findMany({
+        where: { isActive: true },
+        orderBy: { isSystem: 'desc' },
+        select: { name: true, label: true, color: true, isSystem: true },
+      })
+      return NextResponse.json(roles)
+    }
+
     // GET /api/users/profile - Get own profile
     if (action === 'profile') {
       const userId = request.headers.get('x-user-id')

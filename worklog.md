@@ -1,5 +1,32 @@
 # GAZPharm Work Log
 
+---
+Task ID: 1
+Agent: main
+Task: Expand user roles and privileges, enable SUPER_ADMIN custom role creation
+
+Work Log:
+- Analyzed current permission system: 8 coarse keys → expanded to 21 granular permission keys across 9 categories
+- Verified SystemRole table already seeded with 6 default roles (SUPER_ADMIN, PHARMACIST, TECHNICIAN, CASHIER, CLERK, STORE_MANAGER)
+- Created `/src/lib/permissions.ts` shared lib with `ALL_PERMISSION_KEYS` for server/client use
+- Updated login API (`/api/auth/login/route.ts`) to resolve permissions: SUPER_ADMIN → all keys, user override → SystemRole fallback
+- Login now returns `roleLabel` from SystemRole for display in UI
+- Added `GET /api/users?action=roles` endpoint for dynamic role dropdown population
+- Fixed `PERMISSIONS` → `ALL_PERMISSIONS` bug in users-view.tsx (2 occurrences)
+- Added `getRolePerms()` helper in users-view to use DB roles state over hardcoded defaults
+- Updated `handleCreateRoleChange`, `handleEditRoleChange`, `openEditDialog`, `getUserPermissions` to use `getRolePerms()`
+- Updated role dropdown badges to show `X/21` format using live DB permissions
+- Updated `UserState` in store to include optional `roleLabel` field
+- Updated topbar and sidebar footer to display `roleLabel` instead of raw role name
+- Built successfully and restarted live preview
+
+Stage Summary:
+- Roles & permissions are now fully DB-backed with 6 default system roles + custom role creation support
+- Login API correctly resolves permissions from role → user override hierarchy
+- SUPER_ADMIN sees "Users" and "Roles" tabs; role dropdowns dynamically populated from DB
+- Custom roles can be created/edited/deleted by SUPER_ADMIN via the Roles tab
+- Live preview running at https://preview-5fe7d2fc-11f8-4355-b613-d9e971b3cffa.space-z.ai/
+
 ## Session: API Routes Implementation
 
 **Date**: 2025

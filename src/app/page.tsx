@@ -254,7 +254,7 @@ export default function Home() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate">{user?.name || 'User'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase">{user?.role || 'STAFF'}</p>
+              <p className="text-[10px] text-muted-foreground uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
               variant="ghost"
@@ -318,7 +318,7 @@ export default function Home() {
                 </span>
                 <div className="flex flex-col leading-none">
                   <span className="font-medium text-gray-700 text-xs">{user?.name}</span>
-                  <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.role}</span>
+                  <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
                 </div>
               </div>
               <Button

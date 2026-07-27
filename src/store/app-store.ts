@@ -34,6 +34,7 @@ export interface UserState {
   name: string
   email: string
   role: string
+  roleLabel?: string
   permissions: string[]
 }
 

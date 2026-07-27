@@ -122,6 +122,9 @@ const PERMISSION_CATEGORIES = [
 // Flat list of all permission keys
 const ALL_PERMISSIONS = PERMISSION_CATEGORIES.flatMap(c => c.permissions)
 
+// Exported flat key list for use by login API (SUPER_ADMIN gets all)
+export const ALL_PERMISSION_KEYS = ALL_PERMISSIONS.map(p => p.key)
+
 // Default permissions per role — loaded from DB, fallback hardcoded
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ['dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'prescriptions:view', 'prescriptions:process', 'customers:view', 'customers:manage', 'users:view', 'users:manage', 'users:roles', 'hardware:view', 'hardware:manage', 'reports:view', 'reports:export', 'master-data:view', 'master-data:manage'],
@@ -163,7 +166,7 @@ function PermissionGrid({
 
   const selectAll = () => {
     if (disabled) return
-    onChange(PERMISSIONS.map((p) => p.key))
+    onChange(ALL_PERMISSIONS.map((p) => p.key))
   }
 
   const deselectAll = () => {
@@ -377,22 +380,31 @@ export function UsersView() {
     }
   }
 
+  // Get role permissions from DB-loaded roles state, fallback to hardcoded defaults
+  const getRolePerms = (roleName: string): string[] => {
+    const dbRole = roles.find(r => r.name === roleName)
+    if (dbRole) {
+      try { const p = JSON.parse(dbRole.permissions); if (Array.isArray(p)) return p } catch { /* fall through */ }
+    }
+    return DEFAULT_ROLE_PERMISSIONS[roleName] || []
+  }
+
   // When role changes in create dialog, auto-fill default permissions
   const handleCreateRoleChange = (newRole: string) => {
     setForm({ ...form, role: newRole })
-    setFormPermissions([...DEFAULT_ROLE_PERMISSIONS[newRole] || []])
+    setFormPermissions([...getRolePerms(newRole)])
   }
 
   // When role changes in edit dialog, auto-fill default permissions
   const handleEditRoleChange = (newRole: string) => {
     setEditForm({ ...editForm, role: newRole })
-    setEditPermissions([...DEFAULT_ROLE_PERMISSIONS[newRole] || []])
+    setEditPermissions([...getRolePerms(newRole)])
   }
 
   const openEditDialog = (user: UserItem) => {
     setSelectedUser(user)
     const parsed = parsePermissions(user.permissions)
-    const perms = parsed.length > 0 ? parsed : [...DEFAULT_ROLE_PERMISSIONS[user.role] || []]
+    const perms = parsed.length > 0 ? parsed : [...getRolePerms(user.role)]
     setEditForm({ role: user.role, phone: user.phone || '', licenseNumber: user.licenseNumber || '' })
     setEditPermissions(perms)
     setEditDialog(true)
@@ -463,7 +475,8 @@ export function UsersView() {
 
   const getUserPermissions = (user: UserItem): string[] => {
     const parsed = parsePermissions(user.permissions)
-    return parsed.length > 0 ? parsed : DEFAULT_ROLE_PERMISSIONS[user.role] || []
+    if (parsed.length > 0) return parsed
+    return getRolePerms(user.role)
   }
 
   return (
@@ -603,7 +616,7 @@ export function UsersView() {
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1 flex-wrap max-w-[200px]">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {perms.length}/{PERMISSIONS.length}
+                            {perms.length}/{ALL_PERMISSIONS.length}
                           </Badge>
                           {isCustomPerms && (
                             <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-200">
@@ -744,7 +757,7 @@ export function UsersView() {
                           <div className="flex items-center gap-2">
                             <span>{r.label}</span>
                             <Badge variant="outline" className="text-[10px]">
-                              {DEFAULT_ROLE_PERMISSIONS[r.name]?.length || 0} perms
+                              {getRolePerms(r.name).length}/{ALL_PERMISSIONS.length}
                             </Badge>
                           </div>
                         </SelectItem>
@@ -825,7 +838,7 @@ export function UsersView() {
                             <div className="flex items-center gap-2">
                               <span>{r.label}</span>
                               <Badge variant="outline" className="text-[10px]">
-                                {DEFAULT_ROLE_PERMISSIONS[r.name]?.length || 0} perms
+                                {getRolePerms(r.name).length}/{ALL_PERMISSIONS.length}
                               </Badge>
                             </div>
                           </SelectItem>
