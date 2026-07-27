@@ -54,21 +54,21 @@ interface NavItem {
   badge?: string
 }
 
-// Permission key mapping — which permission grants access to which view
+// Permission key mapping — which granular permission grants access to which view
 const NAV_ITEMS: NavItem[] = [
   { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
-  { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, permission: 'pos', badge: 'LIVE' },
-  { name: 'inventory', label: 'Inventory', icon: Package, permission: 'inventory' },
-  { name: 'master-data', label: 'Drug Catalog', icon: Database, permission: 'inventory' },
-  { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, permission: 'prescriptions' },
-  { name: 'customers', label: 'Customers', icon: Users, permission: 'customers' },
-  { name: 'reports', label: 'Reports', icon: BarChart3, permission: 'reports' },
-  { name: 'product-sales-analytics', label: 'Product Sales Analytics', icon: TrendingUp, permission: 'inventory' },
-  { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory' },
-  { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos' },
-  { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos' },
-  { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware' },
-  { name: 'users', label: 'User Management', icon: UserCog, permission: 'users' },
+  { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, permission: 'pos:sell', badge: 'LIVE' },
+  { name: 'inventory', label: 'Inventory', icon: Package, permission: 'inventory:view' },
+  { name: 'master-data', label: 'Drug Catalog', icon: Database, permission: 'master-data:view' },
+  { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, permission: 'prescriptions:view' },
+  { name: 'customers', label: 'Customers', icon: Users, permission: 'customers:view' },
+  { name: 'reports', label: 'Reports', icon: BarChart3, permission: 'reports:view' },
+  { name: 'product-sales-analytics', label: 'Product Sales Analytics', icon: TrendingUp, permission: 'inventory:analytics' },
+  { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory:stocktake' },
+  { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos:history' },
+  { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
+  { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware:view' },
+  { name: 'users', label: 'User Management', icon: UserCog, permission: 'users:view' },
 ]
 
 export default function Home() {

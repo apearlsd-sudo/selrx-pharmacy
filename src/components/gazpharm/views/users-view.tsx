@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   UserCog, Shield, CheckCircle, XCircle, Edit, Clock, Plus, Ban, UserCheck,
-  LayoutDashboard, ShoppingCart, Package, FileText, Users, Monitor, BarChart3, Eye, Trash2
+  LayoutDashboard, ShoppingCart, Package, FileText, Users, Monitor, BarChart3, Eye, Trash2,
+  ArrowLeftRight, Database, ClipboardCheck, TrendingUp, History, RotateCcw, Settings
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,33 +37,99 @@ interface UserItem {
   createdAt: string
 }
 
-// ── Permission definitions ──────────────────────────────────────────────
-const PERMISSIONS = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'View sales dashboard & KPIs' },
-  { key: 'pos', label: 'POS Terminal', icon: ShoppingCart, description: 'Process sales transactions' },
-  { key: 'inventory', label: 'Inventory', icon: Package, description: 'Manage stock & products' },
-  { key: 'prescriptions', label: 'Prescriptions', icon: FileText, description: 'Process Rx orders' },
-  { key: 'customers', label: 'Customers', icon: Users, description: 'View & manage patients' },
-  { key: 'users', label: 'User Management', icon: UserCog, description: 'Create & manage staff' },
-  { key: 'hardware', label: 'Hardware', icon: Monitor, description: 'Configure devices & printers' },
-  { key: 'reports', label: 'Reports', icon: BarChart3, description: 'View analytics & export data' },
-]
-
-const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
-  SUPER_ADMIN: { label: 'Super Admin', color: 'bg-red-100 text-red-700 border-red-200' },
-  PHARMACIST: { label: 'Pharmacist', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  TECHNICIAN: { label: 'Technician', color: 'bg-sky-100 text-sky-700 border-sky-200' },
-  CASHIER: { label: 'Cashier', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  CLERK: { label: 'Clerk', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+interface SystemRoleItem {
+  id: string
+  name: string
+  label: string
+  description: string | null
+  permissions: string
+  color: string
+  isSystem: boolean
+  isActive: boolean
+  _count: { users: number }
 }
 
-// Default permissions per role — super admin can customize per user
+// ── Expanded Granular Permission Definitions ────────────────────────────
+const PERMISSION_CATEGORIES = [
+  {
+    category: 'Dashboard',
+    permissions: [
+      { key: 'dashboard', label: 'View Dashboard', icon: LayoutDashboard, description: 'View sales dashboard & KPIs' },
+    ],
+  },
+  {
+    category: 'Point of Sale',
+    permissions: [
+      { key: 'pos:sell', label: 'Process Sales', icon: ShoppingCart, description: 'Create and complete sales transactions' },
+      { key: 'pos:refund', label: 'Process Returns', icon: RotateCcw, description: 'Handle goods returns and refunds' },
+      { key: 'pos:history', label: 'View Sales History', icon: History, description: 'Access past transaction records' },
+    ],
+  },
+  {
+    category: 'Inventory',
+    permissions: [
+      { key: 'inventory:view', label: 'View Inventory', icon: Eye, description: 'Browse stock levels and product details' },
+      { key: 'inventory:manage', label: 'Manage Products', icon: Package, description: 'Add, edit, and delete products' },
+      { key: 'inventory:analytics', label: 'Product Analytics', icon: TrendingUp, description: 'View product sales analytics' },
+      { key: 'inventory:stocktake', label: 'Stock Taking', icon: ClipboardCheck, description: 'Perform periodic stock counts' },
+    ],
+  },
+  {
+    category: 'Drug Catalog',
+    permissions: [
+      { key: 'master-data:view', label: 'View Drug Catalog', icon: Database, description: 'Browse the master drug catalog' },
+      { key: 'master-data:manage', label: 'Manage Drug Catalog', icon: Database, description: 'Add, edit, and update drug records' },
+    ],
+  },
+  {
+    category: 'Prescriptions',
+    permissions: [
+      { key: 'prescriptions:view', label: 'View Prescriptions', icon: FileText, description: 'Access and read prescription orders' },
+      { key: 'prescriptions:process', label: 'Fill & Verify Rx', icon: ClipboardCheck, description: 'Process, fill, and verify prescriptions' },
+    ],
+  },
+  {
+    category: 'Customers',
+    permissions: [
+      { key: 'customers:view', label: 'View Customers', icon: Users, description: 'Browse patient records and history' },
+      { key: 'customers:manage', label: 'Manage Customers', icon: Users, description: 'Add, edit, and update patient info' },
+    ],
+  },
+  {
+    category: 'Users & Roles',
+    permissions: [
+      { key: 'users:view', label: 'View Users', icon: Eye, description: 'See the list of system users' },
+      { key: 'users:manage', label: 'Manage Users', icon: UserCog, description: 'Create, edit, and deactivate users' },
+      { key: 'users:roles', label: 'Manage Roles', icon: Shield, description: 'Create and customize roles & privileges' },
+    ],
+  },
+  {
+    category: 'Hardware',
+    permissions: [
+      { key: 'hardware:view', label: 'View Hardware', icon: Monitor, description: 'View hardware device configuration' },
+      { key: 'hardware:manage', label: 'Configure Hardware', icon: Settings, description: 'Setup and configure devices & printers' },
+    ],
+  },
+  {
+    category: 'Reports',
+    permissions: [
+      { key: 'reports:view', label: 'View Reports', icon: BarChart3, description: 'Access analytics and reports' },
+      { key: 'reports:export', label: 'Export Data', icon: ArrowLeftRight, description: 'Export reports to CSV and other formats' },
+    ],
+  },
+]
+
+// Flat list of all permission keys
+const ALL_PERMISSIONS = PERMISSION_CATEGORIES.flatMap(c => c.permissions)
+
+// Default permissions per role — loaded from DB, fallback hardcoded
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-  SUPER_ADMIN: ['dashboard', 'pos', 'inventory', 'prescriptions', 'customers', 'users', 'hardware', 'reports'],
-  PHARMACIST: ['dashboard', 'pos', 'inventory', 'prescriptions', 'customers', 'hardware', 'reports'],
-  TECHNICIAN: ['dashboard', 'pos', 'inventory', 'prescriptions', 'customers'],
-  CASHIER: ['dashboard', 'pos', 'customers'],
-  CLERK: ['dashboard', 'customers'],
+  SUPER_ADMIN: ['dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'prescriptions:view', 'prescriptions:process', 'customers:view', 'customers:manage', 'users:view', 'users:manage', 'users:roles', 'hardware:view', 'hardware:manage', 'reports:view', 'reports:export', 'master-data:view', 'master-data:manage'],
+  PHARMACIST: ['dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'prescriptions:view', 'prescriptions:process', 'customers:view', 'customers:manage', 'hardware:view', 'hardware:manage', 'reports:view', 'reports:export', 'master-data:view', 'master-data:manage'],
+  TECHNICIAN: ['dashboard', 'pos:sell', 'pos:history', 'inventory:view', 'inventory:manage', 'inventory:stocktake', 'prescriptions:view', 'customers:view', 'customers:manage', 'master-data:view'],
+  CASHIER: ['dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'customers:view', 'customers:manage'],
+  CLERK: ['dashboard', 'customers:view'],
+  STORE_MANAGER: ['dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'prescriptions:view', 'customers:view', 'customers:manage', 'users:view', 'reports:view', 'reports:export', 'master-data:view', 'master-data:manage'],
 }
 
 function parsePermissions(raw: string | null): string[] {
@@ -104,7 +171,7 @@ function PermissionGrid({
     onChange([])
   }
 
-  const allSelected = PERMISSIONS.every((p) => permissions.includes(p.key))
+  const allSelected = ALL_PERMISSIONS.every((p) => permissions.includes(p.key))
 
   return (
     <div className="space-y-3">
@@ -119,37 +186,48 @@ function PermissionGrid({
           </Button>
         </div>
       </div>
-      <div className="border rounded-lg divide-y">
-        {PERMISSIONS.map((perm) => {
-          const isChecked = permissions.includes(perm.key)
-          const Icon = perm.icon
-          return (
-            <label
-              key={perm.key}
-              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-                disabled ? 'opacity-60 cursor-not-allowed' : isChecked ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-muted/50'
-              }`}
-            >
-              <Checkbox
-                checked={isChecked}
-                onCheckedChange={() => toggle(perm.key)}
-                disabled={disabled}
-                className={isChecked ? 'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600' : ''}
-              />
-              <Icon className={`h-4 w-4 shrink-0 ${isChecked ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-              <div className="flex-1 min-w-0">
-                <span className={`text-sm font-medium ${isChecked ? 'text-emerald-700' : ''}`}>{perm.label}</span>
-                <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">{perm.description}</span>
-              </div>
-              <Badge variant={isChecked ? 'outline' : 'secondary'} className={`text-[10px] h-5 ${isChecked ? 'border-emerald-300 text-emerald-700' : ''}`}>
-                {isChecked ? 'Granted' : 'Denied'}
-              </Badge>
-            </label>
-          )
-        })}
-      </div>
+      {PERMISSION_CATEGORIES.map((cat) => {
+        const catSelected = cat.permissions.filter(p => permissions.includes(p.key)).length
+        return (
+          <div key={cat.category} className="border rounded-lg">
+            <div className="px-3 py-2 bg-gray-50/50 border-b flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{cat.category}</span>
+              <Badge variant="outline" className="text-[10px] h-5">{catSelected}/{cat.permissions.length}</Badge>
+            </div>
+            <div className="divide-y">
+              {cat.permissions.map((perm) => {
+                const isChecked = permissions.includes(perm.key)
+                const Icon = perm.icon
+                return (
+                  <label
+                    key={perm.key}
+                    className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                      disabled ? 'opacity-60 cursor-not-allowed' : isChecked ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={() => toggle(perm.key)}
+                      disabled={disabled}
+                      className={isChecked ? 'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600' : ''}
+                    />
+                    <Icon className={`h-4 w-4 shrink-0 ${isChecked ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-medium ${isChecked ? 'text-emerald-700' : ''}`}>{perm.label}</span>
+                      <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">{perm.description}</span>
+                    </div>
+                    <Badge variant={isChecked ? 'outline' : 'secondary'} className={`text-[10px] h-5 ${isChecked ? 'border-emerald-300 text-emerald-700' : ''}`}>
+                      {isChecked ? 'Granted' : 'Denied'}
+                    </Badge>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{permissions.length} of {PERMISSIONS.length} permissions granted</span>
+        <span>{permissions.length} of {ALL_PERMISSIONS.length} permissions granted</span>
         {!allSelected && permissions.length > 0 && (
           <span className="text-amber-600 font-medium">Custom permissions (different from role defaults)</span>
         )}
@@ -178,6 +256,17 @@ export function UsersView() {
   const addToast = useAppStore((s) => s.addToast)
   const currentUser = useAppStore((s) => s.user)
 
+  // ── Roles Management State ──
+  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users')
+  const [roles, setRoles] = useState<SystemRoleItem[]>([])
+  const [createRoleDialog, setCreateRoleDialog] = useState(false)
+  const [editRoleDialog, setEditRoleDialog] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<SystemRoleItem | null>(null)
+  const [roleForm, setRoleForm] = useState({ name: '', label: '', description: '' })
+  const [roleFormPermissions, setRoleFormPermissions] = useState<string[]>([])
+  const [editRoleForm, setEditRoleForm] = useState({ label: '', description: '', color: '' })
+  const [editRolePermissions, setEditRolePermissions] = useState<string[]>([])
+
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
@@ -191,6 +280,102 @@ export function UsersView() {
   }, [addToast])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
+
+  // ── Roles CRUD ──
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/roles', { headers: { 'x-user-role': 'SUPER_ADMIN' } })
+      if (res.ok) {
+        const data = await res.json()
+        setRoles(data)
+        // Update DEFAULT_ROLE_PERMISSIONS from DB roles
+        data.forEach((r: SystemRoleItem) => {
+          try {
+            const perms = JSON.parse(r.permissions)
+            if (Array.isArray(perms)) DEFAULT_ROLE_PERMISSIONS[r.name] = perms
+          } catch { /* skip */ }
+        })
+      }
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { fetchRoles() }, [fetchRoles])
+
+  const handleCreateRole = async () => {
+    if (!roleForm.name || !roleForm.label) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+        body: JSON.stringify({ ...roleForm, permissions: roleFormPermissions }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create role')
+      }
+      addToast({ title: 'Role Created', description: `"${roleForm.label}" role created successfully`, variant: 'success' })
+      setCreateRoleDialog(false)
+      setRoleForm({ name: '', label: '', description: '' })
+      setRoleFormPermissions([])
+      fetchRoles()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to create role', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openEditRoleDialog = (role: SystemRoleItem) => {
+    setSelectedRole(role)
+    setEditRoleForm({ label: role.label, description: role.description || '', color: role.color })
+    try { setEditRolePermissions(JSON.parse(role.permissions)) } catch { setEditRolePermissions([]) }
+    setEditRoleDialog(true)
+  }
+
+  const handleUpdateRole = async () => {
+    if (!selectedRole) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/roles?id=${selectedRole.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+        body: JSON.stringify({ ...editRoleForm, permissions: editRolePermissions }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update role')
+      }
+      addToast({ title: 'Role Updated', description: `"${editRoleForm.label}" updated successfully`, variant: 'success' })
+      setEditRoleDialog(false)
+      setSelectedRole(null)
+      fetchRoles()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to update role', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteRole = async (role: SystemRoleItem) => {
+    if (role.isSystem || role._count.users > 0) {
+      addToast({ title: 'Cannot Delete', description: role.isSystem ? 'System roles cannot be deleted' : `Reassign ${role._count.users} user(s) first`, variant: 'destructive' })
+      return
+    }
+    if (!confirm(`Delete the "${role.label}" role? This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/roles?id=${role.id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-role': 'SUPER_ADMIN' },
+      })
+      if (res.ok) {
+        addToast({ title: 'Deleted', description: `"${role.label}" role deleted`, variant: 'success' })
+        fetchRoles()
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete role', variant: 'destructive' })
+    }
+  }
 
   // When role changes in create dialog, auto-fill default permissions
   const handleCreateRoleChange = (newRole: string) => {
@@ -331,6 +516,27 @@ export function UsersView() {
         </Card>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <span className="flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5" /> Users ({users.length})</span>
+        </button>
+        {(currentUser?.role === 'SUPER_ADMIN') && (
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'roles' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Roles ({roles.length})</span>
+          </button>
+        )}
+      </div>
+
+      {/* Users Tab */}
+      {activeTab === 'users' && (
+      <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -375,7 +581,9 @@ export function UsersView() {
                 ))
               ) : (
                 users.map((userItem) => {
-                  const roleCfg = ROLE_CONFIG[userItem.role] || ROLE_CONFIG.CLERK
+                  const roleData = roles.find(r => r.name === userItem.role)
+                  const roleColor = roleData?.color || 'bg-gray-100 text-gray-700 border-gray-200'
+                  const roleLabel = roleData?.label || userItem.role
                   const perms = getUserPermissions(userItem)
                   const isCustomPerms = parsePermissions(userItem.permissions).length > 0
                   return (
@@ -390,7 +598,7 @@ export function UsersView() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{userItem.email}</TableCell>
                       <TableCell>
-                        <Badge className={`text-xs ${roleCfg.color}`}>{roleCfg.label}</Badge>
+                        <Badge className={`text-xs ${roleColor}`}>{roleLabel}</Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1 flex-wrap max-w-[200px]">
@@ -461,21 +669,19 @@ export function UsersView() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Permission</TableHead>
-                  <TableHead className="text-center">Super Admin</TableHead>
-                  <TableHead className="text-center">Pharmacist</TableHead>
-                  <TableHead className="text-center">Technician</TableHead>
-                  <TableHead className="text-center">Cashier</TableHead>
-                  <TableHead className="text-center">Clerk</TableHead>
+                  {roles.map((role) => (
+                    <TableHead key={role.id} className="text-center">{role.label}</TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {PERMISSIONS.map((perm) => (
+                {ALL_PERMISSIONS.map((perm) => (
                   <TableRow key={perm.key}>
                     <TableCell className="font-medium text-sm">{perm.label}</TableCell>
-                    {Object.keys(ROLE_CONFIG).map((role) => {
-                      const hasPerm = DEFAULT_ROLE_PERMISSIONS[role]?.includes(perm.key)
+                    {roles.map((role) => {
+                      const hasPerm = DEFAULT_ROLE_PERMISSIONS[role.name]?.includes(perm.key)
                       return (
-                        <TableCell key={role} className="text-center">
+                        <TableCell key={role.id} className="text-center">
                           {hasPerm ? <CheckCircle className="h-4 w-4 text-emerald-600 mx-auto" /> : <XCircle className="h-4 w-4 text-gray-300 mx-auto" />}
                         </TableCell>
                       )
@@ -533,12 +739,12 @@ export function UsersView() {
                       <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
-                        <SelectItem key={key} value={key}>
+                      {roles.filter(r => r.isActive).map((r) => (
+                        <SelectItem key={r.id} value={r.name}>
                           <div className="flex items-center gap-2">
-                            <span>{cfg.label}</span>
+                            <span>{r.label}</span>
                             <Badge variant="outline" className="text-[10px]">
-                              {DEFAULT_ROLE_PERMISSIONS[key]?.length || 0} perms
+                              {DEFAULT_ROLE_PERMISSIONS[r.name]?.length || 0} perms
                             </Badge>
                           </div>
                         </SelectItem>
@@ -614,12 +820,12 @@ export function UsersView() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
-                          <SelectItem key={key} value={key}>
+                        {roles.filter(r => r.isActive).map((r) => (
+                          <SelectItem key={r.id} value={r.name}>
                             <div className="flex items-center gap-2">
-                              <span>{cfg.label}</span>
+                              <span>{r.label}</span>
                               <Badge variant="outline" className="text-[10px]">
-                                {DEFAULT_ROLE_PERMISSIONS[key]?.length || 0} perms
+                                {DEFAULT_ROLE_PERMISSIONS[r.name]?.length || 0} perms
                               </Badge>
                             </div>
                           </SelectItem>
@@ -661,7 +867,9 @@ export function UsersView() {
           {selectedUser && (() => {
             const perms = getUserPermissions(selectedUser)
             const isCustomPerms = parsePermissions(selectedUser.permissions).length > 0
-            const roleCfg = ROLE_CONFIG[selectedUser.role] || ROLE_CONFIG.CLERK
+            const detailRoleData = roles.find(r => r.name === selectedUser.role)
+            const detailRoleLabel = detailRoleData?.label || selectedUser.role
+            const detailRoleColor = detailRoleData?.color || 'bg-gray-100 text-gray-700 border-gray-200'
             return (
               <div className="space-y-4">
                 <div className="bg-muted rounded-lg p-4">
@@ -677,7 +885,7 @@ export function UsersView() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">Role:</span>
-                      <Badge className={`ml-2 text-xs ${roleCfg.color}`}>{roleCfg.label}</Badge>
+                      <Badge className={`ml-2 text-xs ${detailRoleColor}`}>{detailRoleLabel}</Badge>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Status:</span>
@@ -704,19 +912,24 @@ export function UsersView() {
                     )}
                   </div>
                   <div className="border rounded-lg divide-y">
-                    {PERMISSIONS.map((perm) => {
-                      const has = perms.includes(perm.key)
-                      const Icon = perm.icon
-                      return (
-                        <div key={perm.key} className={`flex items-center gap-3 px-3 py-2 ${has ? '' : 'opacity-40'}`}>
-                          {has ? <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" /> : <XCircle className="h-4 w-4 text-gray-300 shrink-0" />}
-                          <Icon className={`h-4 w-4 shrink-0 ${has ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                          <span className={`text-sm ${has ? 'font-medium' : ''}`}>{perm.label}</span>
-                        </div>
-                      )
-                    })}
+                    {PERMISSION_CATEGORIES.map((cat) => (
+                      <div key={cat.category}>
+                        <div className="px-3 py-1.5 bg-gray-50 border-b text-[10px] font-semibold text-gray-500 uppercase">{cat.category}</div>
+                        {cat.permissions.map((perm) => {
+                          const has = perms.includes(perm.key)
+                          const Icon = perm.icon
+                          return (
+                            <div key={perm.key} className={`flex items-center gap-3 px-3 py-2 ${has ? '' : 'opacity-40'}`}>
+                              {has ? <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" /> : <XCircle className="h-4 w-4 text-gray-300 shrink-0" />}
+                              <Icon className={`h-4 w-4 shrink-0 ${has ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                              <span className={`text-sm ${has ? 'font-medium' : ''}`}>{perm.label}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{perms.length} of {PERMISSIONS.length} permissions granted</p>
+                  <p className="text-xs text-muted-foreground mt-2">{perms.length} of {ALL_PERMISSIONS.length} permissions granted</p>
                 </div>
               </div>
             )
@@ -732,6 +945,138 @@ export function UsersView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </>
+      )}
+
+      {/* Roles Tab */}
+      {activeTab === 'roles' && currentUser?.role === 'SUPER_ADMIN' && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Roles & Privileges</h2>
+              <p className="text-sm text-muted-foreground">Create and manage custom roles with granular permissions</p>
+            </div>
+            <Button onClick={() => {
+              setRoleForm({ name: '', label: '', description: '' })
+              setRoleFormPermissions([])
+              setCreateRoleDialog(true)
+            }} className="bg-emerald-600 hover:bg-emerald-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Role
+            </Button>
+          </div>
+
+          {/* Roles Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {roles.map((role) => {
+              const permCount = (() => { try { return JSON.parse(role.permissions).length } catch { return 0 } })()
+              return (
+                <Card key={role.id} className={`relative overflow-hidden ${!role.isActive ? 'opacity-60' : ''}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-xs px-2 py-0.5 border ${role.color}`}>{role.label}</Badge>
+                          {role.isSystem && <Badge variant="outline" className="text-[10px] h-5">System</Badge>}
+                          {!role.isActive && <Badge variant="secondary" className="text-[10px] h-5">Inactive</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1.5">{role.description || 'No description'}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRoleDialog(role)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        {!role.isSystem && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => handleDeleteRole(role)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{permCount} permissions</span>
+                      <span className="text-muted-foreground">{role._count.users} user{role._count.users !== 1 ? 's' : ''}</span>
+                    </div>
+                    {/* Mini permission preview */}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(() => {
+                        try { return JSON.parse(role.permissions).slice(0, 5).map((p: string) => (
+                          <Badge key={p} variant="secondary" className="text-[9px] h-4 px-1">{p}</Badge>
+                        )) } catch { return [] }
+                      })()}
+                      {permCount > 5 && <Badge variant="secondary" className="text-[9px] h-4 px-1">+{permCount - 5}</Badge>}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+
+          {/* Create Role Dialog */}
+          <Dialog open={createRoleDialog} onOpenChange={setCreateRoleDialog}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Role</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Role Name (Code) <span className="text-red-500">*</span></Label>
+                    <Input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') })} placeholder="SHIFT_LEAD" className="mt-1" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Uppercase letters, numbers, underscores</p>
+                  </div>
+                  <div>
+                    <Label>Display Label <span className="text-red-500">*</span></Label>
+                    <Input value={roleForm.label} onChange={(e) => setRoleForm({ ...roleForm, label: e.target.value })} placeholder="Shift Lead" className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Input value={roleForm.description} onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })} placeholder="Brief role description" className="mt-1" />
+                </div>
+                <PermissionGrid permissions={roleFormPermissions} onChange={setRoleFormPermissions} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateRoleDialog(false)}>Cancel</Button>
+                <Button onClick={handleCreateRole} className="bg-emerald-600 hover:bg-emerald-700" disabled={!roleForm.name || !roleForm.label || saving}>
+                  {saving ? 'Creating...' : 'Create Role'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Role Dialog */}
+          <Dialog open={editRoleDialog} onOpenChange={setEditRoleDialog}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Role: {selectedRole?.label}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Role Name</Label>
+                  <Input value={selectedRole?.name || ''} disabled className="mt-1 bg-gray-50" />
+                  <p className="text-[10px] text-muted-foreground mt-1">Role name cannot be changed after creation</p>
+                </div>
+                <div>
+                  <Label>Display Label</Label>
+                  <Input value={editRoleForm.label} onChange={(e) => setEditRoleForm({ ...editRoleForm, label: e.target.value })} className="mt-1" />
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Input value={editRoleForm.description} onChange={(e) => setEditRoleForm({ ...editRoleForm, description: e.target.value })} className="mt-1" />
+                </div>
+                <PermissionGrid permissions={editRolePermissions} onChange={setEditRolePermissions} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditRoleDialog(false)}>Cancel</Button>
+                <Button onClick={handleUpdateRole} className="bg-emerald-600 hover:bg-emerald-700" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   )
 }

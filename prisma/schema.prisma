@@ -9,12 +9,19 @@ datasource db {
 
 // ============ ROLES & PERMISSIONS ============
 
-enum Role {
-  SUPER_ADMIN
-  PHARMACIST
-  TECHNICIAN
-  CASHIER
-  CLERK
+model SystemRole {
+  id          String   @id @default(cuid())
+  name        String   @unique  // e.g. SUPER_ADMIN, PHARMACIST, CASHIER, custom roles
+  label       String              // Display name: "Super Admin", "Pharmacist"
+  description String?
+  permissions String              // JSON-encoded array of granular permission keys
+  color       String   @default("bg-gray-100 text-gray-700 border-gray-200")  // Tailwind badge classes
+  isSystem    Boolean  @default(false)  // System roles cannot be deleted
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
 }
 
 model User {
@@ -22,10 +29,10 @@ model User {
   email         String   @unique
   password      String
   name          String
-  role          Role     @default(CLERK)
+  role          String   @default("CLERK")
   phone         String?
   licenseNumber String?  // For pharmacists
-  permissions   String?  // JSON-encoded array of permission keys
+  permissions   String?  // JSON-encoded array of permission keys (overrides role defaults)
   active        Boolean  @default(true)
   lastLogin     DateTime?
   createdAt     DateTime @default(now())
@@ -39,6 +46,7 @@ model User {
   logs               AuditLog[]
   ownedCompany      Company?  @relation("CompanyOwner")
   stockTakes        StockTake[]  @relation("StockTakeCounter")
+  systemRole        SystemRole? @relation(fields: [role], references: [name])
 }
 
 // ============ CUSTOMERS / PATIENTS ============
