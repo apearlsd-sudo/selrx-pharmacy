@@ -70,6 +70,7 @@ function formatDate(dateStr: string): string {
 export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   const addToast = useAppStore((s) => s.addToast)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const company = useAppStore((s) => s.company)
 
   const handlePrintReceipt = async () => {
     try {
@@ -128,11 +129,15 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
             <div className="text-center space-y-1">
               <div className="flex items-center justify-center gap-1.5">
                 <Store className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-bold tracking-wide text-gray-800">SelRx</span>
+                <span className="text-sm font-bold tracking-wide text-gray-800">{company?.name || 'SelRx'}</span>
               </div>
-              <p className="text-gray-500">123 Medical Center Blvd</p>
-              <p className="text-gray-500">Healthcare City, HC 12345</p>
-              <p className="text-gray-500">Tel: (555) 123-4567</p>
+              {company?.tagline && <p className="text-gray-500 text-[10px] italic">{company.tagline}</p>}
+              {company?.address && <p className="text-gray-500">{company.address}</p>}
+              {(company?.city || company?.country) && (
+                <p className="text-gray-500">{[company?.city, company?.country].filter(Boolean).join(', ')}</p>
+              )}
+              {company?.phone && <p className="text-gray-500">Tel: {company.phone}</p>}
+              {company?.email && <p className="text-gray-500">{company.email}</p>}
             </div>
 
             <Separator className="border-dashed border-gray-300" />
@@ -226,7 +231,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
 
             {/* Footer */}
             <div className="text-center space-y-1 pt-1">
-              <p className="text-gray-500">Thank you for choosing SelRx!</p>
+              <p className="text-gray-500">Thank you for choosing {company?.name || 'SelRx'}!</p>
               <p className="text-gray-400 text-[10px]">
                 Your health, our priority. Rx questions? Ask our pharmacist.
               </p>

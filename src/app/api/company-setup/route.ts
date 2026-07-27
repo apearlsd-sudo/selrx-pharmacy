@@ -16,8 +16,10 @@ export async function GET() {
         currency: true,
         phone: true,
         email: true,
+        address: true,
         city: true,
         country: true,
+        postalCode: true,
       },
     })
 

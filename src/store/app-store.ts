@@ -134,8 +134,10 @@ export interface CompanyState {
     currency: string
     phone: string | null
     email: string | null
+    address: string | null
     city: string | null
     country: string | null
+    postalCode: string | null
   } | null
   setCompany: (company: CompanyState['company']) => void
   isCompanySetup: boolean
