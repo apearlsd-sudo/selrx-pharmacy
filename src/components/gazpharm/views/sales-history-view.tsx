@@ -17,6 +17,7 @@ import {
   UserCircle,
   Eye,
   ArrowUpDown,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -105,6 +106,7 @@ export function SalesHistoryView() {
   const [activeTab, setActiveTab] = useState('overview')
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string>('all')
@@ -224,6 +226,79 @@ export function SalesHistoryView() {
     }
   }
 
+  // CSV Export handler
+  const handleExportCSV = useCallback(async () => {
+    setExporting(true)
+    try {
+      // Fetch ALL transactions for current filters (no pagination)
+      const params = new URLSearchParams()
+      if (dateFrom) params.set('from', dateFrom)
+      if (dateTo) params.set('to', dateTo)
+      if (selectedUserId && selectedUserId !== 'all') params.set('userId', selectedUserId)
+      params.set('limit', '9999')
+
+      const res = await fetch(`/api/sales-history?${params.toString()}`)
+      if (!res.ok) throw new Error('Export failed')
+      const json = await res.json()
+      const txns = json.transactions || []
+
+      // Build CSV content
+      const headers = [
+        'Transaction #', 'Date', 'Time', 'Cashier', 'Cashier Role',
+        'Customer', 'Payment Method', 'Items Count',
+        'Subtotal', 'Tax', 'Discount', 'Total', 'Status'
+      ]
+      const rows = txns.map((txn: any) => [
+        txn.transactionNo || '',
+        txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '',
+        txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+        txn.user?.name || 'Unknown',
+        txn.user?.role || '',
+        txn.customer ? `${txn.customer.firstName} ${txn.customer.lastName}` : 'Walk-in',
+        (txn.paymentMethod || '').replace(/_/g, ' '),
+        txn.items?.length || 0,
+        txn.subtotal ?? 0,
+        txn.tax ?? 0,
+        txn.discount ?? 0,
+        txn.total ?? 0,
+        txn.status || '',
+      ])
+
+      const escapeCSV = (val: string | number) => {
+        const str = String(val)
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`
+        }
+        return str
+      }
+
+      const csvContent = [
+        headers.map(escapeCSV).join(','),
+        ...rows.map((row: (string | number)[]) => row.map(escapeCSV).join(',')),
+      ].join('\n')
+
+      // Trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const dateRange = dateFrom || dateTo
+        ? `_${dateFrom || 'start'}_to_${dateTo || 'end'}`
+        : '_all_time'
+      link.download = `sales_history${dateRange}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      addToast({ title: 'Export Complete', description: `${txns.length} transactions exported as CSV`, variant: 'success' })
+    } catch {
+      addToast({ title: 'Export Failed', description: 'Could not export sales data', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }, [dateFrom, dateTo, selectedUserId, addToast])
+
   const summary = data?.summary || {}
   const transactions = data?.transactions || []
   const pagination = data?.pagination || { page: 1, pages: 1 }
@@ -239,9 +314,15 @@ export function SalesHistoryView() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => addToast({ title: 'Export', description: 'Sales history exported as CSV', variant: 'success' })}
+          onClick={handleExportCSV}
+          disabled={exporting || loading}
         >
-          <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
+          {exporting ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          {exporting ? 'Exporting...' : 'Export CSV'}
         </Button>
       </div>
 

@@ -10,40 +10,11 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
 import { useAppStore } from '@/store/app-store'
 import type { UserState } from '@/store/app-store'
-
-interface DemoAccount {
-  label: string
-  email: string
-  password: string
-  description: string
-}
-
-const DEMO_ACCOUNTS: DemoAccount[] = [
-  {
-    label: 'Admin',
-    email: 'admin@selrx.com',
-    password: 'admin123',
-    description: 'Super Admin',
-  },
-  {
-    label: 'Pharmacist',
-    email: 'pharmacist@selrx.com',
-    password: 'pharm123',
-    description: 'Pharmacist',
-  },
-  {
-    label: 'Cashier',
-    email: 'cashier@selrx.com',
-    password: 'cash123',
-    description: 'Cashier',
-  },
-]
 
 export function LoginScreen() {
   const [username, setUsername] = useState('')
@@ -92,12 +63,6 @@ export function LoginScreen() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     handleLogin(username, password)
-  }
-
-  const handleDemoLogin = (account: DemoAccount) => {
-    setUsername(account.email)
-    setPassword(account.password)
-    handleLogin(account.email, account.password)
   }
 
   return (
@@ -217,39 +182,6 @@ export function LoginScreen() {
               </Button>
             </CardContent>
           </form>
-
-          <CardFooter className="flex-col gap-4 pt-2">
-            <div className="w-full">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">
-                    Demo Accounts
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid w-full grid-cols-3 gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <Button
-                  key={account.label}
-                  type="button"
-                  variant="outline"
-                  className="h-auto flex-col gap-0.5 py-2.5 px-2 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
-                  onClick={() => handleDemoLogin(account)}
-                  disabled={isLoading}
-                >
-                  <span className="text-xs font-semibold">{account.label}</span>
-                  <span className="text-[10px] text-gray-400 leading-none">
-                    {account.description}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          </CardFooter>
         </Card>
 
         {/* Footer */}

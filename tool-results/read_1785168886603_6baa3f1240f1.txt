@@ -1,0 +1,756 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react'
+     4→     4→import {
+     5→     5→  Package, Search, Plus, AlertTriangle, Edit, ArrowUpDown,
+     6→     6→  Download, Filter, TrendingUp, X, PackagePlus, Tags, Trash2
+     7→     7→} from 'lucide-react'
+     8→     8→import { Button } from '@/components/ui/button'
+     9→     9→import { Input } from '@/components/ui/input'
+    10→    10→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    11→    11→import { Badge } from '@/components/ui/badge'
+    12→    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→    13→import {
+    14→    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→    15→} from '@/components/ui/table'
+    16→    16→import {
+    17→    17→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+    18→    18→} from '@/components/ui/dialog'
+    19→    19→import { Label } from '@/components/ui/label'
+    20→    20→import { Textarea } from '@/components/ui/textarea'
+    21→    21→import {
+    22→    22→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    23→    23→} from '@/components/ui/select'
+    24→    24→import { useAppStore } from '@/store/app-store'
+    25→    25→
+    26→    26→interface InventoryItem {
+    27→    27→  id: string
+    28→    28→  productId: string
+    29→    29→  quantity: number
+    30→    30→  lastCounted: string | null
+    31→    31→  product: {
+    32→    32→    id: string
+    33→    33→    name: string
+    34→    34→    ndc: string | null
+    35→    35→    category: string
+    36→    36→    sellingPrice: number
+    37→    37→    costPrice: number | null
+    38→    38→    status: string
+    39→    39→    reorderPoint: number
+    40→    40→    maxStock: number | null
+    41→    41→    dosageForm: string | null
+    42→    42→    strength: string | null
+    43→    43→    unitOfMeasure: string
+    44→    44→    expiryDate: string | null
+    45→    45→    batchNumber: string | null
+    46→    46→  }
+    47→    47→}
+    48→    48→
+    49→    49→export function InventoryView() {
+    50→    50→  const [items, setItems] = useState<InventoryItem[]>([])
+    51→    51→  const [loading, setLoading] = useState(true)
+    52→    52→  const [searchQuery, setSearchQuery] = useState('')
+    53→    53→  const [categoryFilter, setCategoryFilter] = useState('ALL')
+    54→    54→  const [stockFilter, setStockFilter] = useState('ALL')
+    55→    55→  const [adjustDialog, setAdjustDialog] = useState(false)
+    56→    56→  const [receiveDialog, setReceiveDialog] = useState(false)
+    57→    57→  const [addProductDialog, setAddProductDialog] = useState(false)
+    58→    58→  const [categoryDialog, setCategoryDialog] = useState(false)
+    59→    59→  const [categories, setCategories] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
+    60→    60→  const [newCategoryName, setNewCategoryName] = useState('')
+    61→    61→  const [newCategoryDesc, setNewCategoryDesc] = useState('')
+    62→    62→  const [savingCategory, setSavingCategory] = useState(false)
+    63→    63→  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+    64→    64→  const [adjustType, setAdjustType] = useState('ADD')
+    65→    65→  const [adjustAmount, setAdjustAmount] = useState('')
+    66→    66→  const [adjustReason, setAdjustReason] = useState('')
+    67→    67→  const [shipmentItems, setShipmentItems] = useState([{ productId: '', quantity: '', costPrice: '' }])
+    68→    68→  const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
+    69→    69→  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+    70→    70→  const [productForm, setProductForm] = useState({
+    71→    71→    name: '', sku: '', category: 'OTC', price: '', stockQuantity: '',
+    72→    72→    minStockLevel: '10', expiryDate: '', barcode: '',
+    73→    73→  })
+    74→    74→  const [savingProduct, setSavingProduct] = useState(false)
+    75→    75→  const addToast = useAppStore((s) => s.addToast)
+    76→    76→  const currentUser = useAppStore((s) => s.user)
+    77→    77→
+    78→    78→  const fetchInventory = useCallback(async () => {
+    79→    79→    setLoading(true)
+    80→    80→    try {
+    81→    81→      const params = new URLSearchParams()
+    82→    82→      if (searchQuery) params.set('search', searchQuery)
+    83→    83→      if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+    84→    84→      const res = await fetch(`/api/inventory?${params}`)
+    85→    85→      if (res.ok) {
+    86→    86→        const data = await res.json()
+    87→    87→        setItems(data)
+    88→    88→      }
+    89→    89→    } catch {
+    90→    90→      addToast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
+    91→    91→    } finally {
+    92→    92→      setLoading(false)
+    93→    93→    }
+    94→    94→  }, [searchQuery, categoryFilter, addToast])
+    95→    95→
+    96→    96→  const fetchCategories = useCallback(async () => {
+    97→    97→    try {
+    98→    98→      const res = await fetch('/api/categories')
+    99→    99→      if (res.ok) setCategories(await res.json())
+   100→   100→    } catch {
+   101→   101→      // silent — categories are optional enhancement
+   102→   102→    }
+   103→   103→  }, [])
+   104→   104→
+   105→   105→  useEffect(() => { fetchInventory(); fetchCategories() }, [fetchInventory, fetchCategories])
+   106→   106→
+   107→   107→  const filteredItems = items.filter((item) => {
+   108→   108→    if (stockFilter === 'LOW') return item.quantity <= item.product.reorderPoint
+   109→   109→    if (stockFilter === 'OUT') return item.quantity === 0
+   110→   110→    if (stockFilter === 'OK') return item.quantity > item.product.reorderPoint
+   111→   111→    return true
+   112→   112→  }).sort((a, b) => {
+   113→   113→    if (sortBy === 'name') return sortDir === 'asc' ? a.product.name.localeCompare(b.product.name) : b.product.name.localeCompare(a.product.name)
+   114→   114→    if (sortBy === 'stock') return sortDir === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity
+   115→   115→    return sortDir === 'asc' ? a.product.category.localeCompare(b.product.category) : b.product.category.localeCompare(a.product.category)
+   116→   116→  })
+   117→   117→
+   118→   118→  const lowStockCount = items.filter((i) => i.quantity <= i.product.reorderPoint).length
+   119→   119→  const outOfStockCount = items.filter((i) => i.quantity === 0).length
+   120→   120→  const totalValue = items.reduce((sum, i) => sum + i.quantity * (i.product.costPrice || i.product.sellingPrice), 0)
+   121→   121→
+   122→   122→  const handleAdjust = async () => {
+   123→   123→    if (!selectedItem || !adjustAmount || !adjustReason) return
+   124→   124→    try {
+   125→   125→      const adj = adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)
+   126→   126→      await fetch('/api/inventory', {
+   127→   127→        method: 'PUT',
+   128→   128→        headers: { 'Content-Type': 'application/json' },
+   129→   129→        body: JSON.stringify({ productId: selectedItem.productId, adjustment: adj, reason: adjustReason }),
+   130→   130→      })
+   131→   131→      addToast({ title: 'Stock Updated', description: `${selectedItem.product.name} adjusted`, variant: 'success' })
+   132→   132→      setAdjustDialog(false)
+   133→   133→      setAdjustAmount('')
+   134→   134→      setAdjustReason('')
+   135→   135→      fetchInventory()
+   136→   136→    } catch {
+   137→   137→      addToast({ title: 'Error', description: 'Failed to adjust stock', variant: 'destructive' })
+   138→   138→    }
+   139→   139→  }
+   140→   140→
+   141→   141→  const handleDeleteCategory = async (catId: string, catName: string) => {
+   142→   142→    try {
+   143→   143→      const res = await fetch(`/api/categories/${catId}`, { method: 'DELETE' })
+   144→   144→      if (!res.ok) {
+   145→   145→        const err = await res.json()
+   146→   146→        throw new Error(err.error || 'Failed to delete category')
+   147→   147→      }
+   148→   148→      addToast({ title: 'Deleted', description: `Category "${catName}" removed`, variant: 'success' })
+   149→   149→      fetchCategories()
+   150→   150→    } catch (err: any) {
+   151→   151→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   152→   152→    }
+   153→   153→  }
+   154→   154→
+   155→   155→  const handleAddProduct = async () => {
+   156→   156→    if (!productForm.name || !productForm.price) return
+   157→   157→    setSavingProduct(true)
+   158→   158→    try {
+   159→   159→      const res = await fetch('/api/products', {
+   160→   160→        method: 'POST',
+   161→   161→        headers: {
+   162→   162→          'Content-Type': 'application/json',
+   163→   163→          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+   164→   164→        },
+   165→   165→        body: JSON.stringify({
+   166→   166→          name: productForm.name,
+   167→   167→          ndc: productForm.sku || null,
+   168→   168→          category: productForm.category,
+   169→   169→          sellingPrice: parseFloat(productForm.price),
+   170→   170→          costPrice: parseFloat(productForm.price) * 0.7,
+   171→   171→          reorderPoint: parseInt(productForm.minStockLevel) || 10,
+   172→   172→          expiryDate: productForm.expiryDate || null,
+   173→   173→          batchNumber: productForm.barcode || null,
+   174→   174→        }),
+   175→   175→      })
+   176→   176→      if (!res.ok) {
+   177→   177→        const err = await res.json()
+   178→   178→        throw new Error(err.error || 'Failed to create product')
+   179→   179→      }
+   180→   180→      const newProduct = await res.json()
+   181→   181→
+   182→   182→      // Set initial stock quantity if specified
+   183→   183→      const qty = parseInt(productForm.stockQuantity)
+   184→   184→      if (qty > 0) {
+   185→   185→        await fetch('/api/inventory', {
+   186→   186→          method: 'PUT',
+   187→   187→          headers: { 'Content-Type': 'application/json' },
+   188→   188→          body: JSON.stringify({
+   189→   189→            productId: newProduct.id,
+   190→   190→            adjustment: qty,
+   191→   191→            reason: 'Initial stock on product creation',
+   192→   192→          }),
+   193→   193→        })
+   194→   194→      }
+   195→   195→
+   196→   196→      addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
+   197→   197→      setAddProductDialog(false)
+   198→   198→      setProductForm({ name: '', sku: '', category: 'OTC', price: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '' })
+   199→   199→      fetchInventory()
+   200→   200→    } catch (err: any) {
+   201→   201→      addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
+   202→   202→    } finally {
+   203→   203→      setSavingProduct(false)
+   204→   204→    }
+   205→   205→  }
+   206→   206→
+   207→   207→  const handleReceiveShipment = async () => {
+   208→   208→    const validItems = shipmentItems.filter((i) => i.productId && i.quantity)
+   209→   209→    if (validItems.length === 0) return
+   210→   210→    try {
+   211→   211→      await fetch('/api/inventory', {
+   212→   212→        method: 'POST',
+   213→   213→        headers: { 'Content-Type': 'application/json' },
+   214→   214→        body: JSON.stringify({
+   215→   215→          items: validItems.map((i) => ({
+   216→   216→            productId: i.productId,
+   217→   217→            quantity: parseInt(i.quantity),
+   218→   218→            costPrice: parseFloat(i.costPrice) || 0,
+   219→   219→          })),
+   220→   220→        }),
+   221→   221→      })
+   222→   222→      addToast({ title: 'Shipment Received', description: `${validItems.length} items received`, variant: 'success' })
+   223→   223→      setReceiveDialog(false)
+   224→   224→      setShipmentItems([{ productId: '', quantity: '', costPrice: '' }])
+   225→   225→      fetchInventory()
+   226→   226→    } catch {
+   227→   227→      addToast({ title: 'Error', description: 'Failed to receive shipment', variant: 'destructive' })
+   228→   228→    }
+   229→   229→  }
+   230→   230→
+   231→   231→  return (
+   232→   232→    <div className="space-y-4">
+   233→   233→      {/* Stats Cards */}
+   234→   234→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   235→   235→        <Card>
+   236→   236→          <CardContent className="p-4 flex items-center gap-3">
+   237→   237→            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   238→   238→              <Package className="h-5 w-5 text-emerald-600" />
+   239→   239→            </div>
+   240→   240→            <div>
+   241→   241→              <p className="text-2xl font-bold">{items.length}</p>
+   242→   242→              <p className="text-xs text-muted-foreground">Total Products</p>
+   243→   243→            </div>
+   244→   244→          </CardContent>
+   245→   245→        </Card>
+   246→   246→        <Card>
+   247→   247→          <CardContent className="p-4 flex items-center gap-3">
+   248→   248→            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+   249→   249→              <AlertTriangle className="h-5 w-5 text-red-600" />
+   250→   250→            </div>
+   251→   251→            <div>
+   252→   252→              <p className="text-2xl font-bold text-red-600">{lowStockCount}</p>
+   253→   253→              <p className="text-xs text-muted-foreground">Low Stock Alerts</p>
+   254→   254→            </div>
+   255→   255→          </CardContent>
+   256→   256→        </Card>
+   257→   257→        <Card>
+   258→   258→          <CardContent className="p-4 flex items-center gap-3">
+   259→   259→            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+   260→   260→              <AlertTriangle className="h-5 w-5 text-amber-600" />
+   261→   261→            </div>
+   262→   262→            <div>
+   263→   263→              <p className="text-2xl font-bold text-amber-600">{outOfStockCount}</p>
+   264→   264→              <p className="text-xs text-muted-foreground">Out of Stock</p>
+   265→   265→            </div>
+   266→   266→          </CardContent>
+   267→   267→        </Card>
+   268→   268→        <Card>
+   269→   269→          <CardContent className="p-4 flex items-center gap-3">
+   270→   270→            <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
+   271→   271→              <TrendingUp className="h-5 w-5 text-teal-600" />
+   272→   272→            </div>
+   273→   273→            <div>
+   274→   274→              <p className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+   275→   275→              <p className="text-xs text-muted-foreground">Inventory Value</p>
+   276→   276→            </div>
+   277→   277→          </CardContent>
+   278→   278→        </Card>
+   279→   279→      </div>
+   280→   280→
+   281→   281→      {/* Filters & Actions */}
+   282→   282→      <Card>
+   283→   283→        <CardContent className="p-4">
+   284→   284→          <div className="flex flex-col sm:flex-row gap-3">
+   285→   285→            <div className="relative flex-1">
+   286→   286→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   287→   287→              <Input
+   288→   288→                placeholder="Search by product name or NDC..."
+   289→   289→                value={searchQuery}
+   290→   290→                onChange={(e) => setSearchQuery(e.target.value)}
+   291→   291→                className="pl-9"
+   292→   292→              />
+   293→   293→            </div>
+   294→   294→            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+   295→   295→              <SelectTrigger className="w-full sm:w-40">
+   296→   296→                <Filter className="h-4 w-4 mr-2" />
+   297→   297→                <SelectValue />
+   298→   298→              </SelectTrigger>
+   299→   299→              <SelectContent>
+   300→   300→                <SelectItem value="ALL">All Categories</SelectItem>
+   301→   301→                <SelectItem value="OTC">OTC</SelectItem>
+   302→   302→                <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+   303→   303→                <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+   304→   304→                <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+   305→   305→                <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+   306→   306→                <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+   307→   307→              </SelectContent>
+   308→   308→            </Select>
+   309→   309→            <Select value={stockFilter} onValueChange={setStockFilter}>
+   310→   310→              <SelectTrigger className="w-full sm:w-36">
+   311→   311→                <SelectValue />
+   312→   312→              </SelectTrigger>
+   313→   313→              <SelectContent>
+   314→   314→                <SelectItem value="ALL">All Stock</SelectItem>
+   315→   315→                <SelectItem value="LOW">Low Stock</SelectItem>
+   316→   316→                <SelectItem value="OUT">Out of Stock</SelectItem>
+   317→   317→                <SelectItem value="OK">In Stock OK</SelectItem>
+   318→   318→              </SelectContent>
+   319→   319→            </Select>
+   320→   320→            <Button onClick={() => setReceiveDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+   321→   321→              <Plus className="h-4 w-4 mr-2" />
+   322→   322→              Receive Shipment
+   323→   323→            </Button>
+   324→   324→            <Button onClick={() => setAddProductDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+   325→   325→              <PackagePlus className="h-4 w-4 mr-2" />
+   326→   326→              Add Product
+   327→   327→            </Button>
+   328→   328→            <Button onClick={() => setCategoryDialog(true)} variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+   329→   329→              <Tags className="h-4 w-4 mr-2" />
+   330→   330→              Category
+   331→   331→            </Button>
+   332→   332→          </div>
+   333→   333→        </CardContent>
+   334→   334→      </Card>
+   335→   335→
+   336→   336→      {/* Inventory Table */}
+   337→   337→      <Card>
+   338→   338→        <CardContent className="p-0">
+   339→   339→          <Table>
+   340→   340→            <TableHeader>
+   341→   341→              <TableRow>
+   342→   342→                <TableHead className="cursor-pointer" onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   343→   343→                  <span className="flex items-center gap-1">Product <ArrowUpDown className="h-3 w-3" /></span>
+   344→   344→                </TableHead>
+   345→   345→                <TableHead className="hidden md:table-cell">NDC</TableHead>
+   346→   346→                <TableHead className="cursor-pointer hidden sm:table-cell" onClick={() => { setSortBy('category'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   347→   347→                  <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
+   348→   348→                </TableHead>
+   349→   349→                <TableHead className="cursor-pointer text-right" onClick={() => { setSortBy('stock'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   350→   350→                  <span className="flex items-center justify-end gap-1">In Stock <ArrowUpDown className="h-3 w-3" /></span>
+   351→   351→                </TableHead>
+   352→   352→                <TableHead className="hidden lg:table-cell text-right">Reorder Point</TableHead>
+   353→   353→                <TableHead className="text-right">Status</TableHead>
+   354→   354→                <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
+   355→   355→                <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
+   356→   356→                <TableHead className="text-right">Actions</TableHead>
+   357→   357→              </TableRow>
+   358→   358→            </TableHeader>
+   359→   359→            <TableBody>
+   360→   360→              {loading ? (
+   361→   361→                Array.from({ length: 8 }).map((_, i) => (
+   362→   362→                  <TableRow key={i}>
+   363→   363→                    {Array.from({ length: 9 }).map((_, j) => (
+   364→   364→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   365→   365→                    ))}
+   366→   366→                  </TableRow>
+   367→   367→                ))
+   368→   368→              ) : filteredItems.length === 0 ? (
+   369→   369→                <TableRow>
+   370→   370→                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+   371→   371→                    No inventory items found
+   372→   372→                  </TableCell>
+   373→   373→                </TableRow>
+   374→   374→              ) : (
+   375→   375→                filteredItems.map((item) => {
+   376→   376→                  const isLow = item.quantity <= item.product.reorderPoint
+   377→   377→                  const isOut = item.quantity === 0
+   378→   378→                  return (
+   379→   379→                    <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
+   380→   380→                      <TableCell>
+   381→   381→                        <div>
+   382→   382→                          <p className="font-medium text-sm">{item.product.name}</p>
+   383→   383→                          <p className="text-xs text-muted-foreground">
+   384→   384→                            {item.product.strength} {item.product.dosageForm} · {item.product.unitOfMeasure}
+   385→   385→                          </p>
+   386→   386→                        </div>
+   387→   387→                      </TableCell>
+   388→   388→                      <TableCell className="hidden md:table-cell text-xs font-mono">{item.product.ndc || '—'}</TableCell>
+   389→   389→                      <TableCell className="hidden sm:table-cell">
+   390→   390→                        <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
+   391→   391→                      </TableCell>
+   392→   392→                      <TableCell className="text-right font-bold">{item.quantity}</TableCell>
+   393→   393→                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{item.product.reorderPoint}</TableCell>
+   394→   394→                      <TableCell className="text-right">
+   395→   395→                        {isOut ? (
+   396→   396→                          <Badge className="bg-red-100 text-red-700 border-red-200">Out of Stock</Badge>
+   397→   397→                        ) : isLow ? (
+   398→   398→                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">Low Stock</Badge>
+   399→   399→                        ) : (
+   400→   400→                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">In Stock</Badge>
+   401→   401→                        )}
+   402→   402→                      </TableCell>
+   403→   403→                      <TableCell className="hidden lg:table-cell text-right">${item.product.costPrice?.toFixed(2) || '—'}</TableCell>
+   404→   404→                      <TableCell className="hidden lg:table-cell text-right">${item.product.sellingPrice.toFixed(2)}</TableCell>
+   405→   405→                      <TableCell className="text-right">
+   406→   406→                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustDialog(true) }}>
+   407→   407→                          <Edit className="h-3.5 w-3.5 mr-1" />
+   408→   408→                          Adjust
+   409→   409→                        </Button>
+   410→   410→                      </TableCell>
+   411→   411→                    </TableRow>
+   412→   412→                  )
+   413→   413→                })
+   414→   414→              )}
+   415→   415→            </TableBody>
+   416→   416→          </Table>
+   417→   417→        </CardContent>
+   418→   418→      </Card>
+   419→   419→
+   420→   420→      {/* Add Product Dialog */}
+   421→   421→      <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
+   422→   422→        <DialogContent className="max-w-lg">
+   423→   423→          <DialogHeader>
+   424→   424→            <DialogTitle className="flex items-center gap-2">
+   425→   425→              <PackagePlus className="h-5 w-5 text-teal-600" />
+   426→   426→              Add New Product
+   427→   427→            </DialogTitle>
+   428→   428→          </DialogHeader>
+   429→   429→          <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
+   430→   430→            {/* Product Name */}
+   431→   431→            <div className="col-span-2">
+   432→   432→              <Label htmlFor="prod-name">Product Name <span className="text-red-500">*</span></Label>
+   433→   433→              <Input
+   434→   434→                id="prod-name"
+   435→   435→                placeholder="e.g., Amoxicillin 500mg Capsules"
+   436→   436→                value={productForm.name}
+   437→   437→                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+   438→   438→                className="mt-1"
+   439→   439→              />
+   440→   440→            </div>
+   441→   441→
+   442→   442→            {/* SKU */}
+   443→   443→            <div>
+   444→   444→              <Label htmlFor="prod-sku">SKU</Label>
+   445→   445→              <Input
+   446→   446→                id="prod-sku"
+   447→   447→                placeholder="e.g., SKU-00123"
+   448→   448→                value={productForm.sku}
+   449→   449→                onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+   450→   450→                className="mt-1"
+   451→   451→              />
+   452→   452→            </div>
+   453→   453→
+   454→   454→            {/* Category */}
+   455→   455→            <div>
+   456→   456→              <Label htmlFor="prod-category">Category</Label>
+   457→   457→              <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+   458→   458→                <SelectTrigger className="mt-1">
+   459→   459→                  <SelectValue />
+   460→   460→                </SelectTrigger>
+   461→   461→                <SelectContent>
+   462→   462→                  <SelectItem value="OTC">OTC</SelectItem>
+   463→   463→                  <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+   464→   464→                  <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+   465→   465→                  <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+   466→   466→                  <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+   467→   467→                  <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+   468→   468→                  {categories.filter((c) => !['OTC','PRESCRIPTION','SUPPLEMENT','MEDICAL_DEVICE','PERSONAL_CARE','CONSUMABLES'].includes(c.name)).map((cat) => (
+   469→   469→                    <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
+   470→   470→                  ))}
+   471→   471→                </SelectContent>
+   472→   472→              </Select>
+   473→   473→            </div>
+   474→   474→
+   475→   475→            {/* Price */}
+   476→   476→            <div>
+   477→   477→              <Label htmlFor="prod-price">Price ($) <span className="text-red-500">*</span></Label>
+   478→   478→              <Input
+   479→   479→                id="prod-price"
+   480→   480→                type="number"
+   481→   481→                step="0.01"
+   482→   482→                min="0"
+   483→   483→                placeholder="0.00"
+   484→   484→                value={productForm.price}
+   485→   485→                onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+   486→   486→                className="mt-1"
+   487→   487→              />
+   488→   488→            </div>
+   489→   489→
+   490→   490→            {/* Stock Quantity */}
+   491→   491→            <div>
+   492→   492→              <Label htmlFor="prod-stock">Stock Quantity</Label>
+   493→   493→              <Input
+   494→   494→                id="prod-stock"
+   495→   495→                type="number"
+   496→   496→                min="0"
+   497→   497→                placeholder="0"
+   498→   498→                value={productForm.stockQuantity}
+   499→   499→                onChange={(e) => setProductForm({ ...productForm, stockQuantity: e.target.value })}
+   500→   500→                className="mt-1"
+   501→   501→              />
+   502→   502→            </div>
+   503→   503→
+   504→   504→            {/* Min Stock Level */}
+   505→   505→            <div>
+   506→   506→              <Label htmlFor="prod-minstock">Min Stock Level</Label>
+   507→   507→              <Input
+   508→   508→                id="prod-minstock"
+   509→   509→                type="number"
+   510→   510→                min="0"
+   511→   511→                placeholder="10"
+   512→   512→                value={productForm.minStockLevel}
+   513→   513→                onChange={(e) => setProductForm({ ...productForm, minStockLevel: e.target.value })}
+   514→   514→                className="mt-1"
+   515→   515→              />
+   516→   516→            </div>
+   517→   517→
+   518→   518→            {/* Expiry Date */}
+   519→   519→            <div>
+   520→   520→              <Label htmlFor="prod-expiry">Expiry Date</Label>
+   521→   521→              <Input
+   522→   522→                id="prod-expiry"
+   523→   523→                type="date"
+   524→   524→                value={productForm.expiryDate}
+   525→   525→                onChange={(e) => setProductForm({ ...productForm, expiryDate: e.target.value })}
+   526→   526→                className="mt-1"
+   527→   527→              />
+   528→   528→            </div>
+   529→   529→
+   530→   530→            {/* Barcode */}
+   531→   531→            <div>
+   532→   532→              <Label htmlFor="prod-barcode">Barcode</Label>
+   533→   533→              <Input
+   534→   534→                id="prod-barcode"
+   535→   535→                placeholder="e.g., 1234567890123"
+   536→   536→                value={productForm.barcode}
+   537→   537→                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+   538→   538→                className="mt-1"
+   539→   539→              />
+   540→   540→            </div>
+   541→   541→          </div>
+   542→   542→
+   543→   543→          <DialogFooter className="mt-4">
+   544→   544→            <Button variant="outline" onClick={() => setAddProductDialog(false)}>Cancel</Button>
+   545→   545→            <Button
+   546→   546→              onClick={handleAddProduct}
+   547→   547→              className="bg-teal-600 hover:bg-teal-700"
+   548→   548→              disabled={!productForm.name || !productForm.price || savingProduct}
+   549→   549→            >
+   550→   550→              {savingProduct ? 'Adding...' : 'Add Product'}
+   551→   551→            </Button>
+   552→   552→          </DialogFooter>
+   553→   553→        </DialogContent>
+   554→   554→      </Dialog>
+   555→   555→
+   556→   556→      {/* Category Management Dialog */}
+   557→   557→      <Dialog open={categoryDialog} onOpenChange={setCategoryDialog}>
+   558→   558→        <DialogContent className="max-w-lg">
+   559→   559→          <DialogHeader>
+   560→   560→            <DialogTitle className="flex items-center gap-2">
+   561→   561→              <Tags className="h-5 w-5 text-emerald-600" />
+   562→   562→              Manage Categories
+   563→   563→            </DialogTitle>
+   564→   564→          </DialogHeader>
+   565→   565→          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+   566→   566→            {/* Create New Category */}
+   567→   567→            <div className="border rounded-lg p-3 bg-muted/50">
+   568→   568→              <p className="text-sm font-semibold mb-2">Create New Category</p>
+   569→   569→              <div className="flex gap-2">
+   570→   570→                <Input
+   571→   571→                  placeholder="Category name (e.g., VITAMINS)"
+   572→   572→                  value={newCategoryName}
+   573→   573→                  onChange={(e) => setNewCategoryName(e.target.value)}
+   574→   574→                  className="flex-1"
+   575→   575→                  onKeyDown={(e) => { if (e.key === 'Enter') { document.getElementById('create-cat-btn')?.click() } }}
+   576→   576→                />
+   577→   577→                <Input
+   578→   578→                  placeholder="Description (optional)"
+   579→   579→                  value={newCategoryDesc}
+   580→   580→                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+   581→   581→                  className="flex-1"
+   582→   582→                />
+   583→   583→                <Button
+   584→   584→                  id="create-cat-btn"
+   585→   585→                  className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+   586→   586→                  disabled={!newCategoryName.trim() || savingCategory}
+   587→   587→                  onClick={async () => {
+   588→   588→                    setSavingCategory(true)
+   589→   589→                    try {
+   590→   590→                      const res = await fetch('/api/categories', {
+   591→   591→                        method: 'POST',
+   592→   592→                        headers: { 'Content-Type': 'application/json' },
+   593→   593→                        body: JSON.stringify({ name: newCategoryName, description: newCategoryDesc || null }),
+   594→   594→                      })
+   595→   595→                      if (!res.ok) {
+   596→   596→                        const err = await res.json()
+   597→   597→                        throw new Error(err.error || 'Failed to create category')
+   598→   598→                      }
+   599→   599→                      addToast({ title: 'Created', description: `Category "${newCategoryName.trim()}" created`, variant: 'success' })
+   600→   600→                      setNewCategoryName('')
+   601→   601→                      setNewCategoryDesc('')
+   602→   602→                      fetchCategories()
+   603→   603→                    } catch (err: any) {
+   604→   604→                      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   605→   605→                    } finally {
+   606→   606→                      setSavingCategory(false)
+   607→   607→                    }
+   608→   608→                  }}
+   609→   609→                >
+   610→   610→                  {savingCategory ? '...' : <Plus className="h-4 w-4" />}
+   611→   611→                </Button>
+   612→   612→              </div>
+   613→   613→            </div>
+   614→   614→
+   615→   615→            {/* Existing Categories List */}
+   616→   616→            <div className="space-y-2">
+   617→   617→              <p className="text-sm font-semibold">Existing Categories</p>
+   618→   618→              {categories.length === 0 ? (
+   619→   619→                <p className="text-sm text-muted-foreground text-center py-4">No custom categories yet</p>
+   620→   620→              ) : (
+   621→   621→                <div className="divide-y border rounded-lg">
+   622→   622→                  {categories.map((cat) => (
+   623→   623→                    <div key={cat.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-muted/50">
+   624→   624→                      <div className="flex items-center gap-2 min-w-0">
+   625→   625→                        <Badge variant="outline" className="text-xs font-mono shrink-0">{cat.name.replace(/_/g, ' ')}</Badge>
+   626→   626→                        <span className="text-xs text-muted-foreground truncate">{cat.description || 'No description'}</span>
+   627→   627→                      </div>
+   628→   628→                      <div className="flex items-center gap-2 shrink-0">
+   629→   629→                        <span className="text-xs text-muted-foreground">{cat._count?.products || 0} products</span>
+   630→   630→                        <Button
+   631→   631→                          size="icon"
+   632→   632→                          variant="ghost"
+   633→   633→                          className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+   634→   634→                          onClick={() => handleDeleteCategory(cat.id, cat.name.replace(/_/g, ' '))}
+   635→   635→                          disabled={(cat._count?.products || 0) > 0}
+   636→   636→                          title={(cat._count?.products || 0) > 0 ? 'Cannot delete: products assigned' : 'Delete category'}
+   637→   637→                        >
+   638→   638→                          <Trash2 className="h-3.5 w-3.5" />
+   639→   639→                        </Button>
+   640→   640→                      </div>
+   641→   641→                    </div>
+   642→   642→                  ))}
+   643→   643→                </div>
+   644→   644→              )}
+   645→   645→            </div>
+   646→   646→          </div>
+   647→   647→          <DialogFooter>
+   648→   648→            <Button variant="outline" onClick={() => setCategoryDialog(false)}>Close</Button>
+   649→   649→          </DialogFooter>
+   650→   650→        </DialogContent>
+   651→   651→      </Dialog>
+   652→   652→
+   653→   653→      {/* Stock Adjustment Dialog */}
+   654→   654→      <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
+   655→   655→        <DialogContent>
+   656→   656→          <DialogHeader>
+   657→   657→            <DialogTitle>Adjust Stock</DialogTitle>
+   658→   658→          </DialogHeader>
+   659→   659→          {selectedItem && (
+   660→   660→            <div className="space-y-4">
+   661→   661→              <div className="bg-muted rounded-lg p-3">
+   662→   662→                <p className="font-medium">{selectedItem.product.name}</p>
+   663→   663→                <p className="text-sm text-muted-foreground">Current Stock: {selectedItem.quantity} {selectedItem.product.unitOfMeasure}</p>
+   664→   664→              </div>
+   665→   665→              <div className="space-y-3">
+   666→   666→                <div>
+   667→   667→                  <Label>Adjustment Type</Label>
+   668→   668→                  <Select value={adjustType} onValueChange={setAdjustType}>
+   669→   669→                    <SelectTrigger className="mt-1">
+   670→   670→                      <SelectValue />
+   671→   671→                    </SelectTrigger>
+   672→   672→                    <SelectContent>
+   673→   673→                      <SelectItem value="ADD">Add Stock</SelectItem>
+   674→   674→                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
+   675→   675→                      <SelectItem value="SET">Set Count</SelectItem>
+   676→   676→                    </SelectContent>
+   677→   677→                  </Select>
+   678→   678→                </div>
+   679→   679→                <div>
+   680→   680→                  <Label>Quantity</Label>
+   681→   681→                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" className="mt-1" />
+   682→   682→                </div>
+   683→   683→                <div>
+   684→   684→                  <Label>Reason (required)</Label>
+   685→   685→                  <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
+   686→   686→                </div>
+   687→   687→              </div>
+   688→   688→            </div>
+   689→   689→          )}
+   690→   690→          <DialogFooter>
+   691→   691→            <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
+   692→   692→            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={!adjustAmount || !adjustReason}>
+   693→   693→              Apply Adjustment
+   694→   694→            </Button>
+   695→   695→          </DialogFooter>
+   696→   696→        </DialogContent>
+   697→   697→      </Dialog>
+   698→   698→
+   699→   699→      {/* Receive Shipment Dialog */}
+   700→   700→      <Dialog open={receiveDialog} onOpenChange={setReceiveDialog}>
+   701→   701→        <DialogContent className="max-w-lg">
+   702→   702→          <DialogHeader>
+   703→   703→            <DialogTitle>Receive Shipment</DialogTitle>
+   704→   704→          </DialogHeader>
+   705→   705→          <div className="space-y-3 max-h-96 overflow-y-auto">
+   706→   706→            {shipmentItems.map((si, idx) => (
+   707→   707→              <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+   708→   708→                <div className="col-span-5">
+   709→   709→                  <Label className="text-xs">Product ID</Label>
+   710→   710→                  <Input value={si.productId} onChange={(e) => {
+   711→   711→                    const updated = [...shipmentItems]
+   712→   712→                    updated[idx] = { ...updated[idx], productId: e.target.value }
+   713→   713→                    setShipmentItems(updated)
+   714→   714→                  }} placeholder="Product ID" className="mt-1" />
+   715→   715→                </div>
+   716→   716→                <div className="col-span-3">
+   717→   717→                  <Label className="text-xs">Qty</Label>
+   718→   718→                  <Input type="number" value={si.quantity} onChange={(e) => {
+   719→   719→                    const updated = [...shipmentItems]
+   720→   720→                    updated[idx] = { ...updated[idx], quantity: e.target.value }
+   721→   721→                    setShipmentItems(updated)
+   722→   722→                  }} className="mt-1" />
+   723→   723→                </div>
+   724→   724→                <div className="col-span-3">
+   725→   725→                  <Label className="text-xs">Cost</Label>
+   726→   726→                  <Input type="number" step="0.01" value={si.costPrice} onChange={(e) => {
+   727→   727→                    const updated = [...shipmentItems]
+   728→   728→                    updated[idx] = { ...updated[idx], costPrice: e.target.value }
+   729→   729→                    setShipmentItems(updated)
+   730→   730→                  }} className="mt-1" />
+   731→   731→                </div>
+   732→   732→                <div className="col-span-1">
+   733→   733→                  <Button size="icon" variant="ghost" onClick={() => {
+   734→   734→                    if (shipmentItems.length > 1) {
+   735→   735→                      setShipmentItems(shipmentItems.filter((_, i) => i !== idx))
+   736→   736→                    }
+   737→   737→                  }}><X className="h-4 w-4" /></Button>
+   738→   738→                </div>
+   739→   739→              </div>
+   740→   740→            ))}
+   741→   741→            <Button variant="outline" size="sm" onClick={() => setShipmentItems([...shipmentItems, { productId: '', quantity: '', costPrice: '' }])}>
+   742→   742→              <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
+   743→   743→            </Button>
+   744→   744→          </div>
+   745→   745→          <DialogFooter>
+   746→   746→            <Button variant="outline" onClick={() => setReceiveDialog(false)}>Cancel</Button>
+   747→   747→            <Button onClick={handleReceiveShipment} className="bg-emerald-600 hover:bg-emerald-700">
+   748→   748→              Receive Shipment
+   749→   749→            </Button>
+   750→   750→          </DialogFooter>
+   751→   751→        </DialogContent>
+   752→   752→      </Dialog>
+   753→   753→    </div>
+   754→   754→  )
+   755→   755→}
+   756→   756→

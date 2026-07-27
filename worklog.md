@@ -297,3 +297,22 @@ Work Log:
 Stage Summary:
 - Server running, build current, all previous work preserved
 - Pending tasks: surface company name on receipts/return tickets, wire hardware printer API, fix CSV export, full i18n, remove demo accounts, cleanup inventory-view
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Complete pending tasks — receipts company name, CSV export, demo accounts, inventory cleanup
+
+Work Log:
+- Task 1 (Receipts/Return Tickets): Verified both receipt-modal.tsx and return-ticket-modal.tsx already use `company?.name || 'SelRx'` from Zustand store — company data loads from DB on app init via `/api/company-setup`. Company name "GREENLEAF PHARMACEUTICAL" surfaces correctly. Already complete from previous session.
+- Task 2 (CSV Export): Sales History "Export CSV" button was a no-op (only showed toast). Implemented full CSV export: fetches all transactions for current filters (limit=9999), builds CSV with 13 columns (Transaction #, Date, Time, Cashier, Cashier Role, Customer, Payment Method, Items Count, Subtotal, Tax, Discount, Total, Status), proper CSV escaping, triggers blob download with filename `sales_history_<daterange>.csv`. Added loading state with spinner. Added `Loader2` import.
+- Task 3 (Demo Accounts): Removed `DEMO_ACCOUNTS` array, `DemoAccount` interface, `handleDemoLogin` function, divider "Demo Accounts" label, and 3-column demo button grid from login-screen.tsx. Also removed unused `CardFooter` import. Login page now shows only email/password form.
+- Task 4 (Inventory Cleanup): Verified inventory-view.tsx contains NO embedded `ProductSalesAnalytics` or `StockTakeSection` components. These are separate views imported directly in page.tsx router. Inventory view is clean — no cleanup needed.
+- Build passed cleanly, server restarted, HTTP 200 verified. No "Demo Account" text found in rendered HTML.
+
+Stage Summary:
+- Receipts & return tickets: already surfacing company name from DB ✅
+- CSV Export: now generates and downloads real CSV files with all transaction data ✅
+- Demo accounts: removed from login page entirely ✅
+- Inventory view: verified clean, no embedded sections ✅
+- Modified files: `src/components/gazpharm/views/sales-history-view.tsx`, `src/components/gazpharm/login-screen.tsx`
