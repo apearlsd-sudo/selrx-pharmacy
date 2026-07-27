@@ -325,6 +325,12 @@ function DrugSection() {
   })
   const [showNewManufacturer, setShowNewManufacturer] = useState(false)
   const [newManufacturerName, setNewManufacturerName] = useState('')
+  const [showNewVendor, setShowNewVendor] = useState(false)
+  const [newVendorName, setNewVendorName] = useState('')
+  const [showNewDosageForm, setShowNewDosageForm] = useState(false)
+  const [newDosageFormName, setNewDosageFormName] = useState('')
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -421,6 +427,62 @@ function DrugSection() {
     setShowNewManufacturer(false)
   }
 
+  const handleAddNewVendor = async () => {
+    const trimmed = newVendorName.trim()
+    if (!trimmed) return
+    try {
+      const res = await fetch('/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (res.ok) {
+        const vendor = await res.json()
+        setForm({ ...form, vendorId: vendor.id })
+        setVendors((prev) => [...prev, { id: vendor.id, name: trimmed, contactPerson: null, email: null, phone: null, address: null, notes: null }])
+        setNewVendorName('')
+        setShowNewVendor(false)
+      } else {
+        const err = await res.json()
+        addToast({ title: 'Error', description: err.error || 'Failed to create vendor', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to create vendor', variant: 'destructive' })
+    }
+  }
+
+  const handleAddNewDosageForm = () => {
+    const trimmed = newDosageFormName.trim()
+    if (!trimmed) return
+    setForm({ ...form, dosageForm: trimmed })
+    setNewDosageFormName('')
+    setShowNewDosageForm(false)
+  }
+
+  const handleAddNewCategory = async () => {
+    const trimmed = newCategoryName.trim()
+    if (!trimmed) return
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (res.ok) {
+        const cat = await res.json()
+        setForm({ ...form, category: cat.name })
+        setCategories((prev) => [...prev, { id: cat.id, name: cat.name, description: null }])
+        setNewCategoryName('')
+        setShowNewCategory(false)
+      } else {
+        const err = await res.json()
+        addToast({ title: 'Error', description: err.error || 'Failed to create category', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to create category', variant: 'destructive' })
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Drug Registration Form */}
@@ -491,33 +553,100 @@ function DrugSection() {
             )}
 
             {/* Category Dropdown */}
-            <div>
-              <Label className="text-xs">Category</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BUILT_IN_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
-                  ))}
-                  {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
-                    <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {showNewCategory ? (
+              <div>
+                <Label className="text-xs">New Category</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input
+                    placeholder="Enter category name"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewCategory() }}
+                    autoFocus
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewCategory} className="shrink-0 px-3">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewCategory(false); setNewCategoryName('') }} className="shrink-0 px-2">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Category</Label>
+                <Select
+                  value={form.category}
+                  onValueChange={(v) => {
+                    if (v === '__new__') {
+                      setShowNewCategory(true)
+                    } else {
+                      setForm({ ...form, category: v })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {BUILT_IN_CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
+                    ))}
+                    {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
+                      <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                      + Add new category
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Dosage Form Dropdown */}
-            <div>
-              <Label className="text-xs">Dosage Form</Label>
-              <Select value={form.dosageForm} onValueChange={(v) => setForm({ ...form, dosageForm: v })}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
-                <SelectContent>
-                  {DOSAGE_FORMS.map((f) => (
-                    <SelectItem key={f} value={f}>{f}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {showNewDosageForm ? (
+              <div>
+                <Label className="text-xs">New Dosage Form</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input
+                    placeholder="Enter dosage form"
+                    value={newDosageFormName}
+                    onChange={(e) => setNewDosageFormName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewDosageForm() }}
+                    autoFocus
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewDosageForm} className="shrink-0 px-3">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewDosageForm(false); setNewDosageFormName('') }} className="shrink-0 px-2">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Dosage Form</Label>
+                <Select
+                  value={form.dosageForm || '_none'}
+                  onValueChange={(v) => {
+                    if (v === '__new__') {
+                      setShowNewDosageForm(true)
+                    } else {
+                      setForm({ ...form, dosageForm: v === '_none' ? '' : v })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">None</SelectItem>
+                    {DOSAGE_FORMS.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                      + Add new dosage form
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Cost Price */}
             <div>
@@ -532,18 +661,51 @@ function DrugSection() {
             </div>
 
             {/* Vendor Dropdown */}
-            <div>
-              <Label className="text-xs">Vendor / Supplier</Label>
-              <Select value={form.vendorId} onValueChange={(v) => setForm({ ...form, vendorId: v })}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {showNewVendor ? (
+              <div>
+                <Label className="text-xs">New Vendor</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input
+                    placeholder="Enter vendor name"
+                    value={newVendorName}
+                    onChange={(e) => setNewVendorName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewVendor() }}
+                    autoFocus
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewVendor} className="shrink-0 px-3">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewVendor(false); setNewVendorName('') }} className="shrink-0 px-2">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Vendor / Supplier</Label>
+                <Select
+                  value={form.vendorId || '_none'}
+                  onValueChange={(v) => {
+                    if (v === '__new__') {
+                      setShowNewVendor(true)
+                    } else {
+                      setForm({ ...form, vendorId: v === '_none' ? '' : v })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">None</SelectItem>
+                    {vendors.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                      + Add new vendor
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Stock Quantity */}
             <div>
