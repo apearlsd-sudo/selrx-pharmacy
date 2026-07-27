@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { db } from '@/lib/db'
 
-const prisma = new PrismaClient()
+// Use shared db instance (supports Turso adapter)
 
 // GET /api/returns — list returns with optional filters
 export async function GET(req: NextRequest) {

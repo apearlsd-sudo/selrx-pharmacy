@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { db } from '@/lib/db'
 
-const prisma = new PrismaClient()
+// Use shared db instance (supports Turso adapter)
 
 // GET /api/returns/[id] — single return detail
 export async function GET(
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const returnRecord = await prisma.return.findUnique({
+    const returnRecord = await db.return.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, name: true, role: true } },
@@ -44,7 +44,7 @@ export async function PUT(
     const body = await req.json()
     const { action, approvedById, refundMethod, notes } = body
 
-    const existing = await prisma.return.findUnique({ where: { id } })
+    const existing = await db.return.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
@@ -59,7 +59,7 @@ export async function PUT(
             { status: 400 }
           )
         }
-        updated = await prisma.return.update({
+        updated = await db.return.update({
           where: { id },
           data: {
             status: 'APPROVED',
@@ -84,7 +84,7 @@ export async function PUT(
             { status: 400 }
           )
         }
-        updated = await prisma.return.update({
+        updated = await db.return.update({
           where: { id },
           data: {
             status: 'REJECTED',
@@ -111,13 +111,13 @@ export async function PUT(
         }
 
         // Restock the product inventory
-        await prisma.inventory.upsert({
+        await db.inventory.upsert({
           where: { productId: existing.productId },
           update: { quantity: { increment: existing.quantity } },
           create: { productId: existing.productId, quantity: existing.quantity },
         })
 
-        updated = await prisma.return.update({
+        updated = await db.return.update({
           where: { id },
           data: {
             status: 'COMPLETED',
@@ -143,7 +143,7 @@ export async function PUT(
             { status: 400 }
           )
         }
-        updated = await prisma.return.update({
+        updated = await db.return.update({
           where: { id },
           data: {
             status: 'CANCELLED',
