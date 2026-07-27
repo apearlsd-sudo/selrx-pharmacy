@@ -89,6 +89,7 @@ export default function Home() {
   const isCompanySetup = useAppStore((s) => s.isCompanySetup)
   const setIsCompanySetup = useAppStore((s) => s.setIsCompanySetup)
   const setCompany = useAppStore((s) => s.setCompany)
+  const company = useAppStore((s) => s.company)
 
   // Wire the currency getter once so the shared formatCurrency works
   useEffect(() => {
@@ -290,7 +291,7 @@ export default function Home() {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <h2 className="text-sm font-semibold text-gray-900">{currentLabel}</h2>
+          <h2 className="text-sm font-semibold text-gray-900">{company?.name || 'SelRx'}</h2>
 
           <div className="ml-auto flex items-center gap-2">
             {/* Currency Selector */}
