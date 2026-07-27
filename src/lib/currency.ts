@@ -1,5 +1,5 @@
 /**
- * Currency formatting utility for GAZPharm.
+ * Currency formatting utility for SelRx.
  * Supports USD ($), Ghana Cedi (₵), and Nigerian Naira (₦).
  * Reads the active currency from Zustand store via a getter function
  * so all views share a single source of truth.

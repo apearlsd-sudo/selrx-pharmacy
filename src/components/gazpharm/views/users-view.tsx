@@ -506,7 +506,7 @@ export function UsersView() {
               </div>
               <div>
                 <Label>Email <span className="text-red-500">*</span></Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="john@gazpharm.com" className="mt-1" />
+                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="john@selrx.com" className="mt-1" />
               </div>
               <div>
                 <Label>Password <span className="text-red-500">*</span></Label>

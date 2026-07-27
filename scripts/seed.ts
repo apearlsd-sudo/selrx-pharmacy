@@ -3,13 +3,13 @@ import { PrismaClient } from '@prisma/client'
 const db = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Seeding GAZPharm database...')
+  console.log('🌱 Seeding SelRx database...')
 
   // ============ USERS ============
   console.log('  Creating users...')
   const admin = await db.user.create({
     data: {
-      email: 'admin@gazpharm.com',
+      email: 'admin@selrx.com',
       password: 'admin123',
       name: 'Dr. Sarah Chen',
       role: 'SUPER_ADMIN',
@@ -20,7 +20,7 @@ async function main() {
 
   const pharmacist = await db.user.create({
     data: {
-      email: 'pharmacist@gazpharm.com',
+      email: 'pharmacist@selrx.com',
       password: 'pharm123',
       name: 'Dr. James Wilson',
       role: 'PHARMACIST',
@@ -32,7 +32,7 @@ async function main() {
 
   const technician = await db.user.create({
     data: {
-      email: 'tech@gazpharm.com',
+      email: 'tech@selrx.com',
       password: 'tech123',
       name: 'Maria Garcia',
       role: 'TECHNICIAN',
@@ -43,7 +43,7 @@ async function main() {
 
   const cashier = await db.user.create({
     data: {
-      email: 'cashier@gazpharm.com',
+      email: 'cashier@selrx.com',
       password: 'cash123',
       name: 'John Smith',
       role: 'CASHIER',
@@ -54,7 +54,7 @@ async function main() {
 
   const clerk = await db.user.create({
     data: {
-      email: 'clerk@gazpharm.com',
+      email: 'clerk@selrx.com',
       password: 'clerk123',
       name: 'Emily Davis',
       role: 'CLERK',

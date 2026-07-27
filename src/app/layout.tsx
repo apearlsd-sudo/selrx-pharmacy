@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GAZPharm - Pharmacy Management System",
+  title: "SelRx - Pharmacy Management System",
   description: "Modern pharmacy POS and management system. Built with Next.js, TypeScript, and Tailwind CSS.",
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",

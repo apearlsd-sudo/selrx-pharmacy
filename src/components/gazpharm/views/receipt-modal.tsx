@@ -128,7 +128,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
             <div className="text-center space-y-1">
               <div className="flex items-center justify-center gap-1.5">
                 <Store className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-bold tracking-wide text-gray-800">GAZPharm</span>
+                <span className="text-sm font-bold tracking-wide text-gray-800">SelRx</span>
               </div>
               <p className="text-gray-500">123 Medical Center Blvd</p>
               <p className="text-gray-500">Healthcare City, HC 12345</p>
@@ -226,7 +226,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
 
             {/* Footer */}
             <div className="text-center space-y-1 pt-1">
-              <p className="text-gray-500">Thank you for choosing GAZPharm!</p>
+              <p className="text-gray-500">Thank you for choosing SelRx!</p>
               <p className="text-gray-400 text-[10px]">
                 Your health, our priority. Rx questions? Ask our pharmacist.
               </p>

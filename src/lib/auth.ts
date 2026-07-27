@@ -69,5 +69,5 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET || 'gazpharm-demo-secret-key',
+  secret: process.env.NEXTAUTH_SECRET || 'selrx-demo-secret-key',
 }

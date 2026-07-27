@@ -256,7 +256,7 @@ export function HardwareView() {
   }, [fetchLogs])
 
   useEffect(() => {
-    const stored = localStorage.getItem('gazpharm-hardware-config')
+    const stored = localStorage.getItem('selrx-hardware-config')
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
@@ -271,7 +271,7 @@ export function HardwareView() {
 
   const saveConfig = () => {
     const config = { printer: printerSettings, scanner: scannerSettings, drawer: drawerSettings }
-    localStorage.setItem('gazpharm-hardware-config', JSON.stringify(config))
+    localStorage.setItem('selrx-hardware-config', JSON.stringify(config))
     addToast({ title: 'Settings Saved', description: 'Hardware configuration saved successfully', variant: 'success' })
     setConfigDialogOpen(false)
   }

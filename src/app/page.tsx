@@ -154,7 +154,7 @@ export default function Home() {
               <Pill className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-900 leading-tight">GAZPharm</h1>
+              <h1 className="text-sm font-bold text-gray-900 leading-tight">SelRx</h1>
               <p className="text-[10px] text-muted-foreground leading-tight">Pharmacy POS System</p>
             </div>
           </div>
@@ -305,7 +305,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="border-t bg-white px-4 lg:px-6 py-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>GAZPharm Pharmacy Management System v1.0</span>
+            <span>SelRx Pharmacy Management System v1.0</span>
             <span>Powered by Next.js</span>
           </div>
         </footer>

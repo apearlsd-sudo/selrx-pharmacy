@@ -228,7 +228,7 @@ export function CompanySetupView() {
       setCurrentView('dashboard')
 
       addToast({
-        title: 'Welcome to GAZPharm!',
+        title: 'Welcome to SelRx!',
         description: `${data.company.name} has been set up successfully. You are now logged in as ${data.owner.name}.`,
         variant: 'success',
         duration: 8000,
@@ -258,7 +258,7 @@ export function CompanySetupView() {
               <Pill className="h-5 w-5 text-emerald-300" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">GAZPharm</h1>
+              <h1 className="text-lg font-bold text-white tracking-tight">SelRx</h1>
               <p className="text-[10px] text-emerald-200/60">Pharmacy Management System</p>
             </div>
           </div>
@@ -319,7 +319,7 @@ export function CompanySetupView() {
                       Set Up Your Pharmacy
                     </h2>
                     <p className="mt-3 text-emerald-200/80 text-base max-w-lg mx-auto leading-relaxed">
-                      Welcome to GAZPharm! Let&apos;s get your pharmacy account set up in just a few minutes.
+                      Welcome to SelRx! Let&apos;s get your pharmacy account set up in just a few minutes.
                       We&apos;ll collect your company details, create your owner account, and have you ready to go.
                     </p>
                   </motion.div>
@@ -879,7 +879,7 @@ export function CompanySetupView() {
         {/* Footer */}
         <div className="text-center py-4">
           <p className="text-xs text-emerald-200/40">
-            GAZPharm Pharmacy Management System v1.0
+            SelRx Pharmacy Management System v1.0
           </p>
         </div>
       </div>

@@ -71,7 +71,7 @@ export function ReturnTicketModal({ returnData, open, onClose }: ReturnTicketMod
               <div className="h-6 w-6 rounded bg-emerald-600 flex items-center justify-center">
                 <CheckCircle2 className="h-4 w-4 text-white" />
               </div>
-              <h3 className="text-base font-bold text-gray-900">GAZPharm</h3>
+              <h3 className="text-base font-bold text-gray-900">SelRx</h3>
             </div>
             <p className="text-muted-foreground">Goods Return Ticket</p>
             <Separator />
@@ -184,7 +184,7 @@ export function ReturnTicketModal({ returnData, open, onClose }: ReturnTicketMod
 
           {/* Footer */}
           <div className="text-center pt-2">
-            <p className="text-muted-foreground text-[10px]">Thank you for choosing GAZPharm</p>
+            <p className="text-muted-foreground text-[10px]">Thank you for choosing SelRx</p>
             <p className="text-muted-foreground text-[10px]">This return ticket serves as proof of goods returned.</p>
           </div>
         </div>

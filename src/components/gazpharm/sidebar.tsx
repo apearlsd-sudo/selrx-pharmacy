@@ -166,7 +166,7 @@ function SidebarNavContent({
         {!collapsed && (
           <div className="flex flex-col">
             <span className="text-sm font-bold text-white tracking-tight">
-              GAZPharm
+              SelRx
             </span>
             <span className="text-[10px] text-gray-400 -mt-0.5">
               Pharmacy POS
@@ -331,7 +331,7 @@ export function Sidebar() {
               <Pill className="h-4 w-4 text-white" />
             </div>
             <span className="text-sm font-bold text-gray-900">
-              GAZPharm
+              SelRx
             </span>
           </div>
         </div>

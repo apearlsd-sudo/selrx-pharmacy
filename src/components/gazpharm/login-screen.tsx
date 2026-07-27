@@ -27,19 +27,19 @@ interface DemoAccount {
 const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     label: 'Admin',
-    email: 'admin@gazpharm.com',
+    email: 'admin@selrx.com',
     password: 'admin123',
     description: 'Super Admin',
   },
   {
     label: 'Pharmacist',
-    email: 'pharmacist@gazpharm.com',
+    email: 'pharmacist@selrx.com',
     password: 'pharm123',
     description: 'Pharmacist',
   },
   {
     label: 'Cashier',
-    email: 'cashier@gazpharm.com',
+    email: 'cashier@selrx.com',
     password: 'cash123',
     description: 'Cashier',
   },
@@ -126,7 +126,7 @@ export function LoginScreen() {
             <Pill className="h-10 w-10 text-emerald-300" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            GAZPharm
+            SelRx
           </h1>
           <p className="mt-1 text-emerald-200/80 text-sm">
             Pharmacy Management System
@@ -162,7 +162,7 @@ export function LoginScreen() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@gazpharm.com"
+                    placeholder="you@selrx.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 h-11"
@@ -259,7 +259,7 @@ export function LoginScreen() {
           transition={{ delay: 0.6 }}
           className="mt-6 text-center text-xs text-emerald-200/60"
         >
-          GAZPharm Pharmacy Management System v1.0
+          SelRx Pharmacy Management System v1.0
         </motion.p>
       </motion.div>
     </div>
