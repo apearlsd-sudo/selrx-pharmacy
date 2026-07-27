@@ -1,0 +1,799 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
+     6→  AlertCircle, CheckCircle2
+     7→} from 'lucide-react'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Card, CardContent } from '@/components/ui/card'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table'
+    16→import {
+    17→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    18→} from '@/components/ui/select'
+    19→import { Label } from '@/components/ui/label'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import { useAppStore } from '@/store/app-store'
+    22→
+    23→// ── Types ──────────────────────────────────────────────────────────────
+    24→
+    25→interface Category {
+    26→  id: string
+    27→  name: string
+    28→  description: string | null
+    29→  _count?: { products: number }
+    30→}
+    31→
+    32→interface Vendor {
+    33→  id: string
+    34→  name: string
+    35→  contactPerson: string | null
+    36→  email: string | null
+    37→  phone: string | null
+    38→  address: string | null
+    39→  notes: string | null
+    40→  _count?: { products: number }
+    41→}
+    42→
+    43→interface DrugProduct {
+    44→  id: string
+    45→  name: string
+    46→  ndc: string | null
+    47→  category: string
+    48→  sellingPrice: number
+    49→  costPrice: number | null
+    50→  dosageForm: string | null
+    51→  strength: string | null
+    52→  unitOfMeasure: string
+    53→  vendor?: { name: string } | null
+    54→  inventory?: { quantity: number }[]
+    55→  reorderPoint: number
+    56→  expiryDate: string | null
+    57→  batchNumber: string | null
+    58→  status: string
+    59→}
+    60→
+    61→const DOSAGE_FORMS = [
+    62→  'Tablet', 'Capsules', 'Syrup', 'Lozenges', 'Ointment',
+    63→  'Suppository', 'Eyedrop', 'Eardrop', 'Contraceptive', 'Condom',
+    64→  'Herbal', 'Cream', 'Gel', 'Injection', 'Spray', 'Powder', 'Drops', 'Patch', 'Other',
+    65→]
+    66→
+    67→const BUILT_IN_CATEGORIES = ['OTC', 'PRESCRIPTION', 'SUPPLEMENT', 'MEDICAL_DEVICE', 'PERSONAL_CARE', 'CONSUMABLES']
+    68→
+    69→// ── Section Button Component ─────────────────────────────────────────────
+    70→
+    71→const SECTIONS = [
+    72→  { key: 'category', label: 'Add Category', icon: Tags, desc: 'Drug categories & departments', color: 'bg-emerald-600 hover:bg-emerald-700' },
+    73→  { key: 'drug', label: 'Add Drug Name', icon: Pill, desc: 'Register new products', color: 'bg-teal-600 hover:bg-teal-700' },
+    74→  { key: 'vendor', label: 'Add Vendor', icon: Truck, desc: 'Suppliers & distributors', color: 'bg-green-600 hover:bg-green-700' },
+    75→] as const
+    76→
+    77→type SectionKey = typeof SECTIONS[number]['key']
+    78→
+    79→// ── Main View ──────────────────────────────────────────────────────────
+    80→
+    81→export function MasterDataView() {
+    82→  const [activeSection, setActiveSection] = useState<SectionKey>('category')
+    83→
+    84→  return (
+    85→    <div className="space-y-6">
+    86→      {/* Section Selector Buttons */}
+    87→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    88→        {SECTIONS.map((sec) => {
+    89→          const Icon = sec.icon
+    90→          const isActive = activeSection === sec.key
+    91→          return (
+    92→            <button
+    93→              key={sec.key}
+    94→              onClick={() => setActiveSection(sec.key)}
+    95→              className={`relative flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+    96→                isActive
+    97→                  ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-100'
+    98→                  : 'border-transparent bg-white hover:border-gray-200 hover:shadow-sm'
+    99→              }`}
+   100→            >
+   101→              <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600' : 'bg-gray-100'}`}>
+   102→                <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+   103→              </div>
+   104→              <div className="flex-1 min-w-0">
+   105→                <p className={`text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-gray-700'}`}>{sec.label}</p>
+   106→                <p className={`text-xs ${isActive ? 'text-emerald-600' : 'text-gray-400'}`}>{sec.desc}</p>
+   107→              </div>
+   108→              {isActive && (
+   109→                <ChevronRight className="h-5 w-5 text-emerald-500 shrink-0" />
+   110→              )}
+   111→            </button>
+   112→          )
+   113→        })}
+   114→      </div>
+   115→
+   116→      {/* Active Section Content */}
+   117→      {activeSection === 'category' && <CategorySection />}
+   118→      {activeSection === 'drug' && <DrugSection />}
+   119→      {activeSection === 'vendor' && <VendorSection />}
+   120→    </div>
+   121→  )
+   122→}
+   123→
+   124→// ── CATEGORY SECTION ───────────────────────────────────────────────────
+   125→
+   126→function CategorySection() {
+   127→  const [categories, setCategories] = useState<Category[]>([])
+   128→  const [loading, setLoading] = useState(true)
+   129→  const [newName, setNewName] = useState('')
+   130→  const [newDesc, setNewDesc] = useState('')
+   131→  const [saving, setSaving] = useState(false)
+   132→  const [search, setSearch] = useState('')
+   133→  const addToast = useAppStore((s) => s.addToast)
+   134→
+   135→  const fetchCategories = useCallback(async () => {
+   136→    setLoading(true)
+   137→    try {
+   138→      const res = await fetch('/api/categories')
+   139→      if (res.ok) setCategories(await res.json())
+   140→    } catch {
+   141→      addToast({ title: 'Error', description: 'Failed to load categories', variant: 'destructive' })
+   142→    } finally {
+   143→      setLoading(false)
+   144→    }
+   145→  }, [addToast])
+   146→
+   147→  useEffect(() => { fetchCategories() }, [fetchCategories])
+   148→
+   149→  const handleCreate = async () => {
+   150→    if (!newName.trim()) return
+   151→    setSaving(true)
+   152→    try {
+   153→      const res = await fetch('/api/categories', {
+   154→        method: 'POST',
+   155→        headers: { 'Content-Type': 'application/json' },
+   156→        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null }),
+   157→      })
+   158→      if (!res.ok) {
+   159→        const err = await res.json()
+   160→        throw new Error(err.error || 'Failed')
+   161→      }
+   162→      addToast({ title: 'Category Created', description: `"${newName.trim()}" added successfully`, variant: 'success' })
+   163→      setNewName('')
+   164→      setNewDesc('')
+   165→      fetchCategories()
+   166→    } catch (err: any) {
+   167→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   168→    } finally {
+   169→      setSaving(false)
+   170→    }
+   171→  }
+   172→
+   173→  const handleDelete = async (cat: Category) => {
+   174→    try {
+   175→      const res = await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' })
+   176→      if (!res.ok) {
+   177→        const err = await res.json()
+   178→        throw new Error(err.error || 'Failed')
+   179→      }
+   180→      addToast({ title: 'Deleted', description: `"${cat.name.replace(/_/g, ' ')}" removed`, variant: 'success' })
+   181→      fetchCategories()
+   182→    } catch (err: any) {
+   183→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   184→    }
+   185→  }
+   186→
+   187→  const filtered = categories.filter((c) =>
+   188→    c.name.toLowerCase().includes(search.toLowerCase()) ||
+   189→    (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
+   190→  )
+   191→
+   192→  return (
+   193→    <div className="space-y-4">
+   194→      {/* Create Form */}
+   195→      <Card>
+   196→        <CardContent className="p-4">
+   197→          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   198→            <Tags className="h-4 w-4 text-emerald-600" />
+   199→            Create New Category
+   200→          </h3>
+   201→          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+   202→            <div className="sm:col-span-3">
+   203→              <Label className="text-xs">Category Name *</Label>
+   204→              <Input
+   205→                placeholder="e.g., ANALGESICS"
+   206→                value={newName}
+   207→                onChange={(e) => setNewName(e.target.value)}
+   208→                className="mt-1"
+   209→                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+   210→              />
+   211→            </div>
+   212→            <div className="sm:col-span-6">
+   213→              <Label className="text-xs">Description</Label>
+   214→              <Input
+   215→                placeholder="Brief description of this category"
+   216→                value={newDesc}
+   217→                onChange={(e) => setNewDesc(e.target.value)}
+   218→                className="mt-1"
+   219→                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+   220→              />
+   221→            </div>
+   222→            <div className="sm:col-span-3 flex items-end">
+   223→              <Button
+   224→                onClick={handleCreate}
+   225→                disabled={!newName.trim() || saving}
+   226→                className="w-full bg-emerald-600 hover:bg-emerald-700"
+   227→              >
+   228→                {saving ? 'Saving...' : <><Plus className="h-4 w-4 mr-2" /> Add Category</>}
+   229→              </Button>
+   230→            </div>
+   231→          </div>
+   232→        </CardContent>
+   233→      </Card>
+   234→
+   235→      {/* Search */}
+   236→      <div className="relative max-w-sm">
+   237→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   238→        <Input placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+   239→      </div>
+   240→
+   241→      {/* Categories Table */}
+   242→      <Card>
+   243→        <CardContent className="p-0">
+   244→          <Table>
+   245→            <TableHeader>
+   246→              <TableRow>
+   247→                <TableHead>Category Name</TableHead>
+   248→                <TableHead className="hidden sm:table-cell">Description</TableHead>
+   249→                <TableHead className="text-center">Products</TableHead>
+   250→                <TableHead className="text-center">Type</TableHead>
+   251→                <TableHead className="text-right">Actions</TableHead>
+   252→              </TableRow>
+   253→            </TableHeader>
+   254→            <TableBody>
+   255→              {loading ? (
+   256→                Array.from({ length: 5 }).map((_, i) => (
+   257→                  <TableRow key={i}>
+   258→                    {Array.from({ length: 5 }).map((_, j) => (
+   259→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   260→                    ))}
+   261→                  </TableRow>
+   262→                ))
+   263→              ) : filtered.length === 0 ? (
+   264→                <TableRow>
+   265→                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No categories found</TableCell>
+   266→                </TableRow>
+   267→              ) : (
+   268→                filtered.map((cat) => {
+   269→                  const isBuiltIn = BUILT_IN_CATEGORIES.includes(cat.name)
+   270→                  const prodCount = cat._count?.products || 0
+   271→                  return (
+   272→                    <TableRow key={cat.id}>
+   273→                      <TableCell>
+   274→                        <Badge variant="outline" className="font-mono text-xs">{cat.name.replace(/_/g, ' ')}</Badge>
+   275→                      </TableCell>
+   276→                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{cat.description || '—'}</TableCell>
+   277→                      <TableCell className="text-center">
+   278→                        <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
+   279→                      </TableCell>
+   280→                      <TableCell className="text-center">
+   281→                        {isBuiltIn ? (
+   282→                          <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">System</Badge>
+   283→                        ) : (
+   284→                          <Badge className="text-[10px] bg-purple-100 text-purple-700 border-purple-200">Custom</Badge>
+   285→                        )}
+   286→                      </TableCell>
+   287→                      <TableCell className="text-right">
+   288→                        <Button
+   289→                          size="sm" variant="ghost"
+   290→                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
+   291→                          onClick={() => handleDelete(cat)}
+   292→                          disabled={isBuiltIn || prodCount > 0}
+   293→                          title={isBuiltIn ? 'System category' : prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+   294→                        >
+   295→                          <Trash2 className="h-3.5 w-3.5" />
+   296→                        </Button>
+   297→                      </TableCell>
+   298→                    </TableRow>
+   299→                  )
+   300→                })
+   301→              )}
+   302→            </TableBody>
+   303→          </Table>
+   304→        </CardContent>
+   305→      </Card>
+   306→    </div>
+   307→  )
+   308→}
+   309→
+   310→// ── DRUG SECTION ────────────────────────────────────────────────────────
+   311→
+   312→function DrugSection() {
+   313→  const [drugs, setDrugs] = useState<DrugProduct[]>([])
+   314→  const [categories, setCategories] = useState<Category[]>([])
+   315→  const [vendors, setVendors] = useState<Vendor[]>([])
+   316→  const [loading, setLoading] = useState(true)
+   317→  const [saving, setSaving] = useState(false)
+   318→  const [search, setSearch] = useState('')
+   319→  const addToast = useAppStore((s) => s.addToast)
+   320→
+   321→  const [form, setForm] = useState({
+   322→    name: '', sku: '', category: 'OTC', dosageForm: '', costPrice: '', sellingPrice: '',
+   323→    stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
+   324→  })
+   325→
+   326→  const fetchData = useCallback(async () => {
+   327→    setLoading(true)
+   328→    try {
+   329→      const [prodRes, catRes, venRes] = await Promise.all([
+   330→        fetch('/api/products'),
+   331→        fetch('/api/categories'),
+   332→        fetch('/api/vendors'),
+   333→      ])
+   334→      if (prodRes.ok) {
+   335→        const data = await prodRes.json()
+   336→        const list = Array.isArray(data) ? data : data.products || []
+   337→        setDrugs(list)
+   338→      }
+   339→      if (catRes.ok) setCategories(await catRes.json())
+   340→      if (venRes.ok) setVendors(await venRes.json())
+   341→    } catch {
+   342→      addToast({ title: 'Error', description: 'Failed to load data', variant: 'destructive' })
+   343→    } finally {
+   344→      setLoading(false)
+   345→    }
+   346→  }, [addToast])
+   347→
+   348→  useEffect(() => { fetchData() }, [fetchData])
+   349→
+   350→  const handleCreate = async () => {
+   351→    if (!form.name || !form.sellingPrice) return
+   352→    setSaving(true)
+   353→    try {
+   354→      const res = await fetch('/api/products', {
+   355→        method: 'POST',
+   356→        headers: {
+   357→          'Content-Type': 'application/json',
+   358→          'x-user-role': 'SUPER_ADMIN',
+   359→        },
+   360→        body: JSON.stringify({
+   361→          name: form.name,
+   362→          ndc: form.sku || null,
+   363→          category: form.category,
+   364→          dosageForm: form.dosageForm || null,
+   365→          costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
+   366→          sellingPrice: parseFloat(form.sellingPrice),
+   367→          reorderPoint: parseInt(form.minStockLevel) || 10,
+   368→          expiryDate: form.expiryDate || null,
+   369→          batchNumber: form.barcode || null,
+   370→          vendorId: form.vendorId || null,
+   371→        }),
+   372→      })
+   373→      if (!res.ok) {
+   374→        const err = await res.json()
+   375→        throw new Error(err.error || 'Failed to create product')
+   376→      }
+   377→      const newProduct = await res.json()
+   378→
+   379→      // Set initial stock
+   380→      const qty = parseInt(form.stockQuantity) || 0
+   381→      if (qty > 0) {
+   382→        await fetch('/api/inventory', {
+   383→          method: 'PUT',
+   384→          headers: { 'Content-Type': 'application/json' },
+   385→          body: JSON.stringify({ productId: newProduct.id, adjustment: qty, reason: 'Initial stock on creation' }),
+   386→        })
+   387→      }
+   388→
+   389→      addToast({ title: 'Drug Added', description: `"${form.name}" registered in inventory`, variant: 'success' })
+   390→      setForm({
+   391→        name: '', sku: '', category: 'OTC', dosageForm: '', costPrice: '', sellingPrice: '',
+   392→        stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
+   393→      })
+   394→      fetchData()
+   395→    } catch (err: any) {
+   396→      addToast({ title: 'Error', description: err.message || 'Failed to add drug', variant: 'destructive' })
+   397→    } finally {
+   398→      setSaving(false)
+   399→    }
+   400→  }
+   401→
+   402→  const filtered = drugs.filter((d) =>
+   403→    d.name.toLowerCase().includes(search.toLowerCase()) ||
+   404→    (d.ndc && d.ndc.toLowerCase().includes(search.toLowerCase()))
+   405→  )
+   406→
+   407→  return (
+   408→    <div className="space-y-4">
+   409→      {/* Drug Registration Form */}
+   410→      <Card>
+   411→        <CardContent className="p-4">
+   412→          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   413→            <Pill className="h-4 w-4 text-teal-600" />
+   414→            Register New Drug / Product
+   415→          </h3>
+   416→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   417→            {/* Product Name - full width */}
+   418→            <div className="sm:col-span-2 lg:col-span-3">
+   419→              <Label className="text-xs">Product Name <span className="text-red-500">*</span></Label>
+   420→              <Input placeholder="e.g., Paracetamol 500mg" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
+   421→            </div>
+   422→
+   423→            {/* SKU */}
+   424→            <div>
+   425→              <Label className="text-xs">SKU / NDC</Label>
+   426→              <Input placeholder="e.g., SKU-00123" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className="mt-1" />
+   427→            </div>
+   428→
+   429→            {/* Category Dropdown */}
+   430→            <div>
+   431→              <Label className="text-xs">Category</Label>
+   432→              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+   433→                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+   434→                <SelectContent>
+   435→                  {BUILT_IN_CATEGORIES.map((c) => (
+   436→                    <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
+   437→                  ))}
+   438→                  {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
+   439→                    <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
+   440→                  ))}
+   441→                </SelectContent>
+   442→              </Select>
+   443→            </div>
+   444→
+   445→            {/* Dosage Form Dropdown */}
+   446→            <div>
+   447→              <Label className="text-xs">Dosage Form</Label>
+   448→              <Select value={form.dosageForm} onValueChange={(v) => setForm({ ...form, dosageForm: v })}>
+   449→                <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
+   450→                <SelectContent>
+   451→                  {DOSAGE_FORMS.map((f) => (
+   452→                    <SelectItem key={f} value={f}>{f}</SelectItem>
+   453→                  ))}
+   454→                </SelectContent>
+   455→              </Select>
+   456→            </div>
+   457→
+   458→            {/* Cost Price */}
+   459→            <div>
+   460→              <Label className="text-xs">Cost Price ($)</Label>
+   461→              <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className="mt-1" />
+   462→            </div>
+   463→
+   464→            {/* Selling Price */}
+   465→            <div>
+   466→              <Label className="text-xs">Selling Price ($) <span className="text-red-500">*</span></Label>
+   467→              <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} className="mt-1" />
+   468→            </div>
+   469→
+   470→            {/* Vendor Dropdown */}
+   471→            <div>
+   472→              <Label className="text-xs">Vendor / Supplier</Label>
+   473→              <Select value={form.vendorId} onValueChange={(v) => setForm({ ...form, vendorId: v })}>
+   474→                <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+   475→                <SelectContent>
+   476→                  <SelectItem value="none">None</SelectItem>
+   477→                  {vendors.map((v) => (
+   478→                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+   479→                  ))}
+   480→                </SelectContent>
+   481→              </Select>
+   482→            </div>
+   483→
+   484→            {/* Stock Quantity */}
+   485→            <div>
+   486→              <Label className="text-xs">Stock Quantity</Label>
+   487→              <Input type="number" min="0" placeholder="0" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} className="mt-1" />
+   488→            </div>
+   489→
+   490→            {/* Min Stock Level */}
+   491→            <div>
+   492→              <Label className="text-xs">Min Stock Level</Label>
+   493→              <Input type="number" min="0" placeholder="10" value={form.minStockLevel} onChange={(e) => setForm({ ...form, minStockLevel: e.target.value })} className="mt-1" />
+   494→            </div>
+   495→
+   496→            {/* Expiry Date */}
+   497→            <div>
+   498→              <Label className="text-xs">Expiry Date</Label>
+   499→              <Input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="mt-1" />
+   500→            </div>
+   501→
+   502→            {/* Barcode */}
+   503→            <div>
+   504→              <Label className="text-xs">Barcode</Label>
+   505→              <Input placeholder="e.g., 1234567890123" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="mt-1" />
+   506→            </div>
+   507→
+   508→            {/* Submit - full width */}
+   509→            <div className="sm:col-span-2 lg:col-span-3">
+   510→              <Button
+   511→                onClick={handleCreate}
+   512→                disabled={!form.name || !form.sellingPrice || saving}
+   513→                className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700"
+   514→              >
+   515→                {saving ? 'Registering...' : <><Pill className="h-4 w-4 mr-2" /> Register Drug</>}
+   516→              </Button>
+   517→            </div>
+   518→          </div>
+   519→        </CardContent>
+   520→      </Card>
+   521→
+   522→      {/* Search */}
+   523→      <div className="relative max-w-sm">
+   524→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   525→        <Input placeholder="Search drugs by name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+   526→      </div>
+   527→
+   528→      {/* Drug Table */}
+   529→      <Card>
+   530→        <CardContent className="p-0">
+   531→          <Table>
+   532→            <TableHeader>
+   533→              <TableRow>
+   534→                <TableHead>Drug Name</TableHead>
+   535→                <TableHead className="hidden md:table-cell">SKU</TableHead>
+   536→                <TableHead className="hidden sm:table-cell">Form</TableHead>
+   537→                <TableHead className="hidden sm:table-cell">Category</TableHead>
+   538→                <TableHead className="text-right">Cost</TableHead>
+   539→                <TableHead className="text-right">Price</TableHead>
+   540→                <TableHead className="hidden lg:table-cell text-right">Stock</TableHead>
+   541→                <TableHead className="hidden lg:table-cell">Expiry</TableHead>
+   542→              </TableRow>
+   543→            </TableHeader>
+   544→            <TableBody>
+   545→              {loading ? (
+   546→                Array.from({ length: 8 }).map((_, i) => (
+   547→                  <TableRow key={i}>
+   548→                    {Array.from({ length: 8 }).map((_, j) => (
+   549→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   550→                    ))}
+   551→                  </TableRow>
+   552→                ))
+   553→              ) : filtered.length === 0 ? (
+   554→                <TableRow>
+   555→                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+   556→                </TableRow>
+   557→              ) : (
+   558→                filtered.map((drug) => (
+   559→                  <TableRow key={drug.id}>
+   560→                    <TableCell>
+   561→                      <div className="flex items-center gap-2">
+   562→                        <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+   563→                          <Pill className="h-3.5 w-3.5 text-teal-600" />
+   564→                        </div>
+   565→                        <div>
+   566→                          <p className="font-medium text-sm">{drug.name}</p>
+   567→                          {drug.strength && <p className="text-[10px] text-muted-foreground">{drug.strength}</p>}
+   568→                        </div>
+   569→                      </div>
+   570→                    </TableCell>
+   571→                    <TableCell className="hidden md:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
+   572→                    <TableCell className="hidden sm:table-cell">
+   573→                      {drug.dosageForm ? (
+   574→                        <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
+   575→                      ) : '—'}
+   576→                    </TableCell>
+   577→                    <TableCell className="hidden sm:table-cell">
+   578→                      <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
+   579→                    </TableCell>
+   580→                    <TableCell className="text-right text-xs text-muted-foreground">
+   581→                      ${drug.costPrice ? drug.costPrice.toFixed(2) : '—'}
+   582→                    </TableCell>
+   583→                    <TableCell className="text-right text-sm font-medium">
+   584→                      ${drug.sellingPrice.toFixed(2)}
+   585→                    </TableCell>
+   586→                    <TableCell className="hidden lg:table-cell text-right">
+   587→                      <div className="flex items-center justify-end gap-1">
+   588→                        <span className="text-sm font-bold">{drug.inventory?.[0]?.quantity || 0}</span>
+   589→                        <span className="text-[10px] text-muted-foreground">/ {drug.reorderPoint}</span>
+   590→                      </div>
+   591→                    </TableCell>
+   592→                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+   593→                      {drug.expiryDate || '—'}
+   594→                    </TableCell>
+   595→                  </TableRow>
+   596→                ))
+   597→              )}
+   598→            </TableBody>
+   599→          </Table>
+   600→        </CardContent>
+   601→      </Card>
+   602→    </div>
+   603→  )
+   604→}
+   605→
+   606→// ── VENDOR SECTION ──────────────────────────────────────────────────────
+   607→
+   608→function VendorSection() {
+   609→  const [vendors, setVendors] = useState<Vendor[]>([])
+   610→  const [loading, setLoading] = useState(true)
+   611→  const [saving, setSaving] = useState(false)
+   612→  const [search, setSearch] = useState('')
+   613→  const [form, setForm] = useState({
+   614→    name: '', contactPerson: '', email: '', phone: '', address: '', notes: '',
+   615→  })
+   616→  const addToast = useAppStore((s) => s.addToast)
+   617→
+   618→  const fetchVendors = useCallback(async () => {
+   619→    setLoading(true)
+   620→    try {
+   621→      const res = await fetch('/api/vendors')
+   622→      if (res.ok) setVendors(await res.json())
+   623→    } catch {
+   624→      addToast({ title: 'Error', description: 'Failed to load vendors', variant: 'destructive' })
+   625→    } finally {
+   626→      setLoading(false)
+   627→    }
+   628→  }, [addToast])
+   629→
+   630→  useEffect(() => { fetchVendors() }, [fetchVendors])
+   631→
+   632→  const handleCreate = async () => {
+   633→    if (!form.name.trim()) return
+   634→    setSaving(true)
+   635→    try {
+   636→      const res = await fetch('/api/vendors', {
+   637→        method: 'POST',
+   638→        headers: { 'Content-Type': 'application/json' },
+   639→        body: JSON.stringify(form),
+   640→      })
+   641→      if (!res.ok) {
+   642→        const err = await res.json()
+   643→        throw new Error(err.error || 'Failed')
+   644→      }
+   645→      addToast({ title: 'Vendor Added', description: `"${form.name.trim()}" registered as supplier`, variant: 'success' })
+   646→      setForm({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+   647→      fetchVendors()
+   648→    } catch (err: any) {
+   649→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   650→    } finally {
+   651→      setSaving(false)
+   652→    }
+   653→  }
+   654→
+   655→  const handleDelete = async (vendor: Vendor) => {
+   656→    try {
+   657→      const res = await fetch(`/api/vendors/${vendor.id}`, { method: 'DELETE' })
+   658→      if (!res.ok) {
+   659→        const err = await res.json()
+   660→        throw new Error(err.error || 'Failed')
+   661→      }
+   662→      addToast({ title: 'Deleted', description: `"${vendor.name}" removed`, variant: 'success' })
+   663→      fetchVendors()
+   664→    } catch (err: any) {
+   665→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   666→    }
+   667→  }
+   668→
+   669→  const filtered = vendors.filter((v) =>
+   670→    v.name.toLowerCase().includes(search.toLowerCase()) ||
+   671→    (v.contactPerson && v.contactPerson.toLowerCase().includes(search.toLowerCase())) ||
+   672→    (v.email && v.email.toLowerCase().includes(search.toLowerCase()))
+   673→  )
+   674→
+   675→  return (
+   676→    <div className="space-y-4">
+   677→      {/* Create Form */}
+   678→      <Card>
+   679→        <CardContent className="p-4">
+   680→          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   681→            <Truck className="h-4 w-4 text-green-600" />
+   682→            Register New Vendor / Supplier
+   683→          </h3>
+   684→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   685→            <div className="sm:col-span-2 lg:col-span-2">
+   686→              <Label className="text-xs">Vendor Name <span className="text-red-500">*</span></Label>
+   687→              <Input placeholder="e.g., PharmaCorp Distribution" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
+   688→            </div>
+   689→            <div>
+   690→              <Label className="text-xs">Contact Person</Label>
+   691→              <Input placeholder="Full name" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} className="mt-1" />
+   692→            </div>
+   693→            <div>
+   694→              <Label className="text-xs">Email</Label>
+   695→              <Input type="email" placeholder="vendor@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
+   696→            </div>
+   697→            <div>
+   698→              <Label className="text-xs">Phone</Label>
+   699→              <Input placeholder="+1 (555) 000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1" />
+   700→            </div>
+   701→            <div className="sm:col-span-2">
+   702→              <Label className="text-xs">Address</Label>
+   703→              <Input placeholder="Street, City, State" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-1" />
+   704→            </div>
+   705→            <div>
+   706→              <Label className="text-xs">Notes</Label>
+   707→              <Input placeholder="Additional notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1" />
+   708→            </div>
+   709→            <div className="sm:col-span-2 lg:col-span-3">
+   710→              <Button
+   711→                onClick={handleCreate}
+   712→                disabled={!form.name.trim() || saving}
+   713→                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+   714→              >
+   715→                {saving ? 'Saving...' : <><Truck className="h-4 w-4 mr-2" /> Register Vendor</>}
+   716→              </Button>
+   717→            </div>
+   718→          </div>
+   719→        </CardContent>
+   720→      </Card>
+   721→
+   722→      {/* Search */}
+   723→      <div className="relative max-w-sm">
+   724→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   725→        <Input placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+   726→      </div>
+   727→
+   728→      {/* Vendor Table */}
+   729→      <Card>
+   730→        <CardContent className="p-0">
+   731→          <Table>
+   732→            <TableHeader>
+   733→              <TableRow>
+   734→                <TableHead>Vendor Name</TableHead>
+   735→                <TableHead className="hidden sm:table-cell">Contact Person</TableHead>
+   736→                <TableHead className="hidden md:table-cell">Email</TableHead>
+   737→                <TableHead className="hidden md:table-cell">Phone</TableHead>
+   738→                <TableHead className="text-center">Products</TableHead>
+   739→                <TableHead className="text-right">Actions</TableHead>
+   740→              </TableRow>
+   741→            </TableHeader>
+   742→            <TableBody>
+   743→              {loading ? (
+   744→                Array.from({ length: 5 }).map((_, i) => (
+   745→                  <TableRow key={i}>
+   746→                    {Array.from({ length: 6 }).map((_, j) => (
+   747→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   748→                    ))}
+   749→                  </TableRow>
+   750→                ))
+   751→              ) : filtered.length === 0 ? (
+   752→                <TableRow>
+   753→                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No vendors found</TableCell>
+   754→                </TableRow>
+   755→              ) : (
+   756→                filtered.map((vendor) => {
+   757→                  const prodCount = vendor._count?.products || 0
+   758→                  return (
+   759→                    <TableRow key={vendor.id}>
+   760→                      <TableCell>
+   761→                        <div className="flex items-center gap-2">
+   762→                          <div className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+   763→                            <Truck className="h-3.5 w-3.5 text-green-600" />
+   764→                          </div>
+   765→                          <div>
+   766→                            <p className="font-medium text-sm">{vendor.name}</p>
+   767→                            {vendor.address && <p className="text-[10px] text-muted-foreground">{vendor.address}</p>}
+   768→                          </div>
+   769→                        </div>
+   770→                      </TableCell>
+   771→                      <TableCell className="hidden sm:table-cell text-sm">{vendor.contactPerson || '—'}</TableCell>
+   772→                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{vendor.email || '—'}</TableCell>
+   773→                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{vendor.phone || '—'}</TableCell>
+   774→                      <TableCell className="text-center">
+   775→                        <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
+   776→                      </TableCell>
+   777→                      <TableCell className="text-right">
+   778→                        <Button
+   779→                          size="sm" variant="ghost"
+   780→                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
+   781→                          onClick={() => handleDelete(vendor)}
+   782→                          disabled={prodCount > 0}
+   783→                          title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+   784→                        >
+   785→                          <Trash2 className="h-3.5 w-3.5" />
+   786→                        </Button>
+   787→                      </TableCell>
+   788→                    </TableRow>
+   789→                  )
+   790→                })
+   791→              )}
+   792→            </TableBody>
+   793→          </Table>
+   794→        </CardContent>
+   795→      </Card>
+   796→    </div>
+   797→  )
+   798→}
+   799→

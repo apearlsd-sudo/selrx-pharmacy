@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
         include: {
           inventory: true,
+          vendor: { select: { id: true, name: true } },
         },
       }),
       db.product.count({ where }),

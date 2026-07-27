@@ -47,10 +47,11 @@ interface DrugProduct {
   category: string
   sellingPrice: number
   costPrice: number | null
+  manufacturer: string | null
   dosageForm: string | null
   strength: string | null
   unitOfMeasure: string
-  vendor?: { name: string } | null
+  vendor?: { id: string; name: string } | null
   inventory?: { quantity: number }[]
   reorderPoint: number
   expiryDate: string | null
@@ -319,9 +320,11 @@ function DrugSection() {
   const addToast = useAppStore((s) => s.addToast)
 
   const [form, setForm] = useState({
-    name: '', sku: '', category: 'OTC', dosageForm: '', costPrice: '', sellingPrice: '',
+    name: '', sku: '', category: 'OTC', dosageForm: '', manufacturer: '', costPrice: '', sellingPrice: '',
     stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
   })
+  const [showNewManufacturer, setShowNewManufacturer] = useState(false)
+  const [newManufacturerName, setNewManufacturerName] = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -362,6 +365,7 @@ function DrugSection() {
           ndc: form.sku || null,
           category: form.category,
           dosageForm: form.dosageForm || null,
+          manufacturer: form.manufacturer || null,
           costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
           sellingPrice: parseFloat(form.sellingPrice),
           reorderPoint: parseInt(form.minStockLevel) || 10,
@@ -388,9 +392,11 @@ function DrugSection() {
 
       addToast({ title: 'Drug Added', description: `"${form.name}" registered in inventory`, variant: 'success' })
       setForm({
-        name: '', sku: '', category: 'OTC', dosageForm: '', costPrice: '', sellingPrice: '',
+        name: '', sku: '', category: 'OTC', dosageForm: '', manufacturer: '', costPrice: '', sellingPrice: '',
         stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
       })
+      setShowNewManufacturer(false)
+      setNewManufacturerName('')
       fetchData()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to add drug', variant: 'destructive' })
@@ -403,6 +409,17 @@ function DrugSection() {
     d.name.toLowerCase().includes(search.toLowerCase()) ||
     (d.ndc && d.ndc.toLowerCase().includes(search.toLowerCase()))
   )
+
+  // Extract unique manufacturers from existing drugs
+  const existingManufacturers = [...new Set(drugs.map((d) => d.manufacturer).filter(Boolean))] as string[]
+
+  const handleAddNewManufacturer = () => {
+    const trimmed = newManufacturerName.trim()
+    if (!trimmed) return
+    setForm({ ...form, manufacturer: trimmed })
+    setNewManufacturerName('')
+    setShowNewManufacturer(false)
+  }
 
   return (
     <div className="space-y-4">
@@ -425,6 +442,53 @@ function DrugSection() {
               <Label className="text-xs">SKU / NDC</Label>
               <Input placeholder="e.g., SKU-00123" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className="mt-1" />
             </div>
+
+            {/* Manufacturer Dropdown */}
+            {showNewManufacturer ? (
+              <div>
+                <Label className="text-xs">New Manufacturer</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input
+                    placeholder="Enter manufacturer name"
+                    value={newManufacturerName}
+                    onChange={(e) => setNewManufacturerName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewManufacturer() }}
+                    autoFocus
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewManufacturer} className="shrink-0 px-3">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewManufacturer(false); setNewManufacturerName('') }} className="shrink-0 px-2">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Manufacturer</Label>
+                <Select
+                  value={form.manufacturer || '_none'}
+                  onValueChange={(v) => {
+                    if (v === '__new__') {
+                      setShowNewManufacturer(true)
+                    } else {
+                      setForm({ ...form, manufacturer: v === '_none' ? '' : v })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">None</SelectItem>
+                    {existingManufacturers.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                      + Add new manufacturer
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Category Dropdown */}
             <div>
@@ -532,8 +596,10 @@ function DrugSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>Drug Name</TableHead>
-                <TableHead className="hidden md:table-cell">SKU</TableHead>
-                <TableHead className="hidden sm:table-cell">Form</TableHead>
+                <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
+                <TableHead className="hidden sm:table-cell">Dosage Form</TableHead>
+                <TableHead className="hidden md:table-cell">Vendor</TableHead>
+                <TableHead className="hidden lg:table-cell">SKU</TableHead>
                 <TableHead className="hidden sm:table-cell">Category</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Price</TableHead>
@@ -552,7 +618,7 @@ function DrugSection() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((drug) => (
@@ -568,12 +634,14 @@ function DrugSection() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.manufacturer || '—'}</TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {drug.dosageForm ? (
                         <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
                       ) : '—'}
                     </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.vendor?.name || '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
                     </TableCell>
