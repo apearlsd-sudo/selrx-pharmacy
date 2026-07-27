@@ -1,47 +1,34 @@
-// Persistent server startup script for SelRx
-// Handles process keepalive with proper error logging
-
+// SelRx persistent server — reads PORT from env, caps memory
+// This file is a fallback; start-server.sh (using next start) is preferred.
 const next = require('next');
 const { createServer } = require('http');
 const path = require('path');
 
 process.chdir(path.join(__dirname, '..'));
 
-const dev = false;
 const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 
-const app = next({ dev, hostname, port });
+const app = next({ dev: false });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
-    // Use WHATWG URL instead of deprecated url.parse
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    handle(req, res, url).catch(err => {
-      console.error('[Request Error]', err.message || err);
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.end('Internal Server Error');
-      }
+    handle(req, res, require('url').parse(req.url, true)).catch(err => {
+      console.error('[ReqErr]', err.message);
+      if (!res.headersSent) { res.statusCode = 500; res.end(); }
     });
   });
 
   server.listen(port, hostname, () => {
-    const ts = new Date().toISOString();
-    console.log(`[${ts}] SelRx ready on http://${hostname}:${port}`);
+    console.log(`[${new Date().toISOString()}] SelRx on http://${hostname}:${port} (PID=${process.pid})`);
   });
 
-  process.on('SIGTERM', () => {
-    console.log('[SIGTERM] Shutting down...');
-    server.close(() => process.exit(0));
+  process.on('SIGTERM', () => server.close(() => process.exit(0)));
+  process.on('SIGINT', () => server.close(() => process.exit(0)));
+  process.on('unhandledRejection', (r) => console.error('[Rejection]', r));
+  process.on('uncaughtException', (e) => {
+    console.error('[Exception]', e.message);
+    process.exit(1);
   });
-
-  process.on('SIGINT', () => {
-    console.log('[SIGINT] Shutting down...');
-    server.close(() => process.exit(0));
-  });
-}).catch(err => {
-  console.error('[Startup Error]', err.message || err);
-  process.exit(1);
-});
+}).catch(e => { console.error('[Startup]', e.message); process.exit(1); });
