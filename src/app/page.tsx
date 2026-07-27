@@ -19,6 +19,8 @@ import {
  Database,
   History,
   RotateCcw,
+  TrendingUp,
+  ClipboardCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -38,6 +40,8 @@ import { MasterDataView } from '@/components/gazpharm/views/master-data-view'
 import { SalesHistoryView } from '@/components/gazpharm/views/sales-history-view'
 import { GoodsReturnView } from '@/components/gazpharm/views/goods-return-view'
 import { CompanySetupView } from '@/components/gazpharm/company-setup-view'
+import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales-analytics'
+import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -58,6 +62,8 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
   { name: 'customers', label: 'Customers', icon: Users, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'] },
   { name: 'reports', label: 'Reports', icon: BarChart3, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
+  { name: 'product-sales-analytics', label: 'Product Sales Analytics', icon: TrendingUp, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
+  { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
   { name: 'sales-history', label: 'Sales History', icon: History, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'] },
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER'] },
   { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, roles: ['SUPER_ADMIN', 'PHARMACIST'] },
@@ -133,6 +139,8 @@ export default function Home() {
       case 'sales-history': return <SalesHistoryView />
       case 'returns': return <GoodsReturnView />
       case 'master-data': return <MasterDataView />
+      case 'product-sales-analytics': return <ProductSalesAnalytics />
+      case 'stock-take': return <StockTakeSection />
       default: return <DashboardView />
     }
   }

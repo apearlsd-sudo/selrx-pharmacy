@@ -38,6 +38,7 @@ model User {
   prescriptionsVerified Prescription[] @relation("Verifier")
   logs               AuditLog[]
   ownedCompany      Company?  @relation("CompanyOwner")
+  stockTakes        StockTake[]  @relation("StockTakeCounter")
 }
 
 // ============ CUSTOMERS / PATIENTS ============
@@ -103,6 +104,7 @@ model Product {
   transactionItems  TransactionItem[]
   categories        Category[]
   returns           Return[]
+  stockTakeItems    StockTakeItem[]
 }
 
 // ============ INVENTORY ============
@@ -377,4 +379,44 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
+}
+
+// ============ STOCK TAKE ============
+
+enum StockTakeStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model StockTake {
+  id          String          @id @default(cuid())
+  reference   String          @unique
+  status      StockTakeStatus @default(PENDING)
+  notes       String?
+  countedBy   String?         // userId
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  countedByUser User?          @relation("StockTakeCounter", fields: [countedBy], references: [id])
+  items         StockTakeItem[]
+}
+
+model StockTakeItem {
+  id            String   @id @default(cuid())
+  stockTakeId   String
+  productId     String
+  systemQty     Int      // current quantity in inventory
+  countedQty    Int?     // physical count
+  variance      Int?     // countedQty - systemQty
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  stockTake StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@unique([stockTakeId, productId])
 }

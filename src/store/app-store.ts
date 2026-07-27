@@ -18,6 +18,8 @@ export type ViewName =
   | 'master-data'
   | 'sales-history'
   | 'returns'
+  | 'product-sales-analytics'
+  | 'stock-take'
 
 export type PaymentMethodType =
   | 'CASH'
