@@ -90,22 +90,76 @@ export default function Home() {
   const setIsCompanySetup = useAppStore((s) => s.setIsCompanySetup)
   const setCompany = useAppStore((s) => s.setCompany)
   const company = useAppStore((s) => s.company)
+  const isHydrated = useAppStore((s) => s.isHydrated)
+  const setHydrated = useAppStore((s) => s.setHydrated)
 
   // Wire the currency getter once so the shared formatCurrency works
   useEffect(() => {
     initCurrencyGetter(() => useAppStore.getState().currency)
   }, [])
 
-  // Restore session from localStorage on page load
+  // Single hydration effect: restores company + session from localStorage
+  // This runs BEFORE any conditional rendering, preventing flash
   useEffect(() => {
     if (typeof window === 'undefined') return
+
+    const store = useAppStore.getState()
+    let companyRestored = false
+    let sessionRestored = false
+    const finish = () => {
+      // Mark hydrated once both checks complete
+      if (companyRestored && sessionRestored) {
+        store.setHydrated()
+      }
+    }
+
+    // 1. Restore company from localStorage (fast, synchronous read)
+    try {
+      const companyData = localStorage.getItem('selrx_company')
+      if (companyData) {
+        const savedCompany = JSON.parse(companyData)
+        store.setCompany(savedCompany)
+        if (savedCompany.currency) {
+          store.setCurrency(savedCompany.currency as CurrencyCode)
+        }
+        companyRestored = true
+        finish()
+      } else {
+        // No cached company — check server
+        fetch('/api/company-setup')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.isSetup && data.company) {
+              store.setCompany(data.company)
+              if (data.company.currency) {
+                store.setCurrency(data.company.currency as CurrencyCode)
+              }
+            } else {
+              store.setCurrentView('company-setup')
+              store.setIsCompanySetup(true)
+            }
+            companyRestored = true
+            finish()
+          })
+          .catch(() => {
+            store.setIsCompanySetup(true)
+            companyRestored = true
+            finish()
+          })
+      }
+    } catch {
+      store.setIsCompanySetup(true)
+      companyRestored = true
+      finish()
+    }
+
+    // 2. Restore session from localStorage (validates with server)
     try {
       const sessionData = localStorage.getItem('selrx_session')
       const savedView = localStorage.getItem('selrx_view')
 
       if (sessionData) {
         const { user: savedUser } = JSON.parse(sessionData)
-        // Validate session with server
         fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,53 +171,50 @@ export default function Home() {
           })
           .then((data) => {
             if (data.valid && data.user) {
-              useAppStore.getState().setUser(data.user)
-              // Restore the saved view (only non-login views)
+              store.setUser(data.user)
               if (savedView && savedView !== 'login' && savedView !== 'company-setup') {
-                useAppStore.getState().setCurrentView(savedView as ViewName)
+                store.setCurrentView(savedView as ViewName)
               }
             } else {
               localStorage.removeItem('selrx_session')
               localStorage.removeItem('selrx_view')
             }
+            sessionRestored = true
+            finish()
           })
           .catch(() => {
             localStorage.removeItem('selrx_session')
             localStorage.removeItem('selrx_view')
+            sessionRestored = true
+            finish()
           })
+      } else {
+        sessionRestored = true
+        finish()
       }
     } catch {
-      // Corrupted data — clear it
       localStorage.removeItem('selrx_session')
       localStorage.removeItem('selrx_view')
+      sessionRestored = true
+      finish()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if a company has been set up
-  useEffect(() => {
-    if (!isCompanySetup) {
-      fetch('/api/company-setup')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.isSetup && data.company) {
-            setCompany(data.company)
-            setIsCompanySetup(true)
-            if (data.company.currency) {
-              const code = data.company.currency as CurrencyCode
-              setCurrency(code)
-            }
-          } else {
-            setCurrentView('company-setup')
-          }
-        })
-        .catch(() => {
-          // On error, still try to show login
-          setIsCompanySetup(true)
-        })
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Show loading screen while hydrating (prevents flash)
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center">
+            <Pill className="h-6 w-6 text-white" />
+          </div>
+          <div className="h-5 w-20 rounded-md bg-gray-200 animate-pulse" />
+        </div>
+      </div>
+    )
+  }
 
-  // Show company setup if not yet configured
+  // Show company setup if not yet configured (only on first setup, not on reload)
   if (!isCompanySetup) {
     return <CompanySetupView />
   }

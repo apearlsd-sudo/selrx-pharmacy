@@ -318,9 +318,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   setIsLoading: (val) => set({ isLoading: val }),
 
+  // ---- Hydration (prevents UI flash on reload) ----
+  isHydrated: false,
+  setHydrated: () => set({ isHydrated: true }),
+
   // ---- Company ----
   company: null,
-  setCompany: (company) => set({ company }),
+  setCompany: (company) => {
+    set({ company, isCompanySetup: !!company })
+    if (typeof window !== 'undefined') {
+      if (company) {
+        localStorage.setItem('selrx_company', JSON.stringify(company))
+      } else {
+        localStorage.removeItem('selrx_company')
+      }
+    }
+  },
   isCompanySetup: false,
   setIsCompanySetup: (val) => set({ isCompanySetup: val }),
 
