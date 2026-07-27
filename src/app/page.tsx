@@ -385,7 +385,7 @@ export default function Home() {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <h2 className="text-sm font-semibold text-gray-900">{company?.name || 'SelRx'}</h2>
+          <h1 className="text-lg font-bold text-gray-900">{company?.name || 'SelRx'}</h1>
 
           <div className="ml-auto flex items-center gap-2">
             {/* Currency Selector */}
