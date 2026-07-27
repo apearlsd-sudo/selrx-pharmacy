@@ -95,16 +95,25 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'email, password, and name are required' },
+        { error: 'username/email, password, and name are required' },
         { status: 400 }
       )
     }
 
-    // Check for duplicate email
+    // Validate username/email: allow alphanumeric, dots, hyphens, underscores, and @ for emails
+    const usernameRegex = /^[a-zA-Z0-9._@-]+$/
+    if (!usernameRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Username can only contain letters, numbers, dots, hyphens, and underscores' },
+        { status: 400 }
+      )
+    }
+
+    // Check for duplicate email/username
     const existing = await db.user.findUnique({ where: { email } })
     if (existing) {
       return NextResponse.json(
-        { error: 'A user with this email already exists' },
+        { error: 'A user with this username or email already exists' },
         { status: 409 }
       )
     }

@@ -7,11 +7,12 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Username and password are required' },
         { status: 400 }
       )
     }
 
+    // Try to find user by email field (which also stores usernames)
     const user = await db.user.findUnique({ where: { email } })
 
     if (!user || user.password !== password || !user.active) {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Pill, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Pill, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,7 +46,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
 ]
 
 export function LoginScreen() {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -56,7 +56,7 @@ export function LoginScreen() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
   const addToast = useAppStore((s) => s.addToast)
 
-  const handleLogin = async (loginEmail: string, loginPassword: string) => {
+  const handleLogin = async (loginUser: string, loginPassword: string) => {
     setIsLoading(true)
     setError('')
 
@@ -64,7 +64,7 @@ export function LoginScreen() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        body: JSON.stringify({ email: loginUser, password: loginPassword }),
       })
 
       const data = await res.json()
@@ -91,11 +91,11 @@ export function LoginScreen() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    handleLogin(email, password)
+    handleLogin(username, password)
   }
 
   const handleDemoLogin = (account: DemoAccount) => {
-    setEmail(account.email)
+    setUsername(account.email)
     setPassword(account.password)
     handleLogin(account.email, account.password)
   }
@@ -156,18 +156,18 @@ export function LoginScreen() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Username or Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <Input
                     id="email"
-                    type="email"
-                    placeholder="you@selrx.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text"
+                    placeholder="username or you@selrx.com"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="pl-10 h-11"
                     required
-                    autoComplete="email"
+                    autoComplete="username"
                   />
                 </div>
               </div>

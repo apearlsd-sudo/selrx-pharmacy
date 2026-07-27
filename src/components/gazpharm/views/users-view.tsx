@@ -356,7 +356,7 @@ export function UsersView() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
+                <TableHead className="hidden sm:table-cell">Username / Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="hidden md:table-cell">Privileges</TableHead>
                 <TableHead>Status</TableHead>
@@ -505,8 +505,8 @@ export function UsersView() {
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="John Doe" className="mt-1" />
               </div>
               <div>
-                <Label>Email <span className="text-red-500">*</span></Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="john@selrx.com" className="mt-1" />
+                <Label>Username or Email <span className="text-red-500">*</span></Label>
+                <Input type="text" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="e.g. johndoe or john@selrx.com" className="mt-1" />
               </div>
               <div>
                 <Label>Password <span className="text-red-500">*</span></Label>
