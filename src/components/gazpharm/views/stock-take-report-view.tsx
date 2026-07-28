@@ -142,7 +142,7 @@ interface ReportData {
 export function StockTakeReportView({ stockTakeId: stockTakeIdProp }: { stockTakeId?: string }) {
   // Read stockTakeReportId from store reactively as fallback when prop is missing
   const storeReportId = useAppStore((s) => s.stockTakeReportId)
-  const stockTakeId = stockTakeIdProp || storeReportId
+  const stockTakeId = stockTakeIdProp || storeReportId || undefined
 
   const [report, setReport] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -159,7 +159,11 @@ export function StockTakeReportView({ stockTakeId: stockTakeIdProp }: { stockTak
   const addToast = useAppStore((s) => s.addToast)
 
   const fetchReport = useCallback(async () => {
-    if (!stockTakeId) return
+    if (!stockTakeId) {
+      setLoading(false)
+      setError('No stock take selected')
+      return
+    }
     setLoading(true)
     setError(null)
     try {

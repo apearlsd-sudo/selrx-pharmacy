@@ -31,6 +31,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { useAppStore } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 
 interface DashboardData {
   today: {
@@ -169,7 +170,7 @@ export function DashboardView() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch('/api/dashboard')
+      const res = await fetch('/api/dashboard', { headers: authHeaders() })
       if (!res.ok) throw new Error('Failed to fetch dashboard data')
       const json = await res.json()
       setData(json)
