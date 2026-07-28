@@ -149,15 +149,7 @@ export async function PUT(request: NextRequest) {
 
     const existing = await db.inventory.findUnique({
       where: { productId },
-      include: { product: true },
     })
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Inventory record not found for this product' },
-        { status: 404 }
-      )
-    }
 
     // Determine new quantity
     let newQuantity: number
@@ -166,9 +158,9 @@ export async function PUT(request: NextRequest) {
       newQuantity = setQuantity !== undefined ? setQuantity : (adjustment || 0)
     } else if (adjustment !== undefined) {
       // ADD / REMOVE mode
-      newQuantity = existing.quantity + adjustment
+      newQuantity = (existing?.quantity || 0) + adjustment
     } else {
-      newQuantity = existing.quantity
+      newQuantity = existing?.quantity || 0
     }
 
     if (newQuantity < 0) {
@@ -183,15 +175,24 @@ export async function PUT(request: NextRequest) {
     if (costPrice !== undefined) productUpdate.costPrice = costPrice
     if (sellingPrice !== undefined) productUpdate.sellingPrice = sellingPrice
 
-    // Update inventory quantity
-    const updated = await db.inventory.update({
-      where: { productId },
-      data: {
-        quantity: newQuantity,
-        lastCounted: new Date(),
-      },
-      include: { product: true },
-    })
+    // Create or update inventory record
+    const updated = existing
+      ? await db.inventory.update({
+          where: { productId },
+          data: {
+            quantity: newQuantity,
+            lastCounted: new Date(),
+          },
+          include: { product: true },
+        })
+      : await db.inventory.create({
+          data: {
+            productId,
+            quantity: newQuantity,
+            lastCounted: new Date(),
+          },
+          include: { product: true },
+        })
 
     // Also update product prices if changed
     if (Object.keys(productUpdate).length > 0) {
