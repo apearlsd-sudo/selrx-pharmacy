@@ -65,6 +65,7 @@ export function StockTakeSection() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StockTake | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
 
   const fetchStockTakes = useCallback(async () => {
     setLoading(true)
