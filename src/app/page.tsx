@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, Component, type ReactNode } from 'react'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -46,6 +46,38 @@ import { StockTakeReportView } from '@/components/gazpharm/views/stock-take-repo
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+
+// ── Error Boundary to prevent client-side crash from taking down the whole app ──
+interface ErrorBoundaryProps { children: ReactNode; fallback?: ReactNode }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null }
+class ViewErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8">
+          <p className="text-red-500 font-medium">Something went wrong loading this page.</p>
+          <p className="text-sm text-muted-foreground max-w-md text-center">
+            {this.state.error?.message || 'An unexpected error occurred.'}
+          </p>
+          <button
+            className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            Try Again
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 interface NavItem {
   name: ViewName
@@ -247,8 +279,8 @@ export default function Home() {
       case 'returns': return <GoodsReturnView />
       case 'master-data': return <MasterDataView />
       case 'product-sales-analytics': return <ProductSalesAnalytics />
-      case 'stock-take': return <StockTakeSection />
-      case 'stock-take-report': return <StockTakeReportView stockTakeId={useAppStore.getState().stockTakeReportId || undefined} />
+      case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
+      case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportView stockTakeId={useAppStore.getState().stockTakeReportId || undefined} /></ViewErrorBoundary>
       default: return <DashboardView />
     }
   }

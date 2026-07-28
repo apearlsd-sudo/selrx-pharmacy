@@ -413,7 +413,8 @@ export function StockTakeSection() {
                       <TableBody>
                         {inventory.map((inv) => {
                           const counted = countedItems[inv.productId] ?? ''
-                          const variance = counted !== '' ? counted - inv.quantity : null
+                          const countedNum = typeof counted === 'number' ? counted : (counted !== '' ? parseInt(String(counted), 10) : null)
+                          const variance = countedNum !== null && !isNaN(countedNum) ? countedNum - inv.quantity : null
                           return (
                             <TableRow key={inv.productId}>
                               <TableCell className="text-sm">{inv.product.name}</TableCell>

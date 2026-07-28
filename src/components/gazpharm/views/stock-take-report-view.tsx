@@ -169,7 +169,14 @@ export function StockTakeReportView({ stockTakeId: stockTakeIdProp }: { stockTak
     try {
       const res = await fetch(`/api/stock-take?action=report&id=${stockTakeId}`, { headers: authHeaders() })
       if (res.ok) {
-        setReport(await res.json())
+        const data = await res.json()
+        // Validate that the response has the expected structure before setting state
+        if (data && data.stockTakeRef && data.inventoryValuation) {
+          setReport(data)
+        } else {
+          console.error('[StockTakeReport] Invalid report data:', data)
+          setError('Invalid report data received from server')
+        }
       } else {
         const err = await res.json().catch(() => ({ error: 'Failed to load report' }))
         setError(err.error || 'Failed to load report')
