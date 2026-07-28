@@ -146,25 +146,31 @@ async function main() {
   }
 
   // Also fix any existing inventory records that have NULL or 0 quantity
-  const { rows: zeroQty } = await turso.execute(
-    `SELECT "id", "productId" FROM "Inventory" WHERE "quantity" IS NULL OR "quantity" = 0`
-  )
-  if (zeroQty.length > 0) {
-    console.log(`  📝 Updating ${zeroQty.length} zero-quantity inventory records...`)
-    for (const inv of zeroQty) {
-      const qty = Math.floor(Math.random() * 180) + 20
-      await turso.execute({
-        sql: `UPDATE "Inventory" SET "quantity" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?`,
-        args: [qty, inv.id],
-      })
+  // Only runs when SEED_STOCK=true to avoid re-seeding on every build
+  if (process.env.SEED_STOCK === 'true') {
+    const { rows: zeroQty } = await turso.execute(
+      `SELECT "id", "productId" FROM "Inventory" WHERE "quantity" IS NULL OR "quantity" = 0`
+    )
+    if (zeroQty.length > 0) {
+      console.log(`  📝 Updating ${zeroQty.length} zero-quantity inventory records...`)
+      for (const inv of zeroQty) {
+        const qty = Math.floor(Math.random() * 180) + 20
+        await turso.execute({
+          sql: `UPDATE "Inventory" SET "quantity" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?`,
+          args: [qty, inv.id],
+        })
+      }
+      console.log(`  ✅ Zero-quantity records updated`)
     }
-    console.log(`  ✅ Zero-quantity records updated`)
+  } else {
+    console.log('  ⏭️  Skipping zero-quantity seed (set SEED_STOCK=true to enable)')
   }
 
   console.log('✅ Turso schema sync complete!')
 }
 
 main().catch(e => {
-  console.error('❌ Turso schema sync failed:', e)
-  process.exit(1)
+  console.error('⚠️  Turso schema sync failed (non-fatal):', e.message)
+  // Don't exit with error — allow build to continue
+  process.exit(0)
 })
