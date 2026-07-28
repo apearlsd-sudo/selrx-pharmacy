@@ -91,3 +91,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Failed to update stock take' }, { status: 500 })
   }
 }
+
+// DELETE /api/stock-take/[id] — delete a stock take and its items
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params
+    const existing = await db.stockTake.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Stock take not found' }, { status: 404 })
+    }
+    // Delete items first (Prisma relation), then the stock take
+    await db.stockTakeItem.deleteMany({ where: { stockTakeId: id } })
+    await db.stockTake.delete({ where: { id } })
+    return NextResponse.json({ success: true, message: 'Stock take deleted' })
+  } catch (error) {
+    console.error('Error deleting stock take:', error)
+    return NextResponse.json({ error: 'Failed to delete stock take' }, { status: 500 })
+  }
+}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   ClipboardCheck, Play, Save, AlertTriangle, Eye, ArrowLeft, RefreshCw,
-  Search, CheckCircle2, XCircle, Clock, Plus,
+  Search, CheckCircle2, XCircle, Clock, Plus, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -63,6 +63,8 @@ export function StockTakeSection() {
   const [inventory, setInventory] = useState<ProductInventory[]>([])
   const [countedItems, setCountedItems] = useState<Record<string, number>>({})
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<StockTake | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchStockTakes = useCallback(async () => {
     setLoading(true)
@@ -201,6 +203,29 @@ export function StockTakeSection() {
       fetchStockTakes()
     } catch (err) {
       console.error('Failed to cancel stock take:', err)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/stock-take/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      if (res.ok) {
+        addToast({ title: 'Deleted', description: `${deleteTarget.reference} has been deleted`, variant: 'success' })
+        setDeleteTarget(null)
+        fetchStockTakes()
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to delete' }))
+        addToast({ title: 'Error', description: err.error || 'Failed to delete stock take', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete stock take', variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -463,12 +488,45 @@ export function StockTakeSection() {
                   <Badge className={statusBadge(st.status)} variant="secondary">
                     {st.status.replace(/_/g, ' ')}
                   </Badge>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(st) }}
+                    title="Delete stock take"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </CardContent>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Stock Take
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.reference}</strong>? This will permanently remove the stock take record and all its counted items. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
