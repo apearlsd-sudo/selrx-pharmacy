@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   DollarSign,
   FileText,
@@ -30,6 +30,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { useAppStore } from '@/store/app-store'
 
 interface DashboardData {
   today: {
@@ -164,22 +165,31 @@ export function DashboardView() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const res = await fetch('/api/dashboard')
-        if (!res.ok) throw new Error('Failed to fetch dashboard data')
-        const json = await res.json()
-        setData(json)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error')
-      } finally {
-        setLoading(false)
-      }
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch('/api/dashboard')
+      if (!res.ok) throw new Error('Failed to fetch dashboard data')
+      const json = await res.json()
+      setData(json)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
     }
-    fetchDashboard()
-  }, [])
+  }
+
+  useEffect(() => { fetchDashboard() }, [])
+
+  // Re-fetch dashboard when inventory changes (low stock alerts, etc.)
+  const prevInvVer = useRef(inventoryVersion)
+  useEffect(() => {
+    if (prevInvVer.current !== inventoryVersion) {
+      prevInvVer.current = inventoryVersion
+      fetchDashboard()
+    }
+  }, [inventoryVersion])
 
   if (loading) return <DashboardSkeleton />
 

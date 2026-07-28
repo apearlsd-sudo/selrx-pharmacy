@@ -79,6 +79,7 @@ export function InventoryView() {
   const [savingProduct, setSavingProduct] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
   const currentUser = useAppStore((s) => s.user)
+  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
   const fetchInventory = useCallback(async (forceRefresh = false) => {
     setLoading(true)
@@ -162,6 +163,7 @@ export function InventoryView() {
       setAdjustCostPrice('')
       setAdjustSellingPrice('')
       fetchInventory(true)
+      bumpInventoryVersion()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to adjust stock', variant: 'destructive' })
     }
@@ -332,6 +334,8 @@ export function InventoryView() {
       // Wait briefly then force-refresh inventory to get fresh data
       await new Promise(r => setTimeout(r, 300))
       await fetchInventory(true)
+      // Notify all other views (POS, Dashboard, Master Data, Reports) to re-fetch
+      bumpInventoryVersion()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to save stock count', variant: 'destructive' })
     } finally {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   DollarSign, ShoppingCart, TrendingUp, CalendarDays, Download
 } from 'lucide-react'
@@ -36,6 +36,7 @@ export function ReportsView() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const addToast = useAppStore((s) => s.addToast)
+  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
   const fetchSalesData = useCallback(async () => {
     setLoading(true)
@@ -58,6 +59,15 @@ export function ReportsView() {
   }, [addToast])
 
   useEffect(() => { fetchSalesData() }, [fetchSalesData])
+
+  // Re-fetch inventory data in reports when stock changes
+  const prevInvVer = useRef(inventoryVersion)
+  useEffect(() => {
+    if (prevInvVer.current !== inventoryVersion) {
+      prevInvVer.current = inventoryVersion
+      fetch('/api/inventory').then(r => { if (r.ok) r.json().then(setInventory) }).catch(() => {})
+    }
+  }, [inventoryVersion])
 
   // Prepare chart data
   const salesByCategory = salesStats?.topProducts?.map((p: any, i: number) => ({

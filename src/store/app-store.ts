@@ -121,6 +121,9 @@ export interface InventoryUIState {
   setFilterCategory: (cat: string) => void
   stockAlerts: any[]
   setStockAlerts: (alerts: any[]) => void
+  /** Monotonic counter bumped whenever inventory changes; views subscribe to re-fetch */
+  inventoryVersion: number
+  bumpInventoryVersion: () => void
 }
 
 export interface CompanyState {
@@ -291,6 +294,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setFilterCategory: (cat) => set({ filterCategory: cat }),
   stockAlerts: [],
   setStockAlerts: (alerts) => set({ stockAlerts: alerts }),
+  inventoryVersion: 0,
+  bumpInventoryVersion: () => set((s) => ({ inventoryVersion: s.inventoryVersion + 1 })),
 
   // ---- UI ----
   isModalOpen: false,

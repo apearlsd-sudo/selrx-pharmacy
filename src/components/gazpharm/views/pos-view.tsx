@@ -102,6 +102,7 @@ export function POSView() {
   const isProcessingPayment = useAppStore((s) => s.isProcessingPayment)
   const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
   const addToast = useAppStore((s) => s.addToast)
+  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0)
   const tax = 0
@@ -220,6 +221,15 @@ export function POSView() {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [customerSearch, searchCustomers])
+
+  // Re-search products when inventory changes (stock count, adjust, etc.)
+  const prevInventoryVersion = useRef(inventoryVersion)
+  useEffect(() => {
+    if (prevInventoryVersion.current !== inventoryVersion) {
+      prevInventoryVersion.current = inventoryVersion
+      searchProducts(searchQuery, activeCategory)
+    }
+  }, [inventoryVersion, searchQuery, activeCategory, searchProducts])
 
   const handleAddToCart = (product: Product) => {
     addToCart(

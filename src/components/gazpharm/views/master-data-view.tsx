@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
@@ -932,6 +932,7 @@ function DrugSection() {
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const addToast = useAppStore((s) => s.addToast)
+  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
   const [form, setForm] = useState({
     name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
@@ -978,6 +979,15 @@ function DrugSection() {
   }, [addToast])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Re-fetch drugs when inventory changes (stock counts, adjusts)
+  const prevInvVer = useRef(inventoryVersion)
+  useEffect(() => {
+    if (prevInvVer.current !== inventoryVersion) {
+      prevInvVer.current = inventoryVersion
+      fetch('/api/products').then(r => { if (r.ok) r.json().then(d => setDrugs(Array.isArray(d) ? d : d.products || [])) }).catch(() => {})
+    }
+  }, [inventoryVersion])
 
   const handleCreate = async () => {
     if (!form.name || !form.sellingPrice) return
