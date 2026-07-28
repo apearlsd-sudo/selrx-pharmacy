@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
       const helper = (item: typeof countedItems[number]) => {
         const mfgName = item.product.manufacturerRef?.name || item.product.manufacturer || null
         const vendorName = item.product.vendor?.name || null
-        const costPrice = item.product.costPrice || 0
-        const sellingPrice = item.product.sellingPrice || 0
+        const costPrice = Number(item.product.costPrice) || 0
+        const sellingPrice = Number(item.product.sellingPrice) || 0
         return { mfgName, vendorName, costPrice, sellingPrice }
       }
 
@@ -45,13 +45,14 @@ export async function GET(req: NextRequest) {
         .filter((item) => { const exp = item.product.expiryDate; return exp && new Date(exp) < now })
         .map((item) => {
           const { mfgName, vendorName, costPrice, sellingPrice } = helper(item)
+          const qty = Number(item.countedQty) || 0
           return {
             productId: item.productId, productName: item.product.name, ndc: item.product.ndc,
             category: item.product.category, dosageForm: item.product.dosageForm, strength: item.product.strength,
-            expiryDate: item.product.expiryDate, countedQty: item.countedQty!,
+            expiryDate: item.product.expiryDate, countedQty: qty,
             costPrice, sellingPrice,
-            totalCost: costPrice * item.countedQty!,
-            potentialRevenue: sellingPrice * item.countedQty!,
+            totalCost: costPrice * qty,
+            potentialRevenue: sellingPrice * qty,
             manufacturer: mfgName, vendor: vendorName,
             daysSinceExpiry: item.product.expiryDate ? Math.floor((now.getTime() - new Date(item.product.expiryDate!).getTime()) / 86400000) : 0,
           }
@@ -72,13 +73,14 @@ export async function GET(req: NextRequest) {
         })
         .map((item) => {
           const { mfgName, vendorName, costPrice, sellingPrice } = helper(item)
+          const qty = Number(item.countedQty) || 0
           return {
             productId: item.productId, productName: item.product.name, ndc: item.product.ndc,
             category: item.product.category, dosageForm: item.product.dosageForm, strength: item.product.strength,
-            expiryDate: item.product.expiryDate, countedQty: item.countedQty!,
+            expiryDate: item.product.expiryDate, countedQty: qty,
             costPrice, sellingPrice,
-            totalCost: costPrice * item.countedQty!,
-            potentialRevenue: sellingPrice * item.countedQty!,
+            totalCost: costPrice * qty,
+            potentialRevenue: sellingPrice * qty,
             manufacturer: mfgName, vendor: vendorName,
             daysToExpiry: item.product.expiryDate ? Math.ceil((new Date(item.product.expiryDate!).getTime() - now.getTime()) / 86400000) : 0,
           }
@@ -90,15 +92,17 @@ export async function GET(req: NextRequest) {
 
       // Variance items
       const varianceItems = countedItems
-        .filter((item) => item.countedQty !== null && item.countedQty !== item.systemQty)
+        .filter((item) => item.countedQty !== null && Number(item.countedQty) !== Number(item.systemQty))
         .map((item) => {
-          const variance = item.countedQty! - item.systemQty
+          const counted = Number(item.countedQty) || 0
+          const system = Number(item.systemQty) || 0
+          const variance = counted - system
           const { mfgName, vendorName, costPrice } = helper(item)
-          const variancePercent = item.systemQty > 0 ? Math.round((variance / item.systemQty) * 10000) / 100 : 0
+          const variancePercent = system > 0 ? Math.round((variance / system) * 10000) / 100 : 0
           return {
             productId: item.productId, productName: item.product.name, ndc: item.product.ndc,
             category: item.product.category, dosageForm: item.product.dosageForm, strength: item.product.strength,
-            systemQty: item.systemQty, countedQty: item.countedQty!, variance,
+            systemQty: system, countedQty: counted, variance,
             varianceType: variance < 0 ? 'SHORTAGE' : 'SURPLUS' as const,
             variancePercent, unitCost: costPrice,
             totalCost: Math.abs(variance) * costPrice,
@@ -114,14 +118,17 @@ export async function GET(req: NextRequest) {
 
       // Reorder alerts
       const reorderAlerts = countedItems
-        .filter((item) => item.countedQty !== null && item.countedQty < (item.product.reorderPoint || 10))
+        .filter((item) => item.countedQty !== null && Number(item.countedQty) < (Number(item.product.reorderPoint) || 10))
         .map((item) => {
           const { mfgName, vendorName, costPrice } = helper(item)
-          const deficit = (item.product.reorderPoint || 10) - item.countedQty!
+          const qty = Number(item.countedQty) || 0
+          const reorderPoint = Number(item.product.reorderPoint) || 10
+          const reorderQty = Number(item.product.reorderQty) || 50
+          const deficit = reorderPoint - qty
           return {
             productId: item.productId, productName: item.product.name, ndc: item.product.ndc,
-            category: item.product.category, countedQty: item.countedQty!,
-            reorderPoint: item.product.reorderPoint || 10, reorderQty: item.product.reorderQty || 50,
+            category: item.product.category, countedQty: qty,
+            reorderPoint, reorderQty,
             deficit, unitCost: costPrice,
             reorderCost: deficit * costPrice,
             manufacturer: mfgName, vendor: vendorName,
@@ -132,12 +139,12 @@ export async function GET(req: NextRequest) {
       const reorderTotalCost = reorderAlerts.reduce((s, r) => s + r.reorderCost, 0)
 
       // Inventory valuation
-      const totalCostValue = countedItems.reduce((s, item) => s + (item.product.costPrice || 0) * item.countedQty!, 0)
-      const totalRetailValue = countedItems.reduce((s, item) => s + (item.product.sellingPrice || 0) * item.countedQty!, 0)
+      const totalCostValue = countedItems.reduce((s, item) => s + (Number(item.product.costPrice) || 0) * (Number(item.countedQty) || 0), 0)
+      const totalRetailValue = countedItems.reduce((s, item) => s + (Number(item.product.sellingPrice) || 0) * (Number(item.countedQty) || 0), 0)
       const potentialProfit = totalRetailValue - totalCostValue
       const profitMargin = totalCostValue > 0 ? (potentialProfit / totalCostValue) * 100 : 0
-      const itemsMatched = countedItems.filter((item) => item.countedQty === item.systemQty).length
-      const itemsWithZeroCount = countedItems.filter((item) => item.countedQty === 0).length
+      const itemsMatched = countedItems.filter((item) => Number(item.countedQty) === Number(item.systemQty)).length
+      const itemsWithZeroCount = countedItems.filter((item) => Number(item.countedQty) === 0).length
 
       return NextResponse.json({
         generatedAt: now.toISOString(),

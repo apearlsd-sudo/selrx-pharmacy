@@ -59,16 +59,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const now = new Date()
       for (const item of countedItems) {
         if (item.countedQty === null) continue
+        const qty = Number(item.countedQty) || 0
         try {
           await db.inventory.upsert({
             where: { productId: item.productId },
             create: {
               productId: item.productId,
-              quantity: item.countedQty,
+              quantity: qty,
               lastCounted: now,
             },
             update: {
-              quantity: item.countedQty,
+              quantity: qty,
               lastCounted: now,
             },
           })
@@ -94,28 +95,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const exp = item.product.expiryDate
           return exp && new Date(exp) < now
         })
-        .map((item) => ({
-          productId: item.productId,
-          productName: item.product.name,
-          ndc: item.product.ndc,
-          category: item.product.category,
-          dosageForm: item.product.dosageForm,
-          strength: item.product.strength,
-          expiryDate: item.product.expiryDate,
-          countedQty: item.countedQty!,
-          costPrice: item.product.costPrice || 0,
-          totalCost: (item.product.costPrice || 0) * item.countedQty!,
-        }))
-        .sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime())
-
-      const expiredTotalCost = expiredGoods.reduce((sum, g) => sum + g.totalCost, 0)
-
-      // Variance items: where countedQty != systemQty (shortage or surplus)
-      const varianceItems = countedItems
-        .filter((item) => item.countedQty !== null && item.countedQty !== item.systemQty)
         .map((item) => {
-          const variance = item.countedQty! - item.systemQty
-          const costPrice = item.product.costPrice || 0
+          const costPrice = Number(item.product.costPrice) || 0
+          const qty = Number(item.countedQty) || 0
           return {
             productId: item.productId,
             productName: item.product.name,
@@ -123,8 +105,33 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             category: item.product.category,
             dosageForm: item.product.dosageForm,
             strength: item.product.strength,
-            systemQty: item.systemQty,
-            countedQty: item.countedQty!,
+            expiryDate: item.product.expiryDate,
+            countedQty: qty,
+            costPrice,
+            totalCost: costPrice * qty,
+          }
+        })
+        .sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime())
+
+      const expiredTotalCost = expiredGoods.reduce((sum, g) => sum + g.totalCost, 0)
+
+      // Variance items: where countedQty != systemQty (shortage or surplus)
+      const varianceItems = countedItems
+        .filter((item) => item.countedQty !== null && Number(item.countedQty) !== Number(item.systemQty))
+        .map((item) => {
+          const counted = Number(item.countedQty) || 0
+          const system = Number(item.systemQty) || 0
+          const variance = counted - system
+          const costPrice = Number(item.product.costPrice) || 0
+          return {
+            productId: item.productId,
+            productName: item.product.name,
+            ndc: item.product.ndc,
+            category: item.product.category,
+            dosageForm: item.product.dosageForm,
+            strength: item.product.strength,
+            systemQty: system,
+            countedQty: counted,
             variance,
             varianceType: variance < 0 ? 'SHORTAGE' : 'SURPLUS',
             unitCost: costPrice,
@@ -178,7 +185,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (action === 'update-item' && items) {
       // Upsert each item's countedQty and variance
       for (const item of items) {
-        const variance = item.countedQty !== null ? item.countedQty - item.systemQty : null
+        const countedQty = Number(item.countedQty)
+        const systemQty = Number(item.systemQty)
+        const variance = item.countedQty !== null ? countedQty - systemQty : null
         await db.stockTakeItem.upsert({
           where: {
             stockTakeId_productId: { stockTakeId: id, productId: item.productId },

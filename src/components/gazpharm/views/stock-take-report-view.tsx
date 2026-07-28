@@ -139,7 +139,11 @@ interface ReportData {
 
 // ── Component ──
 
-export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
+export function StockTakeReportView({ stockTakeId: stockTakeIdProp }: { stockTakeId?: string }) {
+  // Read stockTakeReportId from store reactively as fallback when prop is missing
+  const storeReportId = useAppStore((s) => s.stockTakeReportId)
+  const stockTakeId = stockTakeIdProp || storeReportId
+
   const [report, setReport] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
