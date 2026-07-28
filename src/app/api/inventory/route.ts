@@ -137,9 +137,9 @@ export async function PUT(request: NextRequest) {
       })
     }
 
-    // Regular stock adjustment
+    // Regular stock adjustment (optionally includes costPrice / sellingPrice)
     const body = await request.json()
-    const { productId, quantity, adjustment, reason } = body
+    const { productId, quantity, adjustment, reason, costPrice, sellingPrice } = body
 
     if (!productId || adjustment === undefined || !reason) {
       return NextResponse.json(
@@ -169,6 +169,12 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Build product price update if provided
+    let productUpdate: any = {}
+    if (costPrice !== undefined) productUpdate.costPrice = costPrice
+    if (sellingPrice !== undefined) productUpdate.sellingPrice = sellingPrice
+
+    // Update inventory quantity
     const updated = await db.inventory.update({
       where: { productId },
       data: {
@@ -177,6 +183,14 @@ export async function PUT(request: NextRequest) {
       },
       include: { product: true },
     })
+
+    // Also update product prices if changed
+    if (Object.keys(productUpdate).length > 0) {
+      await db.product.update({
+        where: { id: productId },
+        data: productUpdate,
+      })
+    }
 
     return NextResponse.json({
       message: `Stock adjusted: ${adjustment > 0 ? '+' : ''}${adjustment} (${reason})`,

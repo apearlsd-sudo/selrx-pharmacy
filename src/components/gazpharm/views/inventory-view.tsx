@@ -59,6 +59,8 @@ export function InventoryView() {
   const [adjustType, setAdjustType] = useState('ADD')
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
+  const [adjustCostPrice, setAdjustCostPrice] = useState('')
+  const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [productForm, setProductForm] = useState({
@@ -116,21 +118,35 @@ export function InventoryView() {
   const totalValue = items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0)
 
   const handleAdjust = async () => {
-    if (!selectedItem || !adjustAmount || !adjustReason) return
+    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
     try {
-      const adj = adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)
-      await fetch('/api/inventory', {
+      const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
+      const body: Record<string, any> = {
+        productId: selectedItem.productId,
+        adjustment: adj,
+        reason: adjustReason,
+      }
+      if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
+      if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
+
+      const res = await fetch('/api/inventory', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: selectedItem.productId, adjustment: adj, reason: adjustReason }),
+        body: JSON.stringify(body),
       })
-      addToast({ title: 'Stock Updated', description: `${selectedItem.product.name} adjusted`, variant: 'success' })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to adjust')
+      }
+      addToast({ title: 'Product Updated', description: `${selectedItem.product.name} adjusted successfully`, variant: 'success' })
       setAdjustDialog(false)
       setAdjustAmount('')
       setAdjustReason('')
+      setAdjustCostPrice('')
+      setAdjustSellingPrice('')
       fetchInventory()
-    } catch {
-      addToast({ title: 'Error', description: 'Failed to adjust stock', variant: 'destructive' })
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to adjust stock', variant: 'destructive' })
     }
   }
 
@@ -509,15 +525,19 @@ export function InventoryView() {
 
       {/* Stock Adjustment Dialog */}
       <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Adjust Stock</DialogTitle>
+            <DialogTitle>Adjust Product</DialogTitle>
           </DialogHeader>
           {selectedItem && (
             <div className="space-y-4">
               <div className="bg-muted rounded-lg p-3">
                 <p className="font-medium">{selectedItem.product.name}</p>
-                <p className="text-sm text-muted-foreground">Current Stock: {selectedItem.quantity} {selectedItem.product.unitOfMeasure}</p>
+                <p className="text-sm text-muted-foreground">
+                  Current Stock: {Number(selectedItem.quantity) || 0} {selectedItem.product.unitOfMeasure}
+                  &nbsp;·&nbsp; Cost: ${selectedItem.product.costPrice?.toFixed(2) || '—'}
+                  &nbsp;·&nbsp; Price: ${selectedItem.product.sellingPrice?.toFixed(2) || '—'}
+                </p>
               </div>
               <div className="space-y-3">
                 <div>
@@ -535,7 +555,17 @@ export function InventoryView() {
                 </div>
                 <div>
                   <Label>Quantity</Label>
-                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" className="mt-1" />
+                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="Leave blank to skip stock change" className="mt-1" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Cost Price ($)</Label>
+                    <Input type="number" step="0.01" min="0" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} placeholder={selectedItem.product.costPrice?.toFixed(2) || '0.00'} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Selling Price ($)</Label>
+                    <Input type="number" step="0.01" min="0" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} placeholder={selectedItem.product.sellingPrice?.toFixed(2) || '0.00'} className="mt-1" />
+                  </div>
                 </div>
                 <div>
                   <Label>Reason (required)</Label>
@@ -546,8 +576,8 @@ export function InventoryView() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
-            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={!adjustAmount || !adjustReason}>
-              Apply Adjustment
+            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason}>
+              Apply Changes
             </Button>
           </DialogFooter>
         </DialogContent>
