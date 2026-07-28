@@ -66,6 +66,7 @@ export function StockTakeSection() {
   const [deleteTarget, setDeleteTarget] = useState<StockTake | null>(null)
   const [deleting, setDeleting] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
+  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
   const fetchStockTakes = useCallback(async () => {
     setLoading(true)
@@ -178,15 +179,32 @@ export function StockTakeSection() {
     if (!selectedTake) return
     setSaving(true)
     try {
-      await fetch(`/api/stock-take/${selectedTake.id}`, {
+      const res = await fetch(`/api/stock-take/${selectedTake.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ action: 'complete' }),
       })
+      if (res.ok) {
+        const data = await res.json()
+        const meta = data._meta
+        addToast({
+          title: 'Stock Take Completed',
+          description: meta
+            ? `Inventory updated for ${meta.inventoryUpdated} of ${meta.totalItems} items.`
+            : 'System quantities updated.',
+          variant: 'success',
+        })
+        // Bump global inventory version so all views (POS, dashboard, inventory, etc.) refresh
+        bumpInventoryVersion()
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to complete' }))
+        addToast({ title: 'Error', description: err.error || 'Failed to complete stock take', variant: 'destructive' })
+      }
       setView('list')
       fetchStockTakes()
     } catch (err) {
       console.error('Failed to complete stock take:', err)
+      addToast({ title: 'Error', description: 'Failed to complete stock take', variant: 'destructive' })
     } finally {
       setSaving(false)
     }

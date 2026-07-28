@@ -38,16 +38,50 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (action === 'complete') {
-      // Set variances and complete the stock take
+      // 1) Fetch all counted items for this stock take
+      const countedItems = await db.stockTakeItem.findMany({
+        where: { stockTakeId: id, countedQty: { not: null } },
+      })
+
+      // 2) Update Inventory table: set quantity = countedQty
+      let updatedInventoryCount = 0
+      const now = new Date()
+      for (const item of countedItems) {
+        if (item.countedQty === null) continue
+        try {
+          await db.inventory.upsert({
+            where: { productId: item.productId },
+            create: {
+              productId: item.productId,
+              quantity: item.countedQty,
+              lastCounted: now,
+            },
+            update: {
+              quantity: item.countedQty,
+              lastCounted: now,
+            },
+          })
+          updatedInventoryCount++
+        } catch (invErr) {
+          console.error(`[StockTake Complete] Failed to update inventory for product ${item.productId}:`, invErr)
+        }
+      }
+
+      // 3) Mark stock take as COMPLETED
       const updated = await db.stockTake.update({
         where: { id },
         data: {
           status: 'COMPLETED',
-          completedAt: new Date(),
+          completedAt: now,
           notes: notes !== undefined ? notes : existing.notes,
         },
       })
-      return NextResponse.json(updated)
+
+      console.log(`[StockTake Complete] id=${id} updated ${updatedInventoryCount} inventory records`)
+      return NextResponse.json({
+        ...updated,
+        _meta: { inventoryUpdated: updatedInventoryCount, totalItems: countedItems.length },
+      })
     }
 
     if (action === 'cancel') {
