@@ -38,9 +38,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (action === 'complete') {
-      // 1) Fetch all counted items for this stock take
+      // 1) Fetch all counted items with product details for reporting
       const countedItems = await db.stockTakeItem.findMany({
         where: { stockTakeId: id, countedQty: { not: null } },
+        include: {
+          product: {
+            select: {
+              id: true, name: true, ndc: true, category: true, unitOfMeasure: true,
+              expiryDate: true, costPrice: true, sellingPrice: true, dosageForm: true,
+              strength: true, reorderPoint: true,
+            },
+          },
+        },
       })
 
       // 2) Update Inventory table: set quantity = countedQty
@@ -77,10 +86,81 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         },
       })
 
+      // 4) Generate report data: expired goods & stock variance
+      const expiredGoods = countedItems
+        .filter((item) => {
+          const exp = item.product.expiryDate
+          return exp && new Date(exp) < now
+        })
+        .map((item) => ({
+          productId: item.productId,
+          productName: item.product.name,
+          ndc: item.product.ndc,
+          category: item.product.category,
+          dosageForm: item.product.dosageForm,
+          strength: item.product.strength,
+          expiryDate: item.product.expiryDate,
+          countedQty: item.countedQty!,
+          costPrice: item.product.costPrice || 0,
+          totalCost: (item.product.costPrice || 0) * item.countedQty!,
+        }))
+        .sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime())
+
+      const expiredTotalCost = expiredGoods.reduce((sum, g) => sum + g.totalCost, 0)
+
+      // Variance items: where countedQty != systemQty (shortage or surplus)
+      const varianceItems = countedItems
+        .filter((item) => item.countedQty !== null && item.countedQty !== item.systemQty)
+        .map((item) => {
+          const variance = item.countedQty! - item.systemQty
+          const costPrice = item.product.costPrice || 0
+          return {
+            productId: item.productId,
+            productName: item.product.name,
+            ndc: item.product.ndc,
+            category: item.product.category,
+            dosageForm: item.product.dosageForm,
+            strength: item.product.strength,
+            systemQty: item.systemQty,
+            countedQty: item.countedQty!,
+            variance,
+            varianceType: variance < 0 ? 'SHORTAGE' : 'SURPLUS',
+            unitCost: costPrice,
+            totalCost: Math.abs(variance) * costPrice,
+          }
+        })
+        .sort((a, b) => a.variance - b.variance) // shortages first
+
+      const shortageItems = varianceItems.filter((v) => v.variance < 0)
+      const surplusItems = varianceItems.filter((v) => v.variance > 0)
+      const shortageTotalCost = shortageItems.reduce((sum, v) => sum + v.totalCost, 0)
+      const surplusTotalCost = surplusItems.reduce((sum, v) => sum + v.totalCost, 0)
+
+      const report = {
+        generatedAt: now.toISOString(),
+        stockTakeRef: updated.reference,
+        completedAt: updated.completedAt?.toISOString(),
+        totalItemsChecked: countedItems.length,
+        expiredGoods: {
+          count: expiredGoods.length,
+          totalCost: expiredTotalCost,
+          items: expiredGoods,
+        },
+        stockVariance: {
+          totalVarianceItems: varianceItems.length,
+          shortageCount: shortageItems.length,
+          shortageTotalCost,
+          surplusCount: surplusItems.length,
+          surplusTotalCost,
+          items: varianceItems,
+        },
+      }
+
       console.log(`[StockTake Complete] id=${id} updated ${updatedInventoryCount} inventory records`)
       return NextResponse.json({
         ...updated,
         _meta: { inventoryUpdated: updatedInventoryCount, totalItems: countedItems.length },
+        _report: report,
       })
     }
 

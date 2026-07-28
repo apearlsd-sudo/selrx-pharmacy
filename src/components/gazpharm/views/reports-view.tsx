@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  DollarSign, ShoppingCart, TrendingUp, CalendarDays, Download
+  DollarSign, ShoppingCart, TrendingUp, CalendarDays, Download, FileText, PackageX, AlertTriangle, TrendingDown, TrendingUp as TrendingUpIcon,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
+import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { useAppStore } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0']
 
@@ -35,22 +39,30 @@ export function ReportsView() {
   const [loading, setLoading] = useState(true)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [completedStockTakes, setCompletedStockTakes] = useState<any[]>([])
+  const [selectedReport, setSelectedReport] = useState<any>(null)
+  const [reportLoading, setReportLoading] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
   const fetchSalesData = useCallback(async () => {
     setLoading(true)
     try {
-      const [statsRes, txRes, invRes, rxRes] = await Promise.all([
+      const [statsRes, txRes, invRes, rxRes, stRes] = await Promise.all([
         fetch('/api/transactions?action=stats'),
         fetch('/api/transactions'),
         fetch('/api/inventory'),
         fetch('/api/prescriptions'),
+        fetch('/api/stock-take', { headers: authHeaders() }),
       ])
       if (statsRes.ok) setSalesStats(await statsRes.json())
       if (txRes.ok) { const d = await txRes.json(); setTransactions(Array.isArray(d) ? d : d.transactions || []) }
       if (invRes.ok) setInventory(await invRes.json())
       if (rxRes.ok) { const d = await rxRes.json(); setPrescriptions(Array.isArray(d) ? d : d.prescriptions || []) }
+      if (stRes.ok) {
+        const allTakes = await stRes.json()
+        setCompletedStockTakes(Array.isArray(allTakes) ? allTakes.filter((st: any) => st.status === 'COMPLETED') : [])
+      }
     } catch {
       addToast({ title: 'Error', description: 'Failed to load report data', variant: 'destructive' })
     } finally {
@@ -115,6 +127,7 @@ export function ReportsView() {
             <TabsTrigger value="sales">Sales Summary</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
             <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake">Stock Take Reports</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
@@ -443,6 +456,230 @@ export function ReportsView() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Stock Take Reports Tab */}
+        <TabsContent value="stocktake" className="space-y-4">
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : completedStockTakes.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <FileText className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+                <p className="text-sm font-medium text-gray-500">No completed stock takes</p>
+                <p className="text-xs text-muted-foreground mt-1">Complete a stock take to generate reports showing expired goods and stock variance</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Completed Stock Takes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Reference</TableHead>
+                        <TableHead className="hidden sm:table-cell">Date</TableHead>
+                        <TableHead className="hidden md:table-cell">Counted By</TableHead>
+                        <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {completedStockTakes.map((st: any) => (
+                        <TableRow key={st.id}>
+                          <TableCell className="font-medium text-sm">{st.reference}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
+                            {st.completedAt ? new Date(st.completedAt).toLocaleDateString() : new Date(st.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-xs hidden md:table-cell">
+                            {st.countedByUser?.name || '—'}
+                          </TableCell>
+                          <TableCell className="text-right">{st.items?.length || 0}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                setReportLoading(true)
+                                try {
+                                  const res = await fetch(`/api/stock-take?action=report&id=${st.id}`, { headers: authHeaders() })
+                                  if (res.ok) setSelectedReport(await res.json())
+                                  else addToast({ title: 'Error', description: 'Failed to load report', variant: 'destructive' })
+                                } catch {
+                                  addToast({ title: 'Error', description: 'Failed to load report', variant: 'destructive' })
+                                } finally {
+                                  setReportLoading(false)
+                                }
+                              }}
+                              disabled={reportLoading}
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                              View Report
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Report Dialog */}
+              <Dialog open={!!selectedReport} onOpenChange={(open) => { if (!open) setSelectedReport(null) }}>
+                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                  {selectedReport && (
+                    <>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-emerald-600" />
+                          Stock Take Report — {selectedReport.stockTakeRef}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {selectedReport.completedAt ? new Date(selectedReport.completedAt).toLocaleString() : new Date(selectedReport.generatedAt).toLocaleString()}
+                          {' · '}{selectedReport.totalItemsChecked} items checked
+                          {selectedReport.countedBy ? ` · By ${selectedReport.countedBy}` : ''}
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-lg font-bold">{selectedReport.totalItemsChecked}</p>
+                          <p className="text-[11px] text-muted-foreground">Items Checked</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-lg font-bold text-red-600">{selectedReport.expiredGoods.count}</p>
+                          <p className="text-[11px] text-muted-foreground">Expired Goods</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-lg font-bold text-orange-600">{selectedReport.stockVariance.shortageCount}</p>
+                          <p className="text-[11px] text-muted-foreground">Shortages</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-lg font-bold text-emerald-600">{selectedReport.stockVariance.surplusCount}</p>
+                          <p className="text-[11px] text-muted-foreground">Surplus</p>
+                        </div>
+                      </div>
+
+                      {/* Expired Goods */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <PackageX className="h-4 w-4 text-red-500" />
+                          <h3 className="text-sm font-semibold">
+                            Expired Goods
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              {selectedReport.expiredGoods.count} item{selectedReport.expiredGoods.count !== 1 ? 's' : ''} · Total cost: <span className="font-semibold text-red-600">{formatCurrency(selectedReport.expiredGoods.totalCost)}</span>
+                            </span>
+                          </h3>
+                        </div>
+                        {selectedReport.expiredGoods.items.length > 0 ? (
+                          <div className="border rounded-lg overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-red-50/50">
+                                  <TableHead className="text-xs">Product</TableHead>
+                                  <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+                                  <TableHead className="text-xs hidden lg:table-cell">Strength/Form</TableHead>
+                                  <TableHead className="text-xs text-right">Qty</TableHead>
+                                  <TableHead className="text-xs hidden sm:table-cell">Expiry</TableHead>
+                                  <TableHead className="text-xs text-right">Unit Cost</TableHead>
+                                  <TableHead className="text-xs text-right">Total Cost</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {selectedReport.expiredGoods.items.map((item: any) => (
+                                  <TableRow key={item.productId} className="bg-red-50/30">
+                                    <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{item.category?.replace(/_/g, ' ')}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
+                                      {[item.strength, item.dosageForm].filter(Boolean).join(' / ') || '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm">{item.countedQty}</TableCell>
+                                    <TableCell className="text-xs text-red-600 font-medium hidden sm:table-cell">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</TableCell>
+                                    <TableCell className="text-right text-xs">{formatCurrency(item.costPrice)}</TableCell>
+                                    <TableCell className="text-right text-sm font-semibold text-red-600">{formatCurrency(item.totalCost)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-dashed p-4 text-center">
+                            <p className="text-sm text-muted-foreground">No expired goods found</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stock Variance */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <h3 className="text-sm font-semibold">
+                            Stock Variance
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              {selectedReport.stockVariance.totalVarianceItems} item{selectedReport.stockVariance.totalVarianceItems !== 1 ? 's' : ''} with variance
+                              {' · '}Shortage cost: <span className="font-semibold text-orange-600">{formatCurrency(selectedReport.stockVariance.shortageTotalCost)}</span>
+                              {' · '}Surplus value: <span className="font-semibold text-emerald-600">{formatCurrency(selectedReport.stockVariance.surplusTotalCost)}</span>
+                            </span>
+                          </h3>
+                        </div>
+                        {selectedReport.stockVariance.items.length > 0 ? (
+                          <div className="border rounded-lg overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-amber-50/50">
+                                  <TableHead className="text-xs">Product</TableHead>
+                                  <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+                                  <TableHead className="text-xs text-right">System</TableHead>
+                                  <TableHead className="text-xs text-right">Counted</TableHead>
+                                  <TableHead className="text-xs text-right">Variance</TableHead>
+                                  <TableHead className="text-xs text-right hidden sm:table-cell">Unit Cost</TableHead>
+                                  <TableHead className="text-xs text-right">Total Cost</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {selectedReport.stockVariance.items.map((item: any) => (
+                                  <TableRow key={item.productId} className={item.varianceType === 'SHORTAGE' ? 'bg-orange-50/30' : 'bg-emerald-50/30'}>
+                                    <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{item.category?.replace(/_/g, ' ')}</TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground">{item.systemQty}</TableCell>
+                                    <TableCell className="text-right text-sm font-medium">{item.countedQty}</TableCell>
+                                    <TableCell className="text-right text-sm font-bold">
+                                      <span className={`inline-flex items-center gap-1 ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
+                                        {item.varianceType === 'SHORTAGE' ? <TrendingDown className="h-3 w-3" /> : <TrendingUpIcon className="h-3 w-3" />}
+                                        {item.variance > 0 ? '+' : ''}{item.variance}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="text-right text-xs hidden sm:table-cell">{formatCurrency(item.unitCost)}</TableCell>
+                                    <TableCell className="text-right text-sm font-semibold">{formatCurrency(item.totalCost)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-dashed p-4 text-center">
+                            <p className="text-sm text-muted-foreground">No variances found — all counts match system quantities</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedReport(null)}>Close</Button>
+                      </DialogFooter>
+                    </>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>
