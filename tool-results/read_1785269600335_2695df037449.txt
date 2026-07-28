@@ -1,0 +1,852 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState, useCallback, useRef } from 'react'
+     4→import {
+     5→  Search,
+     6→  Camera,
+     7→  Plus,
+     8→  Minus,
+     9→  Trash2,
+    10→  ShoppingCart,
+    11→  CreditCard,
+    12→  Banknote,
+    13→  Shield,
+    14→  HeartPulse,
+    15→  X,
+    16→  ChevronDown,
+    17→  Loader2,
+    18→  User,
+    19→  PackageX,
+    20→} from 'lucide-react'
+    21→import { Button } from '@/components/ui/button'
+    22→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    23→import { Input } from '@/components/ui/input'
+    24→import { Badge } from '@/components/ui/badge'
+    25→import { Separator } from '@/components/ui/separator'
+    26→import { ScrollArea } from '@/components/ui/scroll-area'
+    27→import { useAppStore, type CartItem, type PaymentMethodType } from '@/store/app-store'
+    28→import { ReceiptModal } from './receipt-modal'
+    29→
+    30→interface Product {
+    31→  id: string
+    32→  ndc?: string | null
+    33→  name: string
+    34→  genericName?: string | null
+    35→  strength?: string | null
+    36→  dosageForm?: string | null
+    37→  unitOfMeasure: string
+    38→  sellingPrice: number
+    39→  requiresPrescription: boolean
+    40→  category: string
+    41→  status: string
+    42→  inventory?: {
+    43→    id: string
+    44→    quantity: number
+    45→  }[]
+    46→}
+    47→
+    48→interface CustomerOption {
+    49→  id: string
+    50→  firstName: string
+    51→  lastName: string
+    52→  email?: string | null
+    53→  phone?: string | null
+    54→  insuranceProvider?: string | null
+    55→}
+    56→
+    57→const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof CreditCard }[] = [
+    58→  { value: 'CASH', label: 'Cash', icon: Banknote },
+    59→  { value: 'CREDIT_CARD', label: 'Credit Card', icon: CreditCard },
+    60→  { value: 'DEBIT_CARD', label: 'Debit Card', icon: CreditCard },
+    61→  { value: 'INSURANCE', label: 'Insurance', icon: Shield },
+    62→  { value: 'FSA_HSA', label: 'FSA/HSA', icon: HeartPulse },
+    63→]
+    64→
+    65→const CATEGORIES = [
+    66→  { value: '', label: 'All' },
+    67→  { value: 'OTC', label: 'OTC' },
+    68→  { value: 'PRESCRIPTION', label: 'Prescription' },
+    69→  { value: 'SUPPLEMENT', label: 'Supplement' },
+    70→  { value: 'MEDICAL_DEVICE', label: 'Medical Device' },
+    71→  { value: 'PERSONAL_CARE', label: 'Personal Care' },
+    72→  { value: 'CONSUMABLES', label: 'Consumables' },
+    73→]
+    74→
+    75→import { formatCurrency } from '@/lib/currency'
+    76→
+    77→export function POSView() {
+    78→  // Local state
+    79→  const [searchQuery, setSearchQuery] = useState('')
+    80→  const [products, setProducts] = useState<Product[]>([])
+    81→  const [searching, setSearching] = useState(false)
+    82→  const [activeCategory, setActiveCategory] = useState('')
+    83→  const [customerSearch, setCustomerSearch] = useState('')
+    84→  const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([])
+    85→  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
+    86→  const [amountTendered, setAmountTendered] = useState('')
+    87→  const [receiptTxn, setReceiptTxn] = useState<any | null>(null)
+    88→  const [barcodeInput, setBarcodeInput] = useState('')
+    89→  const [showBarcodeInput, setShowBarcodeInput] = useState(false)
+    90→  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    91→
+    92→  // Zustand state
+    93→  const cart = useAppStore((s) => s.cart)
+    94→  const addToCart = useAppStore((s) => s.addToCart)
+    95→  const removeFromCart = useAppStore((s) => s.removeFromCart)
+    96→  const updateCartQuantity = useAppStore((s) => s.updateCartQuantity)
+    97→  const clearCart = useAppStore((s) => s.clearCart)
+    98→  const selectedCustomer = useAppStore((s) => s.selectedCustomer)
+    99→  const setSelectedCustomer = useAppStore((s) => s.setSelectedCustomer)
+   100→  const paymentMethod = useAppStore((s) => s.paymentMethod)
+   101→  const setPaymentMethod = useAppStore((s) => s.setPaymentMethod)
+   102→  const isProcessingPayment = useAppStore((s) => s.isProcessingPayment)
+   103→  const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
+   104→  const addToast = useAppStore((s) => s.addToast)
+   105→  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+   106→
+   107→  const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0)
+   108→  const tax = 0
+   109→  const total = subtotal + tax
+   110→
+   111→  // Search products
+   112→  const searchProducts = useCallback(async (query: string, category: string) => {
+   113→    setSearching(true)
+   114→    try {
+   115→      const params = new URLSearchParams()
+   116→      if (query) params.set('search', query)
+   117→      if (category) params.set('category', category)
+   118→      params.set('limit', '50')
+   119→      const res = await fetch(`/api/products?${params.toString()}`)
+   120→      if (res.ok) {
+   121→        const json = await res.json()
+   122→        setProducts(json.products || [])
+   123→      }
+   124→    } catch {
+   125→      addToast({ title: 'Error', description: 'Failed to search products', variant: 'destructive' })
+   126→    } finally {
+   127→      setSearching(false)
+   128→    }
+   129→  }, [addToast])
+   130→
+   131→  // Search customers
+   132→  const searchCustomers = useCallback(async (query: string) => {
+   133→    if (query.length < 2) {
+   134→      setCustomerOptions([])
+   135→      return
+   136→    }
+   137→    try {
+   138→      const res = await fetch(`/api/customers?search=${encodeURIComponent(query)}&limit=10`)
+   139→      if (res.ok) {
+   140→        const json = await res.json()
+   141→        setCustomerOptions(json.customers || [])
+   142→      }
+   143→    } catch {
+   144→      // Silent fail
+   145→    }
+   146→  }, [])
+   147→
+   148→  // Barcode scan
+   149→  const handleBarcodeScan = useCallback(async (barcode: string) => {
+   150→    if (!barcode.trim()) return
+   151→    setSearching(true)
+   152→    try {
+   153→      const res = await fetch('/api/hardware?action=barcode', {
+   154→        method: 'POST',
+   155→        headers: { 'Content-Type': 'application/json' },
+   156→        body: JSON.stringify({ barcode: barcode.trim() }),
+   157→      })
+   158→      if (res.ok) {
+   159→        const json = await res.json()
+   160→        if (json.product) {
+   161→          const product = json.product
+   162→          addToCart(
+   163→            {
+   164→              id: product.id,
+   165→              name: product.name,
+   166→              ndc: product.ndc,
+   167→              sellingPrice: product.sellingPrice,
+   168→              requiresPrescription: product.requiresPrescription,
+   169→              unitOfMeasure: product.unitOfMeasure,
+   170→              strength: product.strength,
+   171→              dosageForm: product.dosageForm,
+   172→            },
+   173→            1
+   174→          )
+   175→          addToast({
+   176→            title: 'Product Added',
+   177→            description: `${product.name} added to cart`,
+   178→            variant: 'success',
+   179→            duration: 2000,
+   180→          })
+   181→        } else {
+   182→          addToast({
+   183→            title: 'Not Found',
+   184→            description: 'No product found for this barcode',
+   185→            variant: 'destructive',
+   186→            duration: 3000,
+   187→          })
+   188→        }
+   189→      }
+   190→    } catch {
+   191→      addToast({
+   192→        title: 'Scan Error',
+   193→        description: 'Barcode scan failed',
+   194→        variant: 'destructive',
+   195→      })
+   196→    } finally {
+   197→      setSearching(false)
+   198→      setBarcodeInput('')
+   199→      setShowBarcodeInput(false)
+   200→    }
+   201→  }, [addToCart, addToast])
+   202→
+   203→  // Debounced product search
+   204→  useEffect(() => {
+   205→    if (debounceRef.current) clearTimeout(debounceRef.current)
+   206→    debounceRef.current = setTimeout(() => {
+   207→      searchProducts(searchQuery, activeCategory)
+   208→    }, 300)
+   209→    return () => {
+   210→      if (debounceRef.current) clearTimeout(debounceRef.current)
+   211→    }
+   212→  }, [searchQuery, activeCategory, searchProducts])
+   213→
+   214→  // Debounced customer search
+   215→  useEffect(() => {
+   216→    if (debounceRef.current) clearTimeout(debounceRef.current)
+   217→    debounceRef.current = setTimeout(() => {
+   218→      searchCustomers(customerSearch)
+   219→    }, 300)
+   220→    return () => {
+   221→      if (debounceRef.current) clearTimeout(debounceRef.current)
+   222→    }
+   223→  }, [customerSearch, searchCustomers])
+   224→
+   225→  // Re-search products when inventory changes (stock count, adjust, etc.)
+   226→  const prevInventoryVersion = useRef(inventoryVersion)
+   227→  useEffect(() => {
+   228→    if (prevInventoryVersion.current !== inventoryVersion) {
+   229→      prevInventoryVersion.current = inventoryVersion
+   230→      searchProducts(searchQuery, activeCategory)
+   231→    }
+   232→  }, [inventoryVersion, searchQuery, activeCategory, searchProducts])
+   233→
+   234→  const handleAddToCart = (product: Product) => {
+   235→    addToCart(
+   236→      {
+   237→        id: product.id,
+   238→        name: product.name,
+   239→        ndc: product.ndc,
+   240→        sellingPrice: product.sellingPrice,
+   241→        requiresPrescription: product.requiresPrescription,
+   242→        unitOfMeasure: product.unitOfMeasure,
+   243→        strength: product.strength,
+   244→        dosageForm: product.dosageForm,
+   245→      },
+   246→      1
+   247→    )
+   248→    addToast({
+   249→      title: 'Added',
+   250→      description: `${product.name} added to cart`,
+   251→      variant: 'success',
+   252→      duration: 1500,
+   253→    })
+   254→  }
+   255→
+   256→  const handleProcessPayment = async () => {
+   257→    if (cart.length === 0) {
+   258→      addToast({ title: 'Empty Cart', description: 'Add items before processing', variant: 'destructive' })
+   259→      return
+   260→    }
+   261→
+   262→    if (paymentMethod === 'CASH') {
+   263→      const tendered = parseFloat(amountTendered)
+   264→      if (isNaN(tendered) || tendered < total) {
+   265→        addToast({
+   266→          title: 'Insufficient Amount',
+   267→          description: `Amount tendered must be at least ${formatCurrency(total)}`,
+   268→          variant: 'destructive',
+   269→        })
+   270→        return
+   271→      }
+   272→    }
+   273→
+   274→    setIsProcessingPayment(true)
+   275→    try {
+   276→      const payload = {
+   277→        customerId: selectedCustomer?.id || null,
+   278→        items: cart.map((item: CartItem) => ({
+   279→          productId: item.product.id,
+   280→          productName: item.product.name,
+   281→          quantity: item.quantity,
+   282→          unitPrice: item.product.sellingPrice,
+   283→          subtotal: item.product.sellingPrice * item.quantity,
+   284→          requiresRx: item.product.requiresPrescription,
+   285→        })),
+   286→        paymentMethod,
+   287→        subtotal,
+   288→        tax,
+   289→        discount: 0,
+   290→        total,
+   291→        paymentAmount: paymentMethod === 'CASH' ? parseFloat(amountTendered) || total : total,
+   292→      }
+   293→
+   294→      const res = await fetch('/api/transactions', {
+   295→        method: 'POST',
+   296→        headers: { 'Content-Type': 'application/json' },
+   297→        body: JSON.stringify(payload),
+   298→      })
+   299→
+   300→      if (!res.ok) {
+   301→        const err = await res.json()
+   302→        throw new Error(err.error || 'Transaction failed')
+   303→      }
+   304→
+   305→      const transaction = await res.json()
+   306→      setReceiptTxn(transaction)
+   307→      clearCart()
+   308→      setAmountTendered('')
+   309→      addToast({
+   310→        title: 'Payment Successful',
+   311→        description: `Transaction ${transaction.transactionNo} completed`,
+   312→        variant: 'success',
+   313→        duration: 3000,
+   314→      })
+   315→    } catch (err) {
+   316→      addToast({
+   317→        title: 'Payment Failed',
+   318→        description: err instanceof Error ? err.message : 'Unknown error',
+   319→        variant: 'destructive',
+   320→        duration: 5000,
+   321→      })
+   322→    } finally {
+   323→      setIsProcessingPayment(false)
+   324→    }
+   325→  }
+   326→
+   327→  const handleVoidTransaction = () => {
+   328→    if (cart.length === 0) return
+   329→    addToast({
+   330→      title: 'Transaction Voided',
+   331→      description: 'Cart has been cleared',
+   332→      variant: 'destructive',
+   333→    })
+   334→    clearCart()
+   335→    setAmountTendered('')
+   336→  }
+   337→
+   338→  const changeAmount =
+   339→    paymentMethod === 'CASH' && parseFloat(amountTendered) > 0
+   340→      ? parseFloat(amountTendered) - total
+   341→      : 0
+   342→
+   343→  return (
+   344→    <>
+   345→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   346→        {/* Left Column - Product Search & List */}
+   347→        <div className="lg:col-span-2 space-y-4">
+   348→          {/* Search Bar */}
+   349→          <Card className="gap-0">
+   350→            <CardContent className="p-0">
+   351→              <div className="flex items-center gap-2 p-3">
+   352→                <div className="relative flex-1">
+   353→                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   354→                  <Input
+   355→                    placeholder="Search products by name, NDC, generic name..."
+   356→                    value={searchQuery}
+   357→                    onChange={(e) => setSearchQuery(e.target.value)}
+   358→                    className="pl-9 h-10"
+   359→                  />
+   360→                </div>
+   361→                <Button
+   362→                  variant="outline"
+   363→                  size="icon"
+   364→                  onClick={() => setShowBarcodeInput(!showBarcodeInput)}
+   365→                  title="Barcode Scan"
+   366→                >
+   367→                  <Camera className="h-4 w-4" />
+   368→                </Button>
+   369→              </div>
+   370→              {/* Barcode Input */}
+   371→              {showBarcodeInput && (
+   372→                <div className="flex items-center gap-2 px-3 pb-3">
+   373→                  <Input
+   374→                    placeholder="Scan or type barcode..."
+   375→                    value={barcodeInput}
+   376→                    onChange={(e) => setBarcodeInput(e.target.value)}
+   377→                    onKeyDown={(e) => {
+   378→                      if (e.key === 'Enter') handleBarcodeScan(barcodeInput)
+   379→                    }}
+   380→                    className="h-9"
+   381→                    autoFocus
+   382→                  />
+   383→                  <Button
+   384→                    size="sm"
+   385→                    onClick={() => handleBarcodeScan(barcodeInput)}
+   386→                    disabled={!barcodeInput.trim()}
+   387→                  >
+   388→                    Scan
+   389→                  </Button>
+   390→                  <Button
+   391→                    size="icon"
+   392→                    variant="ghost"
+   393→                    onClick={() => {
+   394→                      setShowBarcodeInput(false)
+   395→                      setBarcodeInput('')
+   396→                    }}
+   397→                  >
+   398→                    <X className="h-4 w-4" />
+   399→                  </Button>
+   400→                </div>
+   401→              )}
+   402→              {/* Category Filters */}
+   403→              <div className="flex items-center gap-1.5 px-3 pb-3 overflow-x-auto">
+   404→                {CATEGORIES.map((cat) => (
+   405→                  <Button
+   406→                    key={cat.value}
+   407→                    variant={activeCategory === cat.value ? 'default' : 'outline'}
+   408→                    size="sm"
+   409→                    className={`text-xs whitespace-nowrap h-7 ${
+   410→                      activeCategory === cat.value ? 'bg-emerald-600 hover:bg-emerald-700' : ''
+   411→                    }`}
+   412→                    onClick={() => setActiveCategory(cat.value)}
+   413→                  >
+   414→                    {cat.label}
+   415→                  </Button>
+   416→                ))}
+   417→              </div>
+   418→            </CardContent>
+   419→          </Card>
+   420→
+   421→          {/* Product Results */}
+   422→          <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
+   423→            {searching ? (
+   424→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   425→                {[...Array(6)].map((_, i) => (
+   426→                  <Card key={i}>
+   427→                    <CardContent className="p-4">
+   428→                      <div className="animate-pulse space-y-2">
+   429→                        <div className="h-4 bg-muted rounded w-3/4" />
+   430→                        <div className="h-3 bg-muted rounded w-1/2" />
+   431→                        <div className="flex justify-between mt-2">
+   432→                          <div className="h-4 bg-muted rounded w-20" />
+   433→                          <div className="h-8 bg-muted rounded w-8" />
+   434→                        </div>
+   435→                      </div>
+   436→                    </CardContent>
+   437→                  </Card>
+   438→                ))}
+   439→              </div>
+   440→            ) : products.length === 0 ? (
+   441→              <Card>
+   442→                <CardContent className="p-8 text-center">
+   443→                  <PackageX className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+   444→                  <p className="text-muted-foreground text-sm">No products found</p>
+   445→                </CardContent>
+   446→              </Card>
+   447→            ) : (
+   448→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   449→                {products
+   450→                  .filter((p) => p.status === 'ACTIVE')
+   451→                  .map((product) => {
+   452→                    const stock = product.inventory?.[0]?.quantity ?? 0
+   453→                    const inCart = cart.find((item: CartItem) => item.product.id === product.id)
+   454→                    return (
+   455→                      <Card
+   456→                        key={product.id}
+   457→                        className={`group hover:shadow-md transition-all cursor-pointer ${
+   458→                          inCart ? 'ring-2 ring-emerald-500 bg-emerald-50/30' : ''
+   459→                        }`}
+   460→                        onClick={() => handleAddToCart(product)}
+   461→                      >
+   462→                        <CardContent className="p-4">
+   463→                          <div className="flex items-start justify-between gap-2">
+   464→                            <div className="flex-1 min-w-0">
+   465→                              <p className="font-medium text-sm leading-tight truncate">
+   466→                                {product.name}
+   467→                              </p>
+   468→                              <p className="text-xs text-muted-foreground mt-0.5">
+   469→                                {[product.strength, product.dosageForm, product.unitOfMeasure]
+   470→                                  .filter(Boolean)
+   471→                                  .join(' · ') || product.category}
+   472→                              </p>
+   473→                            </div>
+   474→                            <div className="text-right shrink-0">
+   475→                              <p className="font-bold text-emerald-700 text-sm">
+   476→                                {formatCurrency(product.sellingPrice)}
+   477→                              </p>
+   478→                              <p
+   479→                                className={`text-xs mt-0.5 ${
+   480→                                  stock <= 5 ? 'text-red-500 font-medium' : 'text-muted-foreground'
+   481→                                }`}
+   482→                              >
+   483→                                Stock: {stock}
+   484→                              </p>
+   485→                            </div>
+   486→                          </div>
+   487→                          <div className="flex items-center justify-between mt-3">
+   488→                            <div className="flex items-center gap-1.5">
+   489→                              <Badge
+   490→                                variant="outline"
+   491→                                className="text-[10px] px-1.5 py-0"
+   492→                              >
+   493→                                {product.category}
+   494→                              </Badge>
+   495→                              {product.requiresPrescription && (
+   496→                                <Badge
+   497→                                  variant="outline"
+   498→                                  className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700"
+   499→                                >
+   500→                                  Rx
+   501→                                </Badge>
+   502→                              )}
+   503→                              {inCart && (
+   504→                                <Badge className="text-[10px] px-1.5 py-0 bg-emerald-600 text-white border-emerald-600">
+   505→                                  x{inCart.quantity}
+   506→                                </Badge>
+   507→                              )}
+   508→                            </div>
+   509→                            <Button
+   510→                              size="sm"
+   511→                              className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700"
+   512→                              onClick={(e) => {
+   513→                                e.stopPropagation()
+   514→                                handleAddToCart(product)
+   515→                              }}
+   516→                            >
+   517→                              <Plus className="h-3.5 w-3.5" />
+   518→                            </Button>
+   519→                          </div>
+   520→                        </CardContent>
+   521→                      </Card>
+   522→                    )
+   523→                  })}
+   524→              </div>
+   525→            )}
+   526→          </div>
+   527→        </div>
+   528→
+   529→        {/* Right Column - Cart & Checkout */}
+   530→        <div className="lg:col-span-1">
+   531→          <div className="lg:sticky lg:top-4 space-y-4">
+   532→            <Card className="gap-0">
+   533→              <CardHeader className="pb-3">
+   534→                <div className="flex items-center justify-between">
+   535→                  <div className="flex items-center gap-2">
+   536→                    <ShoppingCart className="h-5 w-5 text-emerald-600" />
+   537→                    <CardTitle className="text-base">Cart</CardTitle>
+   538→                    <Badge variant="secondary" className="text-xs">
+   539→                      {cart.reduce((sum, item: CartItem) => sum + item.quantity, 0)} items
+   540→                    </Badge>
+   541→                  </div>
+   542→                  {cart.length > 0 && (
+   543→                    <Button
+   544→                      variant="ghost"
+   545→                      size="sm"
+   546→                      onClick={clearCart}
+   547→                      className="text-xs text-muted-foreground hover:text-red-600"
+   548→                    >
+   549→                      Clear All
+   550→                    </Button>
+   551→                  )}
+   552→                </div>
+   553→              </CardHeader>
+   554→
+   555→              <Separator />
+   556→
+   557→              {/* Cart Items */}
+   558→              <div className="max-h-[260px] overflow-y-auto">
+   559→                {cart.length === 0 ? (
+   560→                  <div className="p-6 text-center text-muted-foreground">
+   561→                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+   562→                    <p className="text-sm">Cart is empty</p>
+   563→                    <p className="text-xs mt-1">Search and add products</p>
+   564→                  </div>
+   565→                ) : (
+   566→                  <div className="p-3 space-y-2">
+   567→                    {cart.map((item: CartItem) => (
+   568→                      <div
+   569→                        key={item.product.id}
+   570→                        className="flex items-center gap-2 rounded-lg border bg-card p-2.5"
+   571→                      >
+   572→                        <div className="flex-1 min-w-0">
+   573→                          <p className="text-sm font-medium truncate">{item.product.name}</p>
+   574→                          <p className="text-xs text-muted-foreground">
+   575→                            {formatCurrency(item.product.sellingPrice)} / {item.product.unitOfMeasure}
+   576→                          </p>
+   577→                        </div>
+   578→                        <div className="flex items-center gap-1">
+   579→                          <Button
+   580→                            variant="outline"
+   581→                            size="icon"
+   582→                            className="h-7 w-7"
+   583→                            onClick={() =>
+   584→                              updateCartQuantity(item.product.id, item.quantity - 1)
+   585→                            }
+   586→                          >
+   587→                            <Minus className="h-3 w-3" />
+   588→                          </Button>
+   589→                          <span className="w-8 text-center text-sm font-medium">
+   590→                            {item.quantity}
+   591→                          </span>
+   592→                          <Button
+   593→                            variant="outline"
+   594→                            size="icon"
+   595→                            className="h-7 w-7"
+   596→                            onClick={() =>
+   597→                              updateCartQuantity(item.product.id, item.quantity + 1)
+   598→                            }
+   599→                          >
+   600→                            <Plus className="h-3 w-3" />
+   601→                          </Button>
+   602→                        </div>
+   603→                        <p className="w-16 text-right text-sm font-medium">
+   604→                          {formatCurrency(item.product.sellingPrice * item.quantity)}
+   605→                        </p>
+   606→                        <Button
+   607→                          variant="ghost"
+   608→                          size="icon"
+   609→                          className="h-7 w-7 text-muted-foreground hover:text-red-600 shrink-0"
+   610→                          onClick={() => removeFromCart(item.product.id)}
+   611→                        >
+   612→                          <Trash2 className="h-3.5 w-3.5" />
+   613→                        </Button>
+   614→                      </div>
+   615→                    ))}
+   616→                  </div>
+   617→                )}
+   618→              </div>
+   619→
+   620→              <Separator />
+   621→
+   622→              {/* Cart Totals */}
+   623→              <div className="p-4 space-y-2">
+   624→                <div className="flex justify-between text-sm">
+   625→                  <span className="text-muted-foreground">Subtotal</span>
+   626→                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+   627→                </div>
+   628→                <div className="flex justify-between text-sm">
+   629→                  <span className="text-muted-foreground">Tax</span>
+   630→                  <span className="font-medium">{formatCurrency(tax)}</span>
+   631→                </div>
+   632→                <Separator />
+   633→                <div className="flex justify-between text-lg font-bold">
+   634→                  <span>Total</span>
+   635→                  <span className="text-emerald-700">{formatCurrency(total)}</span>
+   636→                </div>
+   637→              </div>
+   638→
+   639→              <Separator />
+   640→
+   641→              {/* Customer Selection */}
+   642→              <div className="p-4 space-y-2">
+   643→                <p className="text-xs font-medium text-muted-foreground">Customer (optional)</p>
+   644→                {selectedCustomer ? (
+   645→                  <div className="flex items-center justify-between rounded-lg border p-2.5 bg-emerald-50/50">
+   646→                    <div className="flex items-center gap-2">
+   647→                      <User className="h-4 w-4 text-emerald-600" />
+   648→                      <div>
+   649→                        <p className="text-sm font-medium">
+   650→                          {selectedCustomer.firstName} {selectedCustomer.lastName}
+   651→                        </p>
+   652→                        {selectedCustomer.insuranceProvider && (
+   653→                          <p className="text-xs text-muted-foreground">
+   654→                            {selectedCustomer.insuranceProvider}
+   655→                          </p>
+   656→                        )}
+   657→                      </div>
+   658→                    </div>
+   659→                    <Button
+   660→                      variant="ghost"
+   661→                      size="sm"
+   662→                      onClick={() => {
+   663→                        setSelectedCustomer(null)
+   664→                        setCustomerSearch('')
+   665→                      }}
+   666→                      className="h-6 w-6 p-0"
+   667→                    >
+   668→                      <X className="h-3 w-3" />
+   669→                    </Button>
+   670→                  </div>
+   671→                ) : (
+   672→                  <div className="relative">
+   673→                    <Input
+   674→                      placeholder="Search customer name, email, phone..."
+   675→                      value={customerSearch}
+   676→                      onChange={(e) => {
+   677→                        setCustomerSearch(e.target.value)
+   678→                        setCustomerDropdownOpen(true)
+   679→                      }}
+   680→                      onFocus={() => {
+   681→                        if (customerSearch.length >= 2) setCustomerDropdownOpen(true)
+   682→                      }}
+   683→                      className="h-9 text-sm"
+   684→                    />
+   685→                    {customerDropdownOpen && customerOptions.length > 0 && (
+   686→                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+   687→                        {customerOptions.map((cust) => (
+   688→                          <button
+   689→                            key={cust.id}
+   690→                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+   691→                            onClick={() => {
+   692→                              setSelectedCustomer({
+   693→                                id: cust.id,
+   694→                                firstName: cust.firstName,
+   695→                                lastName: cust.lastName,
+   696→                                email: cust.email,
+   697→                                phone: cust.phone,
+   698→                                insuranceProvider: cust.insuranceProvider,
+   699→                              })
+   700→                              setCustomerSearch('')
+   701→                              setCustomerDropdownOpen(false)
+   702→                            }}
+   703→                          >
+   704→                            <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+   705→                            <span className="font-medium">
+   706→                              {cust.firstName} {cust.lastName}
+   707→                            </span>
+   708→                            {cust.insuranceProvider && (
+   709→                              <Badge variant="outline" className="text-[10px] ml-auto px-1.5 py-0">
+   710→                                {cust.insuranceProvider}
+   711→                              </Badge>
+   712→                            )}
+   713→                          </button>
+   714→                        ))}
+   715→                      </div>
+   716→                    )}
+   717→                  </div>
+   718→                )}
+   719→              </div>
+   720→
+   721→              <Separator />
+   722→
+   723→              {/* Payment Method */}
+   724→              <div className="p-4 space-y-2">
+   725→                <p className="text-xs font-medium text-muted-foreground">Payment Method</p>
+   726→                <div className="grid grid-cols-5 gap-1.5">
+   727→                  {PAYMENT_OPTIONS.map((opt) => (
+   728→                    <button
+   729→                      key={opt.value}
+   730→                      className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition-all text-xs ${
+   731→                        paymentMethod === opt.value
+   732→                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600'
+   733→                          : 'hover:bg-accent text-muted-foreground'
+   734→                      }`}
+   735→                      onClick={() => setPaymentMethod(opt.value)}
+   736→                    >
+   737→                      <opt.icon className="h-4 w-4" />
+   738→                      <span className="text-[10px] leading-tight font-medium">{opt.label}</span>
+   739→                    </button>
+   740→                  ))}
+   741→                </div>
+   742→              </div>
+   743→
+   744→              {/* Cash Payment - Amount Tendered */}
+   745→              {paymentMethod === 'CASH' && total > 0 && (
+   746→                <>
+   747→                  <Separator />
+   748→                  <div className="p-4 space-y-2">
+   749→                    <p className="text-xs font-medium text-muted-foreground">Amount Tendered</p>
+   750→                    <div className="relative">
+   751→                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+   752→                        $
+   753→                      </span>
+   754→                      <Input
+   755→                        type="number"
+   756→                        min={total}
+   757→                        step="0.01"
+   758→                        placeholder="0.00"
+   759→                        value={amountTendered}
+   760→                        onChange={(e) => setAmountTendered(e.target.value)}
+   761→                        className="pl-7 h-10"
+   762→                      />
+   763→                    </div>
+   764→                    {changeAmount > 0 && (
+   765→                      <div className="flex items-center justify-between rounded-lg bg-emerald-50 border border-emerald-200 p-2.5">
+   766→                        <span className="text-sm text-emerald-700">Change</span>
+   767→                        <span className="font-bold text-emerald-700">
+   768→                          {formatCurrency(changeAmount)}
+   769→                        </span>
+   770→                      </div>
+   771→                    )}
+   772→                    {/* Quick cash buttons */}
+   773→                    <div className="flex gap-1.5">
+   774→                      {[Math.ceil(total), 20, 50, 100].map((amt) => (
+   775→                        <Button
+   776→                          key={amt}
+   777→                          variant="outline"
+   778→                          size="sm"
+   779→                          className="flex-1 h-7 text-xs"
+   780→                          onClick={() => setAmountTendered(amt.toString())}
+   781→                        >
+   782→                          ${amt}
+   783→                        </Button>
+   784→                      ))}
+   785→                    </div>
+   786→                  </div>
+   787→                </>
+   788→              )}
+   789→
+   790→              <Separator />
+   791→
+   792→              {/* Action Buttons */}
+   793→              <div className="p-4 space-y-2">
+   794→                <Button
+   795→                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-base font-semibold"
+   796→                  onClick={handleProcessPayment}
+   797→                  disabled={cart.length === 0 || isProcessingPayment}
+   798→                >
+   799→                  {isProcessingPayment ? (
+   800→                    <>
+   801→                      <Loader2 className="h-5 w-5 animate-spin" />
+   802→                      Processing...
+   803→                    </>
+   804→                  ) : (
+   805→                    <>
+   806→                      <Banknote className="h-5 w-5" />
+   807→                      Process Payment — {formatCurrency(total)}
+   808→                    </>
+   809→                  )}
+   810→                </Button>
+   811→                <div className="grid grid-cols-2 gap-2">
+   812→                  <Button
+   813→                    variant="outline"
+   814→                    size="sm"
+   815→                    className="text-xs"
+   816→                    onClick={handleVoidTransaction}
+   817→                    disabled={cart.length === 0}
+   818→                  >
+   819→                    <X className="h-3.5 w-3.5 mr-1" />
+   820→                    Void Transaction
+   821→                  </Button>
+   822→                  <Button
+   823→                    variant="outline"
+   824→                    size="sm"
+   825→                    className="text-xs"
+   826→                    onClick={() => {
+   827→                      clearCart()
+   828→                      setAmountTendered('')
+   829→                    }}
+   830→                    disabled={cart.length === 0}
+   831→                  >
+   832→                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+   833→                    Clear Cart
+   834→                  </Button>
+   835→                </div>
+   836→              </div>
+   837→            </Card>
+   838→          </div>
+   839→        </div>
+   840→      </div>
+   841→
+   842→      {/* Receipt Modal */}
+   843→      {receiptTxn && (
+   844→        <ReceiptModal
+   845→          transaction={receiptTxn}
+   846→          onClose={() => setReceiptTxn(null)}
+   847→        />
+   848→      )}
+   849→    </>
+   850→  )
+   851→}
+   852→
