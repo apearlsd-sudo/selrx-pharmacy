@@ -112,20 +112,53 @@ async function main() {
 
   // ── Inventory: ensure records exist for all products ───────────
   console.log('📦 Syncing Inventory records...')
+
+  // Ensure Inventory table exists
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "Inventory" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "productId" TEXT NOT NULL UNIQUE,
+      "quantity" INTEGER NOT NULL DEFAULT 0,
+      "lastCounted" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("productId") REFERENCES "Product"("id")
+    );
+  `)
+
+  // Find products with no inventory record
   const { rows: products } = await turso.execute(
     `SELECT p."id" FROM "Product" p LEFT JOIN "Inventory" i ON p."id" = i."productId" WHERE i."id" IS NULL`
   )
   if (products.length > 0) {
     console.log(`  📝 Creating inventory for ${products.length} products without records...`)
+    // Seed with reasonable random quantities (20-200)
     for (const p of products) {
+      const qty = Math.floor(Math.random() * 180) + 20 // 20-199
       await turso.execute({
-        sql: `INSERT OR IGNORE INTO "Inventory" ("id", "productId", "quantity", "createdAt", "updatedAt") VALUES (lower(hex(randomblob(16))), ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        args: [p.id],
+        sql: `INSERT OR IGNORE INTO "Inventory" ("id", "productId", "quantity", "lastCounted", "createdAt", "updatedAt") VALUES (lower(hex(randomblob(16))), ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        args: [p.id, qty],
       })
     }
-    console.log(`  ✅ Inventory records created`)
+    console.log(`  ✅ Inventory records created with seeded quantities`)
   } else {
     console.log('  ⏭️  All products already have inventory records')
+  }
+
+  // Also fix any existing inventory records that have NULL or 0 quantity
+  const { rows: zeroQty } = await turso.execute(
+    `SELECT "id", "productId" FROM "Inventory" WHERE "quantity" IS NULL OR "quantity" = 0`
+  )
+  if (zeroQty.length > 0) {
+    console.log(`  📝 Updating ${zeroQty.length} zero-quantity inventory records...`)
+    for (const inv of zeroQty) {
+      const qty = Math.floor(Math.random() * 180) + 20
+      await turso.execute({
+        sql: `UPDATE "Inventory" SET "quantity" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?`,
+        args: [qty, inv.id],
+      })
+    }
+    console.log(`  ✅ Zero-quantity records updated`)
   }
 
   console.log('✅ Turso schema sync complete!')
