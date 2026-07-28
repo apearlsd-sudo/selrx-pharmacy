@@ -99,19 +99,21 @@ export function InventoryView() {
   useEffect(() => { fetchInventory(); fetchCategories() }, [fetchInventory, fetchCategories])
 
   const filteredItems = items.filter((item) => {
-    if (stockFilter === 'LOW') return item.quantity <= item.product.reorderPoint
-    if (stockFilter === 'OUT') return item.quantity === 0
-    if (stockFilter === 'OK') return item.quantity > item.product.reorderPoint
+    const q = Number(item.quantity) || 0
+    const r = Number(item.product.reorderPoint) || 10
+    if (stockFilter === 'LOW') return q > 0 && q <= r
+    if (stockFilter === 'OUT') return q === 0
+    if (stockFilter === 'OK') return q > r
     return true
   }).sort((a, b) => {
     if (sortBy === 'name') return sortDir === 'asc' ? a.product.name.localeCompare(b.product.name) : b.product.name.localeCompare(a.product.name)
-    if (sortBy === 'stock') return sortDir === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity
+    if (sortBy === 'stock') return sortDir === 'asc' ? (Number(a.quantity)||0) - (Number(b.quantity)||0) : (Number(b.quantity)||0) - (Number(a.quantity)||0)
     return sortDir === 'asc' ? a.product.category.localeCompare(b.product.category) : b.product.category.localeCompare(a.product.category)
   })
 
-  const lowStockCount = items.filter((i) => i.quantity <= i.product.reorderPoint).length
-  const outOfStockCount = items.filter((i) => i.quantity === 0).length
-  const totalValue = items.reduce((sum, i) => sum + i.quantity * (i.product.costPrice || i.product.sellingPrice), 0)
+  const lowStockCount = items.filter((i) => { const q = Number(i.quantity) || 0; const r = Number(i.product.reorderPoint) || 10; return q > 0 && q <= r }).length
+  const outOfStockCount = items.filter((i) => (Number(i.quantity) || 0) === 0).length
+  const totalValue = items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0)
 
   const handleAdjust = async () => {
     if (!selectedItem || !adjustAmount || !adjustReason) return
@@ -321,8 +323,10 @@ export function InventoryView() {
                 </TableRow>
               ) : (
                 filteredItems.map((item) => {
-                  const isLow = item.quantity <= item.product.reorderPoint
-                  const isOut = item.quantity === 0
+                  const qty = Number(item.quantity) || 0
+                  const reorder = Number(item.product.reorderPoint) || 10
+                  const isOut = qty === 0
+                  const isLow = qty > 0 && qty <= reorder
                   return (
                     <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
                       <TableCell>
@@ -337,8 +341,8 @@ export function InventoryView() {
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-bold">{item.quantity}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{item.product.reorderPoint}</TableCell>
+                      <TableCell className="text-right font-bold">{qty}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorder}</TableCell>
                       <TableCell className="text-right">
                         {isOut ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200">Out of Stock</Badge>
