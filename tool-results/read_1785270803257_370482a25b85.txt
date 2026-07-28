@@ -1,0 +1,688 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→import {
+     5→  DollarSign, ShoppingCart, TrendingUp, CalendarDays, Download, FileText, PackageX, AlertTriangle, TrendingDown, TrendingUp as TrendingUpIcon,
+     6→} from 'lucide-react'
+     7→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Badge } from '@/components/ui/badge'
+    10→import { Skeleton } from '@/components/ui/skeleton'
+    11→import {
+    12→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    13→} from '@/components/ui/table'
+    14→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    15→import { Input } from '@/components/ui/input'
+    16→import { Label } from '@/components/ui/label'
+    17→import {
+    18→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    19→} from '@/components/ui/select'
+    20→import {
+    21→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    22→} from '@/components/ui/dialog'
+    23→import {
+    24→  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+    25→} from 'recharts'
+    26→import { useAppStore } from '@/store/app-store'
+    27→import { authHeaders } from '@/lib/auth-headers'
+    28→
+    29→const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0']
+    30→
+    31→import { formatCurrency } from '@/lib/currency'
+    32→
+    33→export function ReportsView() {
+    34→  const [activeTab, setActiveTab] = useState('sales')
+    35→  const [salesStats, setSalesStats] = useState<any>(null)
+    36→  const [inventory, setInventory] = useState<any[]>([])
+    37→  const [prescriptions, setPrescriptions] = useState<any[]>([])
+    38→  const [transactions, setTransactions] = useState<any[]>([])
+    39→  const [loading, setLoading] = useState(true)
+    40→  const [dateFrom, setDateFrom] = useState('')
+    41→  const [dateTo, setDateTo] = useState('')
+    42→  const [completedStockTakes, setCompletedStockTakes] = useState<any[]>([])
+    43→  const [selectedReport, setSelectedReport] = useState<any>(null)
+    44→  const [reportLoading, setReportLoading] = useState(false)
+    45→  const addToast = useAppStore((s) => s.addToast)
+    46→  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+    47→
+    48→  const fetchSalesData = useCallback(async () => {
+    49→    setLoading(true)
+    50→    try {
+    51→      const [statsRes, txRes, invRes, rxRes, stRes] = await Promise.all([
+    52→        fetch('/api/transactions?action=stats'),
+    53→        fetch('/api/transactions'),
+    54→        fetch('/api/inventory'),
+    55→        fetch('/api/prescriptions'),
+    56→        fetch('/api/stock-take', { headers: authHeaders() }),
+    57→      ])
+    58→      if (statsRes.ok) setSalesStats(await statsRes.json())
+    59→      if (txRes.ok) { const d = await txRes.json(); setTransactions(Array.isArray(d) ? d : d.transactions || []) }
+    60→      if (invRes.ok) setInventory(await invRes.json())
+    61→      if (rxRes.ok) { const d = await rxRes.json(); setPrescriptions(Array.isArray(d) ? d : d.prescriptions || []) }
+    62→      if (stRes.ok) {
+    63→        const allTakes = await stRes.json()
+    64→        setCompletedStockTakes(Array.isArray(allTakes) ? allTakes.filter((st: any) => st.status === 'COMPLETED') : [])
+    65→      }
+    66→    } catch {
+    67→      addToast({ title: 'Error', description: 'Failed to load report data', variant: 'destructive' })
+    68→    } finally {
+    69→      setLoading(false)
+    70→    }
+    71→  }, [addToast])
+    72→
+    73→  useEffect(() => { fetchSalesData() }, [fetchSalesData])
+    74→
+    75→  // Re-fetch inventory data in reports when stock changes
+    76→  const prevInvVer = useRef(inventoryVersion)
+    77→  useEffect(() => {
+    78→    if (prevInvVer.current !== inventoryVersion) {
+    79→      prevInvVer.current = inventoryVersion
+    80→      fetch('/api/inventory').then(r => { if (r.ok) r.json().then(setInventory) }).catch(() => {})
+    81→    }
+    82→  }, [inventoryVersion])
+    83→
+    84→  // Prepare chart data
+    85→  const salesByCategory = salesStats?.topProducts?.map((p: any, i: number) => ({
+    86→    name: p.productName?.split(' ').slice(0, 2).join(' ') || 'Unknown',
+    87→    revenue: p._sum?.subtotal || 0,
+    88→    units: p._sum?.quantity || 0,
+    89→    fill: CHART_COLORS[i % CHART_COLORS.length],
+    90→  })) || []
+    91→
+    92→  const dailySales = transactions
+    93→    .filter((t: any) => t.status === 'COMPLETED')
+    94→    .reduce((acc: any, t: any) => {
+    95→      const date = new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    96→      const existing = acc.find((d: any) => d.date === date)
+    97→      if (existing) { existing.sales += t.total; existing.count += 1 }
+    98→      else { acc.push({ date, sales: t.total, count: 1 }) }
+    99→      return acc
+   100→    }, [])
+   101→    .slice(-7)
+   102→
+   103→  const categoryData = inventory.reduce((acc: any, item: any) => {
+   104→    const cat = item.product?.category?.replace(/_/g, ' ') || 'Other'
+   105→    const existing = acc.find((c: any) => c.category === cat)
+   106→    if (existing) existing.count++
+   107→    else acc.push({ category: cat, count: 1, fill: CHART_COLORS[acc.length % CHART_COLORS.length] })
+   108→    return acc
+   109→  }, [])
+   110→
+   111→  const lowStockItems = inventory.filter((i: any) => i.quantity <= i.product?.reorderPoint)
+   112→  const expiringSoon = inventory.filter((i: any) => i.product?.expiryDate && new Date(i.product.expiryDate) <= new Date(Date.now() + 30 * 86400000))
+   113→
+   114→  const rxByStatus = prescriptions.reduce((acc: any, rx: any) => {
+   115→    const existing = acc.find((s: any) => s.status === rx.status)
+   116→    if (existing) existing.count++
+   117→    else acc.push({ status: rx.status?.replace(/_/g, ' '), count: 1, fill: CHART_COLORS[acc.length % CHART_COLORS.length] })
+   118→    return acc
+   119→  }, [])
+   120→
+   121→  return (
+   122→    <div className="space-y-4">
+   123→      {/* Report Type Tabs */}
+   124→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   125→        <div className="flex items-center justify-between">
+   126→          <TabsList>
+   127→            <TabsTrigger value="sales">Sales Summary</TabsTrigger>
+   128→            <TabsTrigger value="inventory">Inventory</TabsTrigger>
+   129→            <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
+   130→            <TabsTrigger value="stocktake">Stock Take Reports</TabsTrigger>
+   131→          </TabsList>
+   132→          <div className="flex items-center gap-2">
+   133→            <div className="flex items-center gap-2">
+   134→              <Label className="text-xs">From:</Label>
+   135→              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
+   136→              <Label className="text-xs">To:</Label>
+   137→              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs" />
+   138→            </div>
+   139→            <Button variant="outline" size="sm" onClick={() => addToast({ title: 'Export', description: 'Report exported as CSV' })}>
+   140→              <Download className="h-3.5 w-3.5 mr-1" /> Export
+   141→            </Button>
+   142→          </div>
+   143→        </div>
+   144→
+   145→        {/* Sales Summary Tab */}
+   146→        <TabsContent value="sales" className="space-y-4">
+   147→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   148→            <Card>
+   149→              <CardContent className="p-4 flex items-center gap-3">
+   150→                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   151→                  <DollarSign className="h-5 w-5 text-emerald-600" />
+   152→                </div>
+   153→                <div>
+   154→                  <div className="text-2xl font-bold">
+   155→                    {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.today?.sales || 0)}
+   156→                  </div>
+   157→                  <p className="text-xs text-muted-foreground">Today&apos;s Sales</p>
+   158→                </div>
+   159→              </CardContent>
+   160→            </Card>
+   161→            <Card>
+   162→              <CardContent className="p-4 flex items-center gap-3">
+   163→                <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
+   164→                  <ShoppingCart className="h-5 w-5 text-teal-600" />
+   165→                </div>
+   166→                <div>
+   167→                  <div className="text-2xl font-bold">
+   168→                    {loading ? <Skeleton className="h-8 w-12" /> : salesStats?.today?.count || 0}
+   169→                  </div>
+   170→                  <p className="text-xs text-muted-foreground">Transactions Today</p>
+   171→                </div>
+   172→              </CardContent>
+   173→            </Card>
+   174→            <Card>
+   175→              <CardContent className="p-4 flex items-center gap-3">
+   176→                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+   177→                  <TrendingUp className="h-5 w-5 text-green-600" />
+   178→                </div>
+   179→                <div>
+   180→                  <div className="text-2xl font-bold">
+   181→                    {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisWeek?.sales || 0)}
+   182→                  </div>
+   183→                  <p className="text-xs text-muted-foreground">This Week</p>
+   184→                </div>
+   185→              </CardContent>
+   186→            </Card>
+   187→            <Card>
+   188→              <CardContent className="p-4 flex items-center gap-3">
+   189→                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   190→                  <CalendarDays className="h-5 w-5 text-emerald-600" />
+   191→                </div>
+   192→                <div>
+   193→                  <div className="text-2xl font-bold">
+   194→                    {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisMonth?.sales || 0)}
+   195→                  </div>
+   196→                  <p className="text-xs text-muted-foreground">This Month</p>
+   197→                </div>
+   198→              </CardContent>
+   199→            </Card>
+   200→          </div>
+   201→
+   202→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   203→            {/* Daily Sales Trend */}
+   204→            <Card>
+   205→              <CardHeader className="pb-2">
+   206→                <CardTitle className="text-sm font-semibold">Daily Sales Trend (Last 7 Days)</CardTitle>
+   207→              </CardHeader>
+   208→              <CardContent>
+   209→                {loading ? <Skeleton className="h-64 w-full" /> : (
+   210→                  <ResponsiveContainer width="100%" height={260}>
+   211→                    <BarChart data={dailySales}>
+   212→                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+   213→                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+   214→                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+   215→                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+   216→                      <Bar dataKey="sales" fill="#059669" radius={[4, 4, 0, 0]} />
+   217→                    </BarChart>
+   218→                  </ResponsiveContainer>
+   219→                )}
+   220→              </CardContent>
+   221→            </Card>
+   222→
+   223→            {/* Sales by Category (Pie) */}
+   224→            <Card>
+   225→              <CardHeader className="pb-2">
+   226→                <CardTitle className="text-sm font-semibold">Sales by Product</CardTitle>
+   227→              </CardHeader>
+   228→              <CardContent>
+   229→                {loading ? <Skeleton className="h-64 w-full" /> : (
+   230→                  <ResponsiveContainer width="100%" height={260}>
+   231→                    <PieChart>
+   232→                      <Pie data={salesByCategory} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="revenue" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+   233→                        {salesByCategory.map((entry: any, index: number) => (
+   234→                          <Cell key={`cell-${index}`} fill={entry.fill} />
+   235→                        ))}
+   236→                      </Pie>
+   237→                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+   238→                    </PieChart>
+   239→                  </ResponsiveContainer>
+   240→                )}
+   241→              </CardContent>
+   242→            </Card>
+   243→          </div>
+   244→
+   245→          {/* Top Products Table */}
+   246→          <Card>
+   247→            <CardHeader className="pb-2">
+   248→              <CardTitle className="text-sm font-semibold">Top Selling Products</CardTitle>
+   249→            </CardHeader>
+   250→            <CardContent className="p-0">
+   251→              <Table>
+   252→                <TableHeader>
+   253→                  <TableRow>
+   254→                    <TableHead>#</TableHead>
+   255→                    <TableHead>Product</TableHead>
+   256→                    <TableHead className="text-right">Units Sold</TableHead>
+   257→                    <TableHead className="text-right">Revenue</TableHead>
+   258→                  </TableRow>
+   259→                </TableHeader>
+   260→                <TableBody>
+   261→                  {loading ? (
+   262→                    Array.from({ length: 5 }).map((_, i) => (
+   263→                      <TableRow key={i}>
+   264→                        {Array.from({ length: 4 }).map((_, j) => (
+   265→                          <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   266→                        ))}
+   267→                      </TableRow>
+   268→                    ))
+   269→                  ) : (
+   270→                    salesStats?.topProducts?.map((p: any, i: number) => (
+   271→                      <TableRow key={i}>
+   272→                        <TableCell className="font-bold">{i + 1}</TableCell>
+   273→                        <TableCell className="font-medium text-sm">{p.productName}</TableCell>
+   274→                        <TableCell className="text-right">{p._sum?.quantity || 0}</TableCell>
+   275→                        <TableCell className="text-right font-medium">{formatCurrency(p._sum?.subtotal || 0)}</TableCell>
+   276→                      </TableRow>
+   277→                    ))
+   278→                  )}
+   279→                </TableBody>
+   280→              </Table>
+   281→            </CardContent>
+   282→          </Card>
+   283→        </TabsContent>
+   284→
+   285→        {/* Inventory Tab */}
+   286→        <TabsContent value="inventory" className="space-y-4">
+   287→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   288→            <Card>
+   289→              <CardContent className="p-4 flex items-center gap-3">
+   290→                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   291→                  <DollarSign className="h-5 w-5 text-emerald-600" />
+   292→                </div>
+   293→                <div>
+   294→                  <p className="text-2xl font-bold">{inventory.length}</p>
+   295→                  <p className="text-xs text-muted-foreground">Total SKUs</p>
+   296→                </div>
+   297→              </CardContent>
+   298→            </Card>
+   299→            <Card>
+   300→              <CardContent className="p-4 flex items-center gap-3">
+   301→                <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+   302→                  <Badge className="bg-red-600 text-white">{lowStockItems.length}</Badge>
+   303→                </div>
+   304→                <div>
+   305→                  <p className="text-2xl font-bold text-red-600">{lowStockItems.length}</p>
+   306→                  <p className="text-xs text-muted-foreground">Low Stock Alerts</p>
+   307→                </div>
+   308→              </CardContent>
+   309→            </Card>
+   310→            <Card>
+   311→              <CardContent className="p-4 flex items-center gap-3">
+   312→                <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+   313→                  <Badge className="bg-amber-600 text-white">{expiringSoon.length}</Badge>
+   314→                </div>
+   315→                <div>
+   316→                  <p className="text-2xl font-bold text-amber-600">{expiringSoon.length}</p>
+   317→                  <p className="text-xs text-muted-foreground">Expiring (30 days)</p>
+   318→                </div>
+   319→              </CardContent>
+   320→            </Card>
+   321→          </div>
+   322→
+   323→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   324→            <Card>
+   325→              <CardHeader className="pb-2">
+   326→                <CardTitle className="text-sm font-semibold">Stock by Category</CardTitle>
+   327→              </CardHeader>
+   328→              <CardContent>
+   329→                <ResponsiveContainer width="100%" height={280}>
+   330→                  <PieChart>
+   331→                    <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="count" nameKey="category" label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}>
+   332→                      {categoryData.map((entry: any, index: number) => (
+   333→                        <Cell key={`cell-${index}`} fill={entry.fill} />
+   334→                      ))}
+   335→                    </Pie>
+   336→                    <Tooltip />
+   337→                  </PieChart>
+   338→                </ResponsiveContainer>
+   339→              </CardContent>
+   340→            </Card>
+   341→            <Card>
+   342→              <CardHeader className="pb-2">
+   343→                <CardTitle className="text-sm font-semibold">Low Stock Items</CardTitle>
+   344→              </CardHeader>
+   345→              <CardContent className="p-0">
+   346→                <Table>
+   347→                  <TableHeader>
+   348→                    <TableRow>
+   349→                      <TableHead>Product</TableHead>
+   350→                      <TableHead className="text-right">Stock</TableHead>
+   351→                      <TableHead className="text-right">Reorder</TableHead>
+   352→                    </TableRow>
+   353→                  </TableHeader>
+   354→                  <TableBody>
+   355→                    {lowStockItems.map((item: any) => (
+   356→                      <TableRow key={item.id}>
+   357→                        <TableCell className="font-medium text-sm">{item.product?.name}</TableCell>
+   358→                        <TableCell className="text-right text-red-600 font-bold">{item.quantity}</TableCell>
+   359→                        <TableCell className="text-right text-muted-foreground">{item.product?.reorderPoint}</TableCell>
+   360→                      </TableRow>
+   361→                    ))}
+   362→                    {lowStockItems.length === 0 && (
+   363→                      <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No low stock items</TableCell></TableRow>
+   364→                    )}
+   365→                  </TableBody>
+   366→                </Table>
+   367→              </CardContent>
+   368→            </Card>
+   369→          </div>
+   370→        </TabsContent>
+   371→
+   372→        {/* Prescriptions Tab */}
+   373→        <TabsContent value="prescriptions" className="space-y-4">
+   374→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   375→            <Card>
+   376→              <CardContent className="p-4 flex items-center gap-3">
+   377→                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   378→                  <span className="text-lg font-bold text-emerald-600">{prescriptions.length}</span>
+   379→                </div>
+   380→                <div>
+   381→                  <p className="text-2xl font-bold">{prescriptions.length}</p>
+   382→                  <p className="text-xs text-muted-foreground">Total Prescriptions</p>
+   383→                </div>
+   384→              </CardContent>
+   385→            </Card>
+   386→            <Card>
+   387→              <CardContent className="p-4 flex items-center gap-3">
+   388→                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+   389→                  <span className="text-lg font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
+   390→                </div>
+   391→                <div>
+   392→                  <p className="text-2xl font-bold">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
+   393→                  <p className="text-xs text-muted-foreground">Dispensed</p>
+   394→                </div>
+   395→              </CardContent>
+   396→            </Card>
+   397→            <Card>
+   398→              <CardContent className="p-4 flex items-center gap-3">
+   399→                <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+   400→                  <span className="text-lg font-bold text-amber-600">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
+   401→                </div>
+   402→                <div>
+   403→                  <p className="text-2xl font-bold">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
+   404→                  <p className="text-xs text-muted-foreground">Urgent/STAT</p>
+   405→                </div>
+   406→              </CardContent>
+   407→            </Card>
+   408→          </div>
+   409→
+   410→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   411→            <Card>
+   412→              <CardHeader className="pb-2">
+   413→                <CardTitle className="text-sm font-semibold">Prescriptions by Status</CardTitle>
+   414→              </CardHeader>
+   415→              <CardContent>
+   416→                <ResponsiveContainer width="100%" height={280}>
+   417→                  <BarChart data={rxByStatus}>
+   418→                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+   419→                    <XAxis dataKey="status" tick={{ fontSize: 11 }} />
+   420→                    <YAxis tick={{ fontSize: 11 }} />
+   421→                    <Tooltip />
+   422→                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+   423→                      {rxByStatus.map((entry: any, index: number) => (
+   424→                        <Cell key={`cell-${index}`} fill={entry.fill} />
+   425→                      ))}
+   426→                    </Bar>
+   427→                  </BarChart>
+   428→                </ResponsiveContainer>
+   429→              </CardContent>
+   430→            </Card>
+   431→            <Card>
+   432→              <CardHeader className="pb-2">
+   433→                <CardTitle className="text-sm font-semibold">Recent Prescriptions</CardTitle>
+   434→              </CardHeader>
+   435→              <CardContent className="p-0">
+   436→                <Table>
+   437→                  <TableHeader>
+   438→                    <TableRow>
+   439→                      <TableHead>Rx #</TableHead>
+   440→                      <TableHead>Patient</TableHead>
+   441→                      <TableHead>Status</TableHead>
+   442→                    </TableRow>
+   443→                  </TableHeader>
+   444→                  <TableBody>
+   445→                    {prescriptions.slice(0, 8).map((rx: any) => (
+   446→                      <TableRow key={rx.id}>
+   447→                        <TableCell className="font-mono text-xs">{rx.rxNumber}</TableCell>
+   448→                        <TableCell className="text-sm">{rx.patientName}</TableCell>
+   449→                        <TableCell>
+   450→                          <Badge variant="outline" className="text-xs">{rx.status?.replace(/_/g, ' ')}</Badge>
+   451→                        </TableCell>
+   452→                      </TableRow>
+   453→                    ))}
+   454→                  </TableBody>
+   455→                </Table>
+   456→              </CardContent>
+   457→            </Card>
+   458→          </div>
+   459→        </TabsContent>
+   460→
+   461→        {/* Stock Take Reports Tab */}
+   462→        <TabsContent value="stocktake" className="space-y-4">
+   463→          {loading ? (
+   464→            <div className="space-y-3">
+   465→              {Array.from({ length: 3 }).map((_, i) => (
+   466→                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+   467→              ))}
+   468→            </div>
+   469→          ) : completedStockTakes.length === 0 ? (
+   470→            <Card>
+   471→              <CardContent className="py-12 text-center">
+   472→                <FileText className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+   473→                <p className="text-sm font-medium text-gray-500">No completed stock takes</p>
+   474→                <p className="text-xs text-muted-foreground mt-1">Complete a stock take to generate reports showing expired goods and stock variance</p>
+   475→              </CardContent>
+   476→            </Card>
+   477→          ) : (
+   478→            <>
+   479→              <Card>
+   480→                <CardHeader className="pb-2">
+   481→                  <CardTitle className="text-sm font-semibold">Completed Stock Takes</CardTitle>
+   482→                </CardHeader>
+   483→                <CardContent>
+   484→                  <Table>
+   485→                    <TableHeader>
+   486→                      <TableRow>
+   487→                        <TableHead>Reference</TableHead>
+   488→                        <TableHead className="hidden sm:table-cell">Date</TableHead>
+   489→                        <TableHead className="hidden md:table-cell">Counted By</TableHead>
+   490→                        <TableHead className="text-right">Items</TableHead>
+   491→                        <TableHead className="text-right">Actions</TableHead>
+   492→                      </TableRow>
+   493→                    </TableHeader>
+   494→                    <TableBody>
+   495→                      {completedStockTakes.map((st: any) => (
+   496→                        <TableRow key={st.id}>
+   497→                          <TableCell className="font-medium text-sm">{st.reference}</TableCell>
+   498→                          <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
+   499→                            {st.completedAt ? new Date(st.completedAt).toLocaleDateString() : new Date(st.createdAt).toLocaleDateString()}
+   500→                          </TableCell>
+   501→                          <TableCell className="text-xs hidden md:table-cell">
+   502→                            {st.countedByUser?.name || '—'}
+   503→                          </TableCell>
+   504→                          <TableCell className="text-right">{st.items?.length || 0}</TableCell>
+   505→                          <TableCell className="text-right">
+   506→                            <Button
+   507→                              size="sm"
+   508→                              variant="outline"
+   509→                              onClick={async () => {
+   510→                                setReportLoading(true)
+   511→                                try {
+   512→                                  const res = await fetch(`/api/stock-take?action=report&id=${st.id}`, { headers: authHeaders() })
+   513→                                  if (res.ok) setSelectedReport(await res.json())
+   514→                                  else addToast({ title: 'Error', description: 'Failed to load report', variant: 'destructive' })
+   515→                                } catch {
+   516→                                  addToast({ title: 'Error', description: 'Failed to load report', variant: 'destructive' })
+   517→                                } finally {
+   518→                                  setReportLoading(false)
+   519→                                }
+   520→                              }}
+   521→                              disabled={reportLoading}
+   522→                            >
+   523→                              <FileText className="h-3.5 w-3.5 mr-1" />
+   524→                              View Report
+   525→                            </Button>
+   526→                          </TableCell>
+   527→                        </TableRow>
+   528→                      ))}
+   529→                    </TableBody>
+   530→                  </Table>
+   531→                </CardContent>
+   532→              </Card>
+   533→
+   534→              {/* Report Dialog */}
+   535→              <Dialog open={!!selectedReport} onOpenChange={(open) => { if (!open) setSelectedReport(null) }}>
+   536→                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+   537→                  {selectedReport && (
+   538→                    <>
+   539→                      <DialogHeader>
+   540→                        <DialogTitle className="flex items-center gap-2">
+   541→                          <FileText className="h-5 w-5 text-emerald-600" />
+   542→                          Stock Take Report — {selectedReport.stockTakeRef}
+   543→                        </DialogTitle>
+   544→                        <DialogDescription>
+   545→                          {selectedReport.completedAt ? new Date(selectedReport.completedAt).toLocaleString() : new Date(selectedReport.generatedAt).toLocaleString()}
+   546→                          {' · '}{selectedReport.totalItemsChecked} items checked
+   547→                          {selectedReport.countedBy ? ` · By ${selectedReport.countedBy}` : ''}
+   548→                        </DialogDescription>
+   549→                      </DialogHeader>
+   550→
+   551→                      {/* Summary Cards */}
+   552→                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   553→                        <div className="rounded-lg border p-3 text-center">
+   554→                          <p className="text-lg font-bold">{selectedReport.totalItemsChecked}</p>
+   555→                          <p className="text-[11px] text-muted-foreground">Items Checked</p>
+   556→                        </div>
+   557→                        <div className="rounded-lg border p-3 text-center">
+   558→                          <p className="text-lg font-bold text-red-600">{selectedReport.expiredGoods.count}</p>
+   559→                          <p className="text-[11px] text-muted-foreground">Expired Goods</p>
+   560→                        </div>
+   561→                        <div className="rounded-lg border p-3 text-center">
+   562→                          <p className="text-lg font-bold text-orange-600">{selectedReport.stockVariance.shortageCount}</p>
+   563→                          <p className="text-[11px] text-muted-foreground">Shortages</p>
+   564→                        </div>
+   565→                        <div className="rounded-lg border p-3 text-center">
+   566→                          <p className="text-lg font-bold text-emerald-600">{selectedReport.stockVariance.surplusCount}</p>
+   567→                          <p className="text-[11px] text-muted-foreground">Surplus</p>
+   568→                        </div>
+   569→                      </div>
+   570→
+   571→                      {/* Expired Goods */}
+   572→                      <div className="space-y-2">
+   573→                        <div className="flex items-center gap-2">
+   574→                          <PackageX className="h-4 w-4 text-red-500" />
+   575→                          <h3 className="text-sm font-semibold">
+   576→                            Expired Goods
+   577→                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+   578→                              {selectedReport.expiredGoods.count} item{selectedReport.expiredGoods.count !== 1 ? 's' : ''} · Total cost: <span className="font-semibold text-red-600">{formatCurrency(selectedReport.expiredGoods.totalCost)}</span>
+   579→                            </span>
+   580→                          </h3>
+   581→                        </div>
+   582→                        {selectedReport.expiredGoods.items.length > 0 ? (
+   583→                          <div className="border rounded-lg overflow-hidden">
+   584→                            <Table>
+   585→                              <TableHeader>
+   586→                                <TableRow className="bg-red-50/50">
+   587→                                  <TableHead className="text-xs">Product</TableHead>
+   588→                                  <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+   589→                                  <TableHead className="text-xs hidden lg:table-cell">Strength/Form</TableHead>
+   590→                                  <TableHead className="text-xs text-right">Qty</TableHead>
+   591→                                  <TableHead className="text-xs hidden sm:table-cell">Expiry</TableHead>
+   592→                                  <TableHead className="text-xs text-right">Unit Cost</TableHead>
+   593→                                  <TableHead className="text-xs text-right">Total Cost</TableHead>
+   594→                                </TableRow>
+   595→                              </TableHeader>
+   596→                              <TableBody>
+   597→                                {selectedReport.expiredGoods.items.map((item: any) => (
+   598→                                  <TableRow key={item.productId} className="bg-red-50/30">
+   599→                                    <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   600→                                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{item.category?.replace(/_/g, ' ')}</TableCell>
+   601→                                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
+   602→                                      {[item.strength, item.dosageForm].filter(Boolean).join(' / ') || '—'}
+   603→                                    </TableCell>
+   604→                                    <TableCell className="text-right text-sm">{item.countedQty}</TableCell>
+   605→                                    <TableCell className="text-xs text-red-600 font-medium hidden sm:table-cell">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</TableCell>
+   606→                                    <TableCell className="text-right text-xs">{formatCurrency(item.costPrice)}</TableCell>
+   607→                                    <TableCell className="text-right text-sm font-semibold text-red-600">{formatCurrency(item.totalCost)}</TableCell>
+   608→                                  </TableRow>
+   609→                                ))}
+   610→                              </TableBody>
+   611→                            </Table>
+   612→                          </div>
+   613→                        ) : (
+   614→                          <div className="rounded-lg border border-dashed p-4 text-center">
+   615→                            <p className="text-sm text-muted-foreground">No expired goods found</p>
+   616→                          </div>
+   617→                        )}
+   618→                      </div>
+   619→
+   620→                      {/* Stock Variance */}
+   621→                      <div className="space-y-2">
+   622→                        <div className="flex items-center gap-2">
+   623→                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+   624→                          <h3 className="text-sm font-semibold">
+   625→                            Stock Variance
+   626→                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+   627→                              {selectedReport.stockVariance.totalVarianceItems} item{selectedReport.stockVariance.totalVarianceItems !== 1 ? 's' : ''} with variance
+   628→                              {' · '}Shortage cost: <span className="font-semibold text-orange-600">{formatCurrency(selectedReport.stockVariance.shortageTotalCost)}</span>
+   629→                              {' · '}Surplus value: <span className="font-semibold text-emerald-600">{formatCurrency(selectedReport.stockVariance.surplusTotalCost)}</span>
+   630→                            </span>
+   631→                          </h3>
+   632→                        </div>
+   633→                        {selectedReport.stockVariance.items.length > 0 ? (
+   634→                          <div className="border rounded-lg overflow-hidden">
+   635→                            <Table>
+   636→                              <TableHeader>
+   637→                                <TableRow className="bg-amber-50/50">
+   638→                                  <TableHead className="text-xs">Product</TableHead>
+   639→                                  <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+   640→                                  <TableHead className="text-xs text-right">System</TableHead>
+   641→                                  <TableHead className="text-xs text-right">Counted</TableHead>
+   642→                                  <TableHead className="text-xs text-right">Variance</TableHead>
+   643→                                  <TableHead className="text-xs text-right hidden sm:table-cell">Unit Cost</TableHead>
+   644→                                  <TableHead className="text-xs text-right">Total Cost</TableHead>
+   645→                                </TableRow>
+   646→                              </TableHeader>
+   647→                              <TableBody>
+   648→                                {selectedReport.stockVariance.items.map((item: any) => (
+   649→                                  <TableRow key={item.productId} className={item.varianceType === 'SHORTAGE' ? 'bg-orange-50/30' : 'bg-emerald-50/30'}>
+   650→                                    <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   651→                                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{item.category?.replace(/_/g, ' ')}</TableCell>
+   652→                                    <TableCell className="text-right text-sm text-muted-foreground">{item.systemQty}</TableCell>
+   653→                                    <TableCell className="text-right text-sm font-medium">{item.countedQty}</TableCell>
+   654→                                    <TableCell className="text-right text-sm font-bold">
+   655→                                      <span className={`inline-flex items-center gap-1 ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
+   656→                                        {item.varianceType === 'SHORTAGE' ? <TrendingDown className="h-3 w-3" /> : <TrendingUpIcon className="h-3 w-3" />}
+   657→                                        {item.variance > 0 ? '+' : ''}{item.variance}
+   658→                                      </span>
+   659→                                    </TableCell>
+   660→                                    <TableCell className="text-right text-xs hidden sm:table-cell">{formatCurrency(item.unitCost)}</TableCell>
+   661→                                    <TableCell className="text-right text-sm font-semibold">{formatCurrency(item.totalCost)}</TableCell>
+   662→                                  </TableRow>
+   663→                                ))}
+   664→                              </TableBody>
+   665→                            </Table>
+   666→                          </div>
+   667→                        ) : (
+   668→                          <div className="rounded-lg border border-dashed p-4 text-center">
+   669→                            <p className="text-sm text-muted-foreground">No variances found — all counts match system quantities</p>
+   670→                          </div>
+   671→                        )}
+   672→                      </div>
+   673→
+   674→                      <DialogFooter>
+   675→                        <Button variant="outline" onClick={() => setSelectedReport(null)}>Close</Button>
+   676→                      </DialogFooter>
+   677→                    </>
+   678→                  )}
+   679→                </DialogContent>
+   680→              </Dialog>
+   681→            </>
+   682→          )}
+   683→        </TabsContent>
+   684→      </Tabs>
+   685→    </div>
+   686→  )
+   687→}
+   688→

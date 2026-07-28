@@ -1,0 +1,784 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  ClipboardCheck, Play, Save, AlertTriangle, Eye, ArrowLeft, RefreshCw,
+     6→  Search, CheckCircle2, XCircle, Clock, Plus, Trash2, FileText, PackageX, TrendingDown, TrendingUp,
+     7→} from 'lucide-react'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table'
+    16→import {
+    17→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    18→} from '@/components/ui/dialog'
+    19→import { Label } from '@/components/ui/label'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import { useAppStore } from '@/store/app-store'
+    22→import { authHeaders } from '@/lib/auth-headers'
+    23→import { formatDateTime } from '@/lib/format-date'
+    24→import { formatCurrency } from '@/lib/currency'
+    25→
+    26→interface StockTakeItem {
+    27→  id: string
+    28→  stockTakeId: string
+    29→  productId: string
+    30→  systemQty: number
+    31→  countedQty: number | null
+    32→  variance: number | null
+    33→  notes: string | null
+    34→  product: { id: string; name: string; ndc: string | null; category: string; unitOfMeasure: string } | null
+    35→}
+    36→
+    37→interface StockTake {
+    38→  id: string
+    39→  reference: string
+    40→  status: string
+    41→  notes: string | null
+    42→  countedBy: string | null
+    43→  startedAt: string | null
+    44→  completedAt: string | null
+    45→  createdAt: string
+    46→  countedByUser: { name: string; email: string } | null
+    47→  items: StockTakeItem[]
+    48→}
+    49→
+    50→interface ProductInventory {
+    51→  id: string
+    52→  productId: string
+    53→  quantity: number
+    54→  product: { id: string; name: string; ndc: string | null; category: string; unitOfMeasure: string }
+    55→}
+    56→
+    57→interface StockTakeReport {
+    58→  generatedAt: string
+    59→  stockTakeRef: string
+    60→  completedAt: string | null
+    61→  totalItemsChecked: number
+    62→  expiredGoods: {
+    63→    count: number
+    64→    totalCost: number
+    65→    items: Array<{
+    66→      productId: string
+    67→      productName: string
+    68→      ndc: string | null
+    69→      category: string
+    70→      dosageForm: string | null
+    71→      strength: string | null
+    72→      expiryDate: string | null
+    73→      countedQty: number
+    74→      costPrice: number
+    75→      totalCost: number
+    76→    }>
+    77→  }
+    78→  stockVariance: {
+    79→    totalVarianceItems: number
+    80→    shortageCount: number
+    81→    shortageTotalCost: number
+    82→    surplusCount: number
+    83→    surplusTotalCost: number
+    84→    items: Array<{
+    85→      productId: string
+    86→      productName: string
+    87→      ndc: string | null
+    88→      category: string
+    89→      dosageForm: string | null
+    90→      strength: string | null
+    91→      systemQty: number
+    92→      countedQty: number
+    93→      variance: number
+    94→      varianceType: string
+    95→      unitCost: number
+    96→      totalCost: number
+    97→    }>
+    98→  }
+    99→}
+   100→
+   101→export function StockTakeSection() {
+   102→  const [stockTakes, setStockTakes] = useState<StockTake[]>([])
+   103→  const [loading, setLoading] = useState(true)
+   104→  const [view, setView] = useState<'list' | 'detail' | 'new'>('list')
+   105→  const [selectedTake, setSelectedTake] = useState<StockTake | null>(null)
+   106→  const [newNotes, setNewNotes] = useState('')
+   107→  const [creating, setCreating] = useState(false)
+   108→  const [inventory, setInventory] = useState<ProductInventory[]>([])
+   109→  const [countedItems, setCountedItems] = useState<Record<string, number>>({})
+   110→  const [saving, setSaving] = useState(false)
+   111→  const [deleteTarget, setDeleteTarget] = useState<StockTake | null>(null)
+   112→  const [deleting, setDeleting] = useState(false)
+   113→  const [reportData, setReportData] = useState<StockTakeReport | null>(null)
+   114→  const [reportLoading, setReportLoading] = useState(false)
+   115→  const addToast = useAppStore((s) => s.addToast)
+   116→  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
+   117→
+   118→  const fetchStockTakes = useCallback(async () => {
+   119→    setLoading(true)
+   120→    try {
+   121→      const res = await fetch('/api/stock-take', { headers: authHeaders() })
+   122→      if (res.ok) setStockTakes(await res.json())
+   123→    } catch (err) {
+   124→      console.error('Failed to fetch stock takes:', err)
+   125→    } finally {
+   126→      setLoading(false)
+   127→    }
+   128→  }, [])
+   129→
+   130→  useEffect(() => { fetchStockTakes() }, [fetchStockTakes])
+   131→
+   132→  const fetchInventory = useCallback(async () => {
+   133→    try {
+   134→      const res = await fetch('/api/inventory', { headers: authHeaders() })
+   135→      if (res.ok) {
+   136→        const json = await res.json()
+   137→        setInventory(Array.isArray(json) ? json : json.items || [])
+   138→      }
+   139→    } catch (err) {
+   140→      console.error('Failed to fetch inventory:', err)
+   141→    }
+   142→  }, [])
+   143→
+   144→  const handleCreate = async () => {
+   145→    setCreating(true)
+   146→    try {
+   147→      const res = await fetch('/api/stock-take', {
+   148→        method: 'POST',
+   149→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   150→        body: JSON.stringify({ notes: newNotes || null }),
+   151→      })
+   152→      if (res.ok) {
+   153→        const created = await res.json()
+   154→        setNewNotes('')
+   155→        setView('list')
+   156→        fetchStockTakes()
+   157→        // Navigate to the new stock take detail
+   158→        setTimeout(() => handleViewDetail(created.id), 500)
+   159→      } else {
+   160→        const err = await res.json().catch(() => ({ error: 'Failed to create stock take' }))
+   161→        addToast({ title: 'Error', description: err.error || err.details || 'Failed to create stock take', variant: 'destructive' })
+   162→        console.error('[StockTake Create] failed:', err)
+   163→      }
+   164→    } catch (err) {
+   165→      console.error('Failed to create stock take:', err)
+   166→      addToast({ title: 'Error', description: 'Failed to create stock take', variant: 'destructive' })
+   167→    } finally {
+   168→      setCreating(false)
+   169→    }
+   170→  }
+   171→
+   172→  const handleViewDetail = async (id: string) => {
+   173→    try {
+   174→      const res = await fetch(`/api/stock-take/${id}`, { headers: authHeaders() })
+   175→      if (res.ok) {
+   176→        const detail = await res.json()
+   177→        setSelectedTake(detail)
+   178→        setView('detail')
+   179→        // Initialize counted items from existing data
+   180→        const counts: Record<string, number> = {}
+   181→        if (detail.items) {
+   182→          for (const item of detail.items) {
+   183→            if (item.countedQty !== null) counts[item.productId] = item.countedQty
+   184→          }
+   185→        }
+   186→        setCountedItems(counts)
+   187→      }
+   188→    } catch (err) {
+   189→      console.error('Failed to fetch stock take detail:', err)
+   190→    }
+   191→  }
+   192→
+   193→  const handleStartCounting = async () => {
+   194→    if (!selectedTake) return
+   195→    await fetchInventory()
+   196→  }
+   197→
+   198→  const handleCountedChange = (productId: string, value: string) => {
+   199→    const qty = parseInt(value, 10)
+   200→    if (!isNaN(qty) && qty >= 0) {
+   201→      setCountedItems((prev) => ({ ...prev, [productId]: qty }))
+   202→    }
+   203→  }
+   204→
+   205→  const handleSaveCounts = async () => {
+   206→    if (!selectedTake) return
+   207→    setSaving(true)
+   208→    try {
+   209→      const items = inventory.map((inv) => ({
+   210→        productId: inv.productId,
+   211→        systemQty: inv.quantity,
+   212→        countedQty: countedItems[inv.productId] ?? null,
+   213→      }))
+   214→
+   215→      await fetch(`/api/stock-take/${selectedTake.id}`, {
+   216→        method: 'PUT',
+   217→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   218→        body: JSON.stringify({ action: 'update-item', items }),
+   219→      })
+   220→
+   221→      // Refresh detail
+   222→      await handleViewDetail(selectedTake.id)
+   223→    } catch (err) {
+   224→      console.error('Failed to save counts:', err)
+   225→    } finally {
+   226→      setSaving(false)
+   227→    }
+   228→  }
+   229→
+   230→  const handleComplete = async () => {
+   231→    if (!selectedTake) return
+   232→    setSaving(true)
+   233→    try {
+   234→      const res = await fetch(`/api/stock-take/${selectedTake.id}`, {
+   235→        method: 'PUT',
+   236→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   237→        body: JSON.stringify({ action: 'complete' }),
+   238→      })
+   239→      if (res.ok) {
+   240→        const data = await res.json()
+   241→        const meta = data._meta
+   242→        addToast({
+   243→          title: 'Stock Take Completed',
+   244→          description: meta
+   245→            ? `Inventory updated for ${meta.inventoryUpdated} of ${meta.totalItems} items.`
+   246→            : 'System quantities updated.',
+   247→          variant: 'success',
+   248→        })
+   249→        // Bump global inventory version so all views (POS, dashboard, inventory, etc.) refresh
+   250→        bumpInventoryVersion()
+   251→
+   252→        // Show the stock take report if returned
+   253→        if (data._report) {
+   254→          setReportData(data._report)
+   255→        }
+   256→      } else {
+   257→        const err = await res.json().catch(() => ({ error: 'Failed to complete' }))
+   258→        addToast({ title: 'Error', description: err.error || 'Failed to complete stock take', variant: 'destructive' })
+   259→      }
+   260→      setView('list')
+   261→      fetchStockTakes()
+   262→    } catch (err) {
+   263→      console.error('Failed to complete stock take:', err)
+   264→      addToast({ title: 'Error', description: 'Failed to complete stock take', variant: 'destructive' })
+   265→    } finally {
+   266→      setSaving(false)
+   267→    }
+   268→  }
+   269→
+   270→  const handleCancel = async () => {
+   271→    if (!selectedTake) return
+   272→    try {
+   273→      await fetch(`/api/stock-take/${selectedTake.id}`, {
+   274→        method: 'PUT',
+   275→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   276→        body: JSON.stringify({ action: 'cancel' }),
+   277→      })
+   278→      setView('list')
+   279→      fetchStockTakes()
+   280→    } catch (err) {
+   281→      console.error('Failed to cancel stock take:', err)
+   282→    }
+   283→  }
+   284→
+   285→  const handleDelete = async () => {
+   286→    if (!deleteTarget) return
+   287→    setDeleting(true)
+   288→    try {
+   289→      const res = await fetch(`/api/stock-take/${deleteTarget.id}`, {
+   290→        method: 'DELETE',
+   291→        headers: authHeaders(),
+   292→      })
+   293→      if (res.ok) {
+   294→        addToast({ title: 'Deleted', description: `${deleteTarget.reference} has been deleted`, variant: 'success' })
+   295→        setDeleteTarget(null)
+   296→        fetchStockTakes()
+   297→      } else {
+   298→        const err = await res.json().catch(() => ({ error: 'Failed to delete' }))
+   299→        addToast({ title: 'Error', description: err.error || 'Failed to delete stock take', variant: 'destructive' })
+   300→      }
+   301→    } catch {
+   302→      addToast({ title: 'Error', description: 'Failed to delete stock take', variant: 'destructive' })
+   303→    } finally {
+   304→      setDeleting(false)
+   305→    }
+   306→  }
+   307→
+   308→  const handleViewReport = async (stockTakeId: string) => {
+   309→    setReportLoading(true)
+   310→    try {
+   311→      const res = await fetch(`/api/stock-take?action=report&id=${stockTakeId}`, { headers: authHeaders() })
+   312→      if (res.ok) {
+   313→        setReportData(await res.json())
+   314→      } else {
+   315→        addToast({ title: 'Error', description: 'Failed to generate report', variant: 'destructive' })
+   316→      }
+   317→    } catch {
+   318→      addToast({ title: 'Error', description: 'Failed to generate report', variant: 'destructive' })
+   319→    } finally {
+   320→      setReportLoading(false)
+   321→    }
+   322→  }
+   323→
+   324→  const statusBadge = (status: string) => {
+   325→    const styles: Record<string, string> = {
+   326→      PENDING: 'bg-gray-100 text-gray-700',
+   327→      IN_PROGRESS: 'bg-blue-100 text-blue-700',
+   328→      COMPLETED: 'bg-emerald-100 text-emerald-700',
+   329→      CANCELLED: 'bg-red-100 text-red-700',
+   330→    }
+   331→    return styles[status] || 'bg-gray-100 text-gray-700'
+   332→  }
+   333→
+   334→  // ── New Stock Take Form ──
+   335→  if (view === 'new') {
+   336→    return (
+   337→      <Card>
+   338→        <CardHeader className="pb-3">
+   339→          <div className="flex items-center gap-2">
+   340→            <Button variant="ghost" size="sm" onClick={() => setView('list')}>
+   341→              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+   342→            </Button>
+   343→            <CardTitle className="text-base">New Stock Take</CardTitle>
+   344→          </div>
+   345→        </CardHeader>
+   346→        <CardContent className="space-y-4">
+   347→          <div className="space-y-2">
+   348→            <Label>Notes (optional)</Label>
+   349→            <Textarea
+   350→              placeholder="e.g. Monthly stock check for July..."
+   351→              value={newNotes}
+   352→              onChange={(e) => setNewNotes(e.target.value)}
+   353→              rows={3}
+   354→            />
+   355→          </div>
+   356→          <div className="flex gap-3">
+   357→            <Button onClick={handleCreate} disabled={creating} className="bg-emerald-600 hover:bg-emerald-700">
+   358→              <Plus className="h-4 w-4 mr-1.5" />
+   359→              {creating ? 'Creating...' : 'Create Stock Take'}
+   360→            </Button>
+   361→            <Button variant="outline" onClick={() => setView('list')}>Cancel</Button>
+   362→          </div>
+   363→        </CardContent>
+   364→      </Card>
+   365→    )
+   366→  }
+   367→
+   368→  // ── Detail View ──
+   369→  if (view === 'detail' && selectedTake) {
+   370→    const itemCount = selectedTake.items?.length || 0
+   371→    const variances = (selectedTake.items || []).filter((i) => i.variance !== null && i.variance !== 0)
+   372→
+   373→    return (
+   374→      <Card>
+   375→        <CardHeader className="pb-3">
+   376→          <div className="flex items-center justify-between">
+   377→            <div className="flex items-center gap-2">
+   378→              <Button variant="ghost" size="sm" onClick={() => { setView('list'); setSelectedTake(null) }}>
+   379→                <ArrowLeft className="h-4 w-4 mr-1" /> Back
+   380→              </Button>
+   381→              <div>
+   382→                <CardTitle className="text-base">{selectedTake.reference}</CardTitle>
+   383→                <p className="text-xs text-muted-foreground">
+   384→                  Created {formatDateTime(selectedTake.createdAt)}
+   385→                  {selectedTake.countedByUser && ` · By ${selectedTake.countedByUser.name}`}
+   386→                </p>
+   387→              </div>
+   388→            </div>
+   389→            <Badge className={statusBadge(selectedTake.status)}>
+   390→              {selectedTake.status.replace(/_/g, ' ')}
+   391→            </Badge>
+   392→          </div>
+   393→        </CardHeader>
+   394→        <CardContent className="space-y-4">
+   395→          {/* Summary */}
+   396→          <div className="grid grid-cols-3 gap-3">
+   397→            <div className="rounded-lg border p-3 text-center">
+   398→              <p className="text-lg font-bold">{itemCount}</p>
+   399→              <p className="text-[11px] text-muted-foreground">Products</p>
+   400→            </div>
+   401→            <div className="rounded-lg border p-3 text-center">
+   402→              <p className="text-lg font-bold text-amber-600">{variances.length}</p>
+   403→              <p className="text-[11px] text-muted-foreground">Variances</p>
+   404→            </div>
+   405→            <div className="rounded-lg border p-3 text-center">
+   406→              <p className="text-lg font-bold">{Object.keys(countedItems).length}</p>
+   407→              <p className="text-[11px] text-muted-foreground">Counted</p>
+   408→            </div>
+   409→          </div>
+   410→
+   411→          {/* Show items if completed or has saved items */}
+   412→          {selectedTake.status === 'COMPLETED' && selectedTake.items && selectedTake.items.length > 0 ? (
+   413→            <div className="border rounded-lg overflow-hidden">
+   414→              <Table>
+   415→                <TableHeader>
+   416→                  <TableRow className="bg-gray-50/50">
+   417→                    <TableHead className="text-xs">Product</TableHead>
+   418→                    <TableHead className="text-xs text-right">System</TableHead>
+   419→                    <TableHead className="text-xs text-right">Counted</TableHead>
+   420→                    <TableHead className="text-xs text-right">Variance</TableHead>
+   421→                  </TableRow>
+   422→                </TableHeader>
+   423→                <TableBody>
+   424→                  {selectedTake.items.map((item) => (
+   425→                    <TableRow key={item.id} className={item.variance && item.variance !== 0 ? 'bg-amber-50/50' : ''}>
+   426→                      <TableCell className="text-sm">{item.product?.name || item.productId}</TableCell>
+   427→                      <TableCell className="text-right text-sm">{item.systemQty}</TableCell>
+   428→                      <TableCell className="text-right text-sm font-medium">{item.countedQty ?? '—'}</TableCell>
+   429→                      <TableCell className="text-right text-sm">
+   430→                        {item.variance !== null ? (
+   431→                          <span className={item.variance > 0 ? 'text-emerald-600' : item.variance < 0 ? 'text-red-600' : 'text-gray-600'}>
+   432→                            {item.variance > 0 ? '+' : ''}{item.variance}
+   433→                          </span>
+   434→                        ) : '—'}
+   435→                      </TableCell>
+   436→                    </TableRow>
+   437→                  ))}
+   438→                </TableBody>
+   439→              </Table>
+   440→            </div>
+   441→          ) : selectedTake.status === 'IN_PROGRESS' ? (
+   442→            <>
+   443→              {/* Counting interface */}
+   444→              {inventory.length > 0 ? (
+   445→                <>
+   446→                  <div className="flex items-center justify-between">
+   447→                    <p className="text-sm font-medium">Enter physical counts for each product:</p>
+   448→                    <div className="flex gap-2">
+   449→                      <Button size="sm" variant="outline" onClick={handleSaveCounts} disabled={saving}>
+   450→                        <Save className="h-3.5 w-3.5 mr-1" /> Save Counts
+   451→                      </Button>
+   452→                      <Button size="sm" onClick={handleComplete} disabled={saving}>
+   453→                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
+   454→                      </Button>
+   455→                    </div>
+   456→                  </div>
+   457→                  <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+   458→                    <Table>
+   459→                      <TableHeader className="sticky top-0">
+   460→                        <TableRow className="bg-gray-50">
+   461→                          <TableHead className="text-xs">Product</TableHead>
+   462→                          <TableHead className="text-xs text-right">System Qty</TableHead>
+   463→                          <TableHead className="text-xs">Physical Count</TableHead>
+   464→                          <TableHead className="text-xs text-right">Variance</TableHead>
+   465→                        </TableRow>
+   466→                      </TableHeader>
+   467→                      <TableBody>
+   468→                        {inventory.map((inv) => {
+   469→                          const counted = countedItems[inv.productId] ?? ''
+   470→                          const variance = counted !== '' ? counted - inv.quantity : null
+   471→                          return (
+   472→                            <TableRow key={inv.productId}>
+   473→                              <TableCell className="text-sm">{inv.product.name}</TableCell>
+   474→                              <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
+   475→                              <TableCell>
+   476→                                <Input
+   477→                                  type="number"
+   478→                                  min="0"
+   479→                                  value={counted}
+   480→                                  onChange={(e) => handleCountedChange(inv.productId, e.target.value)}
+   481→                                  placeholder="—"
+   482→                                  className="h-8 w-24"
+   483→                                />
+   484→                              </TableCell>
+   485→                              <TableCell className="text-right text-sm font-medium">
+   486→                                {variance !== null ? (
+   487→                                  <span className={variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
+   488→                                    {variance > 0 ? '+' : ''}{variance}
+   489→                                  </span>
+   490→                                ) : '—'}
+   491→                              </TableCell>
+   492→                            </TableRow>
+   493→                          )
+   494→                        })}
+   495→                      </TableBody>
+   496→                    </Table>
+   497→                  </div>
+   498→                </>
+   499→              ) : (
+   500→                <div className="text-center py-8">
+   501→                  <p className="text-sm text-muted-foreground mb-3">Load current inventory to begin counting</p>
+   502→                  <Button onClick={handleStartCounting}>
+   503→                    <Play className="h-4 w-4 mr-1.5" /> Load Inventory
+   504→                  </Button>
+   505→                </div>
+   506→              )}
+   507→            </>
+   508→          ) : null}
+   509→
+   510→          {/* Actions */}
+   511→          {selectedTake.status === 'IN_PROGRESS' && (
+   512→            <div className="flex gap-3 pt-2 border-t">
+   513→              <Button variant="outline" className="text-red-600 hover:bg-red-50" onClick={handleCancel}>
+   514→                <XCircle className="h-4 w-4 mr-1.5" /> Cancel Stock Take
+   515→              </Button>
+   516→            </div>
+   517→          )}
+   518→        </CardContent>
+   519→      </Card>
+   520→    )
+   521→  }
+   522→
+   523→  // ── List View ──
+   524→  return (
+   525→    <Card>
+   526→      <CardHeader className="pb-3">
+   527→        <div className="flex items-center justify-between">
+   528→          <div className="flex items-center gap-2">
+   529→            <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+   530→            <CardTitle className="text-base">Periodic Stock Taking</CardTitle>
+   531→          </div>
+   532→          <div className="flex gap-2">
+   533→            <Button variant="outline" size="sm" onClick={fetchStockTakes} disabled={loading}>
+   534→              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+   535→              Refresh
+   536→            </Button>
+   537→            <Button size="sm" onClick={() => setView('new')} className="bg-emerald-600 hover:bg-emerald-700">
+   538→              <Plus className="h-3.5 w-3.5 mr-1.5" /> New Stock Take
+   539→            </Button>
+   540→          </div>
+   541→        </div>
+   542→      </CardHeader>
+   543→      <CardContent>
+   544→        {loading ? (
+   545→          <div className="space-y-3">
+   546→            {Array.from({ length: 3 }).map((_, i) => (
+   547→              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+   548→            ))}
+   549→          </div>
+   550→        ) : stockTakes.length === 0 ? (
+   551→          <div className="text-center py-12">
+   552→            <ClipboardCheck className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+   553→            <p className="text-sm font-medium text-gray-500">No stock takes yet</p>
+   554→            <p className="text-xs text-muted-foreground mt-1">Create a new stock take to begin counting inventory</p>
+   555→          </div>
+   556→        ) : (
+   557→          <div className="space-y-3">
+   558→            {stockTakes.map((st) => (
+   559→              <div
+   560→                key={st.id}
+   561→                className="flex items-center justify-between rounded-lg border p-4 hover:bg-emerald-50/30 cursor-pointer transition-colors"
+   562→                onClick={() => handleViewDetail(st.id)}
+   563→              >
+   564→                <div className="flex items-center gap-3">
+   565→                  <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+   566→                    <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+   567→                  </div>
+   568→                  <div>
+   569→                    <p className="text-sm font-medium">{st.reference}</p>
+   570→                    <p className="text-[11px] text-muted-foreground">
+   571→                      {formatDateTime(st.createdAt)}
+   572→                      {st.countedByUser && ` · ${st.countedByUser.name}`}
+   573→                    </p>
+   574→                  </div>
+   575→                </div>
+   576→                <div className="flex items-center gap-3">
+   577→                  <span className="text-xs text-muted-foreground">
+   578→                    {st.items?.length || 0} items
+   579→                  </span>
+   580→                  <Badge className={statusBadge(st.status)} variant="secondary">
+   581→                    {st.status.replace(/_/g, ' ')}
+   582→                  </Badge>
+   583→                  {st.status === 'COMPLETED' && (
+   584→                    <Button
+   585→                      size="icon"
+   586→                      variant="ghost"
+   587→                      className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+   588→                      onClick={(e) => { e.stopPropagation(); handleViewReport(st.id) }}
+   589→                      title="View Stock Take Report"
+   590→                      disabled={reportLoading}
+   591→                    >
+   592→                      <FileText className="h-3.5 w-3.5" />
+   593→                    </Button>
+   594→                  )}
+   595→                  <Button
+   596→                    size="icon"
+   597→                    variant="ghost"
+   598→                    className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+   599→                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(st) }}
+   600→                    title="Delete stock take"
+   601→                  >
+   602→                    <Trash2 className="h-3.5 w-3.5" />
+   603→                  </Button>
+   604→                </div>
+   605→              </div>
+   606→            ))}
+   607→          </div>
+   608→        )}
+   609→      </CardContent>
+   610→      {/* Delete Confirmation Dialog */}
+   611→      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+   612→        <DialogContent className="max-w-md">
+   613→          <DialogHeader>
+   614→            <DialogTitle className="flex items-center gap-2 text-red-600">
+   615→              <Trash2 className="h-5 w-5" />
+   616→              Delete Stock Take
+   617→            </DialogTitle>
+   618→            <DialogDescription>
+   619→              Are you sure you want to delete <strong>{deleteTarget?.reference}</strong>? This will permanently remove the stock take record and all its counted items. This action cannot be undone.
+   620→            </DialogDescription>
+   621→          </DialogHeader>
+   622→          <DialogFooter>
+   623→            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</Button>
+   624→            <Button
+   625→              variant="destructive"
+   626→              onClick={handleDelete}
+   627→              disabled={deleting}
+   628→            >
+   629→              {deleting ? 'Deleting...' : 'Delete'}
+   630→            </Button>
+   631→          </DialogFooter>
+   632→        </DialogContent>
+   633→      </Dialog>
+   634→
+   635→      {/* Stock Take Report Dialog */}
+   636→      <Dialog open={!!reportData} onOpenChange={(open) => { if (!open) setReportData(null) }}>
+   637→        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+   638→          {reportData && (
+   639→            <>
+   640→              <DialogHeader>
+   641→                <DialogTitle className="flex items-center gap-2">
+   642→                  <FileText className="h-5 w-5 text-emerald-600" />
+   643→                  Stock Take Report — {reportData.stockTakeRef}
+   644→                </DialogTitle>
+   645→                <DialogDescription>
+   646→                  Generated {reportData.completedAt ? formatDateTime(reportData.completedAt) : formatDateTime(reportData.generatedAt)}
+   647→                  {' · '}{reportData.totalItemsChecked} items checked
+   648→                </DialogDescription>
+   649→              </DialogHeader>
+   650→
+   651→              {/* Summary Cards */}
+   652→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   653→                <div className="rounded-lg border p-3 text-center">
+   654→                  <p className="text-lg font-bold">{reportData.totalItemsChecked}</p>
+   655→                  <p className="text-[11px] text-muted-foreground">Items Checked</p>
+   656→                </div>
+   657→                <div className="rounded-lg border p-3 text-center">
+   658→                  <p className="text-lg font-bold text-red-600">{reportData.expiredGoods.count}</p>
+   659→                  <p className="text-[11px] text-muted-foreground">Expired Goods</p>
+   660→                </div>
+   661→                <div className="rounded-lg border p-3 text-center">
+   662→                  <p className="text-lg font-bold text-orange-600">{reportData.stockVariance.shortageCount}</p>
+   663→                  <p className="text-[11px] text-muted-foreground">Shortages</p>
+   664→                </div>
+   665→                <div className="rounded-lg border p-3 text-center">
+   666→                  <p className="text-lg font-bold text-emerald-600">{reportData.stockVariance.surplusCount}</p>
+   667→                  <p className="text-[11px] text-muted-foreground">Surplus</p>
+   668→                </div>
+   669→              </div>
+   670→
+   671→              {/* Expired Goods Section */}
+   672→              <div className="space-y-2">
+   673→                <div className="flex items-center gap-2">
+   674→                  <PackageX className="h-4 w-4 text-red-500" />
+   675→                  <h3 className="text-sm font-semibold">
+   676→                    Expired Goods
+   677→                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+   678→                      {reportData.expiredGoods.count} item{reportData.expiredGoods.count !== 1 ? 's' : ''} · Total cost: <span className="font-semibold text-red-600">{formatCurrency(reportData.expiredGoods.totalCost)}</span>
+   679→                    </span>
+   680→                  </h3>
+   681→                </div>
+   682→                {reportData.expiredGoods.items.length > 0 ? (
+   683→                  <div className="border rounded-lg overflow-hidden">
+   684→                    <Table>
+   685→                      <TableHeader>
+   686→                        <TableRow className="bg-red-50/50">
+   687→                          <TableHead className="text-xs">Product</TableHead>
+   688→                          <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+   689→                          <TableHead className="text-xs hidden lg:table-cell">Strength/Form</TableHead>
+   690→                          <TableHead className="text-xs text-right">Qty</TableHead>
+   691→                          <TableHead className="text-xs hidden sm:table-cell">Expiry Date</TableHead>
+   692→                          <TableHead className="text-xs text-right">Unit Cost</TableHead>
+   693→                          <TableHead className="text-xs text-right">Total Cost</TableHead>
+   694→                        </TableRow>
+   695→                      </TableHeader>
+   696→                      <TableBody>
+   697→                        {reportData.expiredGoods.items.map((item) => (
+   698→                          <TableRow key={item.productId} className="bg-red-50/30">
+   699→                            <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   700→                            <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{item.category.replace(/_/g, ' ')}</TableCell>
+   701→                            <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
+   702→                              {[item.strength, item.dosageForm].filter(Boolean).join(' / ') || '—'}
+   703→                            </TableCell>
+   704→                            <TableCell className="text-right text-sm">{item.countedQty}</TableCell>
+   705→                            <TableCell className="text-xs text-red-600 font-medium hidden sm:table-cell">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</TableCell>
+   706→                            <TableCell className="text-right text-xs">{formatCurrency(item.costPrice)}</TableCell>
+   707→                            <TableCell className="text-right text-sm font-semibold text-red-600">{formatCurrency(item.totalCost)}</TableCell>
+   708→                          </TableRow>
+   709→                        ))}
+   710→                      </TableBody>
+   711→                    </Table>
+   712→                  </div>
+   713→                ) : (
+   714→                  <div className="rounded-lg border border-dashed p-6 text-center">
+   715→                    <p className="text-sm text-muted-foreground">No expired goods found</p>
+   716→                  </div>
+   717→                )}
+   718→              </div>
+   719→
+   720→              {/* Stock Variance Section */}
+   721→              <div className="space-y-2">
+   722→                <div className="flex items-center gap-2">
+   723→                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+   724→                  <h3 className="text-sm font-semibold">
+   725→                    Stock Variance
+   726→                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+   727→                      {reportData.stockVariance.totalVarianceItems} item{reportData.stockVariance.totalVarianceItems !== 1 ? 's' : ''} with variance
+   728→                      {' · '}Shortage cost: <span className="font-semibold text-orange-600">{formatCurrency(reportData.stockVariance.shortageTotalCost)}</span>
+   729→                      {' · '}Surplus value: <span className="font-semibold text-emerald-600">{formatCurrency(reportData.stockVariance.surplusTotalCost)}</span>
+   730→                    </span>
+   731→                  </h3>
+   732→                </div>
+   733→                {reportData.stockVariance.items.length > 0 ? (
+   734→                  <div className="border rounded-lg overflow-hidden">
+   735→                    <Table>
+   736→                      <TableHeader>
+   737→                        <TableRow className="bg-amber-50/50">
+   738→                          <TableHead className="text-xs">Product</TableHead>
+   739→                          <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+   740→                          <TableHead className="text-xs text-right">System Qty</TableHead>
+   741→                          <TableHead className="text-xs text-right">Counted</TableHead>
+   742→                          <TableHead className="text-xs text-right">Variance</TableHead>
+   743→                          <TableHead className="text-xs text-right hidden sm:table-cell">Unit Cost</TableHead>
+   744→                          <TableHead className="text-xs text-right">Total Cost</TableHead>
+   745→                        </TableRow>
+   746→                      </TableHeader>
+   747→                      <TableBody>
+   748→                        {reportData.stockVariance.items.map((item) => (
+   749→                          <TableRow key={item.productId} className={item.varianceType === 'SHORTAGE' ? 'bg-orange-50/30' : 'bg-emerald-50/30'}>
+   750→                            <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   751→                            <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{item.category.replace(/_/g, ' ')}</TableCell>
+   752→                            <TableCell className="text-right text-sm text-muted-foreground">{item.systemQty}</TableCell>
+   753→                            <TableCell className="text-right text-sm font-medium">{item.countedQty}</TableCell>
+   754→                            <TableCell className="text-right text-sm font-bold">
+   755→                              <span className={`inline-flex items-center gap-1 ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
+   756→                                {item.varianceType === 'SHORTAGE' ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+   757→                                {item.variance > 0 ? '+' : ''}{item.variance}
+   758→                              </span>
+   759→                            </TableCell>
+   760→                            <TableCell className="text-right text-xs hidden sm:table-cell">{formatCurrency(item.unitCost)}</TableCell>
+   761→                            <TableCell className="text-right text-sm font-semibold">{formatCurrency(item.totalCost)}</TableCell>
+   762→                          </TableRow>
+   763→                        ))}
+   764→                      </TableBody>
+   765→                    </Table>
+   766→                  </div>
+   767→                ) : (
+   768→                  <div className="rounded-lg border border-dashed p-6 text-center">
+   769→                    <p className="text-sm text-muted-foreground">No variances found — all counts match system quantities</p>
+   770→                  </div>
+   771→                )}
+   772→              </div>
+   773→
+   774→              <DialogFooter>
+   775→                <Button variant="outline" onClick={() => setReportData(null)}>Close</Button>
+   776→              </DialogFooter>
+   777→            </>
+   778→          )}
+   779→        </DialogContent>
+   780→      </Dialog>
+   781→    </Card>
+   782→  )
+   783→}
+   784→
