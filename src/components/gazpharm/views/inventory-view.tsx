@@ -80,12 +80,13 @@ export function InventoryView() {
   const addToast = useAppStore((s) => s.addToast)
   const currentUser = useAppStore((s) => s.user)
 
-  const fetchInventory = useCallback(async () => {
+  const fetchInventory = useCallback(async (forceRefresh = false) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.set('search', searchQuery)
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+      if (forceRefresh) params.set('_t', String(Date.now()))
       const res = await fetch(`/api/inventory?${params}`)
       if (res.ok) {
         const data = await res.json()
@@ -160,7 +161,7 @@ export function InventoryView() {
       setAdjustReason('')
       setAdjustCostPrice('')
       setAdjustSellingPrice('')
-      fetchInventory()
+      fetchInventory(true)
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to adjust stock', variant: 'destructive' })
     }
@@ -285,6 +286,7 @@ export function InventoryView() {
     setStockSaving(true)
     try {
       let updated = 0
+      let failed = 0
       for (const entry of stockEntries) {
         const physicalQty = parseInt(entry.physicalQty)
         if (isNaN(physicalQty)) continue
@@ -300,19 +302,36 @@ export function InventoryView() {
         if (!isNaN(cp) && cp >= 0) body.costPrice = cp
         const sp = parseFloat(entry.sellingPrice)
         if (!isNaN(sp) && sp >= 0) body.sellingPrice = sp
-        const res = await fetch('/api/inventory', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
-          body: JSON.stringify(body),
-        })
-        if (res.ok) updated++
+        try {
+          const res = await fetch('/api/inventory', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+            body: JSON.stringify(body),
+          })
+          if (res.ok) {
+            updated++
+          } else {
+            const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+            console.error(`Stock count failed for ${entry.name}:`, err)
+            failed++
+          }
+        } catch (e) {
+          console.error(`Stock count network error for ${entry.name}:`, e)
+          failed++
+        }
       }
-      addToast({ title: 'Stock Count Saved', description: `${updated} product${updated !== 1 ? 's' : ''} updated with physical count & pricing`, variant: 'success' })
+      if (updated > 0) {
+        addToast({ title: 'Stock Count Saved', description: `${updated} product${updated !== 1 ? 's' : ''} updated${failed > 0 ? ` (${failed} failed)` : ''}`, variant: updated === stockEntries.length ? 'success' : 'default' })
+      } else {
+        addToast({ title: 'Save Failed', description: `All ${failed} product updates failed. Check console for details.`, variant: 'destructive' })
+      }
       setStockCountDialog(false)
       setStockEntries([])
       setStockSearch('')
       setStockSearchResults([])
-      fetchInventory()
+      // Wait briefly then force-refresh inventory to get fresh data
+      await new Promise(r => setTimeout(r, 300))
+      await fetchInventory(true)
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to save stock count', variant: 'destructive' })
     } finally {
