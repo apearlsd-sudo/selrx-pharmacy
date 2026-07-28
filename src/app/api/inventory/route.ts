@@ -202,8 +202,13 @@ export async function PUT(request: NextRequest) {
       })
     }
 
+    console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity} DB_qty=${updated.quantity}`)
+
     return NextResponse.json({
-      message: `Stock adjusted: ${adjustment > 0 ? '+' : ''}${adjustment} (${reason})`,
+      success: true,
+      newQuantity: updated.quantity,
+      productId,
+      message: `Stock set to ${updated.quantity} (${reason})`,
       inventory: updated,
     })
   } catch (error) {

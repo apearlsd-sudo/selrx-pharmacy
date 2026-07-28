@@ -289,6 +289,7 @@ export function InventoryView() {
     try {
       let updated = 0
       let failed = 0
+      const results: { name: string; requested: number; confirmed: number }[] = []
       for (const entry of stockEntries) {
         const physicalQty = parseInt(entry.physicalQty)
         if (isNaN(physicalQty)) continue
@@ -311,7 +312,15 @@ export function InventoryView() {
             body: JSON.stringify(body),
           })
           if (res.ok) {
-            updated++
+            const json = await res.json()
+            const confirmed = Number(json.newQuantity) || Number(json.inventory?.quantity) || 0
+            results.push({ name: entry.name, requested: physicalQty, confirmed })
+            if (confirmed === physicalQty) {
+              updated++
+            } else {
+              console.error(`Stock count mismatch for ${entry.name}: requested ${physicalQty}, DB confirmed ${confirmed}`)
+              failed++
+            }
           } else {
             const err = await res.json().catch(() => ({ error: 'Unknown error' }))
             console.error(`Stock count failed for ${entry.name}:`, err)
@@ -322,8 +331,13 @@ export function InventoryView() {
           failed++
         }
       }
+      console.log('[Stock Count Save] Results:', results)
       if (updated > 0) {
-        addToast({ title: 'Stock Count Saved', description: `${updated} product${updated !== 1 ? 's' : ''} updated${failed > 0 ? ` (${failed} failed)` : ''}`, variant: updated === stockEntries.length ? 'success' : 'default' })
+        addToast({
+          title: 'Stock Count Saved',
+          description: `${updated} product${updated !== 1 ? 's' : ''} updated to physical count${failed > 0 ? ` (${failed} failed)` : ''}`,
+          variant: updated === stockEntries.length ? 'success' : 'default',
+        })
       } else {
         addToast({ title: 'Save Failed', description: `All ${failed} product updates failed. Check console for details.`, variant: 'destructive' })
       }
@@ -331,8 +345,8 @@ export function InventoryView() {
       setStockEntries([])
       setStockSearch('')
       setStockSearchResults([])
-      // Wait briefly then force-refresh inventory to get fresh data
-      await new Promise(r => setTimeout(r, 300))
+      // Wait for Turso read replica to catch up, then force-refresh
+      await new Promise(r => setTimeout(r, 1000))
       await fetchInventory(true)
       // Notify all other views (POS, Dashboard, Master Data, Reports) to re-fetch
       bumpInventoryVersion()
