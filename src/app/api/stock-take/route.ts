@@ -27,9 +27,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { notes, countedBy } = body
 
-    // Generate a human-readable reference number
-    const count = await db.stockTake.count()
-    const ref = `ST-${String(count + 1).padStart(4, '0')}`
+    // Generate a unique reference: find the highest numeric suffix and increment
+    const allTakes = await db.stockTake.findMany({
+      select: { reference: true },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    let maxNum = 0
+    for (const st of allTakes) {
+      const match = st.reference?.match(/ST-(\d+)/)
+      if (match) {
+        const num = Number(match[1])
+        if (num > maxNum) maxNum = num
+      }
+    }
+    const ref = `ST-${String(maxNum + 1).padStart(4, '0')}`
+
+    console.log(`[StockTake Create] ref=${ref} notes=${notes || 'none'}`)
 
     const stockTake = await db.stockTake.create({
       data: {
@@ -41,9 +55,10 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    console.log(`[StockTake Create] success id=${stockTake.id}`)
     return NextResponse.json(stockTake, { status: 201 })
   } catch (error) {
-    console.error('Error creating stock take:', error)
-    return NextResponse.json({ error: 'Failed to create stock take' }, { status: 500 })
+    console.error('[StockTake Create] error:', error)
+    return NextResponse.json({ error: 'Failed to create stock take', details: String(error) }, { status: 500 })
   }
 }

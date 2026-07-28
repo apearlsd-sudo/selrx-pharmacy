@@ -109,9 +109,14 @@ export function StockTakeSection() {
         fetchStockTakes()
         // Navigate to the new stock take detail
         setTimeout(() => handleViewDetail(created.id), 500)
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to create stock take' }))
+        addToast({ title: 'Error', description: err.error || err.details || 'Failed to create stock take', variant: 'destructive' })
+        console.error('[StockTake Create] failed:', err)
       }
     } catch (err) {
       console.error('Failed to create stock take:', err)
+      addToast({ title: 'Error', description: 'Failed to create stock take', variant: 'destructive' })
     } finally {
       setCreating(false)
     }
