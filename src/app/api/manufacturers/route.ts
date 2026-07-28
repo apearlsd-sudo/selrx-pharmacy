@@ -13,10 +13,10 @@ export async function GET() {
       },
     })
     return NextResponse.json(manufacturers)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching manufacturers:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch manufacturers' },
+      { error: 'Failed to fetch manufacturers', detail: error.message, code: error.code },
       { status: 500 }
     )
   }
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(manufacturer, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating manufacturer:', error)
     return NextResponse.json(
-      { error: 'Failed to create manufacturer' },
+      { error: 'Failed to create manufacturer', detail: error.message, code: error.code },
       { status: 500 }
     )
   }
@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest) {
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'A manufacturer with this name already exists' }, { status: 409 })
     }
-    return NextResponse.json({ error: 'Failed to update manufacturer' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update manufacturer', detail: error.message, code: error.code }, { status: 500 })
   }
 }
 
@@ -124,6 +124,6 @@ export async function DELETE(request: NextRequest) {
     if (error.code === 'P2025') {
       return NextResponse.json({ error: 'Manufacturer not found' }, { status: 404 })
     }
-    return NextResponse.json({ error: 'Failed to delete manufacturer' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete manufacturer', detail: error.message, code: error.code }, { status: 500 })
   }
 }

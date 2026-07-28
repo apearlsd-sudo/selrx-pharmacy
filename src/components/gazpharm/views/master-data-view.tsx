@@ -385,7 +385,7 @@ function ManufacturerModal({
         })
         if (!res.ok) {
           const err = await res.json()
-          throw new Error(err.error || 'Failed to update')
+          throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Failed to update'))
         }
         const updated = await res.json()
         addToast({ title: 'Manufacturer Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
@@ -398,7 +398,7 @@ function ManufacturerModal({
         })
         if (!res.ok) {
           const err = await res.json()
-          throw new Error(err.error || 'Failed to create')
+          throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Failed to create'))
         }
         const created = await res.json()
         addToast({ title: 'Manufacturer Added', description: `"${form.name.trim()}" registered`, variant: 'success' })
