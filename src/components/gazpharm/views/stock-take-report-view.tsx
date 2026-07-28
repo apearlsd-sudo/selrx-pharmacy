@@ -726,3 +726,16 @@ export function StockTakeReportView({ stockTakeId: stockTakeIdProp }: { stockTak
     </div>
   )
 }
+
+/**
+ * Wrapper component that reactively reads stockTakeReportId from the Zustand store
+ * and passes it as a prop to StockTakeReportView.
+ *
+ * This solves the race condition where page.tsx used useAppStore.getState()
+ * (non-reactive) inside renderView(), causing the report view to mount with
+ * an undefined stockTakeId before the store had updated.
+ */
+export function StockTakeReportViewWrapper() {
+  const stockTakeReportId = useAppStore((s) => s.stockTakeReportId)
+  return <StockTakeReportView stockTakeId={stockTakeReportId || undefined} />
+}

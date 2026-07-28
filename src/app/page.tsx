@@ -42,7 +42,7 @@ import { GoodsReturnView } from '@/components/gazpharm/views/goods-return-view'
 import { CompanySetupView } from '@/components/gazpharm/company-setup-view'
 import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales-analytics'
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
-import { StockTakeReportView } from '@/components/gazpharm/views/stock-take-report-view'
+import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -280,7 +280,7 @@ export default function Home() {
       case 'master-data': return <MasterDataView />
       case 'product-sales-analytics': return <ProductSalesAnalytics />
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
-      case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportView stockTakeId={useAppStore.getState().stockTakeReportId || undefined} /></ViewErrorBoundary>
+      case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportViewWrapper /></ViewErrorBoundary>
       default: return <DashboardView />
     }
   }
