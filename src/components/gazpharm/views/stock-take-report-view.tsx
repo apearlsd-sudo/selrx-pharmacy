@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
