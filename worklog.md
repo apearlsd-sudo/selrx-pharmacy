@@ -357,3 +357,27 @@ Stage Summary:
 - Root cause of stock take report crash: missing TableFooter import (ReferenceError at runtime)
 - Fix: Added TableFooter to the import from @/components/ui/table in stock-take-report-view.tsx
 - Pushed as commit 26e5d48 to main branch
+
+---
+Task ID: 2
+Agent: main
+Task: Add Excel/CSV bulk product import with template
+
+Work Log:
+- Read Product schema (22 fields), inventory-view.tsx, master-data-view.tsx
+- Installed xlsx library for server-side Excel parsing
+- Created /api/products/import/route.ts with GET (template download) and POST (import)
+- Template: 3-sheet .xlsx (Products with 3 example rows, Categories Reference, Dosage Forms Reference)
+- Import: flexible column mapping with header normalization (strips asterisks, handles aliases)
+- Auto-creates vendors and manufacturers that don't exist
+- RBAC: PHARMACIST and SUPER_ADMIN only
+- Added Import dialog to inventory-view.tsx with drag-and-drop, template download, column guide
+- Results panel with created/failed/skipped counts and per-row validation errors
+- All 6 automated tests passed (template download, missing file, invalid type, RBAC, CSV import, duplicate NDC, XLSX import)
+- Committed as d9a2218 and pushed to main
+
+Stage Summary:
+- Feature complete and tested
+- Files: src/app/api/products/import/route.ts (new), inventory-view.tsx (modified)
+- Import supports .xlsx, .xls, .csv files up to 5 MB
+- Handles: flexible headers, auto-vendor/manufacturer creation, duplicate NDC detection, row-level validation errors

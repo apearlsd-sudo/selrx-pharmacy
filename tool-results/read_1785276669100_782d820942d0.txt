@@ -1,0 +1,1350 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  Package, Search, AlertTriangle, Edit, ArrowUpDown,
+     6→  Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus
+     7→} from 'lucide-react'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table'
+    16→import {
+    17→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    18→} from '@/components/ui/dialog'
+    19→import { Label } from '@/components/ui/label'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import {
+    22→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    23→} from '@/components/ui/select'
+    24→import { useAppStore } from '@/store/app-store'
+    25→
+    26→interface InventoryItem {
+    27→  id: string
+    28→  productId: string
+    29→  quantity: number
+    30→  lastCounted: string | null
+    31→  product: {
+    32→    id: string
+    33→    name: string
+    34→    ndc: string | null
+    35→    category: string
+    36→    sellingPrice: number
+    37→    costPrice: number | null
+    38→    status: string
+    39→    reorderPoint: number
+    40→    maxStock: number | null
+    41→    dosageForm: string | null
+    42→    strength: string | null
+    43→    unitOfMeasure: string
+    44→    expiryDate: string | null
+    45→    batchNumber: string | null
+    46→  }
+    47→}
+    48→
+    49→export function InventoryView() {
+    50→  const [items, setItems] = useState<InventoryItem[]>([])
+    51→  const [loading, setLoading] = useState(true)
+    52→  const [searchQuery, setSearchQuery] = useState('')
+    53→  const [categoryFilter, setCategoryFilter] = useState('ALL')
+    54→  const [stockFilter, setStockFilter] = useState('ALL')
+    55→  const [adjustDialog, setAdjustDialog] = useState(false)
+    56→  const [addProductDialog, setAddProductDialog] = useState(false)
+    57→  const [categories, setCategories] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
+    58→  const [manufacturers, setManufacturers] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
+    59→  const [vendors, setVendors] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
+    60→  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+    61→  const [adjustType, setAdjustType] = useState('ADD')
+    62→  const [adjustAmount, setAdjustAmount] = useState('')
+    63→  const [adjustReason, setAdjustReason] = useState('')
+    64→  const [adjustCostPrice, setAdjustCostPrice] = useState('')
+    65→  const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
+    66→  const [stockCountDialog, setStockCountDialog] = useState(false)
+    67→  const [stockSearch, setStockSearch] = useState('')
+    68→  const [stockSearchResults, setStockSearchResults] = useState<{ id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number }[]>([])
+    69→  const [stockSearching, setStockSearching] = useState(false)
+    70→  const [stockEntries, setStockEntries] = useState<{
+    71→    productId: string; name: string; ndc: string | null; currentQty: number; physicalQty: string;
+    72→    unit: string; costPrice: string; sellingPrice: string
+    73→  }[]>([])
+    74→  const [stockSaving, setStockSaving] = useState(false)
+    75→  const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
+    76→  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+    77→  const [productForm, setProductForm] = useState({
+    78→    name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '',
+    79→    minStockLevel: '10', expiryDate: '', barcode: '',
+    80→    manufacturerId: '', vendorId: '', dosageForm: '',
+    81→  })
+    82→  // Full-detail modal states for inline "add new"
+    83→  const [addMfgOpen, setAddMfgOpen] = useState(false)
+    84→  const [addMfgSaving, setAddMfgSaving] = useState(false)
+    85→  const [addMfgForm, setAddMfgForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', city: '', country: '', website: '', notes: '' })
+    86→  const [addVendorOpen, setAddVendorOpen] = useState(false)
+    87→  const [addVendorSaving, setAddVendorSaving] = useState(false)
+    88→  const [addVendorForm, setAddVendorForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+    89→  const [addCatOpen, setAddCatOpen] = useState(false)
+    90→  const [addCatSaving, setAddCatSaving] = useState(false)
+    91→  const [addCatForm, setAddCatForm] = useState({ name: '', description: '' })
+    92→  const [addDfOpen, setAddDfOpen] = useState(false)
+    93→  const [addDfName, setAddDfName] = useState('')
+    94→  const [dosageForms, setDosageForms] = useState<string[]>(['TABLET', 'CAPSULE', 'SYRUP', 'SUSPENSION', 'CREAM', 'OINTMENT', 'GEL', 'DROPS', 'INJECTION', 'INHALER', 'SPRAY', 'PATCH', 'POWDER', 'LOZENGE', 'SUPPOSITORY'])
+    95→  const [savingProduct, setSavingProduct] = useState(false)
+    96→  const addToast = useAppStore((s) => s.addToast)
+    97→  const currentUser = useAppStore((s) => s.user)
+    98→  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
+    99→
+   100→  const fetchInventory = useCallback(async (forceRefresh = false) => {
+   101→    setLoading(true)
+   102→    try {
+   103→      const params = new URLSearchParams()
+   104→      if (searchQuery) params.set('search', searchQuery)
+   105→      if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+   106→      if (forceRefresh) params.set('_t', String(Date.now()))
+   107→      const res = await fetch(`/api/inventory?${params}`)
+   108→      if (res.ok) {
+   109→        const data = await res.json()
+   110→        setItems(data)
+   111→      }
+   112→    } catch {
+   113→      addToast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
+   114→    } finally {
+   115→      setLoading(false)
+   116→    }
+   117→  }, [searchQuery, categoryFilter, addToast])
+   118→
+   119→  const fetchCategories = useCallback(async () => {
+   120→    try {
+   121→      const res = await fetch('/api/categories')
+   122→      if (res.ok) setCategories(await res.json())
+   123→    } catch {
+   124→      // silent
+   125→    }
+   126→  }, [])
+   127→
+   128→  const fetchManufacturers = useCallback(async () => {
+   129→    try {
+   130→      const res = await fetch('/api/manufacturers')
+   131→      if (res.ok) setManufacturers(await res.json())
+   132→    } catch {
+   133→      // silent
+   134→    }
+   135→  }, [])
+   136→
+   137→  const fetchVendors = useCallback(async () => {
+   138→    try {
+   139→      const res = await fetch('/api/vendors')
+   140→      if (res.ok) setVendors(await res.json())
+   141→    } catch {
+   142→      // silent
+   143→    }
+   144→  }, [])
+   145→
+   146→  useEffect(() => { fetchInventory(); fetchCategories(); fetchManufacturers(); fetchVendors() }, [fetchInventory, fetchCategories, fetchManufacturers, fetchVendors])
+   147→
+   148→  const filteredItems = items.filter((item) => {
+   149→    const q = Number(item.quantity) || 0
+   150→    const r = Number(item.product.reorderPoint) || 10
+   151→    if (stockFilter === 'LOW') return q > 0 && q <= r
+   152→    if (stockFilter === 'OUT') return q === 0
+   153→    if (stockFilter === 'OK') return q > r
+   154→    return true
+   155→  }).sort((a, b) => {
+   156→    if (sortBy === 'name') return sortDir === 'asc' ? a.product.name.localeCompare(b.product.name) : b.product.name.localeCompare(a.product.name)
+   157→    if (sortBy === 'stock') return sortDir === 'asc' ? (Number(a.quantity)||0) - (Number(b.quantity)||0) : (Number(b.quantity)||0) - (Number(a.quantity)||0)
+   158→    return sortDir === 'asc' ? a.product.category.localeCompare(b.product.category) : b.product.category.localeCompare(a.product.category)
+   159→  })
+   160→
+   161→  const lowStockCount = items.filter((i) => { const q = Number(i.quantity) || 0; const r = Number(i.product.reorderPoint) || 10; return q > 0 && q <= r }).length
+   162→  const outOfStockCount = items.filter((i) => (Number(i.quantity) || 0) === 0).length
+   163→  const totalValue = items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0)
+   164→
+   165→  const handleAdjust = async () => {
+   166→    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
+   167→    try {
+   168→      const isSet = adjustType === 'SET'
+   169→      const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
+   170→      const body: Record<string, any> = {
+   171→        productId: selectedItem.productId,
+   172→        adjustmentType: adjustType,
+   173→        reason: adjustReason,
+   174→      }
+   175→      if (isSet) {
+   176→        body.setQuantity = adj
+   177→        body.adjustment = 0
+   178→      } else {
+   179→        body.adjustment = adj
+   180→      }
+   181→      if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
+   182→      if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
+   183→
+   184→      const res = await fetch('/api/inventory', {
+   185→        method: 'PUT',
+   186→        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+   187→        body: JSON.stringify(body),
+   188→      })
+   189→      if (!res.ok) {
+   190→        const err = await res.json()
+   191→        throw new Error(err.error || 'Failed to adjust')
+   192→      }
+   193→      addToast({ title: 'Product Updated', description: `${selectedItem.product.name} adjusted successfully`, variant: 'success' })
+   194→      setAdjustDialog(false)
+   195→      setAdjustAmount('')
+   196→      setAdjustReason('')
+   197→      setAdjustCostPrice('')
+   198→      setAdjustSellingPrice('')
+   199→      fetchInventory(true)
+   200→      bumpInventoryVersion()
+   201→    } catch (err: any) {
+   202→      addToast({ title: 'Error', description: err.message || 'Failed to adjust stock', variant: 'destructive' })
+   203→    }
+   204→  }
+   205→
+   206→  const handleAddProduct = async () => {
+   207→    if (!productForm.name || !productForm.price) return
+   208→    setSavingProduct(true)
+   209→    try {
+   210→      const res = await fetch('/api/products', {
+   211→        method: 'POST',
+   212→        headers: {
+   213→          'Content-Type': 'application/json',
+   214→          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+   215→        },
+   216→        body: JSON.stringify({
+   217→          name: productForm.name,
+   218→          ndc: productForm.sku || null,
+   219→          category: productForm.category,
+   220→          sellingPrice: parseFloat(productForm.price),
+   221→          costPrice: productForm.costPrice ? parseFloat(productForm.costPrice) : parseFloat(productForm.price) * 0.7,
+   222→          reorderPoint: parseInt(productForm.minStockLevel) || 10,
+   223→          expiryDate: productForm.expiryDate || null,
+   224→          batchNumber: productForm.barcode || null,
+   225→          manufacturerId: productForm.manufacturerId || null,
+   226→          vendorId: productForm.vendorId || null,
+   227→          dosageForm: productForm.dosageForm || null,
+   228→        }),
+   229→      })
+   230→      if (!res.ok) {
+   231→        const err = await res.json()
+   232→        throw new Error(err.error || 'Failed to create product')
+   233→      }
+   234→      const newProduct = await res.json()
+   235→
+   236→      // Set initial stock quantity if specified
+   237→      const qty = parseInt(productForm.stockQuantity)
+   238→      if (qty > 0) {
+   239→        await fetch('/api/inventory', {
+   240→          method: 'PUT',
+   241→          headers: { 'Content-Type': 'application/json' },
+   242→          body: JSON.stringify({
+   243→            productId: newProduct.id,
+   244→            adjustment: qty,
+   245→            reason: 'Initial stock on product creation',
+   246→          }),
+   247→        })
+   248→      }
+   249→
+   250→      addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
+   251→      setAddProductDialog(false)
+   252→      setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', manufacturerId: '', vendorId: '', dosageForm: '' })
+   253→      fetchInventory()
+   254→    } catch (err: any) {
+   255→      addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
+   256→    } finally {
+   257→      setSavingProduct(false)
+   258→    }
+   259→  }
+   260→
+   261→  // ── Inline "add new" handlers for dropdowns ──
+   262→  const handleAddManufacturer = async () => {
+   263→    if (!addMfgForm.name.trim()) return
+   264→    setAddMfgSaving(true)
+   265→    try {
+   266→      const res = await fetch('/api/manufacturers', {
+   267→        method: 'POST',
+   268→        headers: { 'Content-Type': 'application/json' },
+   269→        body: JSON.stringify({
+   270→          name: addMfgForm.name.trim(),
+   271→          contactPerson: addMfgForm.contactPerson.trim() || null,
+   272→          email: addMfgForm.email.trim() || null,
+   273→          phone: addMfgForm.phone.trim() || null,
+   274→          address: addMfgForm.address.trim() || null,
+   275→          city: addMfgForm.city.trim() || null,
+   276→          country: addMfgForm.country.trim() || null,
+   277→          website: addMfgForm.website.trim() || null,
+   278→          notes: addMfgForm.notes.trim() || null,
+   279→        }),
+   280→      })
+   281→      if (res.ok) {
+   282→        const created = await res.json()
+   283→        setManufacturers((prev) => [...prev, created])
+   284→        setProductForm((prev) => ({ ...prev, manufacturerId: created.id }))
+   285→        setAddMfgForm({ name: '', contactPerson: '', email: '', phone: '', address: '', city: '', country: '', website: '', notes: '' })
+   286→        setAddMfgOpen(false)
+   287→        addToast({ title: 'Manufacturer Added', description: created.name, variant: 'success' })
+   288→      } else {
+   289→        const err = await res.json()
+   290→        addToast({ title: 'Error', description: err.error || 'Failed to add manufacturer', variant: 'destructive' })
+   291→      }
+   292→    } catch {
+   293→      addToast({ title: 'Error', description: 'Failed to add manufacturer', variant: 'destructive' })
+   294→    } finally {
+   295→      setAddMfgSaving(false)
+   296→    }
+   297→  }
+   298→
+   299→  const handleAddVendor = async () => {
+   300→    if (!addVendorForm.name.trim()) return
+   301→    setAddVendorSaving(true)
+   302→    try {
+   303→      const res = await fetch('/api/vendors', {
+   304→        method: 'POST',
+   305→        headers: { 'Content-Type': 'application/json' },
+   306→        body: JSON.stringify({
+   307→          name: addVendorForm.name.trim(),
+   308→          contactPerson: addVendorForm.contactPerson.trim() || null,
+   309→          email: addVendorForm.email.trim() || null,
+   310→          phone: addVendorForm.phone.trim() || null,
+   311→          address: addVendorForm.address.trim() || null,
+   312→          notes: addVendorForm.notes.trim() || null,
+   313→        }),
+   314→      })
+   315→      if (res.ok) {
+   316→        const created = await res.json()
+   317→        setVendors((prev) => [...prev, created])
+   318→        setProductForm((prev) => ({ ...prev, vendorId: created.id }))
+   319→        setAddVendorForm({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+   320→        setAddVendorOpen(false)
+   321→        addToast({ title: 'Vendor Added', description: created.name, variant: 'success' })
+   322→      } else {
+   323→        const err = await res.json()
+   324→        addToast({ title: 'Error', description: err.error || 'Failed to add vendor', variant: 'destructive' })
+   325→      }
+   326→    } catch {
+   327→      addToast({ title: 'Error', description: 'Failed to add vendor', variant: 'destructive' })
+   328→    } finally {
+   329→      setAddVendorSaving(false)
+   330→    }
+   331→  }
+   332→
+   333→  const handleAddCategory = async () => {
+   334→    if (!addCatForm.name.trim()) return
+   335→    setAddCatSaving(true)
+   336→    try {
+   337→      const res = await fetch('/api/categories', {
+   338→        method: 'POST',
+   339→        headers: { 'Content-Type': 'application/json' },
+   340→        body: JSON.stringify({ name: addCatForm.name.trim(), description: addCatForm.description.trim() || null }),
+   341→      })
+   342→      if (res.ok) {
+   343→        const created = await res.json()
+   344→        setCategories((prev) => [...prev, created])
+   345→        setProductForm((prev) => ({ ...prev, category: created.name }))
+   346→        setAddCatForm({ name: '', description: '' })
+   347→        setAddCatOpen(false)
+   348→        addToast({ title: 'Category Added', description: created.name, variant: 'success' })
+   349→      } else {
+   350→        const err = await res.json()
+   351→        addToast({ title: 'Error', description: err.error || 'Failed to add category', variant: 'destructive' })
+   352→      }
+   353→    } catch {
+   354→      addToast({ title: 'Error', description: 'Failed to add category', variant: 'destructive' })
+   355→    } finally {
+   356→      setAddCatSaving(false)
+   357→    }
+   358→  }
+   359→
+   360→  const handleAddDosageForm = () => {
+   361→    if (!addDfName.trim()) return
+   362→    const upper = addDfName.trim().toUpperCase()
+   363→    if (dosageForms.includes(upper)) {
+   364→      setProductForm((prev) => ({ ...prev, dosageForm: upper }))
+   365→    } else {
+   366→      setDosageForms((prev) => [...prev, upper])
+   367→      setProductForm((prev) => ({ ...prev, dosageForm: upper }))
+   368→      addToast({ title: 'Dosage Form Added', description: upper, variant: 'success' })
+   369→    }
+   370→    setAddDfName('')
+   371→    setAddDfOpen(false)
+   372→  }
+   373→
+   374→  // ── Stock Count: API-based product search + set physical quantities & prices ──
+   375→  const searchStockProducts = useCallback(async (query: string) => {
+   376→    if (query.length < 1) { setStockSearchResults([]); return }
+   377→    setStockSearching(true)
+   378→    try {
+   379→      const params = new URLSearchParams({ search: query, limit: '15' })
+   380→      const res = await fetch(`/api/products?${params}`)
+   381→      if (res.ok) {
+   382→        const data = await res.json()
+   383→        const productList = data.products || data
+   384→        // Merge current inventory quantities
+   385→        setStockSearchResults(
+   386→          (Array.isArray(productList) ? productList : []).map((p: any) => {
+   387→            const inv = items.find(i => i.productId === p.id)
+   388→            return {
+   389→              id: p.id,
+   390→              name: p.name,
+   391→              ndc: p.ndc || null,
+   392→              unitOfMeasure: p.unitOfMeasure || 'EA',
+   393→              currentQty: inv ? (Number(inv.quantity) || 0) : (p.inventory ? (Number(p.inventory.quantity) || 0) : 0),
+   394→              costPrice: p.costPrice,
+   395→              sellingPrice: p.sellingPrice,
+   396→            }
+   397→          })
+   398→        )
+   399→      }
+   400→    } catch { /* silent */ } finally {
+   401→      setStockSearching(false)
+   402→    }
+   403→  }, [items])
+   404→
+   405→  // Debounced search
+   406→  useEffect(() => {
+   407→    if (!stockCountDialog) return
+   408→    const timer = setTimeout(() => searchStockProducts(stockSearch), 300)
+   409→    return () => clearTimeout(timer)
+   410→  }, [stockSearch, stockCountDialog, searchStockProducts])
+   411→
+   412→  const addStockEntry = (product: { id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number; costPrice?: number | null; sellingPrice?: number | null }) => {
+   413→    if (stockEntries.find(e => e.productId === product.id)) return
+   414→    setStockEntries(prev => [...prev, {
+   415→      productId: product.id,
+   416→      name: product.name,
+   417→      ndc: product.ndc,
+   418→      currentQty: product.currentQty,
+   419→      physicalQty: String(product.currentQty),
+   420→      unit: product.unitOfMeasure,
+   421→      costPrice: product.costPrice ? String(product.costPrice) : '',
+   422→      sellingPrice: product.sellingPrice ? String(product.sellingPrice) : '',
+   423→    }])
+   424→    setStockSearch('')
+   425→    setStockSearchResults([])
+   426→  }
+   427→
+   428→  const removeStockEntry = (productId: string) => {
+   429→    setStockEntries(prev => prev.filter(e => e.productId !== productId))
+   430→  }
+   431→
+   432→  const updateStockEntry = (productId: string, field: 'physicalQty' | 'costPrice' | 'sellingPrice', value: string) => {
+   433→    setStockEntries(prev => prev.map(e => e.productId === productId ? { ...e, [field]: value } : e))
+   434→  }
+   435→
+   436→  const handleStockCountSave = async () => {
+   437→    if (stockEntries.length === 0) return
+   438→    setStockSaving(true)
+   439→    try {
+   440→      let updated = 0
+   441→      let failed = 0
+   442→      const results: { name: string; requested: number; confirmed: number }[] = []
+   443→      for (const entry of stockEntries) {
+   444→        const physicalQty = parseInt(entry.physicalQty)
+   445→        if (isNaN(physicalQty)) continue
+   446→        const body: Record<string, any> = {
+   447→          productId: entry.productId,
+   448→          adjustmentType: 'SET',
+   449→          setQuantity: physicalQty,
+   450→          adjustment: 0,
+   451→          reason: 'Physical stock count',
+   452→        }
+   453→        // Include price updates if changed
+   454→        const cp = parseFloat(entry.costPrice)
+   455→        if (!isNaN(cp) && cp >= 0) body.costPrice = cp
+   456→        const sp = parseFloat(entry.sellingPrice)
+   457→        if (!isNaN(sp) && sp >= 0) body.sellingPrice = sp
+   458→        try {
+   459→          const res = await fetch('/api/inventory', {
+   460→            method: 'PUT',
+   461→            headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+   462→            body: JSON.stringify(body),
+   463→          })
+   464→          if (res.ok) {
+   465→            const json = await res.json()
+   466→            const confirmed = Number(json.newQuantity) || Number(json.inventory?.quantity) || 0
+   467→            results.push({ name: entry.name, requested: physicalQty, confirmed })
+   468→            if (confirmed === physicalQty) {
+   469→              updated++
+   470→            } else {
+   471→              console.error(`Stock count mismatch for ${entry.name}: requested ${physicalQty}, DB confirmed ${confirmed}`)
+   472→              failed++
+   473→            }
+   474→          } else {
+   475→            const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+   476→            console.error(`Stock count failed for ${entry.name}:`, err)
+   477→            failed++
+   478→          }
+   479→        } catch (e) {
+   480→          console.error(`Stock count network error for ${entry.name}:`, e)
+   481→          failed++
+   482→        }
+   483→      }
+   484→      console.log('[Stock Count Save] Results:', results)
+   485→      if (updated > 0) {
+   486→        addToast({
+   487→          title: 'Stock Count Saved',
+   488→          description: `${updated} product${updated !== 1 ? 's' : ''} updated to physical count${failed > 0 ? ` (${failed} failed)` : ''}`,
+   489→          variant: updated === stockEntries.length ? 'success' : 'default',
+   490→        })
+   491→      } else {
+   492→        addToast({ title: 'Save Failed', description: `All ${failed} product updates failed. Check console for details.`, variant: 'destructive' })
+   493→      }
+   494→      setStockCountDialog(false)
+   495→      setStockEntries([])
+   496→      setStockSearch('')
+   497→      setStockSearchResults([])
+   498→      // Wait for Turso read replica to catch up, then force-refresh
+   499→      await new Promise(r => setTimeout(r, 1000))
+   500→      await fetchInventory(true)
+   501→      // Notify all other views (POS, Dashboard, Master Data, Reports) to re-fetch
+   502→      bumpInventoryVersion()
+   503→    } catch (err: any) {
+   504→      addToast({ title: 'Error', description: err.message || 'Failed to save stock count', variant: 'destructive' })
+   505→    } finally {
+   506→      setStockSaving(false)
+   507→    }
+   508→  }
+   509→
+   510→  return (
+   511→    <div className="space-y-4">
+   512→      {/* Stats Cards */}
+   513→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   514→        <Card>
+   515→          <CardContent className="p-4 flex items-center gap-3">
+   516→            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   517→              <Package className="h-5 w-5 text-emerald-600" />
+   518→            </div>
+   519→            <div>
+   520→              <p className="text-2xl font-bold">{items.length}</p>
+   521→              <p className="text-xs text-muted-foreground">Total Products</p>
+   522→            </div>
+   523→          </CardContent>
+   524→        </Card>
+   525→        <Card>
+   526→          <CardContent className="p-4 flex items-center gap-3">
+   527→            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+   528→              <AlertTriangle className="h-5 w-5 text-red-600" />
+   529→            </div>
+   530→            <div>
+   531→              <p className="text-2xl font-bold text-red-600">{lowStockCount}</p>
+   532→              <p className="text-xs text-muted-foreground">Low Stock Alerts</p>
+   533→            </div>
+   534→          </CardContent>
+   535→        </Card>
+   536→        <Card>
+   537→          <CardContent className="p-4 flex items-center gap-3">
+   538→            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+   539→              <AlertTriangle className="h-5 w-5 text-amber-600" />
+   540→            </div>
+   541→            <div>
+   542→              <p className="text-2xl font-bold text-amber-600">{outOfStockCount}</p>
+   543→              <p className="text-xs text-muted-foreground">Out of Stock</p>
+   544→            </div>
+   545→          </CardContent>
+   546→        </Card>
+   547→        <Card>
+   548→          <CardContent className="p-4 flex items-center gap-3">
+   549→            <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
+   550→              <TrendingUp className="h-5 w-5 text-teal-600" />
+   551→            </div>
+   552→            <div>
+   553→              <p className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+   554→              <p className="text-xs text-muted-foreground">Inventory Value</p>
+   555→            </div>
+   556→          </CardContent>
+   557→        </Card>
+   558→      </div>
+   559→
+   560→      {/* Filters & Actions */}
+   561→      <Card>
+   562→        <CardContent className="p-4">
+   563→          <div className="flex flex-col sm:flex-row gap-3">
+   564→            <div className="relative flex-1">
+   565→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   566→              <Input
+   567→                placeholder="Search by product name or NDC..."
+   568→                value={searchQuery}
+   569→                onChange={(e) => setSearchQuery(e.target.value)}
+   570→                className="pl-9"
+   571→              />
+   572→            </div>
+   573→            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+   574→              <SelectTrigger className="w-full sm:w-40">
+   575→                <Filter className="h-4 w-4 mr-2" />
+   576→                <SelectValue />
+   577→              </SelectTrigger>
+   578→              <SelectContent>
+   579→                <SelectItem value="ALL">All Categories</SelectItem>
+   580→                <SelectItem value="OTC">OTC</SelectItem>
+   581→                <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+   582→                <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+   583→                <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+   584→                <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+   585→                <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+   586→              </SelectContent>
+   587→            </Select>
+   588→            <Select value={stockFilter} onValueChange={setStockFilter}>
+   589→              <SelectTrigger className="w-full sm:w-36">
+   590→                <SelectValue />
+   591→              </SelectTrigger>
+   592→              <SelectContent>
+   593→                <SelectItem value="ALL">All Stock</SelectItem>
+   594→                <SelectItem value="LOW">Low Stock</SelectItem>
+   595→                <SelectItem value="OUT">Out of Stock</SelectItem>
+   596→                <SelectItem value="OK">In Stock OK</SelectItem>
+   597→              </SelectContent>
+   598→            </Select>
+   599→            <Button onClick={() => setAddProductDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+   600→              <PackagePlus className="h-4 w-4 mr-2" />
+   601→              Add Product
+   602→            </Button>
+   603→            <Button onClick={() => setStockCountDialog(true)} className="bg-indigo-600 hover:bg-indigo-700">
+   604→              <ClipboardCheck className="h-4 w-4 mr-2" />
+   605→              Stock Count
+   606→            </Button>
+   607→          </div>
+   608→        </CardContent>
+   609→      </Card>
+   610→
+   611→      {/* Inventory Table */}
+   612→      <Card>
+   613→        <CardContent className="p-0">
+   614→          <Table>
+   615→            <TableHeader>
+   616→              <TableRow>
+   617→                <TableHead className="cursor-pointer" onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   618→                  <span className="flex items-center gap-1">Product <ArrowUpDown className="h-3 w-3" /></span>
+   619→                </TableHead>
+   620→                <TableHead className="hidden md:table-cell">NDC</TableHead>
+   621→                <TableHead className="cursor-pointer hidden sm:table-cell" onClick={() => { setSortBy('category'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   622→                  <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
+   623→                </TableHead>
+   624→                <TableHead className="cursor-pointer text-right" onClick={() => { setSortBy('stock'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
+   625→                  <span className="flex items-center justify-end gap-1">In Stock <ArrowUpDown className="h-3 w-3" /></span>
+   626→                </TableHead>
+   627→                <TableHead className="hidden lg:table-cell text-right">Reorder Point</TableHead>
+   628→                <TableHead className="text-right">Status</TableHead>
+   629→                <TableHead className="hidden xl:table-cell">Manufacturer</TableHead>
+   630→                <TableHead className="hidden xl:table-cell">Vendor</TableHead>
+   631→                <TableHead className="hidden xl:table-cell">Dosage Form</TableHead>
+   632→                <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
+   633→                <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
+   634→                <TableHead className="text-right">Actions</TableHead>
+   635→              </TableRow>
+   636→            </TableHeader>
+   637→            <TableBody>
+   638→              {loading ? (
+   639→                Array.from({ length: 8 }).map((_, i) => (
+   640→                  <TableRow key={i}>
+   641→                    {Array.from({ length: 9 }).map((_, j) => (
+   642→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   643→                    ))}
+   644→                  </TableRow>
+   645→                ))
+   646→              ) : filteredItems.length === 0 ? (
+   647→                <TableRow>
+   648→                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+   649→                    No inventory items found
+   650→                  </TableCell>
+   651→                </TableRow>
+   652→              ) : (
+   653→                filteredItems.map((item) => {
+   654→                  const qty = Number(item.quantity) || 0
+   655→                  const reorder = Number(item.product.reorderPoint) || 10
+   656→                  const isOut = qty === 0
+   657→                  const isLow = qty > 0 && qty <= reorder
+   658→                  return (
+   659→                    <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
+   660→                      <TableCell>
+   661→                        <div>
+   662→                          <p className="font-medium text-sm">{item.product.name}</p>
+   663→                          <p className="text-xs text-muted-foreground">
+   664→                            {item.product.strength} {item.product.dosageForm} · {item.product.unitOfMeasure}
+   665→                          </p>
+   666→                        </div>
+   667→                      </TableCell>
+   668→                      <TableCell className="hidden md:table-cell text-xs font-mono">{item.product.ndc || '—'}</TableCell>
+   669→                      <TableCell className="hidden sm:table-cell">
+   670→                        <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
+   671→                      </TableCell>
+   672→                      <TableCell className="text-right font-bold">{qty}</TableCell>
+   673→                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorder}</TableCell>
+   674→                      <TableCell className="text-right">
+   675→                        {isOut ? (
+   676→                          <Badge className="bg-red-100 text-red-700 border-red-200">Out of Stock</Badge>
+   677→                        ) : isLow ? (
+   678→                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">Low Stock</Badge>
+   679→                        ) : (
+   680→                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">In Stock</Badge>
+   681→                        )}
+   682→                      </TableCell>
+   683→                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
+   684→                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.vendor?.name || '—'}</TableCell>
+   685→                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.dosageForm || '—'}</TableCell>
+   686→                      <TableCell className="hidden lg:table-cell text-right">${item.product.costPrice?.toFixed(2) || '—'}</TableCell>
+   687→                      <TableCell className="hidden lg:table-cell text-right">${item.product.sellingPrice.toFixed(2)}</TableCell>
+   688→                      <TableCell className="text-right">
+   689→                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustDialog(true) }}>
+   690→                          <Edit className="h-3.5 w-3.5 mr-1" />
+   691→                          Adjust
+   692→                        </Button>
+   693→                      </TableCell>
+   694→                    </TableRow>
+   695→                  )
+   696→                })
+   697→              )}
+   698→            </TableBody>
+   699→          </Table>
+   700→        </CardContent>
+   701→      </Card>
+   702→
+   703→      {/* Add Product Dialog */}
+   704→      <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
+   705→        <DialogContent className="max-w-2xl">
+   706→          <DialogHeader>
+   707→            <DialogTitle className="flex items-center gap-2">
+   708→              <PackagePlus className="h-5 w-5 text-teal-600" />
+   709→              Add New Product
+   710→            </DialogTitle>
+   711→            <DialogDescription>Fill in the product details. Fields marked * are required.</DialogDescription>
+   712→          </DialogHeader>
+   713→          <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
+   714→            {/* Product Name */}
+   715→            <div className="col-span-2">
+   716→              <Label htmlFor="prod-name">Product Name <span className="text-red-500">*</span></Label>
+   717→              <Input
+   718→                id="prod-name"
+   719→                placeholder="e.g., Amoxicillin 500mg Capsules"
+   720→                value={productForm.name}
+   721→                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+   722→                className="mt-1"
+   723→              />
+   724→            </div>
+   725→
+   726→            {/* SKU / NDC */}
+   727→            <div>
+   728→              <Label htmlFor="prod-sku">SKU / NDC</Label>
+   729→              <Input
+   730→                id="prod-sku"
+   731→                placeholder="e.g., SKU-00123"
+   732→                value={productForm.sku}
+   733→                onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+   734→                className="mt-1"
+   735→              />
+   736→            </div>
+   737→
+   738→            {/* Category with inline Add */}
+   739→            <div>
+   740→              <Label htmlFor="prod-category">Category</Label>
+   741→              <div className="flex gap-1 mt-1">
+   742→                <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+   743→                  <SelectTrigger className="flex-1">
+   744→                    <SelectValue />
+   745→                  </SelectTrigger>
+   746→                  <SelectContent>
+   747→                    <SelectItem value="OTC">OTC</SelectItem>
+   748→                    <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+   749→                    <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+   750→                    <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+   751→                    <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+   752→                    <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+   753→                    {categories.filter((c) => !['OTC','PRESCRIPTION','SUPPLEMENT','MEDICAL_DEVICE','PERSONAL_CARE','CONSUMABLES'].includes(c.name)).map((cat) => (
+   754→                      <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
+   755→                    ))}
+   756→                    <div className="border-t my-1" />
+   757→                    <button
+   758→                      type="button"
+   759→                      className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+   760→                      onClick={() => setAddCatOpen(true)}
+   761→                    >
+   762→                      <Plus className="h-3 w-3" /> Add New Category...
+   763→                    </button>
+   764→                  </SelectContent>
+   765→                </Select>
+   766→              </div>
+   767→            </div>
+   768→
+   769→            {/* Manufacturer with Add Modal */}
+   770→            <div>
+   771→              <Label htmlFor="prod-mfg">Manufacturer</Label>
+   772→              <Select value={productForm.manufacturerId} onValueChange={(v) => setProductForm({ ...productForm, manufacturerId: v })}>
+   773→                <SelectTrigger className="mt-1">
+   774→                  <SelectValue placeholder="Select manufacturer..." />
+   775→                </SelectTrigger>
+   776→                <SelectContent>
+   777→                  {manufacturers.length === 0 && <div className="px-2 py-3 text-xs text-muted-foreground text-center">No manufacturers yet</div>}
+   778→                  {manufacturers.map((mfg) => (
+   779→                    <SelectItem key={mfg.id} value={mfg.id}>{mfg.name}</SelectItem>
+   780→                  ))}
+   781→                  <div className="border-t my-1" />
+   782→                  <button
+   783→                    type="button"
+   784→                    className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+   785→                    onClick={() => setAddMfgOpen(true)}
+   786→                  >
+   787→                    <Plus className="h-3 w-3" /> Add New Manufacturer...
+   788→                  </button>
+   789→                </SelectContent>
+   790→              </Select>
+   791→            </div>
+   792→
+   793→            {/* Vendor with Add Modal */}
+   794→            <div>
+   795→              <Label htmlFor="prod-vendor">Vendor</Label>
+   796→              <Select value={productForm.vendorId} onValueChange={(v) => setProductForm({ ...productForm, vendorId: v })}>
+   797→                <SelectTrigger className="mt-1">
+   798→                  <SelectValue placeholder="Select vendor..." />
+   799→                </SelectTrigger>
+   800→                <SelectContent>
+   801→                  {vendors.length === 0 && <div className="px-2 py-3 text-xs text-muted-foreground text-center">No vendors yet</div>}
+   802→                  {vendors.map((v) => (
+   803→                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+   804→                  ))}
+   805→                  <div className="border-t my-1" />
+   806→                  <button
+   807→                    type="button"
+   808→                    className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+   809→                    onClick={() => setAddVendorOpen(true)}
+   810→                  >
+   811→                    <Plus className="h-3 w-3" /> Add New Vendor...
+   812→                  </button>
+   813→                </SelectContent>
+   814→              </Select>
+   815→            </div>
+   816→
+   817→            {/* Dosage Form with Add Modal */}
+   818→            <div>
+   819→              <Label htmlFor="prod-dosage">Dosage Form</Label>
+   820→              <Select value={productForm.dosageForm} onValueChange={(v) => setProductForm({ ...productForm, dosageForm: v })}>
+   821→                <SelectTrigger className="mt-1">
+   822→                  <SelectValue placeholder="Select dosage form..." />
+   823→                </SelectTrigger>
+   824→                <SelectContent>
+   825→                  {dosageForms.map((df) => (
+   826→                    <SelectItem key={df} value={df}>{df.charAt(0) + df.slice(1).toLowerCase()}</SelectItem>
+   827→                  ))}
+   828→                  <div className="border-t my-1" />
+   829→                  <button
+   830→                    type="button"
+   831→                    className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+   832→                    onClick={() => setAddDfOpen(true)}
+   833→                  >
+   834→                    <Plus className="h-3 w-3" /> Add New Dosage Form...
+   835→                  </button>
+   836→                </SelectContent>
+   837→              </Select>
+   838→            </div>
+   839→
+   840→            {/* Selling Price */}
+   841→            <div>
+   842→              <Label htmlFor="prod-price">Selling Price ($) <span className="text-red-500">*</span></Label>
+   843→              <Input
+   844→                id="prod-price"
+   845→                type="number"
+   846→                step="0.01"
+   847→                min="0"
+   848→                placeholder="0.00"
+   849→                value={productForm.price}
+   850→                onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+   851→                className="mt-1"
+   852→              />
+   853→            </div>
+   854→
+   855→            {/* Cost Price */}
+   856→            <div>
+   857→              <Label htmlFor="prod-cost">Cost Price ($)</Label>
+   858→              <Input
+   859→                id="prod-cost"
+   860→                type="number"
+   861→                step="0.01"
+   862→                min="0"
+   863→                placeholder="0.00"
+   864→                value={productForm.costPrice}
+   865→                onChange={(e) => setProductForm({ ...productForm, costPrice: e.target.value })}
+   866→                className="mt-1"
+   867→              />
+   868→            </div>
+   869→
+   870→            {/* Stock Quantity */}
+   871→            <div>
+   872→              <Label htmlFor="prod-stock">Stock Quantity</Label>
+   873→              <Input
+   874→                id="prod-stock"
+   875→                type="number"
+   876→                min="0"
+   877→                placeholder="0"
+   878→                value={productForm.stockQuantity}
+   879→                onChange={(e) => setProductForm({ ...productForm, stockQuantity: e.target.value })}
+   880→                className="mt-1"
+   881→              />
+   882→            </div>
+   883→
+   884→            {/* Min Stock Level */}
+   885→            <div>
+   886→              <Label htmlFor="prod-minstock">Min Stock Level</Label>
+   887→              <Input
+   888→                id="prod-minstock"
+   889→                type="number"
+   890→                min="0"
+   891→                placeholder="10"
+   892→                value={productForm.minStockLevel}
+   893→                onChange={(e) => setProductForm({ ...productForm, minStockLevel: e.target.value })}
+   894→                className="mt-1"
+   895→              />
+   896→            </div>
+   897→
+   898→            {/* Expiry Date */}
+   899→            <div>
+   900→              <Label htmlFor="prod-expiry">Expiry Date</Label>
+   901→              <Input
+   902→                id="prod-expiry"
+   903→                type="date"
+   904→                value={productForm.expiryDate}
+   905→                onChange={(e) => setProductForm({ ...productForm, expiryDate: e.target.value })}
+   906→                className="mt-1"
+   907→              />
+   908→            </div>
+   909→
+   910→            {/* Barcode */}
+   911→            <div>
+   912→              <Label htmlFor="prod-barcode">Barcode</Label>
+   913→              <Input
+   914→                id="prod-barcode"
+   915→                placeholder="e.g., 1234567890123"
+   916→                value={productForm.barcode}
+   917→                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+   918→                className="mt-1"
+   919→              />
+   920→            </div>
+   921→          </div>
+   922→
+   923→          <DialogFooter className="mt-4">
+   924→            <Button variant="outline" onClick={() => setAddProductDialog(false)}>Cancel</Button>
+   925→            <Button
+   926→              onClick={handleAddProduct}
+   927→              className="bg-teal-600 hover:bg-teal-700"
+   928→              disabled={!productForm.name || !productForm.price || savingProduct}
+   929→            >
+   930→              {savingProduct ? 'Adding...' : 'Add Product'}
+   931→            </Button>
+   932→          </DialogFooter>
+   933→        </DialogContent>
+   934→      </Dialog>
+   935→
+   936→
+   937→
+   938→      {/* ── Add Manufacturer Modal ── */}
+   939→      <Dialog open={addMfgOpen} onOpenChange={setAddMfgOpen}>
+   940→        <DialogContent className="max-w-lg">
+   941→          <DialogHeader>
+   942→            <DialogTitle className="flex items-center gap-2">
+   943→              <Plus className="h-5 w-5 text-teal-600" />
+   944→              Add New Manufacturer
+   945→            </DialogTitle>
+   946→            <DialogDescription>Enter the full details for the new manufacturer.</DialogDescription>
+   947→          </DialogHeader>
+   948→          <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+   949→            <div className="col-span-2">
+   950→              <Label>Company Name <span className="text-red-500">*</span></Label>
+   951→              <Input placeholder="e.g., Pfizer Inc." value={addMfgForm.name} onChange={(e) => setAddMfgForm({ ...addMfgForm, name: e.target.value })} className="mt-1" />
+   952→            </div>
+   953→            <div>
+   954→              <Label>Contact Person</Label>
+   955→              <Input placeholder="e.g., John Doe" value={addMfgForm.contactPerson} onChange={(e) => setAddMfgForm({ ...addMfgForm, contactPerson: e.target.value })} className="mt-1" />
+   956→            </div>
+   957→            <div>
+   958→              <Label>Email</Label>
+   959→              <Input type="email" placeholder="e.g., contact@company.com" value={addMfgForm.email} onChange={(e) => setAddMfgForm({ ...addMfgForm, email: e.target.value })} className="mt-1" />
+   960→            </div>
+   961→            <div>
+   962→              <Label>Phone</Label>
+   963→              <Input placeholder="e.g., +1-555-0123" value={addMfgForm.phone} onChange={(e) => setAddMfgForm({ ...addMfgForm, phone: e.target.value })} className="mt-1" />
+   964→            </div>
+   965→            <div>
+   966→              <Label>Website</Label>
+   967→              <Input placeholder="e.g., https://company.com" value={addMfgForm.website} onChange={(e) => setAddMfgForm({ ...addMfgForm, website: e.target.value })} className="mt-1" />
+   968→            </div>
+   969→            <div className="col-span-2">
+   970→              <Label>Address</Label>
+   971→              <Input placeholder="Street address" value={addMfgForm.address} onChange={(e) => setAddMfgForm({ ...addMfgForm, address: e.target.value })} className="mt-1" />
+   972→            </div>
+   973→            <div>
+   974→              <Label>City</Label>
+   975→              <Input placeholder="e.g., New York" value={addMfgForm.city} onChange={(e) => setAddMfgForm({ ...addMfgForm, city: e.target.value })} className="mt-1" />
+   976→            </div>
+   977→            <div>
+   978→              <Label>Country</Label>
+   979→              <Input placeholder="e.g., USA" value={addMfgForm.country} onChange={(e) => setAddMfgForm({ ...addMfgForm, country: e.target.value })} className="mt-1" />
+   980→            </div>
+   981→            <div className="col-span-2">
+   982→              <Label>Notes</Label>
+   983→              <Textarea placeholder="Any additional notes..." value={addMfgForm.notes} onChange={(e) => setAddMfgForm({ ...addMfgForm, notes: e.target.value })} className="mt-1" rows={2} />
+   984→            </div>
+   985→          </div>
+   986→          <DialogFooter className="mt-4">
+   987→            <Button variant="outline" onClick={() => setAddMfgOpen(false)}>Cancel</Button>
+   988→            <Button onClick={handleAddManufacturer} disabled={!addMfgForm.name.trim() || addMfgSaving} className="bg-teal-600 hover:bg-teal-700">
+   989→              {addMfgSaving ? 'Saving...' : 'Add Manufacturer'}
+   990→            </Button>
+   991→          </DialogFooter>
+   992→        </DialogContent>
+   993→      </Dialog>
+   994→
+   995→      {/* ── Add Vendor Modal ── */}
+   996→      <Dialog open={addVendorOpen} onOpenChange={setAddVendorOpen}>
+   997→        <DialogContent className="max-w-lg">
+   998→          <DialogHeader>
+   999→            <DialogTitle className="flex items-center gap-2">
+  1000→              <Plus className="h-5 w-5 text-teal-600" />
+  1001→              Add New Vendor
+  1002→            </DialogTitle>
+  1003→            <DialogDescription>Enter the full details for the new vendor.</DialogDescription>
+  1004→          </DialogHeader>
+  1005→          <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+  1006→            <div className="col-span-2">
+  1007→              <Label>Company Name <span className="text-red-500">*</span></Label>
+  1008→              <Input placeholder="e.g., MedSupply Corp" value={addVendorForm.name} onChange={(e) => setAddVendorForm({ ...addVendorForm, name: e.target.value })} className="mt-1" />
+  1009→            </div>
+  1010→            <div>
+  1011→              <Label>Contact Person</Label>
+  1012→              <Input placeholder="e.g., Jane Smith" value={addVendorForm.contactPerson} onChange={(e) => setAddVendorForm({ ...addVendorForm, contactPerson: e.target.value })} className="mt-1" />
+  1013→            </div>
+  1014→            <div>
+  1015→              <Label>Email</Label>
+  1016→              <Input type="email" placeholder="e.g., sales@vendor.com" value={addVendorForm.email} onChange={(e) => setAddVendorForm({ ...addVendorForm, email: e.target.value })} className="mt-1" />
+  1017→            </div>
+  1018→            <div>
+  1019→              <Label>Phone</Label>
+  1020→              <Input placeholder="e.g., +1-555-0456" value={addVendorForm.phone} onChange={(e) => setAddVendorForm({ ...addVendorForm, phone: e.target.value })} className="mt-1" />
+  1021→            </div>
+  1022→            <div>
+  1023→              <Label>Address</Label>
+  1024→              <Input placeholder="Street address" value={addVendorForm.address} onChange={(e) => setAddVendorForm({ ...addVendorForm, address: e.target.value })} className="mt-1" />
+  1025→            </div>
+  1026→            <div className="col-span-2">
+  1027→              <Label>Notes</Label>
+  1028→              <Textarea placeholder="Any additional notes..." value={addVendorForm.notes} onChange={(e) => setAddVendorForm({ ...addVendorForm, notes: e.target.value })} className="mt-1" rows={2} />
+  1029→            </div>
+  1030→          </div>
+  1031→          <DialogFooter className="mt-4">
+  1032→            <Button variant="outline" onClick={() => setAddVendorOpen(false)}>Cancel</Button>
+  1033→            <Button onClick={handleAddVendor} disabled={!addVendorForm.name.trim() || addVendorSaving} className="bg-teal-600 hover:bg-teal-700">
+  1034→              {addVendorSaving ? 'Saving...' : 'Add Vendor'}
+  1035→            </Button>
+  1036→          </DialogFooter>
+  1037→        </DialogContent>
+  1038→      </Dialog>
+  1039→
+  1040→      {/* ── Add Category Modal ── */}
+  1041→      <Dialog open={addCatOpen} onOpenChange={setAddCatOpen}>
+  1042→        <DialogContent className="max-w-md">
+  1043→          <DialogHeader>
+  1044→            <DialogTitle className="flex items-center gap-2">
+  1045→              <Plus className="h-5 w-5 text-teal-600" />
+  1046→              Add New Category
+  1047→            </DialogTitle>
+  1048→            <DialogDescription>Create a new product category.</DialogDescription>
+  1049→          </DialogHeader>
+  1050→          <div className="space-y-4">
+  1051→            <div>
+  1052→              <Label>Category Name <span className="text-red-500">*</span></Label>
+  1053→              <Input placeholder="e.g., Herbal Remedies" value={addCatForm.name} onChange={(e) => setAddCatForm({ ...addCatForm, name: e.target.value })} className="mt-1" />
+  1054→            </div>
+  1055→            <div>
+  1056→              <Label>Description</Label>
+  1057→              <Textarea placeholder="Brief description of the category..." value={addCatForm.description} onChange={(e) => setAddCatForm({ ...addCatForm, description: e.target.value })} className="mt-1" rows={3} />
+  1058→            </div>
+  1059→          </div>
+  1060→          <DialogFooter className="mt-4">
+  1061→            <Button variant="outline" onClick={() => setAddCatOpen(false)}>Cancel</Button>
+  1062→            <Button onClick={handleAddCategory} disabled={!addCatForm.name.trim() || addCatSaving} className="bg-teal-600 hover:bg-teal-700">
+  1063→              {addCatSaving ? 'Saving...' : 'Add Category'}
+  1064→            </Button>
+  1065→          </DialogFooter>
+  1066→        </DialogContent>
+  1067→      </Dialog>
+  1068→
+  1069→      {/* ── Add Dosage Form Modal ── */}
+  1070→      <Dialog open={addDfOpen} onOpenChange={setAddDfOpen}>
+  1071→        <DialogContent className="max-w-md">
+  1072→          <DialogHeader>
+  1073→            <DialogTitle className="flex items-center gap-2">
+  1074→              <Plus className="h-5 w-5 text-teal-600" />
+  1075→              Add New Dosage Form
+  1076→            </DialogTitle>
+  1077→            <DialogDescription>Add a new dosage form type to the list.</DialogDescription>
+  1078→          </DialogHeader>
+  1079→          <div className="space-y-4">
+  1080→            <div>
+  1081→              <Label>Dosage Form Name <span className="text-red-500">*</span></Label>
+  1082→              <Input placeholder="e.g., Chewable Tablet" value={addDfName} onChange={(e) => setAddDfName(e.target.value)} className="mt-1" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDosageForm() } }} />
+  1083→              <p className="text-xs text-muted-foreground mt-1">Will be saved in uppercase (e.g., CHEWABLE TABLET)</p>
+  1084→            </div>
+  1085→            {dosageForms.length > 0 && (
+  1086→              <div>
+  1087→                <p className="text-xs font-medium text-muted-foreground mb-2">Existing dosage forms:</p>
+  1088→                <div className="flex flex-wrap gap-1.5">
+  1089→                  {dosageForms.map((df) => (
+  1090→                    <Badge key={df} variant="secondary" className="text-xs">{df.charAt(0) + df.slice(1).toLowerCase()}</Badge>
+  1091→                  ))}
+  1092→                </div>
+  1093→              </div>
+  1094→            )}
+  1095→          </div>
+  1096→          <DialogFooter className="mt-4">
+  1097→            <Button variant="outline" onClick={() => setAddDfOpen(false)}>Cancel</Button>
+  1098→            <Button onClick={handleAddDosageForm} disabled={!addDfName.trim()} className="bg-teal-600 hover:bg-teal-700">
+  1099→              Add Dosage Form
+  1100→            </Button>
+  1101→          </DialogFooter>
+  1102→        </DialogContent>
+  1103→      </Dialog>
+  1104→
+  1105→      {/* Stock Adjustment Dialog */}
+  1106→      <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
+  1107→        <DialogContent className="max-w-lg">
+  1108→          <DialogHeader>
+  1109→            <DialogTitle>Adjust Product</DialogTitle>
+  1110→          </DialogHeader>
+  1111→          {selectedItem && (
+  1112→            <div className="space-y-4">
+  1113→              <div className="bg-muted rounded-lg p-3">
+  1114→                <p className="font-medium">{selectedItem.product.name}</p>
+  1115→                <p className="text-sm text-muted-foreground">
+  1116→                  Current Stock: {Number(selectedItem.quantity) || 0} {selectedItem.product.unitOfMeasure}
+  1117→                  &nbsp;·&nbsp; Cost: ${selectedItem.product.costPrice?.toFixed(2) || '—'}
+  1118→                  &nbsp;·&nbsp; Price: ${selectedItem.product.sellingPrice?.toFixed(2) || '—'}
+  1119→                </p>
+  1120→              </div>
+  1121→              <div className="space-y-3">
+  1122→                <div>
+  1123→                  <Label>Adjustment Type</Label>
+  1124→                  <Select value={adjustType} onValueChange={setAdjustType}>
+  1125→                    <SelectTrigger className="mt-1">
+  1126→                      <SelectValue />
+  1127→                    </SelectTrigger>
+  1128→                    <SelectContent>
+  1129→                      <SelectItem value="ADD">Add Stock</SelectItem>
+  1130→                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
+  1131→                      <SelectItem value="SET">Set Count</SelectItem>
+  1132→                    </SelectContent>
+  1133→                  </Select>
+  1134→                </div>
+  1135→                <div>
+  1136→                  <Label>Quantity</Label>
+  1137→                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="Leave blank to skip stock change" className="mt-1" />
+  1138→                </div>
+  1139→                <div className="grid grid-cols-2 gap-3">
+  1140→                  <div>
+  1141→                    <Label>Cost Price ($)</Label>
+  1142→                    <Input type="number" step="0.01" min="0" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} placeholder={selectedItem.product.costPrice?.toFixed(2) || '0.00'} className="mt-1" />
+  1143→                  </div>
+  1144→                  <div>
+  1145→                    <Label>Selling Price ($)</Label>
+  1146→                    <Input type="number" step="0.01" min="0" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} placeholder={selectedItem.product.sellingPrice?.toFixed(2) || '0.00'} className="mt-1" />
+  1147→                  </div>
+  1148→                </div>
+  1149→                <div>
+  1150→                  <Label>Reason (required)</Label>
+  1151→                  <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
+  1152→                </div>
+  1153→              </div>
+  1154→            </div>
+  1155→          )}
+  1156→          <DialogFooter>
+  1157→            <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
+  1158→            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason}>
+  1159→              Apply Changes
+  1160→            </Button>
+  1161→          </DialogFooter>
+  1162→        </DialogContent>
+  1163→      </Dialog>
+  1164→
+  1165→      {/* Stock Count Dialog — API search + physical count + price edit */}
+  1166→      <Dialog open={stockCountDialog} onOpenChange={(open) => {
+  1167→        if (!open) { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }
+  1168→        else setStockCountDialog(true)
+  1169→      }}>
+  1170→        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+  1171→          <DialogHeader>
+  1172→            <DialogTitle className="flex items-center gap-2">
+  1173→              <ClipboardCheck className="h-5 w-5 text-indigo-600" />
+  1174→              Periodic Stock Taking
+  1175→            </DialogTitle>
+  1176→            <DialogDescription>Search products, enter physical stock counts and optionally adjust cost & selling prices. All changes update the system immediately.</DialogDescription>
+  1177→          </DialogHeader>
+  1178→
+  1179→          {/* Product Search — queries API with debounce */}
+  1180→          <div className="relative">
+  1181→            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${stockSearching ? 'text-indigo-500 animate-pulse' : 'text-muted-foreground'}`} />
+  1182→            <Input
+  1183→              placeholder="Search product by name or NDC to add..."
+  1184→              value={stockSearch}
+  1185→              onChange={(e) => setStockSearch(e.target.value)}
+  1186→              className="pl-9 pr-20"
+  1187→              autoFocus
+  1188→            />
+  1189→            {stockSearch && (
+  1190→              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+  1191→                {stockSearching ? 'Searching...' : `${stockSearchResults.length} found`}
+  1192→              </span>
+  1193→            )}
+  1194→            {stockSearchResults.length > 0 && (
+  1195→              <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+  1196→                {stockSearchResults.map((product) => {
+  1197→                  const alreadyAdded = stockEntries.find(e => e.productId === product.id)
+  1198→                  return (
+  1199→                    <button
+  1200→                      key={product.id}
+  1201→                      className={`w-full text-left px-3 py-2.5 flex items-center justify-between text-sm border-b last:border-b-0 transition-colors ${alreadyAdded ? 'bg-muted/50 opacity-60 cursor-not-allowed' : 'hover:bg-indigo-50'}`}
+  1202→                      disabled={!!alreadyAdded}
+  1203→                      onClick={() => !alreadyAdded && addStockEntry(product)}
+  1204→                    >
+  1205→                      <div className="min-w-0 flex-1">
+  1206→                        <p className="font-medium truncate">{product.name}</p>
+  1207→                        <p className="text-xs text-muted-foreground">
+  1208→                          NDC: {product.ndc || '—'}
+  1209→                          {product.ndc && ' · '}
+  1210→                          Current Stock: {product.currentQty} {product.unitOfMeasure}
+  1211→                        </p>
+  1212→                      </div>
+  1213→                      <span className={`text-xs font-medium ml-3 shrink-0 ${alreadyAdded ? 'text-muted-foreground' : 'text-indigo-600'}`}>
+  1214→                        {alreadyAdded ? '✓ Added' : '+ Add'}
+  1215→                      </span>
+  1216→                    </button>
+  1217→                  )
+  1218→                })}
+  1219→              </div>
+  1220→            )}
+  1221→          </div>
+  1222→
+  1223→          {/* Summary badges */}
+  1224→          {stockEntries.length > 0 && (
+  1225→            <div className="flex items-center gap-2 flex-wrap">
+  1226→              <Badge variant="secondary" className="text-xs">
+  1227→                {stockEntries.length} product{stockEntries.length !== 1 ? 's' : ''} to count
+  1228→              </Badge>
+  1229→              <Badge variant="secondary" className="text-xs">
+  1230→                Diff: {stockEntries.reduce((s, e) => s + (parseInt(e.physicalQty || '0') - e.currentQty), 0) >= 0 ? '+' : ''}{stockEntries.reduce((s, e) => s + (parseInt(e.physicalQty || '0') - e.currentQty), 0)}
+  1231→              </Badge>
+  1232→              <Button size="sm" variant="ghost" className="text-xs text-red-500 hover:text-red-700 ml-auto" onClick={() => { setStockEntries([]) }}>
+  1233→                Clear All
+  1234→              </Button>
+  1235→            </div>
+  1236→          )}
+  1237→
+  1238→          {/* Stock Count Table */}
+  1239→          <div className="border rounded-lg flex-1 min-h-0">
+  1240→            {stockEntries.length === 0 ? (
+  1241→              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+  1242→                <ClipboardCheck className="h-10 w-10 mb-3 opacity-30" />
+  1243→                <p className="text-sm font-medium">No products added yet</p>
+  1244→                <p className="text-xs mt-1">Search and add products above to begin counting stock</p>
+  1245→              </div>
+  1246→            ) : (
+  1247→              <div className="overflow-auto max-h-[40vh]">
+  1248→                <table className="w-full text-sm">
+  1249→                  <thead className="bg-muted/60 sticky top-0">
+  1250→                    <tr>
+  1251→                      <th className="text-left px-3 py-2 font-medium">Product</th>
+  1252→                      <th className="text-center px-3 py-2 font-medium w-24">System Qty</th>
+  1253→                      <th className="text-center px-3 py-2 font-medium w-28">Physical Count</th>
+  1254→                      <th className="text-center px-3 py-2 font-medium w-16">Diff</th>
+  1255→                      <th className="text-center px-3 py-2 font-medium w-28">Cost Price</th>
+  1256→                      <th className="text-center px-3 py-2 font-medium w-28">Selling Price</th>
+  1257→                      <th className="text-center px-3 py-2 font-medium w-10"></th>
+  1258→                    </tr>
+  1259→                  </thead>
+  1260→                  <tbody className="divide-y">
+  1261→                    {stockEntries.map((entry) => {
+  1262→                      const diff = parseInt(entry.physicalQty || '0') - entry.currentQty
+  1263→                      return (
+  1264→                        <tr key={entry.productId} className="hover:bg-muted/30">
+  1265→                          <td className="px-3 py-2">
+  1266→                            <p className="font-medium truncate max-w-[200px]">{entry.name}</p>
+  1267→                            <p className="text-xs text-muted-foreground">{entry.ndc || '—'}</p>
+  1268→                          </td>
+  1269→                          <td className="text-center px-3 py-2 font-mono">
+  1270→                            {entry.currentQty} <span className="text-xs text-muted-foreground">{entry.unit}</span>
+  1271→                          </td>
+  1272→                          <td className="text-center px-3 py-2">
+  1273→                            <Input
+  1274→                              type="number"
+  1275→                              min="0"
+  1276→                              value={entry.physicalQty}
+  1277→                              onChange={(e) => updateStockEntry(entry.productId, 'physicalQty', e.target.value)}
+  1278→                              className="w-full text-center h-8 text-sm"
+  1279→                              placeholder="0"
+  1280→                            />
+  1281→                          </td>
+  1282→                          <td className="text-center px-3 py-2">
+  1283→                            {diff !== 0 && (
+  1284→                              <Badge variant={diff > 0 ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
+  1285→                                {diff > 0 ? '+' : ''}{diff}
+  1286→                              </Badge>
+  1287→                            )}
+  1288→                            {diff === 0 && <span className="text-xs text-muted-foreground">0</span>}
+  1289→                          </td>
+  1290→                          <td className="text-center px-3 py-2">
+  1291→                            <Input
+  1292→                              type="number"
+  1293→                              step="0.01"
+  1294→                              min="0"
+  1295→                              value={entry.costPrice}
+  1296→                              onChange={(e) => updateStockEntry(entry.productId, 'costPrice', e.target.value)}
+  1297→                              className="w-full text-center h-8 text-sm"
+  1298→                              placeholder="$0.00"
+  1299→                            />
+  1300→                          </td>
+  1301→                          <td className="text-center px-3 py-2">
+  1302→                            <Input
+  1303→                              type="number"
+  1304→                              step="0.01"
+  1305→                              min="0"
+  1306→                              value={entry.sellingPrice}
+  1307→                              onChange={(e) => updateStockEntry(entry.productId, 'sellingPrice', e.target.value)}
+  1308→                              className="w-full text-center h-8 text-sm"
+  1309→                              placeholder="$0.00"
+  1310→                            />
+  1311→                          </td>
+  1312→                          <td className="text-center px-3 py-2">
+  1313→                            <Button size="sm" variant="ghost" onClick={() => removeStockEntry(entry.productId)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600">
+  1314→                              <X className="h-3.5 w-3.5" />
+  1315→                            </Button>
+  1316→                          </td>
+  1317→                        </tr>
+  1318→                      )
+  1319→                    })}
+  1320→                  </tbody>
+  1321→                </table>
+  1322→              </div>
+  1323→            )}
+  1324→          </div>
+  1325→
+  1326→          <DialogFooter className="mt-4">
+  1327→            <Button variant="outline" onClick={() => { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }}>
+  1328→              Cancel
+  1329→            </Button>
+  1330→            <Button
+  1331→              onClick={handleStockCountSave}
+  1332→              className="bg-indigo-600 hover:bg-indigo-700"
+  1333→              disabled={stockEntries.length === 0 || stockSaving}
+  1334→            >
+  1335→              {stockSaving ? (
+  1336→                <>
+  1337→                  <span className="animate-spin mr-2">⟳</span>
+  1338→                  Updating Stocks...
+  1339→                </>
+  1340→              ) : (
+  1341→                `Update ${stockEntries.length} Product${stockEntries.length !== 1 ? 's' : ''} Stock & Prices`
+  1342→              )}
+  1343→            </Button>
+  1344→          </DialogFooter>
+  1345→        </DialogContent>
+  1346→      </Dialog>
+  1347→    </div>
+  1348→  )
+  1349→}
+  1350→
