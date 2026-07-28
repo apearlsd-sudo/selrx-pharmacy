@@ -478,7 +478,7 @@ export function SalesHistoryView() {
                     <BarChart data={userChart}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                       <Tooltip formatter={(value: any, name: string) => {
                         if (name === 'sales') return formatCurrency(value)
                         return value
@@ -511,7 +511,7 @@ export function SalesHistoryView() {
                     <LineChart data={dailyChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
                       <Tooltip formatter={(value: any, name: string) => {
                         if (name === 'sales') return formatCurrency(value)
                         return value
@@ -914,7 +914,7 @@ export function SalesHistoryView() {
                     <AreaChart data={dailyChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
                       <Tooltip formatter={(value: any) => formatCurrency(value)} />
                       <Area
                         type="monotone"
@@ -981,7 +981,7 @@ export function SalesHistoryView() {
                     transactions: u.transactionCount,
                   }))} layout="vertical" margin={{ left: 80 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={75} />
                     <Tooltip formatter={(value: any, name: string) => {
                       if (name === 'sales' || name === 'avgSale') return formatCurrency(value)

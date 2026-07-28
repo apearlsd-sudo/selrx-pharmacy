@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
+import { formatCurrency } from '@/lib/currency'
 
 interface InventoryItem {
   id: string
@@ -616,7 +617,7 @@ export function InventoryView() {
               <TrendingUp className="h-5 w-5 text-teal-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
               <p className="text-xs text-muted-foreground">Inventory Value</p>
             </div>
           </CardContent>
@@ -753,8 +754,8 @@ export function InventoryView() {
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.vendor?.name || '—'}</TableCell>
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.dosageForm || '—'}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-right">${item.product.costPrice?.toFixed(2) || '—'}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-right">${item.product.sellingPrice.toFixed(2)}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />
@@ -1184,8 +1185,8 @@ export function InventoryView() {
                 <p className="font-medium">{selectedItem.product.name}</p>
                 <p className="text-sm text-muted-foreground">
                   Current Stock: {Number(selectedItem.quantity) || 0} {selectedItem.product.unitOfMeasure}
-                  &nbsp;·&nbsp; Cost: ${selectedItem.product.costPrice?.toFixed(2) || '—'}
-                  &nbsp;·&nbsp; Price: ${selectedItem.product.sellingPrice?.toFixed(2) || '—'}
+                  &nbsp;·&nbsp; Cost: {selectedItem.product.costPrice != null ? formatCurrency(selectedItem.product.costPrice) : '—'}
+                  &nbsp;·&nbsp; Price: {formatCurrency(selectedItem.product.sellingPrice)}
                 </p>
               </div>
               <div className="space-y-3">
@@ -1365,7 +1366,7 @@ export function InventoryView() {
                               value={entry.costPrice}
                               onChange={(e) => updateStockEntry(entry.productId, 'costPrice', e.target.value)}
                               className="w-full text-center h-8 text-sm"
-                              placeholder="$0.00"
+                              placeholder="0.00"
                             />
                           </td>
                           <td className="text-center px-3 py-2">
@@ -1376,7 +1377,7 @@ export function InventoryView() {
                               value={entry.sellingPrice}
                               onChange={(e) => updateStockEntry(entry.productId, 'sellingPrice', e.target.value)}
                               className="w-full text-center h-8 text-sm"
-                              placeholder="$0.00"
+                              placeholder="0.00"
                             />
                           </td>
                           <td className="text-center px-3 py-2">

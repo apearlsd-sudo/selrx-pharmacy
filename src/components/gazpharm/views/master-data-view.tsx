@@ -24,6 +24,7 @@ import {
   DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
+import { formatCurrency } from '@/lib/currency'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -1430,10 +1431,10 @@ function DrugSection() {
                       <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
                     </TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      ${drug.costPrice ? drug.costPrice.toFixed(2) : '—'}
+                      {drug.costPrice != null ? formatCurrency(drug.costPrice) : '—'}
                     </TableCell>
                     <TableCell className="text-right text-sm font-medium">
-                      ${drug.sellingPrice.toFixed(2)}
+                      {formatCurrency(drug.sellingPrice)}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-right">
                       <div className="flex items-center justify-end gap-1">

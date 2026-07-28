@@ -7,7 +7,6 @@ import {
   Building2,
   User,
   MapPin,
-  DollarSign,
   ShieldCheck,
   ArrowRight,
   ArrowLeft,
@@ -34,7 +33,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
-import { CURRENCIES, type CurrencyCode } from '@/lib/currency'
+import { CURRENCIES, WEST_AFRICAN_COUNTRIES, currencyForCountry, type CurrencyCode } from '@/lib/currency'
 
 // Step configuration
 const STEPS = [
@@ -42,7 +41,7 @@ const STEPS = [
   { id: 2, label: 'Company', icon: Building2 },
   { id: 3, label: 'Owner Account', icon: User },
   { id: 4, label: 'Address', icon: MapPin },
-  { id: 5, label: 'Preferences', icon: DollarSign },
+  { id: 5, label: 'Preferences', icon: Landmark },
 ] as const
 
 const BUSINESS_TYPES = [
@@ -55,25 +54,23 @@ const BUSINESS_TYPES = [
   { value: 'Wholesale', label: 'Wholesale Distributor', desc: 'Pharmaceutical wholesaler' },
 ]
 
-const AFRICAN_COUNTRIES = [
-  'Ghana', 'Nigeria', 'Kenya', 'South Africa', 'Tanzania', 'Uganda',
-  'Rwanda', 'Ethiopia', 'Senegal', 'Cameroon', 'Cote d\'Ivoire', 'Mozambique',
-  'Zambia', 'Zimbabwe', 'Botswana', 'Namibia', 'Malawi', 'Liberia',
-  'Sierra Leone', 'Gambia', 'Togo', 'Benin', 'Mali', 'Burkina Faso',
-  'Niger', 'Chad', 'Congo', 'DR Congo', 'Angola', 'Madagascar',
-  'Other',
-]
-
-const TIMEZONES = [
-  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
-  { value: 'Africa/Accra', label: 'Accra (GMT+0)' },
-  { value: 'Africa/Lagos', label: 'Lagos (GMT+1)' },
-  { value: 'Africa/Nairobi', label: 'Nairobi (GMT+3)' },
-  { value: 'Africa/Johannesburg', label: 'Johannesburg (GMT+2)' },
-  { value: 'Africa/Cairo', label: 'Cairo (GMT+2)' },
-  { value: 'Africa/Dar_es_Salaam', label: 'Dar es Salaam (GMT+3)' },
-  { value: 'Africa/Kampala', label: 'Kampala (GMT+3)' },
-  { value: 'Africa/Addis_Ababa', label: 'Addis Ababa (GMT+3)' },
+const WEST_AFRICAN_TIMEZONES = [
+  { value: 'Africa/Accra', label: 'Accra (GMT+0) — Ghana' },
+  { value: 'Africa/Lagos', label: 'Lagos (GMT+1) — Nigeria' },
+  { value: 'Africa/Abidjan', label: 'Abidjan (GMT+0) — Côte d\'Ivoire' },
+  { value: 'Africa/Bamako', label: 'Bamako (GMT+0) — Mali' },
+  { value: 'Africa/Ouagadougou', label: 'Ouagadougou (GMT+0) — Burkina Faso' },
+  { value: 'Africa/Dakar', label: 'Dakar (GMT+0) — Senegal' },
+  { value: 'Africa/Porto-Novo', label: 'Porto-Novo (GMT+1) — Benin' },
+  { value: 'Africa/Lome', label: 'Lomé (GMT+0) — Togo' },
+  { value: 'Africa/Niamey', label: 'Niamey (GMT+1) — Niger' },
+  { value: 'Africa/Banjul', label: 'Banjul (GMT+0) — Gambia' },
+  { value: 'Africa/Freetown', label: 'Freetown (GMT+0) — Sierra Leone' },
+  { value: 'Africa/Monrovia', label: 'Monrovia (GMT+0) — Liberia' },
+  { value: 'Africa/Conakry', label: 'Conakry (GMT+0) — Guinea' },
+  { value: 'Atlantic/Cape_Verde', label: 'Cape Verde (GMT-1)' },
+  { value: 'Africa/Nouakchott', label: 'Nouakchott (GMT+0) — Mauritania' },
+  { value: 'Africa/Sao_Tome', label: 'São Tomé (GMT+0)' },
 ]
 
 export function CompanySetupView() {
@@ -112,8 +109,8 @@ export function CompanySetupView() {
   const [phone, setPhone] = useState('')
   const [website, setWebsite] = useState('')
 
-  const [currency, setCurrencyState] = useState<CurrencyCode>('USD')
-  const [timezone, setTimezone] = useState('UTC')
+  const [currency, setCurrencyState] = useState<CurrencyCode>('GHS')
+  const [timezone, setTimezone] = useState('Africa/Accra')
 
   // Validate step
   const getStepError = (): string => {
@@ -328,7 +325,7 @@ export function CompanySetupView() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8 max-w-lg mx-auto">
                     {[
                       { icon: ShieldCheck, label: 'Secure & Reliable' },
-                      { icon: DollarSign, label: 'Multi-Currency' },
+                      { icon: Landmark, label: 'Multi-Currency' },
                       { icon: Globe, label: 'Cloud-Based POS' },
                     ].map((feat) => (
                       <div
@@ -673,13 +670,18 @@ export function CompanySetupView() {
                         <Label className="text-sm font-medium">
                           Country <span className="text-red-500">*</span>
                         </Label>
-                        <Select value={country} onValueChange={setCountry}>
+                        <Select value={country} onValueChange={(val) => {
+                          setCountry(val)
+                          // Auto-set currency based on country
+                          const autoCurrency = currencyForCountry(val)
+                          if (autoCurrency) setCurrencyState(autoCurrency)
+                        }}>
                           <SelectTrigger className="h-11">
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
                           <SelectContent>
-                            {AFRICAN_COUNTRIES.map((c) => (
-                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            {WEST_AFRICAN_COUNTRIES.map((c) => (
+                              <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -742,7 +744,7 @@ export function CompanySetupView() {
                     <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
-                          <DollarSign className="h-5 w-5 text-white" />
+                          <Landmark className="h-5 w-5 text-white" />
                         </div>
                         <div>
                           <h3 className="text-lg font-bold text-white">Preferences</h3>
@@ -781,7 +783,7 @@ export function CompanySetupView() {
                             <SelectValue placeholder="Select timezone" />
                           </SelectTrigger>
                           <SelectContent>
-                            {TIMEZONES.map((tz) => (
+                            {WEST_AFRICAN_TIMEZONES.map((tz) => (
                               <SelectItem key={tz.value} value={tz.value}>
                                 {tz.label}
                               </SelectItem>

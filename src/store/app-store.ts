@@ -348,7 +348,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIsCompanySetup: (val) => set({ isCompanySetup: val }),
 
   // ---- Currency ----
-  currency: 'USD' as CurrencyCode,
+  currency: 'GHS' as CurrencyCode,
   setCurrency: (code) => set({ currency: code }),
 }))
 
