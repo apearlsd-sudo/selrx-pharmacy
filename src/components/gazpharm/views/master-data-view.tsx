@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
+  Upload, FileSpreadsheet, Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -952,6 +953,21 @@ function DrugSection() {
   // Custom dosage forms
   const [customDosageForms, setCustomDosageForms] = useState<string[]>([])
 
+  // ── Import state ────────────────────────────────────────────────
+  const [importDialog, setImportDialog] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    success: boolean; message?: string; error?: string;
+    totalRows?: number; created?: number; failed?: number; skipped?: number;
+    validationErrors?: { row: number; name?: string; errors: string[] }[]
+    createdProducts?: { id: string; name: string; ndc: string | null }[]
+  } | null>(null)
+  const [importPreview, setImportPreview] = useState<{ name: string; rows: number; size: string } | null>(null)
+
+  const currentUser = useAppStore((s) => s.user)
+  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
+
   const allDosageForms = [...DOSAGE_FORMS, ...customDosageForms]
 
   const fetchData = useCallback(async () => {
@@ -1082,6 +1098,51 @@ function DrugSection() {
     setCustomDosageForms((prev) => [...prev, name])
   }
 
+  // ── Import handlers ──────────────────────────────────────────────
+  const handleImportFileSelect = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      addToast({ title: 'File Too Large', description: 'Maximum file size is 5 MB', variant: 'destructive' })
+      return
+    }
+    setImportFile(file)
+    setImportResult(null)
+    const estRows = Math.max(1, Math.floor(file.size / 200))
+    const sizeStr = file.size < 1024 ? `${file.size} B` : file.size < 1048576 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / 1048576).toFixed(1)} MB`
+    setImportPreview({ name: file.name, rows: estRows, size: sizeStr })
+  }
+
+  const handleImport = async () => {
+    if (!importFile) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', importFile)
+      const res = await fetch('/api/products/import', {
+        method: 'POST',
+        body: formData,
+        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+      })
+      const data = await res.json()
+      setImportResult(data)
+      if (data.success && data.created > 0) {
+        addToast({
+          title: 'Import Successful',
+          description: `${data.created} product${data.created !== 1 ? 's' : ''} imported${data.failed > 0 ? ` (${data.failed} failed)` : ''}`,
+          variant: 'success',
+        })
+        bumpInventoryVersion()
+      } else if (!data.success) {
+        addToast({ title: 'Import Failed', description: data.error || 'Unknown error', variant: 'destructive' })
+      }
+    } catch (err: any) {
+      setImportResult({ success: false, error: err.message || 'Network error' })
+      addToast({ title: 'Import Error', description: err.message || 'Failed to import', variant: 'destructive' })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const filtered = drugs.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
     (d.ndc && d.ndc.toLowerCase().includes(search.toLowerCase()))
@@ -1092,10 +1153,48 @@ function DrugSection() {
       {/* Drug Registration Form */}
       <Card>
         <CardContent className="p-4">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Pill className="h-4 w-4 text-teal-600" />
-            Register New Drug / Product
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Pill className="h-4 w-4 text-teal-600" />
+              Register New Drug / Product
+            </h3>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-teal-600 text-teal-700 hover:bg-teal-50"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/products/import')
+                    if (res.ok) {
+                      const blob = await res.blob()
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = 'product-import-template.xlsx'
+                      a.click()
+                      URL.revokeObjectURL(url)
+                      addToast({ title: 'Template Downloaded', description: 'Fill in your product data and import', variant: 'success' })
+                    }
+                  } catch {
+                    addToast({ title: 'Error', description: 'Failed to download template', variant: 'destructive' })
+                  }
+                }}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Template
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-teal-600 text-teal-700 hover:bg-teal-50"
+                onClick={() => setImportDialog(true)}
+              >
+                <Upload className="h-3.5 w-3.5 mr-1" />
+                Import
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {/* Product Name - full width */}
             <div className="sm:col-span-2 lg:col-span-3">
@@ -1398,6 +1497,217 @@ function DrugSection() {
         onOpenAddCategory={() => setCatModalOpen(true)}
         onOpenAddDosageForm={() => setDosageFormModalOpen(true)}
       />
+
+      {/* ── Import Products Dialog ──────────────────────────────── */}
+      <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-teal-600" />
+              Import Products from Excel
+            </DialogTitle>
+            <DialogDescription>
+              Upload an Excel (.xlsx) or CSV file to bulk-import products into the drug catalog.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Template download */}
+            <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+              <FileSpreadsheet className="h-5 w-5 text-teal-600 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-teal-800">Download Import Template</p>
+                <p className="text-xs text-teal-600">Contains column guide, example data, and reference sheets for categories and dosage forms.</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-teal-600 text-teal-700 hover:bg-teal-100"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/products/import')
+                    if (res.ok) {
+                      const blob = await res.blob()
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = 'product-import-template.xlsx'
+                      a.click()
+                      URL.revokeObjectURL(url)
+                      addToast({ title: 'Template Downloaded', description: 'Fill in your product data and upload', variant: 'success' })
+                    }
+                  } catch {
+                    addToast({ title: 'Error', description: 'Failed to download template', variant: 'destructive' })
+                  }
+                }}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                .xlsx Template
+              </Button>
+            </div>
+
+            {/* File upload area */}
+            {!importResult && (
+              <div className="space-y-3">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    importFile
+                      ? 'border-teal-500 bg-teal-50'
+                      : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50'
+                  }`}
+                  onClick={() => document.getElementById('drug-import-file-input')?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={(e) => {
+                    e.preventDefault(); e.stopPropagation()
+                    const file = e.dataTransfer.files[0]
+                    if (file) handleImportFileSelect(file)
+                  }}
+                >
+                  <input
+                    id="drug-import-file-input"
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleImportFileSelect(file)
+                    }}
+                  />
+                  {importFile ? (
+                    <div className="space-y-2">
+                      <FileSpreadsheet className="h-10 w-10 text-teal-600 mx-auto" />
+                      <p className="text-sm font-medium text-teal-800">{importFile.name}</p>
+                      {importPreview && (
+                        <p className="text-xs text-muted-foreground">
+                          {importPreview.rows} rows &middot; {importPreview.size}
+                        </p>
+                      )}
+                      <p className="text-xs text-teal-600">Click or drag to replace</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Upload className="h-10 w-10 text-gray-400 mx-auto" />
+                      <p className="text-sm font-medium text-gray-700">
+                        Drop your Excel/CSV file here, or click to browse
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Supports .xlsx, .xls, .csv &middot; Max 5 MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Column guide */}
+                <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 rounded-lg">
+                  <p className="font-medium text-foreground">Required columns (marked with * in template):</p>
+                  <p><span className="text-red-500 font-bold">*</span> <strong>Name</strong> — Product name</p>
+                  <p><span className="text-red-500 font-bold">*</span> <strong>Selling Price</strong> — Retail price</p>
+                  <p className="mt-1 font-medium text-foreground">Optional:</p>
+                  <p>NDC, Category, Dosage Form, Strength, Cost Price, Quantity, Manufacturer, Vendor, Batch Number, Expiry Date, and more</p>
+                </div>
+
+                {/* Import button */}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => { setImportDialog(false); setImportFile(null); setImportPreview(null) }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleImport}
+                    disabled={!importFile || importing}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    {importing ? (
+                      <><span className="animate-spin mr-2">⟳</span> Importing...</>
+                    ) : (
+                      <><Upload className="h-4 w-4 mr-2" /> Import {importPreview ? `${importPreview.rows} Products` : 'Products'}</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Import results */}
+            {importResult && (
+              <div className="space-y-3">
+                {importResult.success ? (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      <p className="font-medium text-emerald-800">Import Complete!</p>
+                    </div>
+                    <p className="text-sm text-emerald-700">{importResult.message}</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 bg-white rounded">
+                        <p className="text-lg font-bold text-emerald-700">{importResult.created}</p>
+                        <p className="text-xs text-muted-foreground">Created</p>
+                      </div>
+                      <div className="p-2 bg-white rounded">
+                        <p className="text-lg font-bold text-amber-600">{importResult.failed}</p>
+                        <p className="text-xs text-muted-foreground">Failed</p>
+                      </div>
+                      <div className="p-2 bg-white rounded">
+                        <p className="text-lg font-bold text-gray-600">{importResult.skipped}</p>
+                        <p className="text-xs text-muted-foreground">Skipped</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <p className="font-medium text-red-800">Import Failed</p>
+                    </div>
+                    <p className="text-sm text-red-700">{importResult.error || importResult.message}</p>
+                  </div>
+                )}
+
+                {/* Validation errors */}
+                {importResult.validationErrors && importResult.validationErrors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Validation Issues ({importResult.validationErrors.length})</p>
+                    <div className="max-h-48 overflow-y-auto border rounded-lg">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-100 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Row</th>
+                            <th className="px-3 py-2 text-left font-medium">Product</th>
+                            <th className="px-3 py-2 text-left font-medium">Error</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importResult.validationErrors.map((err, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="px-3 py-2">{err.row}</td>
+                              <td className="px-3 py-2 font-medium">{err.name || '—'}</td>
+                              <td className="px-3 py-2 text-red-600">{err.errors.join('; ')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Close buttons */}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => { setImportResult(null); setImportFile(null); setImportPreview(null) }}>
+                    Import Another File
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setImportDialog(false); setImportResult(null); setImportFile(null); setImportPreview(null)
+                      fetchData()
+                    }}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
