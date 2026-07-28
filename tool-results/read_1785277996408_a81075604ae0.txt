@@ -1,0 +1,461 @@
+   262→    ? ((report.itemsMatched / report.totalItemsChecked) * 100).toFixed(1)
+   263→    : '0'
+   264→
+   265→  const SectionHeader = ({
+   266→    id, icon: Icon, title, badge, badgeColor, count, subtitle,
+   267→  }: {
+   268→    id: string; icon: React.ElementType; title: string; badge?: string; badgeColor?: string
+   269→    count?: number; subtitle?: string
+   270→  }) => (
+   271→    <button
+   272→      className="w-full flex items-center justify-between p-4 hover:bg-gray-50/50 rounded-lg transition-colors cursor-pointer"
+   273→      onClick={() => toggleSection(id)}
+   274→    >
+   275→      <div className="flex items-center gap-3">
+   276→        <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+   277→          <Icon className="h-4.5 w-4.5 text-emerald-600" />
+   278→        </div>
+   279→        <div className="text-left">
+   280→          <div className="flex items-center gap-2">
+   281→            <h3 className="text-sm font-semibold">{title}</h3>
+   282→            {badge !== undefined && (
+   283→              <Badge className={`text-[10px] px-1.5 py-0 ${badgeColor || 'bg-gray-100 text-gray-700'}`}>{badge}</Badge>
+   284→            )}
+   285→          </div>
+   286→          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+   287→        </div>
+   288→      </div>
+   289→      <div className="flex items-center gap-3">
+   290→        {count !== undefined && <span className="text-xs font-medium text-muted-foreground">{count} items</span>}
+   291→        {expandedSections[id] ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+   292→      </div>
+   293→    </button>
+   294→  )
+   295→
+   296→  return (
+   297→    <div className="space-y-4 print:space-y-2">
+   298→      {/* ── Report Header ── */}
+   299→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   300→        <div className="flex items-center gap-3">
+   301→          <Button variant="ghost" size="sm" onClick={() => useAppStore.getState().setCurrentView('stock-take')} className="print:hidden">
+   302→            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+   303→          </Button>
+   304→          <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+   305→            <FileText className="h-5 w-5 text-emerald-600" />
+   306→          </div>
+   307→          <div>
+   308→            <h1 className="text-lg font-bold">Stock Take Report</h1>
+   309→            <p className="text-xs text-muted-foreground">{report.stockTakeRef} · Generated {report.completedAt ? new Date(report.completedAt).toLocaleString() : new Date(report.generatedAt).toLocaleString()}</p>
+   310→          </div>
+   311→        </div>
+   312→        <div className="flex gap-2 print:hidden">
+   313→          <Button variant="outline" size="sm" onClick={handlePrint}>
+   314→            <Printer className="h-3.5 w-3.5 mr-1" /> Print
+   315→          </Button>
+   316→          <Button variant="outline" size="sm" onClick={handleExportCSV}>
+   317→            <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+   318→          </Button>
+   319→        </div>
+   320→      </div>
+   321→
+   322→      {/* ── Meta Info Bar ── */}
+   323→      <Card className="print:border-none print:shadow-none">
+   324→        <CardContent className="p-4">
+   325→          <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+   326→            <span><strong className="text-foreground">Reference:</strong> {report.stockTakeRef}</span>
+   327→            {report.countedBy && <span><strong className="text-foreground">Counted By:</strong> {report.countedBy}</span>}
+   328→            <span><strong className="text-foreground">Date:</strong> {report.completedAt ? new Date(report.completedAt).toLocaleDateString() : '—'}</span>
+   329→            <span><strong className="text-foreground">Items Checked:</strong> {report.totalItemsChecked}</span>
+   330→            {report.notes && <span><strong className="text-foreground">Notes:</strong> {report.notes}</span>}
+   331→          </div>
+   332→        </CardContent>
+   333→      </Card>
+   334→
+   335→      {/* ── Key Metrics Cards ── */}
+   336→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 print:grid-cols-3">
+   337→        <Card>
+   338→          <CardContent className="p-3 text-center">
+   339→            <p className="text-2xl font-bold">{report.totalItemsChecked}</p>
+   340→            <p className="text-[11px] text-muted-foreground">Items Checked</p>
+   341→          </CardContent>
+   342→        </Card>
+   343→        <Card>
+   344→          <CardContent className="p-3 text-center">
+   345→            <p className="text-2xl font-bold text-emerald-600">{accuracyRate}%</p>
+   346→            <p className="text-[11px] text-muted-foreground">Accuracy Rate</p>
+   347→          </CardContent>
+   348→        </Card>
+   349→        <Card>
+   350→          <CardContent className="p-3 text-center">
+   351→            <p className="text-lg font-bold text-red-600">{report.expiredGoods.count}</p>
+   352→            <p className="text-[11px] text-muted-foreground">Expired Goods</p>
+   353→            <p className="text-[10px] text-red-500 font-medium">{formatCurrency(report.expiredGoods.totalCost)}</p>
+   354→          </CardContent>
+   355→        </Card>
+   356→        <Card>
+   357→          <CardContent className="p-3 text-center">
+   358→            <p className="text-lg font-bold text-orange-600">{report.nearExpiryGoods.count}</p>
+   359→            <p className="text-[11px] text-muted-foreground">Near Expiry</p>
+   360→            <p className="text-[10px] text-orange-500 font-medium">{formatCurrency(report.nearExpiryGoods.totalCost)}</p>
+   361→          </CardContent>
+   362→        </Card>
+   363→        <Card>
+   364→          <CardContent className="p-3 text-center">
+   365→            <p className="text-lg font-bold text-orange-600">{report.stockVariance.shortageCount}</p>
+   366→            <p className="text-[11px] text-muted-foreground">Shortages</p>
+   367→            <p className="text-[10px] text-orange-500 font-medium">{formatCurrency(report.stockVariance.shortageTotalCost)}</p>
+   368→          </CardContent>
+   369→        </Card>
+   370→        <Card>
+   371→          <CardContent className="p-3 text-center">
+   372→            <p className="text-lg font-bold text-blue-600">{report.reorderAlerts.count}</p>
+   373→            <p className="text-[11px] text-muted-foreground">Reorder Alerts</p>
+   374→            <p className="text-[10px] text-blue-500 font-medium">{formatCurrency(report.reorderAlerts.totalReorderCost)}</p>
+   375→          </CardContent>
+   376→        </Card>
+   377→      </div>
+   378→
+   379→      {/* ── Inventory Valuation Summary ── */}
+   380→      <Card>
+   381→        <SectionHeader
+   382→          id="valuation"
+   383→          icon={DollarSign}
+   384→          title="Inventory Valuation Summary"
+   385→          subtitle={`Total cost value: ${formatCurrency(report.inventoryValuation.totalCostValue)} · Retail value: ${formatCurrency(report.inventoryValuation.totalRetailValue)}`}
+   386→        />
+   387→        {expandedSections.valuation && (
+   388→          <CardContent className="pt-0 px-4 pb-4">
+   389→            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   390→              <div className="rounded-lg border p-3 text-center">
+   391→                <p className="text-xs text-muted-foreground">Total Cost Value</p>
+   392→                <p className="text-lg font-bold">{formatCurrency(report.inventoryValuation.totalCostValue)}</p>
+   393→              </div>
+   394→              <div className="rounded-lg border p-3 text-center">
+   395→                <p className="text-xs text-muted-foreground">Total Retail Value</p>
+   396→                <p className="text-lg font-bold">{formatCurrency(report.inventoryValuation.totalRetailValue)}</p>
+   397→              </div>
+   398→              <div className="rounded-lg border p-3 text-center">
+   399→                <p className="text-xs text-muted-foreground">Potential Profit</p>
+   400→                <p className="text-lg font-bold text-emerald-600">{formatCurrency(report.inventoryValuation.potentialProfit)}</p>
+   401→              </div>
+   402→              <div className="rounded-lg border p-3 text-center">
+   403→                <p className="text-xs text-muted-foreground">Profit Margin</p>
+   404→                <p className="text-lg font-bold text-emerald-600">{report.inventoryValuation.profitMargin.toFixed(1)}%</p>
+   405→              </div>
+   406→            </div>
+   407→          </CardContent>
+   408→        )}
+   409→      </Card>
+   410→
+   411→      {/* ── Expired Goods ── */}
+   412→      <Card>
+   413→        <SectionHeader
+   414→          id="expired"
+   415→          icon={PackageX}
+   416→          title="Expired Goods"
+   417→          badge={report.expiredGoods.count.toString()}
+   418→          badgeColor="bg-red-100 text-red-700"
+   419→          count={report.expiredGoods.count}
+   420→          subtitle={`Total cost at risk: ${formatCurrency(report.expiredGoods.totalCost)} · Lost revenue: ${formatCurrency(report.expiredGoods.totalPotentialRevenue)}`}
+   421→        />
+   422→        {expandedSections.expired && (
+   423→          <CardContent className="pt-0 px-0">
+   424→            {report.expiredGoods.items.length > 0 ? (
+   425→              <div className="overflow-x-auto">
+   426→                <Table>
+   427→                  <TableHeader>
+   428→                    <TableRow className="bg-red-50/50">
+   429→                      <TableHead className="text-xs">#</TableHead>
+   430→                      <TableHead className="text-xs">Product</TableHead>
+   431→                      <TableHead className="text-xs hidden xl:table-cell">NDC</TableHead>
+   432→                      <TableHead className="text-xs hidden lg:table-cell">Category</TableHead>
+   433→                      <TableHead className="text-xs hidden xl:table-cell">Strength/Form</TableHead>
+   434→                      <TableHead className="text-xs hidden xl:table-cell">Manufacturer</TableHead>
+   435→                      <TableHead className="text-xs hidden xl:table-cell">Vendor</TableHead>
+   436→                      <TableHead className="text-xs text-right">Qty</TableHead>
+   437→                      <TableHead className="text-xs text-right hidden md:table-cell">Cost Price</TableHead>
+   438→                      <TableHead className="text-xs text-right hidden md:table-cell">Sell Price</TableHead>
+   439→                      <TableHead className="text-xs text-right">Total Cost</TableHead>
+   440→                      <TableHead className="text-xs text-right hidden lg:table-cell">Lost Revenue</TableHead>
+   441→                      <TableHead className="text-xs hidden md:table-cell">Expiry Date</TableHead>
+   442→                      <TableHead className="text-xs text-right hidden lg:table-cell">Days Expired</TableHead>
+   443→                    </TableRow>
+   444→                  </TableHeader>
+   445→                  <TableBody>
+   446→                    {report.expiredGoods.items.map((item, i) => (
+   447→                      <TableRow key={item.productId} className="bg-red-50/20 hover:bg-red-50/40">
+   448→                        <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+   449→                        <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   450→                        <TableCell className="text-xs font-mono text-muted-foreground hidden xl:table-cell">{item.ndc || '—'}</TableCell>
+   451→                        <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{item.category.replace(/_/g, ' ')}</TableCell>
+   452→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">
+   453→                          {[item.strength, item.dosageForm].filter(Boolean).join(' / ') || '—'}
+   454→                        </TableCell>
+   455→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.manufacturer || '—'}</TableCell>
+   456→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.vendor || '—'}</TableCell>
+   457→                        <TableCell className="text-right text-sm">{item.countedQty}</TableCell>
+   458→                        <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.costPrice)}</TableCell>
+   459→                        <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.sellingPrice)}</TableCell>
+   460→                        <TableCell className="text-right text-sm font-semibold text-red-600">{formatCurrency(item.totalCost)}</TableCell>
+   461→                        <TableCell className="text-right text-xs text-red-500 hidden lg:table-cell">{formatCurrency(item.potentialRevenue)}</TableCell>
+   462→                        <TableCell className="text-xs text-red-600 font-medium hidden md:table-cell">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</TableCell>
+   463→                        <TableCell className="text-right text-xs text-red-600 font-bold hidden lg:table-cell">{item.daysSinceExpiry}</TableCell>
+   464→                      </TableRow>
+   465→                    ))}
+   466→                  </TableBody>
+   467→                  <TableFooter>
+   468→                    <TableRow className="bg-red-100/50 font-bold">
+   469→                      <TableCell colSpan={10} className="text-xs text-right">Total</TableCell>
+   470→                      <TableCell className="text-right text-sm text-red-700">{formatCurrency(report.expiredGoods.totalCost)}</TableCell>
+   471→                      <TableCell className="text-right text-xs text-red-700 hidden lg:table-cell">{formatCurrency(report.expiredGoods.totalPotentialRevenue)}</TableCell>
+   472→                      <TableCell colSpan={2} className="hidden lg:table-cell" />
+   473→                    </TableRow>
+   474→                  </TableFooter>
+   475→                </Table>
+   476→              </div>
+   477→            ) : (
+   478→              <div className="py-8 text-center border-t">
+   479→                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
+   480→                <p className="text-sm text-muted-foreground">No expired goods found — all products are within their expiry period</p>
+   481→              </div>
+   482→            )}
+   483→          </CardContent>
+   484→        )}
+   485→      </Card>
+   486→
+   487→      {/* ── Near Expiry Goods (within 90 days) ── */}
+   488→      <Card>
+   489→        <SectionHeader
+   490→          id="nearExpiry"
+   491→          icon={Clock}
+   492→          title="Near Expiry Goods (Within 90 Days)"
+   493→          badge={report.nearExpiryGoods.count.toString()}
+   494→          badgeColor="bg-orange-100 text-orange-700"
+   495→          count={report.nearExpiryGoods.count}
+   496→          subtitle={`Total cost: ${formatCurrency(report.nearExpiryGoods.totalCost)} · Potential revenue: ${formatCurrency(report.nearExpiryGoods.totalPotentialRevenue)}`}
+   497→        />
+   498→        {expandedSections.nearExpiry && (
+   499→          <CardContent className="pt-0 px-0">
+   500→            {report.nearExpiryGoods.items.length > 0 ? (
+   501→              <div className="overflow-x-auto">
+   502→                <Table>
+   503→                  <TableHeader>
+   504→                    <TableRow className="bg-orange-50/50">
+   505→                      <TableHead className="text-xs">#</TableHead>
+   506→                      <TableHead className="text-xs">Product</TableHead>
+   507→                      <TableHead className="text-xs hidden xl:table-cell">NDC</TableHead>
+   508→                      <TableHead className="text-xs hidden lg:table-cell">Category</TableHead>
+   509→                      <TableHead className="text-xs hidden xl:table-cell">Strength/Form</TableHead>
+   510→                      <TableHead className="text-xs hidden xl:table-cell">Manufacturer</TableHead>
+   511→                      <TableHead className="text-xs hidden xl:table-cell">Vendor</TableHead>
+   512→                      <TableHead className="text-xs text-right">Qty</TableHead>
+   513→                      <TableHead className="text-xs text-right hidden md:table-cell">Cost Price</TableHead>
+   514→                      <TableHead className="text-xs text-right hidden md:table-cell">Sell Price</TableHead>
+   515→                      <TableHead className="text-xs text-right">Total Cost</TableHead>
+   516→                      <TableHead className="text-xs hidden md:table-cell">Expiry Date</TableHead>
+   517→                      <TableHead className="text-xs text-right hidden lg:table-cell">Days Left</TableHead>
+   518→                    </TableRow>
+   519→                  </TableHeader>
+   520→                  <TableBody>
+   521→                    {report.nearExpiryGoods.items.map((item, i) => (
+   522→                      <TableRow key={item.productId} className="hover:bg-orange-50/30">
+   523→                        <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+   524→                        <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   525→                        <TableCell className="text-xs font-mono text-muted-foreground hidden xl:table-cell">{item.ndc || '—'}</TableCell>
+   526→                        <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{item.category.replace(/_/g, ' ')}</TableCell>
+   527→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">
+   528→                          {[item.strength, item.dosageForm].filter(Boolean).join(' / ') || '—'}
+   529→                        </TableCell>
+   530→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.manufacturer || '—'}</TableCell>
+   531→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.vendor || '—'}</TableCell>
+   532→                        <TableCell className="text-right text-sm">{item.countedQty}</TableCell>
+   533→                        <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.costPrice)}</TableCell>
+   534→                        <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.sellingPrice)}</TableCell>
+   535→                        <TableCell className="text-right text-sm font-medium">{formatCurrency(item.totalCost)}</TableCell>
+   536→                        <TableCell className="text-xs font-medium hidden md:table-cell">
+   537→                          <span className={item.daysToExpiry <= 30 ? 'text-red-600' : item.daysToExpiry <= 60 ? 'text-orange-600' : 'text-amber-600'}>
+   538→                            {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}
+   539→                          </span>
+   540→                        </TableCell>
+   541→                        <TableCell className="text-right text-xs font-bold hidden lg:table-cell">
+   542→                          <span className={item.daysToExpiry <= 30 ? 'text-red-600' : item.daysToExpiry <= 60 ? 'text-orange-600' : 'text-amber-600'}>
+   543→                            {item.daysToExpiry}
+   544→                          </span>
+   545→                        </TableCell>
+   546→                      </TableRow>
+   547→                    ))}
+   548→                  </TableBody>
+   549→                  <TableFooter>
+   550→                    <TableRow className="bg-orange-100/50 font-bold">
+   551→                      <TableCell colSpan={10} className="text-xs text-right">Total</TableCell>
+   552→                      <TableCell className="text-right text-sm text-orange-700">{formatCurrency(report.nearExpiryGoods.totalCost)}</TableCell>
+   553→                      <TableCell colSpan={2} className="hidden lg:table-cell" />
+   554→                    </TableRow>
+   555→                  </TableFooter>
+   556→                </Table>
+   557→              </div>
+   558→            ) : (
+   559→              <div className="py-8 text-center border-t">
+   560→                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
+   561→                <p className="text-sm text-muted-foreground">No products expiring within 90 days</p>
+   562→              </div>
+   563→            )}
+   564→          </CardContent>
+   565→        )}
+   566→      </Card>
+   567→
+   568→      {/* ── Stock Variance ── */}
+   569→      <Card>
+   570→        <SectionHeader
+   571→          id="variance"
+   572→          icon={AlertTriangle}
+   573→          title="Stock Variance (Shortage & Surplus)"
+   574→          badge={report.stockVariance.totalVarianceItems.toString()}
+   575→          badgeColor="bg-amber-100 text-amber-700"
+   576→          count={report.stockVariance.totalVarianceItems}
+   577→          subtitle={`Shortage cost: ${formatCurrency(report.stockVariance.shortageTotalCost)} · Surplus value: ${formatCurrency(report.stockVariance.surplusTotalCost)} · Net: ${formatCurrency(report.stockVariance.netVarianceCost)}`}
+   578→        />
+   579→        {expandedSections.variance && (
+   580→          <CardContent className="pt-0 px-0">
+   581→            {report.stockVariance.items.length > 0 ? (
+   582→              <div className="overflow-x-auto">
+   583→                <Table>
+   584→                  <TableHeader>
+   585→                    <TableRow className="bg-amber-50/50">
+   586→                      <TableHead className="text-xs">#</TableHead>
+   587→                      <TableHead className="text-xs">Product</TableHead>
+   588→                      <TableHead className="text-xs hidden xl:table-cell">NDC</TableHead>
+   589→                      <TableHead className="text-xs hidden lg:table-cell">Category</TableHead>
+   590→                      <TableHead className="text-xs hidden xl:table-cell">Manufacturer</TableHead>
+   591→                      <TableHead className="text-xs hidden xl:table-cell">Vendor</TableHead>
+   592→                      <TableHead className="text-xs text-right">System Qty</TableHead>
+   593→                      <TableHead className="text-xs text-right">Counted</TableHead>
+   594→                      <TableHead className="text-xs text-right">Variance</TableHead>
+   595→                      <TableHead className="text-xs text-right hidden md:table-cell">Variance %</TableHead>
+   596→                      <TableHead className="text-xs text-right hidden md:table-cell">Unit Cost</TableHead>
+   597→                      <TableHead className="text-xs text-right">Total Cost Impact</TableHead>
+   598→                    </TableRow>
+   599→                  </TableHeader>
+   600→                  <TableBody>
+   601→                    {report.stockVariance.items.map((item, i) => (
+   602→                      <TableRow key={item.productId} className={item.varianceType === 'SHORTAGE' ? 'bg-orange-50/20 hover:bg-orange-50/40' : 'bg-emerald-50/20 hover:bg-emerald-50/40'}>
+   603→                        <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+   604→                        <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   605→                        <TableCell className="text-xs font-mono text-muted-foreground hidden xl:table-cell">{item.ndc || '—'}</TableCell>
+   606→                        <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{item.category.replace(/_/g, ' ')}</TableCell>
+   607→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.manufacturer || '—'}</TableCell>
+   608→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.vendor || '—'}</TableCell>
+   609→                        <TableCell className="text-right text-sm text-muted-foreground">{item.systemQty}</TableCell>
+   610→                        <TableCell className="text-right text-sm font-medium">{item.countedQty}</TableCell>
+   611→                        <TableCell className="text-right text-sm font-bold">
+   612→                          <span className={`inline-flex items-center gap-1 ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
+   613→                            {item.varianceType === 'SHORTAGE' ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+   614→                            {item.variance > 0 ? '+' : ''}{item.variance}
+   615→                          </span>
+   616→                        </TableCell>
+   617→                        <TableCell className="text-right text-xs hidden md:table-cell">
+   618→                          <span className={`font-medium ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
+   619→                            {item.variance > 0 ? '+' : ''}{item.variancePercent}%
+   620→                          </span>
+   621→                        </TableCell>
+   622→                        <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.unitCost)}</TableCell>
+   623→                        <TableCell className="text-right text-sm font-semibold">{formatCurrency(item.totalCost)}</TableCell>
+   624→                      </TableRow>
+   625→                    ))}
+   626→                  </TableBody>
+   627→                  <TableFooter>
+   628→                    <TableRow className="bg-amber-100/50 font-bold">
+   629→                      <TableCell colSpan={7} className="text-xs text-right">Net Variance Cost</TableCell>
+   630→                      <TableCell colSpan={4} className="text-right text-sm text-amber-700 hidden md:table-cell">{formatCurrency(report.stockVariance.netVarianceCost)}</TableCell>
+   631→                      <TableCell className="text-right text-sm text-amber-700 md:hidden" colSpan={4}>{formatCurrency(report.stockVariance.netVarianceCost)}</TableCell>
+   632→                    </TableRow>
+   633→                  </TableFooter>
+   634→                </Table>
+   635→              </div>
+   636→            ) : (
+   637→              <div className="py-8 text-center border-t">
+   638→                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
+   639→                <p className="text-sm text-muted-foreground">No variances found — all counted quantities match system quantities exactly</p>
+   640→              </div>
+   641→            )}
+   642→          </CardContent>
+   643→        )}
+   644→      </Card>
+   645→
+   646→      {/* ── Reorder Alerts ── */}
+   647→      <Card>
+   648→        <SectionHeader
+   649→          id="reorder"
+   650→          icon={RotateCcw}
+   651→          title="Reorder Alerts (Below Reorder Point)"
+   652→          badge={report.reorderAlerts.count.toString()}
+   653→          badgeColor="bg-blue-100 text-blue-700"
+   654→          count={report.reorderAlerts.count}
+   655→          subtitle={`Total investment needed: ${formatCurrency(report.reorderAlerts.totalReorderCost)}`}
+   656→        />
+   657→        {expandedSections.reorder && (
+   658→          <CardContent className="pt-0 px-0">
+   659→            {report.reorderAlerts.items.length > 0 ? (
+   660→              <div className="overflow-x-auto">
+   661→                <Table>
+   662→                  <TableHeader>
+   663→                    <TableRow className="bg-blue-50/50">
+   664→                      <TableHead className="text-xs">#</TableHead>
+   665→                      <TableHead className="text-xs">Product</TableHead>
+   666→                      <TableHead className="text-xs hidden xl:table-cell">NDC</TableHead>
+   667→                      <TableHead className="text-xs hidden lg:table-cell">Category</TableHead>
+   668→                      <TableHead className="text-xs hidden xl:table-cell">Manufacturer</TableHead>
+   669→                      <TableHead className="text-xs hidden xl:table-cell">Vendor</TableHead>
+   670→                      <TableHead className="text-xs text-right">Current Qty</TableHead>
+   671→                      <TableHead className="text-xs text-right">Reorder Point</TableHead>
+   672→                      <TableHead className="text-xs text-right hidden md:table-cell">Reorder Qty</TableHead>
+   673→                      <TableHead className="text-xs text-right">Deficit</TableHead>
+   674→                      <TableHead className="text-xs text-right hidden md:table-cell">Unit Cost</TableHead>
+   675→                      <TableHead className="text-xs text-right">Reorder Cost</TableHead>
+   676→                    </TableRow>
+   677→                  </TableHeader>
+   678→                  <TableBody>
+   679→                    {report.reorderAlerts.items.map((item, i) => (
+   680→                      <TableRow key={item.productId} className="hover:bg-blue-50/30">
+   681→                        <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+   682→                        <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+   683→                        <TableCell className="text-xs font-mono text-muted-foreground hidden xl:table-cell">{item.ndc || '—'}</TableCell>
+   684→                        <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{item.category.replace(/_/g, ' ')}</TableCell>
+   685→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.manufacturer || '—'}</TableCell>
+   686→                        <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{item.vendor || '—'}</TableCell>
+   687→                        <TableCell className="text-right text-sm font-bold text-red-600">{item.countedQty}</TableCell>
+   688→                        <TableCell className="text-right text-sm text-muted-foreground">{item.reorderPoint}</TableCell>
+   689→                        <TableCell className="text-right text-xs hidden md:table-cell">{item.reorderQty}</TableCell>
+   690→                        <TableCell className="text-right text-sm font-bold text-blue-600">{item.deficit}</TableCell>
+   691→                        <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.unitCost)}</TableCell>
+   692→                        <TableCell className="text-right text-sm font-semibold text-blue-600">{formatCurrency(item.reorderCost)}</TableCell>
+   693→                      </TableRow>
+   694→                    ))}
+   695→                  </TableBody>
+   696→                  <TableFooter>
+   697→                    <TableRow className="bg-blue-100/50 font-bold">
+   698→                      <TableCell colSpan={10} className="text-xs text-right hidden md:table-cell">Total Reorder Investment</TableCell>
+   699→                      <TableCell className="text-right text-sm text-blue-700 hidden md:table-cell">{formatCurrency(report.reorderAlerts.totalReorderCost)}</TableCell>
+   700→                      <TableCell colSpan={10} className="text-right text-sm text-blue-700 md:hidden">{formatCurrency(report.reorderAlerts.totalReorderCost)}</TableCell>
+   701→                    </TableRow>
+   702→                  </TableFooter>
+   703→                </Table>
+   704→              </div>
+   705→            ) : (
+   706→              <div className="py-8 text-center border-t">
+   707→                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
+   708→                <p className="text-sm text-muted-foreground">All products are above their reorder points — no restocking needed</p>
+   709→              </div>
+   710→            )}
+   711→          </CardContent>
+   712→        )}
+   713→      </Card>
+   714→
+   715→      {/* ── Report Footer ── */}
+   716→      <div className="text-center py-4 text-xs text-muted-foreground print:py-2">
+   717→        <p>Report generated by SelRx Pharmacy POS · {new Date(report.generatedAt).toLocaleString()}</p>
+   718→      </div>
+   719→    </div>
+   720→  )
+   721→}
+   722→
