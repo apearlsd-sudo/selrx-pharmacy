@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
-  Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X
+  Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,6 +55,8 @@ export function InventoryView() {
   const [adjustDialog, setAdjustDialog] = useState(false)
   const [addProductDialog, setAddProductDialog] = useState(false)
   const [categories, setCategories] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
+  const [manufacturers, setManufacturers] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
+  const [vendors, setVendors] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [adjustType, setAdjustType] = useState('ADD')
   const [adjustAmount, setAdjustAmount] = useState('')
@@ -73,9 +75,19 @@ export function InventoryView() {
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [productForm, setProductForm] = useState({
-    name: '', sku: '', category: 'OTC', price: '', stockQuantity: '',
+    name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '',
     minStockLevel: '10', expiryDate: '', barcode: '',
+    manufacturerId: '', vendorId: '', dosageForm: '',
   })
+  // Inline "add new" states
+  const [addMfgName, setAddMfgName] = useState('')
+  const [addMfgSaving, setAddMfgSaving] = useState(false)
+  const [addVendorName, setAddVendorName] = useState('')
+  const [addVendorSaving, setAddVendorSaving] = useState(false)
+  const [addCatName, setAddCatName] = useState('')
+  const [addCatSaving, setAddCatSaving] = useState(false)
+  const [addDfName, setAddDfName] = useState('')
+  const [dosageForms, setDosageForms] = useState<string[]>(['TABLET', 'CAPSULE', 'SYRUP', 'SUSPENSION', 'CREAM', 'OINTMENT', 'GEL', 'DROPS', 'INJECTION', 'INHALER', 'SPRAY', 'PATCH', 'POWDER', 'LOZENGE', 'SUPPOSITORY'])
   const [savingProduct, setSavingProduct] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
   const currentUser = useAppStore((s) => s.user)
@@ -105,11 +117,29 @@ export function InventoryView() {
       const res = await fetch('/api/categories')
       if (res.ok) setCategories(await res.json())
     } catch {
-      // silent — categories are optional enhancement
+      // silent
     }
   }, [])
 
-  useEffect(() => { fetchInventory(); fetchCategories() }, [fetchInventory, fetchCategories])
+  const fetchManufacturers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/manufacturers')
+      if (res.ok) setManufacturers(await res.json())
+    } catch {
+      // silent
+    }
+  }, [])
+
+  const fetchVendors = useCallback(async () => {
+    try {
+      const res = await fetch('/api/vendors')
+      if (res.ok) setVendors(await res.json())
+    } catch {
+      // silent
+    }
+  }, [])
+
+  useEffect(() => { fetchInventory(); fetchCategories(); fetchManufacturers(); fetchVendors() }, [fetchInventory, fetchCategories, fetchManufacturers, fetchVendors])
 
   const filteredItems = items.filter((item) => {
     const q = Number(item.quantity) || 0
@@ -184,10 +214,13 @@ export function InventoryView() {
           ndc: productForm.sku || null,
           category: productForm.category,
           sellingPrice: parseFloat(productForm.price),
-          costPrice: parseFloat(productForm.price) * 0.7,
+          costPrice: productForm.costPrice ? parseFloat(productForm.costPrice) : parseFloat(productForm.price) * 0.7,
           reorderPoint: parseInt(productForm.minStockLevel) || 10,
           expiryDate: productForm.expiryDate || null,
           batchNumber: productForm.barcode || null,
+          manufacturerId: productForm.manufacturerId || null,
+          vendorId: productForm.vendorId || null,
+          dosageForm: productForm.dosageForm || null,
         }),
       })
       if (!res.ok) {
@@ -212,13 +245,108 @@ export function InventoryView() {
 
       addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
       setAddProductDialog(false)
-      setProductForm({ name: '', sku: '', category: 'OTC', price: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '' })
+      setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', manufacturerId: '', vendorId: '', dosageForm: '' })
       fetchInventory()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
     } finally {
       setSavingProduct(false)
     }
+  }
+
+  // ── Inline "add new" handlers for dropdowns ──
+  const handleAddManufacturer = async () => {
+    if (!addMfgName.trim()) return
+    setAddMfgSaving(true)
+    try {
+      const res = await fetch('/api/manufacturers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: addMfgName.trim() }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setManufacturers((prev) => [...prev, created])
+        setProductForm((prev) => ({ ...prev, manufacturerId: created.id }))
+        setAddMfgName('')
+        addToast({ title: 'Manufacturer Added', description: created.name, variant: 'success' })
+      } else {
+        const err = await res.json()
+        addToast({ title: 'Error', description: err.error || 'Failed to add manufacturer', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to add manufacturer', variant: 'destructive' })
+    } finally {
+      setAddMfgSaving(false)
+    }
+  }
+
+  const handleAddVendor = async () => {
+    if (!addVendorName.trim()) return
+    setAddVendorSaving(true)
+    try {
+      const res = await fetch('/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: addVendorName.trim() }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setVendors((prev) => [...prev, created])
+        setProductForm((prev) => ({ ...prev, vendorId: created.id }))
+        setAddVendorName('')
+        addToast({ title: 'Vendor Added', description: created.name, variant: 'success' })
+      } else {
+        const err = await res.json()
+        addToast({ title: 'Error', description: err.error || 'Failed to add vendor', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to add vendor', variant: 'destructive' })
+    } finally {
+      setAddVendorSaving(false)
+    }
+  }
+
+  const handleAddCategory = async () => {
+    if (!addCatName.trim()) return
+    setAddCatSaving(true)
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: addCatName.trim() }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setCategories((prev) => [...prev, created])
+        setProductForm((prev) => ({ ...prev, category: created.name }))
+        setAddCatName('')
+        addToast({ title: 'Category Added', description: created.name, variant: 'success' })
+      } else {
+        const err = await res.json()
+        addToast({ title: 'Error', description: err.error || 'Failed to add category', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to add category', variant: 'destructive' })
+    } finally {
+      setAddCatSaving(false)
+    }
+  }
+
+  const handleAddDosageForm = () => {
+    if (!addDfName.trim()) return
+    const upper = addDfName.trim().toUpperCase()
+    if (dosageForms.includes(upper)) {
+      setProductForm((prev) => ({ ...prev, dosageForm: upper }))
+      setAddDfName('')
+      setAddDfOpen(false)
+      return
+    }
+    setDosageForms((prev) => [...prev, upper])
+    setProductForm((prev) => ({ ...prev, dosageForm: upper }))
+    setAddDfName('')
+    setAddDfOpen(false)
+    addToast({ title: 'Dosage Form Added', description: upper, variant: 'success' })
   }
 
   // ── Stock Count: API-based product search + set physical quantities & prices ──
@@ -546,12 +674,13 @@ export function InventoryView() {
 
       {/* Add Product Dialog */}
       <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PackagePlus className="h-5 w-5 text-teal-600" />
               Add New Product
             </DialogTitle>
+            <DialogDescription>Fill in the product details. Fields marked * are required.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
             {/* Product Name */}
@@ -566,9 +695,9 @@ export function InventoryView() {
               />
             </div>
 
-            {/* SKU */}
+            {/* SKU / NDC */}
             <div>
-              <Label htmlFor="prod-sku">SKU</Label>
+              <Label htmlFor="prod-sku">SKU / NDC</Label>
               <Input
                 id="prod-sku"
                 placeholder="e.g., SKU-00123"
@@ -578,30 +707,139 @@ export function InventoryView() {
               />
             </div>
 
-            {/* Category */}
+            {/* Category with inline Add */}
             <div>
               <Label htmlFor="prod-category">Category</Label>
-              <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+              <div className="flex gap-1 mt-1">
+                <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OTC">OTC</SelectItem>
+                    <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
+                    <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
+                    <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
+                    <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
+                    <SelectItem value="CONSUMABLES">Consumables</SelectItem>
+                    {categories.filter((c) => !['OTC','PRESCRIPTION','SUPPLEMENT','MEDICAL_DEVICE','PERSONAL_CARE','CONSUMABLES'].includes(c.name)).map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
+                    ))}
+                    <div className="border-t my-1" />
+                    <div className="p-1">
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="New category..."
+                          value={addCatName}
+                          onChange={(e) => setAddCatName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory() } }}
+                          className="h-8 text-xs"
+                        />
+                        <Button size="sm" className="h-8 px-2" onClick={handleAddCategory} disabled={addCatSaving || !addCatName.trim()}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Manufacturer with inline Add */}
+            <div>
+              <Label htmlFor="prod-mfg">Manufacturer</Label>
+              <Select value={productForm.manufacturerId} onValueChange={(v) => setProductForm({ ...productForm, manufacturerId: v })}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue />
+                  <SelectValue placeholder="Select manufacturer..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="OTC">OTC</SelectItem>
-                  <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
-                  <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
-                  <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
-                  <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
-                  <SelectItem value="CONSUMABLES">Consumables</SelectItem>
-                  {categories.filter((c) => !['OTC','PRESCRIPTION','SUPPLEMENT','MEDICAL_DEVICE','PERSONAL_CARE','CONSUMABLES'].includes(c.name)).map((cat) => (
-                    <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
+                  {manufacturers.length === 0 && <div className="px-2 py-3 text-xs text-muted-foreground text-center">No manufacturers yet</div>}
+                  {manufacturers.map((mfg) => (
+                    <SelectItem key={mfg.id} value={mfg.id}>{mfg.name}</SelectItem>
                   ))}
+                  <div className="border-t my-1" />
+                  <div className="p-1">
+                    <div className="flex gap-1">
+                      <Input
+                        placeholder="New manufacturer..."
+                        value={addMfgName}
+                        onChange={(e) => setAddMfgName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddManufacturer() } }}
+                        className="h-8 text-xs"
+                      />
+                      <Button size="sm" className="h-8 px-2" onClick={handleAddManufacturer} disabled={addMfgSaving || !addMfgName.trim()}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Price */}
+            {/* Vendor with inline Add */}
             <div>
-              <Label htmlFor="prod-price">Price ($) <span className="text-red-500">*</span></Label>
+              <Label htmlFor="prod-vendor">Vendor</Label>
+              <Select value={productForm.vendorId} onValueChange={(v) => setProductForm({ ...productForm, vendorId: v })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select vendor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {vendors.length === 0 && <div className="px-2 py-3 text-xs text-muted-foreground text-center">No vendors yet</div>}
+                  {vendors.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                  ))}
+                  <div className="border-t my-1" />
+                  <div className="p-1">
+                    <div className="flex gap-1">
+                      <Input
+                        placeholder="New vendor..."
+                        value={addVendorName}
+                        onChange={(e) => setAddVendorName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddVendor() } }}
+                        className="h-8 text-xs"
+                      />
+                      <Button size="sm" className="h-8 px-2" onClick={handleAddVendor} disabled={addVendorSaving || !addVendorName.trim()}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dosage Form with inline Add */}
+            <div>
+              <Label htmlFor="prod-dosage">Dosage Form</Label>
+              <Select value={productForm.dosageForm} onValueChange={(v) => setProductForm({ ...productForm, dosageForm: v })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select dosage form..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dosageForms.map((df) => (
+                    <SelectItem key={df} value={df}>{df.charAt(0) + df.slice(1).toLowerCase()}</SelectItem>
+                  ))}
+                  <div className="border-t my-1" />
+                  <div className="p-1">
+                    <div className="flex gap-1">
+                      <Input
+                        placeholder="New form..."
+                        value={addDfName}
+                        onChange={(e) => setAddDfName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDosageForm() } }}
+                        className="h-8 text-xs"
+                      />
+                      <Button size="sm" className="h-8 px-2" onClick={handleAddDosageForm} disabled={!addDfName.trim()}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Selling Price */}
+            <div>
+              <Label htmlFor="prod-price">Selling Price ($) <span className="text-red-500">*</span></Label>
               <Input
                 id="prod-price"
                 type="number"
@@ -610,6 +848,21 @@ export function InventoryView() {
                 placeholder="0.00"
                 value={productForm.price}
                 onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Cost Price */}
+            <div>
+              <Label htmlFor="prod-cost">Cost Price ($)</Label>
+              <Input
+                id="prod-cost"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={productForm.costPrice}
+                onChange={(e) => setProductForm({ ...productForm, costPrice: e.target.value })}
                 className="mt-1"
               />
             </div>
