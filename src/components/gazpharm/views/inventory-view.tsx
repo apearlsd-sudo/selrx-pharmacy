@@ -63,7 +63,12 @@ export function InventoryView() {
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [stockCountDialog, setStockCountDialog] = useState(false)
   const [stockSearch, setStockSearch] = useState('')
-  const [stockEntries, setStockEntries] = useState<{ productId: string; name: string; currentQty: number; physicalQty: string; unit: string }[]>([])
+  const [stockSearchResults, setStockSearchResults] = useState<{ id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number }[]>([])
+  const [stockSearching, setStockSearching] = useState(false)
+  const [stockEntries, setStockEntries] = useState<{
+    productId: string; name: string; ndc: string | null; currentQty: number; physicalQty: string;
+    unit: string; costPrice: string; sellingPrice: string
+  }[]>([])
   const [stockSaving, setStockSaving] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -213,29 +218,66 @@ export function InventoryView() {
     }
   }
 
-  // ── Stock Count: search + set physical quantities ──────────────
-  const filteredStockProducts = stockSearch.length > 0
-    ? items.filter(i => i.product.name.toLowerCase().includes(stockSearch.toLowerCase()) || i.product.ndc?.toLowerCase().includes(stockSearch.toLowerCase()))
-    : []
+  // ── Stock Count: API-based product search + set physical quantities & prices ──
+  const searchStockProducts = useCallback(async (query: string) => {
+    if (query.length < 1) { setStockSearchResults([]); return }
+    setStockSearching(true)
+    try {
+      const params = new URLSearchParams({ search: query, limit: '15' })
+      const res = await fetch(`/api/products?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        const productList = data.products || data
+        // Merge current inventory quantities
+        setStockSearchResults(
+          (Array.isArray(productList) ? productList : []).map((p: any) => {
+            const inv = items.find(i => i.productId === p.id)
+            return {
+              id: p.id,
+              name: p.name,
+              ndc: p.ndc || null,
+              unitOfMeasure: p.unitOfMeasure || 'EA',
+              currentQty: inv ? (Number(inv.quantity) || 0) : (p.inventory ? (Number(p.inventory.quantity) || 0) : 0),
+              costPrice: p.costPrice,
+              sellingPrice: p.sellingPrice,
+            }
+          })
+        )
+      }
+    } catch { /* silent */ } finally {
+      setStockSearching(false)
+    }
+  }, [items])
 
-  const addStockEntry = (item: InventoryItem) => {
-    if (stockEntries.find(e => e.productId === item.productId)) return
+  // Debounced search
+  useEffect(() => {
+    if (!stockCountDialog) return
+    const timer = setTimeout(() => searchStockProducts(stockSearch), 300)
+    return () => clearTimeout(timer)
+  }, [stockSearch, stockCountDialog, searchStockProducts])
+
+  const addStockEntry = (product: { id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number; costPrice?: number | null; sellingPrice?: number | null }) => {
+    if (stockEntries.find(e => e.productId === product.id)) return
     setStockEntries(prev => [...prev, {
-      productId: item.productId,
-      name: item.product.name,
-      currentQty: Number(item.quantity) || 0,
-      physicalQty: String(Number(item.quantity) || 0),
-      unit: item.product.unitOfMeasure,
+      productId: product.id,
+      name: product.name,
+      ndc: product.ndc,
+      currentQty: product.currentQty,
+      physicalQty: String(product.currentQty),
+      unit: product.unitOfMeasure,
+      costPrice: product.costPrice ? String(product.costPrice) : '',
+      sellingPrice: product.sellingPrice ? String(product.sellingPrice) : '',
     }])
     setStockSearch('')
+    setStockSearchResults([])
   }
 
   const removeStockEntry = (productId: string) => {
     setStockEntries(prev => prev.filter(e => e.productId !== productId))
   }
 
-  const updateStockEntry = (productId: string, physicalQty: string) => {
-    setStockEntries(prev => prev.map(e => e.productId === productId ? { ...e, physicalQty } : e))
+  const updateStockEntry = (productId: string, field: 'physicalQty' | 'costPrice' | 'sellingPrice', value: string) => {
+    setStockEntries(prev => prev.map(e => e.productId === productId ? { ...e, [field]: value } : e))
   }
 
   const handleStockCountSave = async () => {
@@ -246,23 +288,30 @@ export function InventoryView() {
       for (const entry of stockEntries) {
         const physicalQty = parseInt(entry.physicalQty)
         if (isNaN(physicalQty)) continue
-        if (physicalQty === entry.currentQty) continue // no change needed
-        await fetch('/api/inventory', {
+        const body: Record<string, any> = {
+          productId: entry.productId,
+          adjustmentType: 'SET',
+          setQuantity: physicalQty,
+          adjustment: 0,
+          reason: 'Physical stock count',
+        }
+        // Include price updates if changed
+        const cp = parseFloat(entry.costPrice)
+        if (!isNaN(cp) && cp >= 0) body.costPrice = cp
+        const sp = parseFloat(entry.sellingPrice)
+        if (!isNaN(sp) && sp >= 0) body.sellingPrice = sp
+        const res = await fetch('/api/inventory', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
-          body: JSON.stringify({
-            productId: entry.productId,
-            adjustmentType: 'SET',
-            setQuantity: physicalQty,
-            adjustment: 0,
-            reason: 'Physical stock count',
-          }),
+          body: JSON.stringify(body),
         })
-        updated++
+        if (res.ok) updated++
       }
-      addToast({ title: 'Stock Count Saved', description: `${updated} product${updated !== 1 ? 's' : ''} updated to physical count`, variant: 'success' })
+      addToast({ title: 'Stock Count Saved', description: `${updated} product${updated !== 1 ? 's' : ''} updated with physical count & pricing`, variant: 'success' })
       setStockCountDialog(false)
       setStockEntries([])
+      setStockSearch('')
+      setStockSearchResults([])
       fetchInventory()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to save stock count', variant: 'destructive' })
@@ -656,89 +705,169 @@ export function InventoryView() {
         </DialogContent>
       </Dialog>
 
-      {/* Stock Count Dialog — search products & set physical quantities */}
-      <Dialog open={stockCountDialog} onOpenChange={setStockCountDialog}>
-        <DialogContent className="max-w-2xl max-h-[85vh]">
+      {/* Stock Count Dialog — API search + physical count + price edit */}
+      <Dialog open={stockCountDialog} onOpenChange={(open) => {
+        if (!open) { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }
+        else setStockCountDialog(true)
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-indigo-600" />
-              Stock Count
+              Periodic Stock Taking
             </DialogTitle>
-            <DialogDescription>Search products and enter current physical stock counts. System quantities will be updated to match.</DialogDescription>
+            <DialogDescription>Search products, enter physical stock counts and optionally adjust cost & selling prices. All changes update the system immediately.</DialogDescription>
           </DialogHeader>
 
-          {/* Product Search */}
+          {/* Product Search — queries API with debounce */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${stockSearching ? 'text-indigo-500 animate-pulse' : 'text-muted-foreground'}`} />
             <Input
-              placeholder="Search product by name or NDC..."
+              placeholder="Search product by name or NDC to add..."
               value={stockSearch}
               onChange={(e) => setStockSearch(e.target.value)}
-              className="pl-9"
+              className="pl-9 pr-20"
+              autoFocus
             />
-            {filteredStockProducts.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                {filteredStockProducts.slice(0, 10).map((item) => (
-                  <button
-                    key={item.productId}
-                    className="w-full text-left px-3 py-2 hover:bg-muted flex items-center justify-between text-sm"
-                    onClick={() => addStockEntry(item)}
-                  >
-                    <div>
-                      <p className="font-medium">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        NDC: {item.product.ndc || '—'} · Current: {Number(item.quantity) || 0} {item.product.unitOfMeasure}
-                      </p>
-                    </div>
-                    <span className="text-xs text-indigo-600 font-medium">+ Add</span>
-                  </button>
-                ))}
+            {stockSearch && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                {stockSearching ? 'Searching...' : `${stockSearchResults.length} found`}
+              </span>
+            )}
+            {stockSearchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                {stockSearchResults.map((product) => {
+                  const alreadyAdded = stockEntries.find(e => e.productId === product.id)
+                  return (
+                    <button
+                      key={product.id}
+                      className={`w-full text-left px-3 py-2.5 flex items-center justify-between text-sm border-b last:border-b-0 transition-colors ${alreadyAdded ? 'bg-muted/50 opacity-60 cursor-not-allowed' : 'hover:bg-indigo-50'}`}
+                      disabled={!!alreadyAdded}
+                      onClick={() => !alreadyAdded && addStockEntry(product)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          NDC: {product.ndc || '—'}
+                          {product.ndc && ' · '}
+                          Current Stock: {product.currentQty} {product.unitOfMeasure}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-medium ml-3 shrink-0 ${alreadyAdded ? 'text-muted-foreground' : 'text-indigo-600'}`}>
+                        {alreadyAdded ? '✓ Added' : '+ Add'}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
 
-          {/* Selected Products List */}
-          <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+          {/* Summary badges */}
+          {stockEntries.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="text-xs">
+                {stockEntries.length} product{stockEntries.length !== 1 ? 's' : ''} to count
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                Diff: {stockEntries.reduce((s, e) => s + (parseInt(e.physicalQty || '0') - e.currentQty), 0) >= 0 ? '+' : ''}{stockEntries.reduce((s, e) => s + (parseInt(e.physicalQty || '0') - e.currentQty), 0)}
+              </Badge>
+              <Button size="sm" variant="ghost" className="text-xs text-red-500 hover:text-red-700 ml-auto" onClick={() => { setStockEntries([]) }}>
+                Clear All
+              </Button>
+            </div>
+          )}
+
+          {/* Stock Count Table */}
+          <div className="border rounded-lg flex-1 min-h-0">
             {stockEntries.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">
-                Search and add products above to begin counting stock
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <ClipboardCheck className="h-10 w-10 mb-3 opacity-30" />
+                <p className="text-sm font-medium">No products added yet</p>
+                <p className="text-xs mt-1">Search and add products above to begin counting stock</p>
               </div>
             ) : (
-              stockEntries.map((entry) => {
-                const diff = parseInt(entry.physicalQty || '0') - entry.currentQty
-                return (
-                  <div key={entry.productId} className="flex items-center gap-3 px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{entry.name}</p>
-                      <p className="text-xs text-muted-foreground">System: {entry.currentQty} {entry.unit}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={entry.physicalQty}
-                        onChange={(e) => updateStockEntry(entry.productId, e.target.value)}
-                        className="w-24 text-center"
-                        placeholder="Qty"
-                      />
-                      <span className="text-xs text-muted-foreground">{entry.unit}</span>
-                      {diff !== 0 && (
-                        <Badge variant={diff > 0 ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
-                          {diff > 0 ? '+' : ''}{diff}
-                        </Badge>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => removeStockEntry(entry.productId)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600">
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })
+              <div className="overflow-auto max-h-[40vh]">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/60 sticky top-0">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Product</th>
+                      <th className="text-center px-3 py-2 font-medium w-24">System Qty</th>
+                      <th className="text-center px-3 py-2 font-medium w-28">Physical Count</th>
+                      <th className="text-center px-3 py-2 font-medium w-16">Diff</th>
+                      <th className="text-center px-3 py-2 font-medium w-28">Cost Price</th>
+                      <th className="text-center px-3 py-2 font-medium w-28">Selling Price</th>
+                      <th className="text-center px-3 py-2 font-medium w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {stockEntries.map((entry) => {
+                      const diff = parseInt(entry.physicalQty || '0') - entry.currentQty
+                      return (
+                        <tr key={entry.productId} className="hover:bg-muted/30">
+                          <td className="px-3 py-2">
+                            <p className="font-medium truncate max-w-[200px]">{entry.name}</p>
+                            <p className="text-xs text-muted-foreground">{entry.ndc || '—'}</p>
+                          </td>
+                          <td className="text-center px-3 py-2 font-mono">
+                            {entry.currentQty} <span className="text-xs text-muted-foreground">{entry.unit}</span>
+                          </td>
+                          <td className="text-center px-3 py-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              value={entry.physicalQty}
+                              onChange={(e) => updateStockEntry(entry.productId, 'physicalQty', e.target.value)}
+                              className="w-full text-center h-8 text-sm"
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="text-center px-3 py-2">
+                            {diff !== 0 && (
+                              <Badge variant={diff > 0 ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
+                                {diff > 0 ? '+' : ''}{diff}
+                              </Badge>
+                            )}
+                            {diff === 0 && <span className="text-xs text-muted-foreground">0</span>}
+                          </td>
+                          <td className="text-center px-3 py-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={entry.costPrice}
+                              onChange={(e) => updateStockEntry(entry.productId, 'costPrice', e.target.value)}
+                              className="w-full text-center h-8 text-sm"
+                              placeholder="$0.00"
+                            />
+                          </td>
+                          <td className="text-center px-3 py-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={entry.sellingPrice}
+                              onChange={(e) => updateStockEntry(entry.productId, 'sellingPrice', e.target.value)}
+                              className="w-full text-center h-8 text-sm"
+                              placeholder="$0.00"
+                            />
+                          </td>
+                          <td className="text-center px-3 py-2">
+                            <Button size="sm" variant="ghost" onClick={() => removeStockEntry(entry.productId)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600">
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setStockCountDialog(false); setStockEntries([]); setStockSearch('') }}>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }}>
               Cancel
             </Button>
             <Button
@@ -746,7 +875,14 @@ export function InventoryView() {
               className="bg-indigo-600 hover:bg-indigo-700"
               disabled={stockEntries.length === 0 || stockSaving}
             >
-              {stockSaving ? 'Saving...' : `Update ${stockEntries.length} Product${stockEntries.length !== 1 ? 's' : ''}`}
+              {stockSaving ? (
+                <>
+                  <span className="animate-spin mr-2">⟳</span>
+                  Updating Stocks...
+                </>
+              ) : (
+                `Update ${stockEntries.length} Product${stockEntries.length !== 1 ? 's' : ''} Stock & Prices`
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
