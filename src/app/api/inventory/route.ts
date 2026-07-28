@@ -137,13 +137,13 @@ export async function PUT(request: NextRequest) {
       })
     }
 
-    // Regular stock adjustment (optionally includes costPrice / sellingPrice)
+    // Regular stock adjustment (optionally includes costPrice / sellingPrice / setQuantity)
     const body = await request.json()
-    const { productId, quantity, adjustment, reason, costPrice, sellingPrice } = body
+    const { productId, quantity, adjustment, reason, costPrice, sellingPrice, setQuantity, adjustmentType } = body
 
-    if (!productId || adjustment === undefined || !reason) {
+    if (!productId || !reason) {
       return NextResponse.json(
-        { error: 'productId, adjustment, and reason are required' },
+        { error: 'productId and reason are required' },
         { status: 400 }
       )
     }
@@ -160,7 +160,17 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const newQuantity = existing.quantity + adjustment
+    // Determine new quantity
+    let newQuantity: number
+    if (adjustmentType === 'SET' || setQuantity !== undefined) {
+      // SET mode: physical count replaces system quantity
+      newQuantity = setQuantity !== undefined ? setQuantity : (adjustment || 0)
+    } else if (adjustment !== undefined) {
+      // ADD / REMOVE mode
+      newQuantity = existing.quantity + adjustment
+    } else {
+      newQuantity = existing.quantity
+    }
 
     if (newQuantity < 0) {
       return NextResponse.json(
