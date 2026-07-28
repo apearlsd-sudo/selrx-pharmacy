@@ -79,13 +79,17 @@ export function InventoryView() {
     minStockLevel: '10', expiryDate: '', barcode: '',
     manufacturerId: '', vendorId: '', dosageForm: '',
   })
-  // Inline "add new" states
-  const [addMfgName, setAddMfgName] = useState('')
+  // Full-detail modal states for inline "add new"
+  const [addMfgOpen, setAddMfgOpen] = useState(false)
   const [addMfgSaving, setAddMfgSaving] = useState(false)
-  const [addVendorName, setAddVendorName] = useState('')
+  const [addMfgForm, setAddMfgForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', city: '', country: '', website: '', notes: '' })
+  const [addVendorOpen, setAddVendorOpen] = useState(false)
   const [addVendorSaving, setAddVendorSaving] = useState(false)
-  const [addCatName, setAddCatName] = useState('')
+  const [addVendorForm, setAddVendorForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+  const [addCatOpen, setAddCatOpen] = useState(false)
   const [addCatSaving, setAddCatSaving] = useState(false)
+  const [addCatForm, setAddCatForm] = useState({ name: '', description: '' })
+  const [addDfOpen, setAddDfOpen] = useState(false)
   const [addDfName, setAddDfName] = useState('')
   const [dosageForms, setDosageForms] = useState<string[]>(['TABLET', 'CAPSULE', 'SYRUP', 'SUSPENSION', 'CREAM', 'OINTMENT', 'GEL', 'DROPS', 'INJECTION', 'INHALER', 'SPRAY', 'PATCH', 'POWDER', 'LOZENGE', 'SUPPOSITORY'])
   const [savingProduct, setSavingProduct] = useState(false)
@@ -256,19 +260,30 @@ export function InventoryView() {
 
   // ── Inline "add new" handlers for dropdowns ──
   const handleAddManufacturer = async () => {
-    if (!addMfgName.trim()) return
+    if (!addMfgForm.name.trim()) return
     setAddMfgSaving(true)
     try {
       const res = await fetch('/api/manufacturers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: addMfgName.trim() }),
+        body: JSON.stringify({
+          name: addMfgForm.name.trim(),
+          contactPerson: addMfgForm.contactPerson.trim() || null,
+          email: addMfgForm.email.trim() || null,
+          phone: addMfgForm.phone.trim() || null,
+          address: addMfgForm.address.trim() || null,
+          city: addMfgForm.city.trim() || null,
+          country: addMfgForm.country.trim() || null,
+          website: addMfgForm.website.trim() || null,
+          notes: addMfgForm.notes.trim() || null,
+        }),
       })
       if (res.ok) {
         const created = await res.json()
         setManufacturers((prev) => [...prev, created])
         setProductForm((prev) => ({ ...prev, manufacturerId: created.id }))
-        setAddMfgName('')
+        setAddMfgForm({ name: '', contactPerson: '', email: '', phone: '', address: '', city: '', country: '', website: '', notes: '' })
+        setAddMfgOpen(false)
         addToast({ title: 'Manufacturer Added', description: created.name, variant: 'success' })
       } else {
         const err = await res.json()
@@ -282,19 +297,27 @@ export function InventoryView() {
   }
 
   const handleAddVendor = async () => {
-    if (!addVendorName.trim()) return
+    if (!addVendorForm.name.trim()) return
     setAddVendorSaving(true)
     try {
       const res = await fetch('/api/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: addVendorName.trim() }),
+        body: JSON.stringify({
+          name: addVendorForm.name.trim(),
+          contactPerson: addVendorForm.contactPerson.trim() || null,
+          email: addVendorForm.email.trim() || null,
+          phone: addVendorForm.phone.trim() || null,
+          address: addVendorForm.address.trim() || null,
+          notes: addVendorForm.notes.trim() || null,
+        }),
       })
       if (res.ok) {
         const created = await res.json()
         setVendors((prev) => [...prev, created])
         setProductForm((prev) => ({ ...prev, vendorId: created.id }))
-        setAddVendorName('')
+        setAddVendorForm({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+        setAddVendorOpen(false)
         addToast({ title: 'Vendor Added', description: created.name, variant: 'success' })
       } else {
         const err = await res.json()
@@ -308,19 +331,20 @@ export function InventoryView() {
   }
 
   const handleAddCategory = async () => {
-    if (!addCatName.trim()) return
+    if (!addCatForm.name.trim()) return
     setAddCatSaving(true)
     try {
       const res = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: addCatName.trim() }),
+        body: JSON.stringify({ name: addCatForm.name.trim(), description: addCatForm.description.trim() || null }),
       })
       if (res.ok) {
         const created = await res.json()
         setCategories((prev) => [...prev, created])
         setProductForm((prev) => ({ ...prev, category: created.name }))
-        setAddCatName('')
+        setAddCatForm({ name: '', description: '' })
+        setAddCatOpen(false)
         addToast({ title: 'Category Added', description: created.name, variant: 'success' })
       } else {
         const err = await res.json()
@@ -338,15 +362,13 @@ export function InventoryView() {
     const upper = addDfName.trim().toUpperCase()
     if (dosageForms.includes(upper)) {
       setProductForm((prev) => ({ ...prev, dosageForm: upper }))
-      setAddDfName('')
-      setAddDfOpen(false)
-      return
+    } else {
+      setDosageForms((prev) => [...prev, upper])
+      setProductForm((prev) => ({ ...prev, dosageForm: upper }))
+      addToast({ title: 'Dosage Form Added', description: upper, variant: 'success' })
     }
-    setDosageForms((prev) => [...prev, upper])
-    setProductForm((prev) => ({ ...prev, dosageForm: upper }))
     setAddDfName('')
     setAddDfOpen(false)
-    addToast({ title: 'Dosage Form Added', description: upper, variant: 'success' })
   }
 
   // ── Stock Count: API-based product search + set physical quantities & prices ──
@@ -726,26 +748,19 @@ export function InventoryView() {
                       <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
                     ))}
                     <div className="border-t my-1" />
-                    <div className="p-1">
-                      <div className="flex gap-1">
-                        <Input
-                          placeholder="New category..."
-                          value={addCatName}
-                          onChange={(e) => setAddCatName(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory() } }}
-                          className="h-8 text-xs"
-                        />
-                        <Button size="sm" className="h-8 px-2" onClick={handleAddCategory} disabled={addCatSaving || !addCatName.trim()}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+                      onClick={() => setAddCatOpen(true)}
+                    >
+                      <Plus className="h-3 w-3" /> Add New Category...
+                    </button>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Manufacturer with inline Add */}
+            {/* Manufacturer with Add Modal */}
             <div>
               <Label htmlFor="prod-mfg">Manufacturer</Label>
               <Select value={productForm.manufacturerId} onValueChange={(v) => setProductForm({ ...productForm, manufacturerId: v })}>
@@ -758,25 +773,18 @@ export function InventoryView() {
                     <SelectItem key={mfg.id} value={mfg.id}>{mfg.name}</SelectItem>
                   ))}
                   <div className="border-t my-1" />
-                  <div className="p-1">
-                    <div className="flex gap-1">
-                      <Input
-                        placeholder="New manufacturer..."
-                        value={addMfgName}
-                        onChange={(e) => setAddMfgName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddManufacturer() } }}
-                        className="h-8 text-xs"
-                      />
-                      <Button size="sm" className="h-8 px-2" onClick={handleAddManufacturer} disabled={addMfgSaving || !addMfgName.trim()}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+                    onClick={() => setAddMfgOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" /> Add New Manufacturer...
+                  </button>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Vendor with inline Add */}
+            {/* Vendor with Add Modal */}
             <div>
               <Label htmlFor="prod-vendor">Vendor</Label>
               <Select value={productForm.vendorId} onValueChange={(v) => setProductForm({ ...productForm, vendorId: v })}>
@@ -789,25 +797,18 @@ export function InventoryView() {
                     <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                   ))}
                   <div className="border-t my-1" />
-                  <div className="p-1">
-                    <div className="flex gap-1">
-                      <Input
-                        placeholder="New vendor..."
-                        value={addVendorName}
-                        onChange={(e) => setAddVendorName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddVendor() } }}
-                        className="h-8 text-xs"
-                      />
-                      <Button size="sm" className="h-8 px-2" onClick={handleAddVendor} disabled={addVendorSaving || !addVendorName.trim()}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+                    onClick={() => setAddVendorOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" /> Add New Vendor...
+                  </button>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Dosage Form with inline Add */}
+            {/* Dosage Form with Add Modal */}
             <div>
               <Label htmlFor="prod-dosage">Dosage Form</Label>
               <Select value={productForm.dosageForm} onValueChange={(v) => setProductForm({ ...productForm, dosageForm: v })}>
@@ -819,20 +820,13 @@ export function InventoryView() {
                     <SelectItem key={df} value={df}>{df.charAt(0) + df.slice(1).toLowerCase()}</SelectItem>
                   ))}
                   <div className="border-t my-1" />
-                  <div className="p-1">
-                    <div className="flex gap-1">
-                      <Input
-                        placeholder="New form..."
-                        value={addDfName}
-                        onChange={(e) => setAddDfName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDosageForm() } }}
-                        className="h-8 text-xs"
-                      />
-                      <Button size="sm" className="h-8 px-2" onClick={handleAddDosageForm} disabled={!addDfName.trim()}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs text-teal-600 hover:bg-teal-50 rounded-sm transition-colors"
+                    onClick={() => setAddDfOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" /> Add New Dosage Form...
+                  </button>
                 </SelectContent>
               </Select>
             </div>
@@ -934,6 +928,173 @@ export function InventoryView() {
       </Dialog>
 
 
+
+      {/* ── Add Manufacturer Modal ── */}
+      <Dialog open={addMfgOpen} onOpenChange={setAddMfgOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-teal-600" />
+              Add New Manufacturer
+            </DialogTitle>
+            <DialogDescription>Enter the full details for the new manufacturer.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="col-span-2">
+              <Label>Company Name <span className="text-red-500">*</span></Label>
+              <Input placeholder="e.g., Pfizer Inc." value={addMfgForm.name} onChange={(e) => setAddMfgForm({ ...addMfgForm, name: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Contact Person</Label>
+              <Input placeholder="e.g., John Doe" value={addMfgForm.contactPerson} onChange={(e) => setAddMfgForm({ ...addMfgForm, contactPerson: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input type="email" placeholder="e.g., contact@company.com" value={addMfgForm.email} onChange={(e) => setAddMfgForm({ ...addMfgForm, email: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input placeholder="e.g., +1-555-0123" value={addMfgForm.phone} onChange={(e) => setAddMfgForm({ ...addMfgForm, phone: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Website</Label>
+              <Input placeholder="e.g., https://company.com" value={addMfgForm.website} onChange={(e) => setAddMfgForm({ ...addMfgForm, website: e.target.value })} className="mt-1" />
+            </div>
+            <div className="col-span-2">
+              <Label>Address</Label>
+              <Input placeholder="Street address" value={addMfgForm.address} onChange={(e) => setAddMfgForm({ ...addMfgForm, address: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>City</Label>
+              <Input placeholder="e.g., New York" value={addMfgForm.city} onChange={(e) => setAddMfgForm({ ...addMfgForm, city: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Country</Label>
+              <Input placeholder="e.g., USA" value={addMfgForm.country} onChange={(e) => setAddMfgForm({ ...addMfgForm, country: e.target.value })} className="mt-1" />
+            </div>
+            <div className="col-span-2">
+              <Label>Notes</Label>
+              <Textarea placeholder="Any additional notes..." value={addMfgForm.notes} onChange={(e) => setAddMfgForm({ ...addMfgForm, notes: e.target.value })} className="mt-1" rows={2} />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAddMfgOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddManufacturer} disabled={!addMfgForm.name.trim() || addMfgSaving} className="bg-teal-600 hover:bg-teal-700">
+              {addMfgSaving ? 'Saving...' : 'Add Manufacturer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Vendor Modal ── */}
+      <Dialog open={addVendorOpen} onOpenChange={setAddVendorOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-teal-600" />
+              Add New Vendor
+            </DialogTitle>
+            <DialogDescription>Enter the full details for the new vendor.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="col-span-2">
+              <Label>Company Name <span className="text-red-500">*</span></Label>
+              <Input placeholder="e.g., MedSupply Corp" value={addVendorForm.name} onChange={(e) => setAddVendorForm({ ...addVendorForm, name: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Contact Person</Label>
+              <Input placeholder="e.g., Jane Smith" value={addVendorForm.contactPerson} onChange={(e) => setAddVendorForm({ ...addVendorForm, contactPerson: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input type="email" placeholder="e.g., sales@vendor.com" value={addVendorForm.email} onChange={(e) => setAddVendorForm({ ...addVendorForm, email: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input placeholder="e.g., +1-555-0456" value={addVendorForm.phone} onChange={(e) => setAddVendorForm({ ...addVendorForm, phone: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Address</Label>
+              <Input placeholder="Street address" value={addVendorForm.address} onChange={(e) => setAddVendorForm({ ...addVendorForm, address: e.target.value })} className="mt-1" />
+            </div>
+            <div className="col-span-2">
+              <Label>Notes</Label>
+              <Textarea placeholder="Any additional notes..." value={addVendorForm.notes} onChange={(e) => setAddVendorForm({ ...addVendorForm, notes: e.target.value })} className="mt-1" rows={2} />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAddVendorOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddVendor} disabled={!addVendorForm.name.trim() || addVendorSaving} className="bg-teal-600 hover:bg-teal-700">
+              {addVendorSaving ? 'Saving...' : 'Add Vendor'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Category Modal ── */}
+      <Dialog open={addCatOpen} onOpenChange={setAddCatOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-teal-600" />
+              Add New Category
+            </DialogTitle>
+            <DialogDescription>Create a new product category.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Category Name <span className="text-red-500">*</span></Label>
+              <Input placeholder="e.g., Herbal Remedies" value={addCatForm.name} onChange={(e) => setAddCatForm({ ...addCatForm, name: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea placeholder="Brief description of the category..." value={addCatForm.description} onChange={(e) => setAddCatForm({ ...addCatForm, description: e.target.value })} className="mt-1" rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAddCatOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddCategory} disabled={!addCatForm.name.trim() || addCatSaving} className="bg-teal-600 hover:bg-teal-700">
+              {addCatSaving ? 'Saving...' : 'Add Category'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Dosage Form Modal ── */}
+      <Dialog open={addDfOpen} onOpenChange={setAddDfOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-teal-600" />
+              Add New Dosage Form
+            </DialogTitle>
+            <DialogDescription>Add a new dosage form type to the list.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Dosage Form Name <span className="text-red-500">*</span></Label>
+              <Input placeholder="e.g., Chewable Tablet" value={addDfName} onChange={(e) => setAddDfName(e.target.value)} className="mt-1" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDosageForm() } }} />
+              <p className="text-xs text-muted-foreground mt-1">Will be saved in uppercase (e.g., CHEWABLE TABLET)</p>
+            </div>
+            {dosageForms.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Existing dosage forms:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {dosageForms.map((df) => (
+                    <Badge key={df} variant="secondary" className="text-xs">{df.charAt(0) + df.slice(1).toLowerCase()}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setAddDfOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddDosageForm} disabled={!addDfName.trim()} className="bg-teal-600 hover:bg-teal-700">
+              Add Dosage Form
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stock Adjustment Dialog */}
       <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
