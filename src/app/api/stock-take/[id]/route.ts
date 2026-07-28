@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       include: {
         countedByUser: { select: { name: true, email: true } },
         items: {
-          include: { product: { select: { id: true, name: true, ndc: true, category: true, unitOfMeasure: true } } },
+          include: { product: { select: { id: true, name: true, ndc: true, category: true, unitOfMeasure: true, expiryDate: true, sellingPrice: true, costPrice: true, dosageForm: true, strength: true } } },
           orderBy: { createdAt: 'asc' },
         },
       },
