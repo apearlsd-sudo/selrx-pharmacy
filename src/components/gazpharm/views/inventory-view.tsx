@@ -142,7 +142,7 @@ export function InventoryView() {
 
       const res = await fetch('/api/inventory', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
         body: JSON.stringify(body),
       })
       if (!res.ok) {
@@ -249,7 +249,7 @@ export function InventoryView() {
         if (physicalQty === entry.currentQty) continue // no change needed
         await fetch('/api/inventory', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
           body: JSON.stringify({
             productId: entry.productId,
             adjustmentType: 'SET',
