@@ -337,3 +337,23 @@ Stage Summary:
 - Root cause #2: Custom start-server.js createServer wrapper causing 308 redirect loops — REPLACED with direct `next start`
 - All static assets serve correctly (200), APIs respond (200), HTML renders (16446 bytes)
 - Modified files: `next.config.ts`, `scripts/start-server.sh`, `scripts/start-server.js`
+
+---
+Task ID: 1
+Agent: main
+Task: Fix client-side crash + stock take report not showing
+
+Work Log:
+- Investigated the client-side crash reported on selrx-pharmacy.vercel.app
+- Found commit 50092f6 already fixed the duplicate formatCurrency import in dashboard-view.tsx
+- Discovered remaining bug: stock-take-report-view.tsx used <TableFooter> in 4 sections but never imported it from @/components/ui/table
+- This caused a ReferenceError crash whenever a user navigated to the stock take report view
+- Added TableFooter to the table import statement
+- Verified the build compiles cleanly with npx next build
+- Reviewed all imports in reports-view.tsx — all icons, recharts components, and UI components are properly imported
+- Committed and pushed to GitHub (26e5d48) for Vercel auto-deploy
+
+Stage Summary:
+- Root cause of stock take report crash: missing TableFooter import (ReferenceError at runtime)
+- Fix: Added TableFooter to the import from @/components/ui/table in stock-take-report-view.tsx
+- Pushed as commit 26e5d48 to main branch
