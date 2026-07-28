@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         include: {
           inventory: true,
           vendor: { select: { id: true, name: true } },
+          manufacturerRef: { select: { id: true, name: true } },
         },
       }),
       db.product.count({ where }),
@@ -82,7 +83,8 @@ export async function POST(request: NextRequest) {
         ndc: body.ndc,
         name: body.name,
         genericName: body.genericName,
-        manufacturer: body.manufacturer,
+        manufacturer: body.manufacturer || null,
+        manufacturerId: body.manufacturerId || null,
         vendorId: body.vendorId || null,
         category: body.category || 'OTC',
         description: body.description,

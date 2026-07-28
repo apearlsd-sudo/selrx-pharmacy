@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
-  AlertCircle, CheckCircle2
+  AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,10 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogFooter, DialogDescription,
+} from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -40,6 +44,21 @@ interface Vendor {
   _count?: { products: number }
 }
 
+interface Manufacturer {
+  id: string
+  name: string
+  contactPerson: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
+  country: string | null
+  website: string | null
+  notes: string | null
+  _count?: { products: number }
+  createdAt: string
+}
+
 interface DrugProduct {
   id: string
   name: string
@@ -48,10 +67,12 @@ interface DrugProduct {
   sellingPrice: number
   costPrice: number | null
   manufacturer: string | null
+  manufacturerId: string | null
   dosageForm: string | null
   strength: string | null
   unitOfMeasure: string
   vendor?: { id: string; name: string } | null
+  manufacturerRef?: { id: string; name: string } | null
   inventory?: { quantity: number }[]
   reorderPoint: number
   expiryDate: string | null
@@ -73,9 +94,628 @@ const SECTIONS = [
   { key: 'category', label: 'Add Category', icon: Tags, desc: 'Drug categories & departments', color: 'bg-emerald-600 hover:bg-emerald-700' },
   { key: 'drug', label: 'Add Drug Name', icon: Pill, desc: 'Register new products', color: 'bg-teal-600 hover:bg-teal-700' },
   { key: 'vendor', label: 'Add Vendor', icon: Truck, desc: 'Suppliers & distributors', color: 'bg-green-600 hover:bg-green-700' },
+  { key: 'manufacturer', label: 'Add Manufacturer', icon: Factory, desc: 'Drug manufacturers & producers', color: 'bg-indigo-600 hover:bg-indigo-700' },
 ] as const
 
 type SectionKey = typeof SECTIONS[number]['key']
+
+// ── Modal Components ───────────────────────────────────────────────────
+
+// ── Category Modal ──────────────────────────────────────────────────────
+
+function CategoryModal({
+  open,
+  onOpenChange,
+  editingCategory,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  editingCategory: Category | null
+  onSaved: (category: Category) => void
+}) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+  const isEditing = !!editingCategory
+
+  useEffect(() => {
+    if (open) {
+      setName(editingCategory?.name.replace(/_/g, ' ') || '')
+      setDescription(editingCategory?.description || '')
+      setSaving(false)
+    }
+  }, [open, editingCategory])
+
+  const handleSave = async () => {
+    if (!name.trim()) return
+    setSaving(true)
+    try {
+      if (isEditing) {
+        const res = await fetch(`/api/categories/${editingCategory.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), description: description.trim() || null }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to update')
+        }
+        const updated = await res.json()
+        addToast({ title: 'Category Updated', description: `"${name.trim()}" updated successfully`, variant: 'success' })
+        onSaved(updated)
+      } else {
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), description: description.trim() || null }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to create')
+        }
+        const created = await res.json()
+        addToast({ title: 'Category Created', description: `"${name.trim()}" added successfully`, variant: 'success' })
+        onSaved(created)
+      }
+      onOpenChange(false)
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Category' : 'Add Category'}</DialogTitle>
+          <DialogDescription>{isEditing ? 'Update category details' : 'Create a new drug category'}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div>
+            <Label className="text-xs">Category Name <span className="text-red-500">*</span></Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., ANALGESICS" className="mt-1" onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }} />
+          </div>
+          <div>
+            <Label className="text-xs">Description</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description of this category" className="mt-1" rows={2} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!name.trim() || saving} className="bg-emerald-600 hover:bg-emerald-700">
+            {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Vendor Modal ────────────────────────────────────────────────────────
+
+function VendorModal({
+  open,
+  onOpenChange,
+  editingVendor,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  editingVendor: Vendor | null
+  onSaved: (vendor: Vendor) => void
+}) {
+  const [form, setForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+  const isEditing = !!editingVendor
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        name: editingVendor?.name || '',
+        contactPerson: editingVendor?.contactPerson || '',
+        email: editingVendor?.email || '',
+        phone: editingVendor?.phone || '',
+        address: editingVendor?.address || '',
+        notes: editingVendor?.notes || '',
+      })
+      setSaving(false)
+    }
+  }, [open, editingVendor])
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return
+    setSaving(true)
+    try {
+      if (isEditing) {
+        const res = await fetch(`/api/vendors/${editingVendor.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            contactPerson: form.contactPerson.trim() || null,
+            email: form.email.trim() || null,
+            phone: form.phone.trim() || null,
+            address: form.address.trim() || null,
+            notes: form.notes.trim() || null,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to update')
+        }
+        const updated = await res.json()
+        addToast({ title: 'Vendor Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
+        onSaved(updated)
+      } else {
+        const res = await fetch('/api/vendors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            contactPerson: form.contactPerson.trim() || null,
+            email: form.email.trim() || null,
+            phone: form.phone.trim() || null,
+            address: form.address.trim() || null,
+            notes: form.notes.trim() || null,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to create')
+        }
+        const created = await res.json()
+        addToast({ title: 'Vendor Added', description: `"${form.name.trim()}" registered as supplier`, variant: 'success' })
+        onSaved(created)
+      }
+      onOpenChange(false)
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
+          <DialogDescription>{isEditing ? 'Update vendor details' : 'Register a new vendor / supplier'}</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+          <div className="col-span-2">
+            <Label className="text-xs">Vendor Name <span className="text-red-500">*</span></Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., PharmaCorp Distribution" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Contact Person</Label>
+            <Input value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Full name" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Email</Label>
+            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="vendor@example.com" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Phone</Label>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 (555) 000-0000" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Address</Label>
+            <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street, City, State" className="mt-1" />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Notes</Label>
+            <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes" className="mt-1" rows={2} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!form.name.trim() || saving} className="bg-green-600 hover:bg-green-700">
+            {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Manufacturer Modal ─────────────────────────────────────────────────
+
+function ManufacturerModal({
+  open,
+  onOpenChange,
+  editingManufacturer,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  editingManufacturer: Manufacturer | null
+  onSaved: (manufacturer: Manufacturer) => void
+}) {
+  const [form, setForm] = useState({
+    name: '', contactPerson: '', email: '', phone: '', address: '', city: '', country: '', website: '', notes: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+  const isEditing = !!editingManufacturer
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        name: editingManufacturer?.name || '',
+        contactPerson: editingManufacturer?.contactPerson || '',
+        email: editingManufacturer?.email || '',
+        phone: editingManufacturer?.phone || '',
+        address: editingManufacturer?.address || '',
+        city: editingManufacturer?.city || '',
+        country: editingManufacturer?.country || '',
+        website: editingManufacturer?.website || '',
+        notes: editingManufacturer?.notes || '',
+      })
+      setSaving(false)
+    }
+  }, [open, editingManufacturer])
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return
+    setSaving(true)
+    try {
+      const body = {
+        name: form.name.trim(),
+        contactPerson: form.contactPerson.trim() || null,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        city: form.city.trim() || null,
+        country: form.country.trim() || null,
+        website: form.website.trim() || null,
+        notes: form.notes.trim() || null,
+      }
+
+      if (isEditing) {
+        const res = await fetch('/api/manufacturers', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingManufacturer.id, ...body }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to update')
+        }
+        const updated = await res.json()
+        addToast({ title: 'Manufacturer Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
+        onSaved(updated)
+      } else {
+        const res = await fetch('/api/manufacturers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to create')
+        }
+        const created = await res.json()
+        addToast({ title: 'Manufacturer Added', description: `"${form.name.trim()}" registered`, variant: 'success' })
+        onSaved(created)
+      }
+      onOpenChange(false)
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Manufacturer' : 'Add Manufacturer'}</DialogTitle>
+          <DialogDescription>{isEditing ? 'Update manufacturer details' : 'Register a new drug manufacturer'}</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+          <div className="col-span-2">
+            <Label className="text-xs">Name <span className="text-red-500">*</span></Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Pfizer Inc." className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Contact Person</Label>
+            <Input value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Full name" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Email</Label>
+            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contact@company.com" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Phone</Label>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 (555) 000-0000" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Website</Label>
+            <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://example.com" className="mt-1" />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Address</Label>
+            <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">City</Label>
+            <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Country</Label>
+            <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="Country" className="mt-1" />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Notes</Label>
+            <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes" className="mt-1" rows={2} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!form.name.trim() || saving} className="bg-indigo-600 hover:bg-indigo-700">
+            {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Dosage Form Modal ─────────────────────────────────────────────────
+
+function DosageFormModal({
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSaved: (name: string) => void
+}) {
+  const [name, setName] = useState('')
+  const addToast = useAppStore((s) => s.addToast)
+
+  const handleClose = (nextOpen: boolean) => {
+    if (!nextOpen) setName('')
+    onOpenChange(nextOpen)
+  }
+
+  const handleSave = () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    addToast({ title: 'Dosage Form Added', description: `"${trimmed}" added to list`, variant: 'success' })
+    onSaved(trimmed)
+    setName('')
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Dosage Form</DialogTitle>
+          <DialogDescription>Create a new dosage form type</DialogDescription>
+        </DialogHeader>
+        <div>
+          <Label className="text-xs">Dosage Form Name <span className="text-red-500">*</span></Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Inhaler"
+            className="mt-1"
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+            autoFocus
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!name.trim()} className="bg-teal-600 hover:bg-teal-700">
+            <><Save className="h-4 w-4 mr-2" /> Create</>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Drug Edit Modal ─────────────────────────────────────────────────────
+
+function DrugEditModal({
+  open,
+  onOpenChange,
+  editingDrug,
+  categories,
+  vendors,
+  manufacturers,
+  dosageForms,
+  onSaved,
+  onOpenAddManufacturer,
+  onOpenAddVendor,
+  onOpenAddCategory,
+  onOpenAddDosageForm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  editingDrug: DrugProduct | null
+  categories: Category[]
+  vendors: Vendor[]
+  manufacturers: Manufacturer[]
+  dosageForms: string[]
+  onSaved: () => void
+  onOpenAddManufacturer: () => void
+  onOpenAddVendor: () => void
+  onOpenAddCategory: () => void
+  onOpenAddDosageForm: () => void
+}) {
+  const [form, setForm] = useState({
+    name: '', ndc: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
+    vendorId: '', reorderPoint: '', expiryDate: '', batchNumber: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+
+  useEffect(() => {
+    if (open && editingDrug) {
+      setForm({
+        name: editingDrug.name || '',
+        ndc: editingDrug.ndc || '',
+        category: editingDrug.category || 'OTC',
+        dosageForm: editingDrug.dosageForm || '',
+        manufacturerId: editingDrug.manufacturerId || '',
+        costPrice: editingDrug.costPrice != null ? String(editingDrug.costPrice) : '',
+        sellingPrice: editingDrug.sellingPrice != null ? String(editingDrug.sellingPrice) : '',
+        vendorId: editingDrug.vendor?.id || '',
+        reorderPoint: String(editingDrug.reorderPoint || 10),
+        expiryDate: editingDrug.expiryDate ? editingDrug.expiryDate.split('T')[0] : '',
+        batchNumber: editingDrug.batchNumber || '',
+      })
+      setSaving(false)
+    }
+  }, [open, editingDrug])
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.sellingPrice) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/products/${editingDrug?.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          ndc: form.ndc.trim() || null,
+          category: form.category,
+          dosageForm: form.dosageForm || null,
+          manufacturerId: form.manufacturerId || null,
+          costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
+          sellingPrice: parseFloat(form.sellingPrice),
+          vendorId: form.vendorId || null,
+          reorderPoint: parseInt(form.reorderPoint) || 10,
+          expiryDate: form.expiryDate || null,
+          batchNumber: form.batchNumber || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update product')
+      }
+      addToast({ title: 'Drug Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
+      onSaved()
+      onOpenChange(false)
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Edit Drug / Product</DialogTitle>
+          <DialogDescription>Update product details and pricing</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="col-span-2">
+            <Label className="text-xs">Product Name <span className="text-red-500">*</span></Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Paracetamol 500mg" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">SKU / NDC</Label>
+            <Input value={form.ndc} onChange={(e) => setForm({ ...form, ndc: e.target.value })} placeholder="e.g., SKU-00123" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Category</Label>
+            <Select value={form.category} onValueChange={(v) => { if (v === '__new__') { onOpenAddCategory() } else { setForm({ ...form, category: v }) } }}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BUILT_IN_CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
+                ))}
+                {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
+                  <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
+                ))}
+                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new category</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Manufacturer</Label>
+            <Select value={form.manufacturerId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddManufacturer() } else { setForm({ ...form, manufacturerId: v === '_none' ? '' : v }) } }}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">None</SelectItem>
+                {manufacturers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new manufacturer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Dosage Form</Label>
+            <Select value={form.dosageForm || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddDosageForm() } else { setForm({ ...form, dosageForm: v === '_none' ? '' : v }) } }}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">None</SelectItem>
+                {dosageForms.map((f) => (
+                  <SelectItem key={f} value={f}>{f}</SelectItem>
+                ))}
+                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new dosage form</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Vendor / Supplier</Label>
+            <Select value={form.vendorId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddVendor() } else { setForm({ ...form, vendorId: v === '_none' ? '' : v }) } }}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">None</SelectItem>
+                {vendors.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                ))}
+                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new vendor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Cost Price ($)</Label>
+            <Input type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} placeholder="0.00" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Selling Price ($) <span className="text-red-500">*</span></Label>
+            <Input type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} placeholder="0.00" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Min Stock Level</Label>
+            <Input type="number" min="0" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} placeholder="10" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Expiry Date</Label>
+            <Input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Batch Number</Label>
+            <Input value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g., BN-00123" className="mt-1" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!form.name.trim() || !form.sellingPrice || saving} className="bg-teal-600 hover:bg-teal-700">
+            {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> Update Drug</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 // ── Main View ──────────────────────────────────────────────────────────
 
@@ -85,7 +725,7 @@ export function MasterDataView() {
   return (
     <div className="space-y-6">
       {/* Section Selector Buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {SECTIONS.map((sec) => {
           const Icon = sec.icon
           const isActive = activeSection === sec.key
@@ -118,6 +758,7 @@ export function MasterDataView() {
       {activeSection === 'category' && <CategorySection />}
       {activeSection === 'drug' && <DrugSection />}
       {activeSection === 'vendor' && <VendorSection />}
+      {activeSection === 'manufacturer' && <ManufacturerSection />}
     </div>
   )
 }
@@ -127,10 +768,9 @@ export function MasterDataView() {
 function CategorySection() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
-  const [newName, setNewName] = useState('')
-  const [newDesc, setNewDesc] = useState('')
-  const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
   const fetchCategories = useCallback(async () => {
@@ -147,28 +787,18 @@ function CategorySection() {
 
   useEffect(() => { fetchCategories() }, [fetchCategories])
 
-  const handleCreate = async () => {
-    if (!newName.trim()) return
-    setSaving(true)
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed')
-      }
-      addToast({ title: 'Category Created', description: `"${newName.trim()}" added successfully`, variant: 'success' })
-      setNewName('')
-      setNewDesc('')
-      fetchCategories()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+  const openAdd = () => {
+    setEditingCategory(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (cat: Category) => {
+    setEditingCategory(cat)
+    setModalOpen(true)
+  }
+
+  const handleModalSaved = (saved: Category) => {
+    fetchCategories()
   }
 
   const handleDelete = async (cat: Category) => {
@@ -192,46 +822,16 @@ function CategorySection() {
 
   return (
     <div className="space-y-4">
-      {/* Create Form */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Tags className="h-4 w-4 text-emerald-600" />
-            Create New Category
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-            <div className="sm:col-span-3">
-              <Label className="text-xs">Category Name *</Label>
-              <Input
-                placeholder="e.g., ANALGESICS"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="mt-1"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
-              />
-            </div>
-            <div className="sm:col-span-6">
-              <Label className="text-xs">Description</Label>
-              <Input
-                placeholder="Brief description of this category"
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                className="mt-1"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
-              />
-            </div>
-            <div className="sm:col-span-3 flex items-end">
-              <Button
-                onClick={handleCreate}
-                disabled={!newName.trim() || saving}
-                className="w-full bg-emerald-600 hover:bg-emerald-700"
-              >
-                {saving ? 'Saving...' : <><Plus className="h-4 w-4 mr-2" /> Add Category</>}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Tags className="h-4 w-4 text-emerald-600" />
+          Drug Categories ({categories.length})
+        </h3>
+        <Button onClick={openAdd} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+          <Plus className="h-4 w-4 mr-2" /> Add Category
+        </Button>
+      </div>
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -286,15 +886,20 @@ function CategorySection() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm" variant="ghost"
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDelete(cat)}
-                          disabled={isBuiltIn || prodCount > 0}
-                          title={isBuiltIn ? 'System category' : prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(cat)}>
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                            onClick={() => handleDelete(cat)}
+                            disabled={isBuiltIn || prodCount > 0}
+                            title={isBuiltIn ? 'System category' : prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -304,6 +909,14 @@ function CategorySection() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Category Modal */}
+      <CategoryModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        editingCategory={editingCategory}
+        onSaved={handleModalSaved}
+      />
     </div>
   )
 }
@@ -314,31 +927,40 @@ function DrugSection() {
   const [drugs, setDrugs] = useState<DrugProduct[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [vendors, setVendors] = useState<Vendor[]>([])
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const addToast = useAppStore((s) => s.addToast)
 
   const [form, setForm] = useState({
-    name: '', sku: '', category: 'OTC', dosageForm: '', manufacturer: '', costPrice: '', sellingPrice: '',
+    name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
     stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
   })
-  const [showNewManufacturer, setShowNewManufacturer] = useState(false)
-  const [newManufacturerName, setNewManufacturerName] = useState('')
-  const [showNewVendor, setShowNewVendor] = useState(false)
-  const [newVendorName, setNewVendorName] = useState('')
-  const [showNewDosageForm, setShowNewDosageForm] = useState(false)
-  const [newDosageFormName, setNewDosageFormName] = useState('')
-  const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
+
+  // Modal states for "+ Add new" in drug form
+  const [mfgModalOpen, setMfgModalOpen] = useState(false)
+  const [vendorModalOpen, setVendorModalOpen] = useState(false)
+  const [catModalOpen, setCatModalOpen] = useState(false)
+  const [dosageFormModalOpen, setDosageFormModalOpen] = useState(false)
+
+  // Drug edit modal
+  const [drugEditOpen, setDrugEditOpen] = useState(false)
+  const [editingDrug, setEditingDrug] = useState<DrugProduct | null>(null)
+
+  // Custom dosage forms
+  const [customDosageForms, setCustomDosageForms] = useState<string[]>([])
+
+  const allDosageForms = [...DOSAGE_FORMS, ...customDosageForms]
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [prodRes, catRes, venRes] = await Promise.all([
+      const [prodRes, catRes, venRes, mfgRes] = await Promise.all([
         fetch('/api/products'),
         fetch('/api/categories'),
         fetch('/api/vendors'),
+        fetch('/api/manufacturers'),
       ])
       if (prodRes.ok) {
         const data = await prodRes.json()
@@ -347,6 +969,7 @@ function DrugSection() {
       }
       if (catRes.ok) setCategories(await catRes.json())
       if (venRes.ok) setVendors(await venRes.json())
+      if (mfgRes.ok) setManufacturers(await mfgRes.json())
     } catch {
       addToast({ title: 'Error', description: 'Failed to load data', variant: 'destructive' })
     } finally {
@@ -360,6 +983,7 @@ function DrugSection() {
     if (!form.name || !form.sellingPrice) return
     setSaving(true)
     try {
+      const selectedMfg = manufacturers.find((m) => m.id === form.manufacturerId)
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: {
@@ -371,7 +995,8 @@ function DrugSection() {
           ndc: form.sku || null,
           category: form.category,
           dosageForm: form.dosageForm || null,
-          manufacturer: form.manufacturer || null,
+          manufacturer: selectedMfg?.name || null,
+          manufacturerId: form.manufacturerId || null,
           costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
           sellingPrice: parseFloat(form.sellingPrice),
           reorderPoint: parseInt(form.minStockLevel) || 10,
@@ -398,11 +1023,9 @@ function DrugSection() {
 
       addToast({ title: 'Drug Added', description: `"${form.name}" registered in inventory`, variant: 'success' })
       setForm({
-        name: '', sku: '', category: 'OTC', dosageForm: '', manufacturer: '', costPrice: '', sellingPrice: '',
+        name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
         stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
       })
-      setShowNewManufacturer(false)
-      setNewManufacturerName('')
       fetchData()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to add drug', variant: 'destructive' })
@@ -411,77 +1034,48 @@ function DrugSection() {
     }
   }
 
+  // Handlers for "+ Add new" modals
+  const handleManufacturerCreated = (mfg: Manufacturer) => {
+    setManufacturers((prev) => [...prev, mfg])
+    setForm((prev) => ({ ...prev, manufacturerId: mfg.id }))
+  }
+
+  const handleVendorCreated = (vendor: Vendor) => {
+    setVendors((prev) => [...prev, vendor])
+    setForm((prev) => ({ ...prev, vendorId: vendor.id }))
+  }
+
+  const handleCategoryCreated = (cat: Category) => {
+    setCategories((prev) => [...prev, cat])
+    setForm((prev) => ({ ...prev, category: cat.name }))
+  }
+
+  const handleDosageFormCreated = (name: string) => {
+    setCustomDosageForms((prev) => [...prev, name])
+    setForm((prev) => ({ ...prev, dosageForm: name }))
+  }
+
+  // Handlers for drug edit modal "+ Add new"
+  const handleEditManufacturerCreated = (mfg: Manufacturer) => {
+    setManufacturers((prev) => [...prev, mfg])
+  }
+
+  const handleEditVendorCreated = (vendor: Vendor) => {
+    setVendors((prev) => [...prev, vendor])
+  }
+
+  const handleEditCategoryCreated = (cat: Category) => {
+    setCategories((prev) => [...prev, cat])
+  }
+
+  const handleEditDosageFormCreated = (name: string) => {
+    setCustomDosageForms((prev) => [...prev, name])
+  }
+
   const filtered = drugs.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
     (d.ndc && d.ndc.toLowerCase().includes(search.toLowerCase()))
   )
-
-  // Extract unique manufacturers from existing drugs
-  const existingManufacturers = [...new Set(drugs.map((d) => d.manufacturer).filter(Boolean))] as string[]
-
-  const handleAddNewManufacturer = () => {
-    const trimmed = newManufacturerName.trim()
-    if (!trimmed) return
-    setForm({ ...form, manufacturer: trimmed })
-    setNewManufacturerName('')
-    setShowNewManufacturer(false)
-  }
-
-  const handleAddNewVendor = async () => {
-    const trimmed = newVendorName.trim()
-    if (!trimmed) return
-    try {
-      const res = await fetch('/api/vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmed }),
-      })
-      if (res.ok) {
-        const vendor = await res.json()
-        setForm({ ...form, vendorId: vendor.id })
-        setVendors((prev) => [...prev, { id: vendor.id, name: trimmed, contactPerson: null, email: null, phone: null, address: null, notes: null }])
-        setNewVendorName('')
-        setShowNewVendor(false)
-      } else {
-        const err = await res.json()
-        addToast({ title: 'Error', description: err.error || 'Failed to create vendor', variant: 'destructive' })
-      }
-    } catch {
-      addToast({ title: 'Error', description: 'Failed to create vendor', variant: 'destructive' })
-    }
-  }
-
-  const handleAddNewDosageForm = () => {
-    const trimmed = newDosageFormName.trim()
-    if (!trimmed) return
-    setForm({ ...form, dosageForm: trimmed })
-    setNewDosageFormName('')
-    setShowNewDosageForm(false)
-  }
-
-  const handleAddNewCategory = async () => {
-    const trimmed = newCategoryName.trim()
-    if (!trimmed) return
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmed }),
-      })
-      if (res.ok) {
-        const cat = await res.json()
-        setForm({ ...form, category: cat.name })
-        setCategories((prev) => [...prev, { id: cat.id, name: cat.name, description: null }])
-        setNewCategoryName('')
-        setShowNewCategory(false)
-      } else {
-        const err = await res.json()
-        addToast({ title: 'Error', description: err.error || 'Failed to create category', variant: 'destructive' })
-      }
-    } catch {
-      addToast({ title: 'Error', description: 'Failed to create category', variant: 'destructive' })
-    }
-  }
 
   return (
     <div className="space-y-4">
@@ -506,147 +1100,84 @@ function DrugSection() {
             </div>
 
             {/* Manufacturer Dropdown */}
-            {showNewManufacturer ? (
-              <div>
-                <Label className="text-xs">New Manufacturer</Label>
-                <div className="flex gap-1 mt-1">
-                  <Input
-                    placeholder="Enter manufacturer name"
-                    value={newManufacturerName}
-                    onChange={(e) => setNewManufacturerName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewManufacturer() }}
-                    autoFocus
-                  />
-                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewManufacturer} className="shrink-0 px-3">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewManufacturer(false); setNewManufacturerName('') }} className="shrink-0 px-2">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Label className="text-xs">Manufacturer</Label>
-                <Select
-                  value={form.manufacturer || '_none'}
-                  onValueChange={(v) => {
-                    if (v === '__new__') {
-                      setShowNewManufacturer(true)
-                    } else {
-                      setForm({ ...form, manufacturer: v === '_none' ? '' : v })
-                    }
-                  }}
-                >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">None</SelectItem>
-                    {existingManufacturers.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
-                      + Add new manufacturer
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label className="text-xs">Manufacturer</Label>
+              <Select
+                value={form.manufacturerId || '_none'}
+                onValueChange={(v) => {
+                  if (v === '__new__') {
+                    setMfgModalOpen(true)
+                  } else {
+                    setForm({ ...form, manufacturerId: v === '_none' ? '' : v })
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">None</SelectItem>
+                  {manufacturers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                    + Add new manufacturer
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Category Dropdown */}
-            {showNewCategory ? (
-              <div>
-                <Label className="text-xs">New Category</Label>
-                <div className="flex gap-1 mt-1">
-                  <Input
-                    placeholder="Enter category name"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewCategory() }}
-                    autoFocus
-                  />
-                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewCategory} className="shrink-0 px-3">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewCategory(false); setNewCategoryName('') }} className="shrink-0 px-2">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Label className="text-xs">Category</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(v) => {
-                    if (v === '__new__') {
-                      setShowNewCategory(true)
-                    } else {
-                      setForm({ ...form, category: v })
-                    }
-                  }}
-                >
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {BUILT_IN_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
-                    ))}
-                    {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
-                      + Add new category
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label className="text-xs">Category</Label>
+              <Select
+                value={form.category}
+                onValueChange={(v) => {
+                  if (v === '__new__') {
+                    setCatModalOpen(true)
+                  } else {
+                    setForm({ ...form, category: v })
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BUILT_IN_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
+                  ))}
+                  {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                    + Add new category
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Dosage Form Dropdown */}
-            {showNewDosageForm ? (
-              <div>
-                <Label className="text-xs">New Dosage Form</Label>
-                <div className="flex gap-1 mt-1">
-                  <Input
-                    placeholder="Enter dosage form"
-                    value={newDosageFormName}
-                    onChange={(e) => setNewDosageFormName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewDosageForm() }}
-                    autoFocus
-                  />
-                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewDosageForm} className="shrink-0 px-3">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewDosageForm(false); setNewDosageFormName('') }} className="shrink-0 px-2">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Label className="text-xs">Dosage Form</Label>
-                <Select
-                  value={form.dosageForm || '_none'}
-                  onValueChange={(v) => {
-                    if (v === '__new__') {
-                      setShowNewDosageForm(true)
-                    } else {
-                      setForm({ ...form, dosageForm: v === '_none' ? '' : v })
-                    }
-                  }}
-                >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">None</SelectItem>
-                    {DOSAGE_FORMS.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
-                      + Add new dosage form
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label className="text-xs">Dosage Form</Label>
+              <Select
+                value={form.dosageForm || '_none'}
+                onValueChange={(v) => {
+                  if (v === '__new__') {
+                    setDosageFormModalOpen(true)
+                  } else {
+                    setForm({ ...form, dosageForm: v === '_none' ? '' : v })
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">None</SelectItem>
+                  {allDosageForms.map((f) => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                    + Add new dosage form
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Cost Price */}
             <div>
@@ -661,51 +1192,30 @@ function DrugSection() {
             </div>
 
             {/* Vendor Dropdown */}
-            {showNewVendor ? (
-              <div>
-                <Label className="text-xs">New Vendor</Label>
-                <div className="flex gap-1 mt-1">
-                  <Input
-                    placeholder="Enter vendor name"
-                    value={newVendorName}
-                    onChange={(e) => setNewVendorName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewVendor() }}
-                    autoFocus
-                  />
-                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewVendor} className="shrink-0 px-3">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewVendor(false); setNewVendorName('') }} className="shrink-0 px-2">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <Label className="text-xs">Vendor / Supplier</Label>
-                <Select
-                  value={form.vendorId || '_none'}
-                  onValueChange={(v) => {
-                    if (v === '__new__') {
-                      setShowNewVendor(true)
-                    } else {
-                      setForm({ ...form, vendorId: v === '_none' ? '' : v })
-                    }
-                  }}
-                >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">None</SelectItem>
-                    {vendors.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
-                      + Add new vendor
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <Label className="text-xs">Vendor / Supplier</Label>
+              <Select
+                value={form.vendorId || '_none'}
+                onValueChange={(v) => {
+                  if (v === '__new__') {
+                    setVendorModalOpen(true)
+                  } else {
+                    setForm({ ...form, vendorId: v === '_none' ? '' : v })
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">None</SelectItem>
+                  {vendors.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                    + Add new vendor
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Stock Quantity */}
             <div>
@@ -767,20 +1277,21 @@ function DrugSection() {
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Stock</TableHead>
                 <TableHead className="hidden lg:table-cell">Expiry</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((drug) => (
@@ -796,7 +1307,9 @@ function DrugSection() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.manufacturer || '—'}</TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {drug.manufacturerRef?.name || drug.manufacturer || '—'}
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {drug.dosageForm ? (
                         <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
@@ -820,7 +1333,12 @@ function DrugSection() {
                       </div>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                      {drug.expiryDate || '—'}
+                      {drug.expiryDate ? drug.expiryDate.split('T')[0] : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -829,6 +1347,47 @@ function DrugSection() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* "+ Add new" modals for drug form dropdowns */}
+      <ManufacturerModal
+        open={mfgModalOpen}
+        onOpenChange={setMfgModalOpen}
+        editingManufacturer={null}
+        onSaved={handleManufacturerCreated}
+      />
+      <VendorModal
+        open={vendorModalOpen}
+        onOpenChange={setVendorModalOpen}
+        editingVendor={null}
+        onSaved={handleVendorCreated}
+      />
+      <CategoryModal
+        open={catModalOpen}
+        onOpenChange={setCatModalOpen}
+        editingCategory={null}
+        onSaved={handleCategoryCreated}
+      />
+      <DosageFormModal
+        open={dosageFormModalOpen}
+        onOpenChange={setDosageFormModalOpen}
+        onSaved={handleDosageFormCreated}
+      />
+
+      {/* Drug Edit Modal */}
+      <DrugEditModal
+        open={drugEditOpen}
+        onOpenChange={setDrugEditOpen}
+        editingDrug={editingDrug}
+        categories={categories}
+        vendors={vendors}
+        manufacturers={manufacturers}
+        dosageForms={allDosageForms}
+        onSaved={fetchData}
+        onOpenAddManufacturer={() => setMfgModalOpen(true)}
+        onOpenAddVendor={() => setVendorModalOpen(true)}
+        onOpenAddCategory={() => setCatModalOpen(true)}
+        onOpenAddDosageForm={() => setDosageFormModalOpen(true)}
+      />
     </div>
   )
 }
@@ -838,11 +1397,9 @@ function DrugSection() {
 function VendorSection() {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
-  const [form, setForm] = useState({
-    name: '', contactPerson: '', email: '', phone: '', address: '', notes: '',
-  })
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
   const fetchVendors = useCallback(async () => {
@@ -859,27 +1416,18 @@ function VendorSection() {
 
   useEffect(() => { fetchVendors() }, [fetchVendors])
 
-  const handleCreate = async () => {
-    if (!form.name.trim()) return
-    setSaving(true)
-    try {
-      const res = await fetch('/api/vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed')
-      }
-      addToast({ title: 'Vendor Added', description: `"${form.name.trim()}" registered as supplier`, variant: 'success' })
-      setForm({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
-      fetchVendors()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+  const openAdd = () => {
+    setEditingVendor(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (vendor: Vendor) => {
+    setEditingVendor(vendor)
+    setModalOpen(true)
+  }
+
+  const handleModalSaved = () => {
+    fetchVendors()
   }
 
   const handleDelete = async (vendor: Vendor) => {
@@ -904,50 +1452,16 @@ function VendorSection() {
 
   return (
     <div className="space-y-4">
-      {/* Create Form */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Truck className="h-4 w-4 text-green-600" />
-            Register New Vendor / Supplier
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div className="sm:col-span-2 lg:col-span-2">
-              <Label className="text-xs">Vendor Name <span className="text-red-500">*</span></Label>
-              <Input placeholder="e.g., PharmaCorp Distribution" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Contact Person</Label>
-              <Input placeholder="Full name" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Email</Label>
-              <Input type="email" placeholder="vendor@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Phone</Label>
-              <Input placeholder="+1 (555) 000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1" />
-            </div>
-            <div className="sm:col-span-2">
-              <Label className="text-xs">Address</Label>
-              <Input placeholder="Street, City, State" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Notes</Label>
-              <Input placeholder="Additional notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1" />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Button
-                onClick={handleCreate}
-                disabled={!form.name.trim() || saving}
-                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-              >
-                {saving ? 'Saving...' : <><Truck className="h-4 w-4 mr-2" /> Register Vendor</>}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Truck className="h-4 w-4 text-green-600" />
+          Vendors / Suppliers ({vendors.length})
+        </h3>
+        <Button onClick={openAdd} size="sm" className="bg-green-600 hover:bg-green-700">
+          <Plus className="h-4 w-4 mr-2" /> Add Vendor
+        </Button>
+      </div>
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -1005,15 +1519,20 @@ function VendorSection() {
                         <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm" variant="ghost"
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDelete(vendor)}
-                          disabled={prodCount > 0}
-                          title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(vendor)}>
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                            onClick={() => handleDelete(vendor)}
+                            disabled={prodCount > 0}
+                            title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -1023,6 +1542,179 @@ function VendorSection() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Vendor Modal */}
+      <VendorModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        editingVendor={editingVendor}
+        onSaved={handleModalSaved}
+      />
+    </div>
+  )
+}
+
+// ── MANUFACTURER SECTION ────────────────────────────────────────────────
+
+function ManufacturerSection() {
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingManufacturer, setEditingManufacturer] = useState<Manufacturer | null>(null)
+  const addToast = useAppStore((s) => s.addToast)
+
+  const fetchManufacturers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/manufacturers')
+      if (res.ok) setManufacturers(await res.json())
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load manufacturers', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [addToast])
+
+  useEffect(() => { fetchManufacturers() }, [fetchManufacturers])
+
+  const openAdd = () => {
+    setEditingManufacturer(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (mfg: Manufacturer) => {
+    setEditingManufacturer(mfg)
+    setModalOpen(true)
+  }
+
+  const handleModalSaved = () => {
+    fetchManufacturers()
+  }
+
+  const handleDelete = async (mfg: Manufacturer) => {
+    try {
+      const res = await fetch(`/api/manufacturers?id=${mfg.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed')
+      }
+      addToast({ title: 'Deleted', description: `"${mfg.name}" removed`, variant: 'success' })
+      fetchManufacturers()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  const filtered = manufacturers.filter((m) =>
+    m.name.toLowerCase().includes(search.toLowerCase()) ||
+    (m.city && m.city.toLowerCase().includes(search.toLowerCase())) ||
+    (m.country && m.country.toLowerCase().includes(search.toLowerCase()))
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Factory className="h-4 w-4 text-indigo-600" />
+          Manufacturers ({manufacturers.length})
+        </h3>
+        <Button onClick={openAdd} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+          <Plus className="h-4 w-4 mr-2" /> Add Manufacturer
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search manufacturers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      {/* Manufacturers Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Manufacturer</TableHead>
+                <TableHead className="hidden sm:table-cell">Contact Person</TableHead>
+                <TableHead className="hidden md:table-cell">Email</TableHead>
+                <TableHead className="hidden md:table-cell">Phone</TableHead>
+                <TableHead className="hidden lg:table-cell">Location</TableHead>
+                <TableHead className="text-center">Products</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No manufacturers found</TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((mfg) => {
+                  const prodCount = mfg._count?.products || 0
+                  const location = [mfg.city, mfg.country].filter(Boolean).join(', ')
+                  return (
+                    <TableRow key={mfg.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                            <Factory className="h-3.5 w-3.5 text-indigo-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{mfg.name}</p>
+                            {mfg.website && <p className="text-[10px] text-muted-foreground">{mfg.website}</p>}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-sm">{mfg.contactPerson || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{mfg.email || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{mfg.phone || '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{location || '—'}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(mfg)}>
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                            onClick={() => handleDelete(mfg)}
+                            disabled={prodCount > 0}
+                            title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Manufacturer Modal */}
+      <ManufacturerModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        editingManufacturer={editingManufacturer}
+        onSaved={handleModalSaved}
+      />
     </div>
   )
 }

@@ -13,6 +13,8 @@ export async function GET(
       where: { id },
       include: {
         inventory: true,
+        vendor: { select: { id: true, name: true } },
+        manufacturerRef: { select: { id: true, name: true } },
       },
     })
 
@@ -65,6 +67,8 @@ export async function PUT(
         name: body.name !== undefined ? body.name : undefined,
         genericName: body.genericName !== undefined ? body.genericName : undefined,
         manufacturer: body.manufacturer !== undefined ? body.manufacturer : undefined,
+        manufacturerId: body.manufacturerId !== undefined ? body.manufacturerId : undefined,
+        vendorId: body.vendorId !== undefined ? body.vendorId : undefined,
         category: body.category !== undefined ? body.category : undefined,
         description: body.description !== undefined ? body.description : undefined,
         dosageForm: body.dosageForm !== undefined ? body.dosageForm : undefined,

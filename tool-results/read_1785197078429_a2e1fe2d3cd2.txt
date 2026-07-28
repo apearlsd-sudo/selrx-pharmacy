@@ -1,0 +1,1029 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
+     6→  AlertCircle, CheckCircle2
+     7→} from 'lucide-react'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Card, CardContent } from '@/components/ui/card'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    15→} from '@/components/ui/table'
+    16→import {
+    17→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    18→} from '@/components/ui/select'
+    19→import { Label } from '@/components/ui/label'
+    20→import { Textarea } from '@/components/ui/textarea'
+    21→import { useAppStore } from '@/store/app-store'
+    22→
+    23→// ── Types ──────────────────────────────────────────────────────────────
+    24→
+    25→interface Category {
+    26→  id: string
+    27→  name: string
+    28→  description: string | null
+    29→  _count?: { products: number }
+    30→}
+    31→
+    32→interface Vendor {
+    33→  id: string
+    34→  name: string
+    35→  contactPerson: string | null
+    36→  email: string | null
+    37→  phone: string | null
+    38→  address: string | null
+    39→  notes: string | null
+    40→  _count?: { products: number }
+    41→}
+    42→
+    43→interface DrugProduct {
+    44→  id: string
+    45→  name: string
+    46→  ndc: string | null
+    47→  category: string
+    48→  sellingPrice: number
+    49→  costPrice: number | null
+    50→  manufacturer: string | null
+    51→  dosageForm: string | null
+    52→  strength: string | null
+    53→  unitOfMeasure: string
+    54→  vendor?: { id: string; name: string } | null
+    55→  inventory?: { quantity: number }[]
+    56→  reorderPoint: number
+    57→  expiryDate: string | null
+    58→  batchNumber: string | null
+    59→  status: string
+    60→}
+    61→
+    62→const DOSAGE_FORMS = [
+    63→  'Tablet', 'Capsules', 'Syrup', 'Lozenges', 'Ointment',
+    64→  'Suppository', 'Eyedrop', 'Eardrop', 'Contraceptive', 'Condom',
+    65→  'Herbal', 'Cream', 'Gel', 'Injection', 'Spray', 'Powder', 'Drops', 'Patch', 'Other',
+    66→]
+    67→
+    68→const BUILT_IN_CATEGORIES = ['OTC', 'PRESCRIPTION', 'SUPPLEMENT', 'MEDICAL_DEVICE', 'PERSONAL_CARE', 'CONSUMABLES']
+    69→
+    70→// ── Section Button Component ─────────────────────────────────────────────
+    71→
+    72→const SECTIONS = [
+    73→  { key: 'category', label: 'Add Category', icon: Tags, desc: 'Drug categories & departments', color: 'bg-emerald-600 hover:bg-emerald-700' },
+    74→  { key: 'drug', label: 'Add Drug Name', icon: Pill, desc: 'Register new products', color: 'bg-teal-600 hover:bg-teal-700' },
+    75→  { key: 'vendor', label: 'Add Vendor', icon: Truck, desc: 'Suppliers & distributors', color: 'bg-green-600 hover:bg-green-700' },
+    76→] as const
+    77→
+    78→type SectionKey = typeof SECTIONS[number]['key']
+    79→
+    80→// ── Main View ──────────────────────────────────────────────────────────
+    81→
+    82→export function MasterDataView() {
+    83→  const [activeSection, setActiveSection] = useState<SectionKey>('category')
+    84→
+    85→  return (
+    86→    <div className="space-y-6">
+    87→      {/* Section Selector Buttons */}
+    88→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    89→        {SECTIONS.map((sec) => {
+    90→          const Icon = sec.icon
+    91→          const isActive = activeSection === sec.key
+    92→          return (
+    93→            <button
+    94→              key={sec.key}
+    95→              onClick={() => setActiveSection(sec.key)}
+    96→              className={`relative flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+    97→                isActive
+    98→                  ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-100'
+    99→                  : 'border-transparent bg-white hover:border-gray-200 hover:shadow-sm'
+   100→              }`}
+   101→            >
+   102→              <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600' : 'bg-gray-100'}`}>
+   103→                <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+   104→              </div>
+   105→              <div className="flex-1 min-w-0">
+   106→                <p className={`text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-gray-700'}`}>{sec.label}</p>
+   107→                <p className={`text-xs ${isActive ? 'text-emerald-600' : 'text-gray-400'}`}>{sec.desc}</p>
+   108→              </div>
+   109→              {isActive && (
+   110→                <ChevronRight className="h-5 w-5 text-emerald-500 shrink-0" />
+   111→              )}
+   112→            </button>
+   113→          )
+   114→        })}
+   115→      </div>
+   116→
+   117→      {/* Active Section Content */}
+   118→      {activeSection === 'category' && <CategorySection />}
+   119→      {activeSection === 'drug' && <DrugSection />}
+   120→      {activeSection === 'vendor' && <VendorSection />}
+   121→    </div>
+   122→  )
+   123→}
+   124→
+   125→// ── CATEGORY SECTION ───────────────────────────────────────────────────
+   126→
+   127→function CategorySection() {
+   128→  const [categories, setCategories] = useState<Category[]>([])
+   129→  const [loading, setLoading] = useState(true)
+   130→  const [newName, setNewName] = useState('')
+   131→  const [newDesc, setNewDesc] = useState('')
+   132→  const [saving, setSaving] = useState(false)
+   133→  const [search, setSearch] = useState('')
+   134→  const addToast = useAppStore((s) => s.addToast)
+   135→
+   136→  const fetchCategories = useCallback(async () => {
+   137→    setLoading(true)
+   138→    try {
+   139→      const res = await fetch('/api/categories')
+   140→      if (res.ok) setCategories(await res.json())
+   141→    } catch {
+   142→      addToast({ title: 'Error', description: 'Failed to load categories', variant: 'destructive' })
+   143→    } finally {
+   144→      setLoading(false)
+   145→    }
+   146→  }, [addToast])
+   147→
+   148→  useEffect(() => { fetchCategories() }, [fetchCategories])
+   149→
+   150→  const handleCreate = async () => {
+   151→    if (!newName.trim()) return
+   152→    setSaving(true)
+   153→    try {
+   154→      const res = await fetch('/api/categories', {
+   155→        method: 'POST',
+   156→        headers: { 'Content-Type': 'application/json' },
+   157→        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null }),
+   158→      })
+   159→      if (!res.ok) {
+   160→        const err = await res.json()
+   161→        throw new Error(err.error || 'Failed')
+   162→      }
+   163→      addToast({ title: 'Category Created', description: `"${newName.trim()}" added successfully`, variant: 'success' })
+   164→      setNewName('')
+   165→      setNewDesc('')
+   166→      fetchCategories()
+   167→    } catch (err: any) {
+   168→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   169→    } finally {
+   170→      setSaving(false)
+   171→    }
+   172→  }
+   173→
+   174→  const handleDelete = async (cat: Category) => {
+   175→    try {
+   176→      const res = await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' })
+   177→      if (!res.ok) {
+   178→        const err = await res.json()
+   179→        throw new Error(err.error || 'Failed')
+   180→      }
+   181→      addToast({ title: 'Deleted', description: `"${cat.name.replace(/_/g, ' ')}" removed`, variant: 'success' })
+   182→      fetchCategories()
+   183→    } catch (err: any) {
+   184→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   185→    }
+   186→  }
+   187→
+   188→  const filtered = categories.filter((c) =>
+   189→    c.name.toLowerCase().includes(search.toLowerCase()) ||
+   190→    (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
+   191→  )
+   192→
+   193→  return (
+   194→    <div className="space-y-4">
+   195→      {/* Create Form */}
+   196→      <Card>
+   197→        <CardContent className="p-4">
+   198→          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   199→            <Tags className="h-4 w-4 text-emerald-600" />
+   200→            Create New Category
+   201→          </h3>
+   202→          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+   203→            <div className="sm:col-span-3">
+   204→              <Label className="text-xs">Category Name *</Label>
+   205→              <Input
+   206→                placeholder="e.g., ANALGESICS"
+   207→                value={newName}
+   208→                onChange={(e) => setNewName(e.target.value)}
+   209→                className="mt-1"
+   210→                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+   211→              />
+   212→            </div>
+   213→            <div className="sm:col-span-6">
+   214→              <Label className="text-xs">Description</Label>
+   215→              <Input
+   216→                placeholder="Brief description of this category"
+   217→                value={newDesc}
+   218→                onChange={(e) => setNewDesc(e.target.value)}
+   219→                className="mt-1"
+   220→                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+   221→              />
+   222→            </div>
+   223→            <div className="sm:col-span-3 flex items-end">
+   224→              <Button
+   225→                onClick={handleCreate}
+   226→                disabled={!newName.trim() || saving}
+   227→                className="w-full bg-emerald-600 hover:bg-emerald-700"
+   228→              >
+   229→                {saving ? 'Saving...' : <><Plus className="h-4 w-4 mr-2" /> Add Category</>}
+   230→              </Button>
+   231→            </div>
+   232→          </div>
+   233→        </CardContent>
+   234→      </Card>
+   235→
+   236→      {/* Search */}
+   237→      <div className="relative max-w-sm">
+   238→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   239→        <Input placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+   240→      </div>
+   241→
+   242→      {/* Categories Table */}
+   243→      <Card>
+   244→        <CardContent className="p-0">
+   245→          <Table>
+   246→            <TableHeader>
+   247→              <TableRow>
+   248→                <TableHead>Category Name</TableHead>
+   249→                <TableHead className="hidden sm:table-cell">Description</TableHead>
+   250→                <TableHead className="text-center">Products</TableHead>
+   251→                <TableHead className="text-center">Type</TableHead>
+   252→                <TableHead className="text-right">Actions</TableHead>
+   253→              </TableRow>
+   254→            </TableHeader>
+   255→            <TableBody>
+   256→              {loading ? (
+   257→                Array.from({ length: 5 }).map((_, i) => (
+   258→                  <TableRow key={i}>
+   259→                    {Array.from({ length: 5 }).map((_, j) => (
+   260→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   261→                    ))}
+   262→                  </TableRow>
+   263→                ))
+   264→              ) : filtered.length === 0 ? (
+   265→                <TableRow>
+   266→                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No categories found</TableCell>
+   267→                </TableRow>
+   268→              ) : (
+   269→                filtered.map((cat) => {
+   270→                  const isBuiltIn = BUILT_IN_CATEGORIES.includes(cat.name)
+   271→                  const prodCount = cat._count?.products || 0
+   272→                  return (
+   273→                    <TableRow key={cat.id}>
+   274→                      <TableCell>
+   275→                        <Badge variant="outline" className="font-mono text-xs">{cat.name.replace(/_/g, ' ')}</Badge>
+   276→                      </TableCell>
+   277→                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{cat.description || '—'}</TableCell>
+   278→                      <TableCell className="text-center">
+   279→                        <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
+   280→                      </TableCell>
+   281→                      <TableCell className="text-center">
+   282→                        {isBuiltIn ? (
+   283→                          <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">System</Badge>
+   284→                        ) : (
+   285→                          <Badge className="text-[10px] bg-purple-100 text-purple-700 border-purple-200">Custom</Badge>
+   286→                        )}
+   287→                      </TableCell>
+   288→                      <TableCell className="text-right">
+   289→                        <Button
+   290→                          size="sm" variant="ghost"
+   291→                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
+   292→                          onClick={() => handleDelete(cat)}
+   293→                          disabled={isBuiltIn || prodCount > 0}
+   294→                          title={isBuiltIn ? 'System category' : prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+   295→                        >
+   296→                          <Trash2 className="h-3.5 w-3.5" />
+   297→                        </Button>
+   298→                      </TableCell>
+   299→                    </TableRow>
+   300→                  )
+   301→                })
+   302→              )}
+   303→            </TableBody>
+   304→          </Table>
+   305→        </CardContent>
+   306→      </Card>
+   307→    </div>
+   308→  )
+   309→}
+   310→
+   311→// ── DRUG SECTION ────────────────────────────────────────────────────────
+   312→
+   313→function DrugSection() {
+   314→  const [drugs, setDrugs] = useState<DrugProduct[]>([])
+   315→  const [categories, setCategories] = useState<Category[]>([])
+   316→  const [vendors, setVendors] = useState<Vendor[]>([])
+   317→  const [loading, setLoading] = useState(true)
+   318→  const [saving, setSaving] = useState(false)
+   319→  const [search, setSearch] = useState('')
+   320→  const addToast = useAppStore((s) => s.addToast)
+   321→
+   322→  const [form, setForm] = useState({
+   323→    name: '', sku: '', category: 'OTC', dosageForm: '', manufacturer: '', costPrice: '', sellingPrice: '',
+   324→    stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
+   325→  })
+   326→  const [showNewManufacturer, setShowNewManufacturer] = useState(false)
+   327→  const [newManufacturerName, setNewManufacturerName] = useState('')
+   328→  const [showNewVendor, setShowNewVendor] = useState(false)
+   329→  const [newVendorName, setNewVendorName] = useState('')
+   330→  const [showNewDosageForm, setShowNewDosageForm] = useState(false)
+   331→  const [newDosageFormName, setNewDosageFormName] = useState('')
+   332→  const [showNewCategory, setShowNewCategory] = useState(false)
+   333→  const [newCategoryName, setNewCategoryName] = useState('')
+   334→
+   335→  const fetchData = useCallback(async () => {
+   336→    setLoading(true)
+   337→    try {
+   338→      const [prodRes, catRes, venRes] = await Promise.all([
+   339→        fetch('/api/products'),
+   340→        fetch('/api/categories'),
+   341→        fetch('/api/vendors'),
+   342→      ])
+   343→      if (prodRes.ok) {
+   344→        const data = await prodRes.json()
+   345→        const list = Array.isArray(data) ? data : data.products || []
+   346→        setDrugs(list)
+   347→      }
+   348→      if (catRes.ok) setCategories(await catRes.json())
+   349→      if (venRes.ok) setVendors(await venRes.json())
+   350→    } catch {
+   351→      addToast({ title: 'Error', description: 'Failed to load data', variant: 'destructive' })
+   352→    } finally {
+   353→      setLoading(false)
+   354→    }
+   355→  }, [addToast])
+   356→
+   357→  useEffect(() => { fetchData() }, [fetchData])
+   358→
+   359→  const handleCreate = async () => {
+   360→    if (!form.name || !form.sellingPrice) return
+   361→    setSaving(true)
+   362→    try {
+   363→      const res = await fetch('/api/products', {
+   364→        method: 'POST',
+   365→        headers: {
+   366→          'Content-Type': 'application/json',
+   367→          'x-user-role': 'SUPER_ADMIN',
+   368→        },
+   369→        body: JSON.stringify({
+   370→          name: form.name,
+   371→          ndc: form.sku || null,
+   372→          category: form.category,
+   373→          dosageForm: form.dosageForm || null,
+   374→          manufacturer: form.manufacturer || null,
+   375→          costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
+   376→          sellingPrice: parseFloat(form.sellingPrice),
+   377→          reorderPoint: parseInt(form.minStockLevel) || 10,
+   378→          expiryDate: form.expiryDate || null,
+   379→          batchNumber: form.barcode || null,
+   380→          vendorId: form.vendorId || null,
+   381→        }),
+   382→      })
+   383→      if (!res.ok) {
+   384→        const err = await res.json()
+   385→        throw new Error(err.error || 'Failed to create product')
+   386→      }
+   387→      const newProduct = await res.json()
+   388→
+   389→      // Set initial stock
+   390→      const qty = parseInt(form.stockQuantity) || 0
+   391→      if (qty > 0) {
+   392→        await fetch('/api/inventory', {
+   393→          method: 'PUT',
+   394→          headers: { 'Content-Type': 'application/json' },
+   395→          body: JSON.stringify({ productId: newProduct.id, adjustment: qty, reason: 'Initial stock on creation' }),
+   396→        })
+   397→      }
+   398→
+   399→      addToast({ title: 'Drug Added', description: `"${form.name}" registered in inventory`, variant: 'success' })
+   400→      setForm({
+   401→        name: '', sku: '', category: 'OTC', dosageForm: '', manufacturer: '', costPrice: '', sellingPrice: '',
+   402→        stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
+   403→      })
+   404→      setShowNewManufacturer(false)
+   405→      setNewManufacturerName('')
+   406→      fetchData()
+   407→    } catch (err: any) {
+   408→      addToast({ title: 'Error', description: err.message || 'Failed to add drug', variant: 'destructive' })
+   409→    } finally {
+   410→      setSaving(false)
+   411→    }
+   412→  }
+   413→
+   414→  const filtered = drugs.filter((d) =>
+   415→    d.name.toLowerCase().includes(search.toLowerCase()) ||
+   416→    (d.ndc && d.ndc.toLowerCase().includes(search.toLowerCase()))
+   417→  )
+   418→
+   419→  // Extract unique manufacturers from existing drugs
+   420→  const existingManufacturers = [...new Set(drugs.map((d) => d.manufacturer).filter(Boolean))] as string[]
+   421→
+   422→  const handleAddNewManufacturer = () => {
+   423→    const trimmed = newManufacturerName.trim()
+   424→    if (!trimmed) return
+   425→    setForm({ ...form, manufacturer: trimmed })
+   426→    setNewManufacturerName('')
+   427→    setShowNewManufacturer(false)
+   428→  }
+   429→
+   430→  const handleAddNewVendor = async () => {
+   431→    const trimmed = newVendorName.trim()
+   432→    if (!trimmed) return
+   433→    try {
+   434→      const res = await fetch('/api/vendors', {
+   435→        method: 'POST',
+   436→        headers: { 'Content-Type': 'application/json' },
+   437→        body: JSON.stringify({ name: trimmed }),
+   438→      })
+   439→      if (res.ok) {
+   440→        const vendor = await res.json()
+   441→        setForm({ ...form, vendorId: vendor.id })
+   442→        setVendors((prev) => [...prev, { id: vendor.id, name: trimmed, contactPerson: null, email: null, phone: null, address: null, notes: null }])
+   443→        setNewVendorName('')
+   444→        setShowNewVendor(false)
+   445→      } else {
+   446→        const err = await res.json()
+   447→        addToast({ title: 'Error', description: err.error || 'Failed to create vendor', variant: 'destructive' })
+   448→      }
+   449→    } catch {
+   450→      addToast({ title: 'Error', description: 'Failed to create vendor', variant: 'destructive' })
+   451→    }
+   452→  }
+   453→
+   454→  const handleAddNewDosageForm = () => {
+   455→    const trimmed = newDosageFormName.trim()
+   456→    if (!trimmed) return
+   457→    setForm({ ...form, dosageForm: trimmed })
+   458→    setNewDosageFormName('')
+   459→    setShowNewDosageForm(false)
+   460→  }
+   461→
+   462→  const handleAddNewCategory = async () => {
+   463→    const trimmed = newCategoryName.trim()
+   464→    if (!trimmed) return
+   465→    try {
+   466→      const res = await fetch('/api/categories', {
+   467→        method: 'POST',
+   468→        headers: { 'Content-Type': 'application/json' },
+   469→        body: JSON.stringify({ name: trimmed }),
+   470→      })
+   471→      if (res.ok) {
+   472→        const cat = await res.json()
+   473→        setForm({ ...form, category: cat.name })
+   474→        setCategories((prev) => [...prev, { id: cat.id, name: cat.name, description: null }])
+   475→        setNewCategoryName('')
+   476→        setShowNewCategory(false)
+   477→      } else {
+   478→        const err = await res.json()
+   479→        addToast({ title: 'Error', description: err.error || 'Failed to create category', variant: 'destructive' })
+   480→      }
+   481→    } catch {
+   482→      addToast({ title: 'Error', description: 'Failed to create category', variant: 'destructive' })
+   483→    }
+   484→  }
+   485→
+   486→  return (
+   487→    <div className="space-y-4">
+   488→      {/* Drug Registration Form */}
+   489→      <Card>
+   490→        <CardContent className="p-4">
+   491→          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   492→            <Pill className="h-4 w-4 text-teal-600" />
+   493→            Register New Drug / Product
+   494→          </h3>
+   495→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   496→            {/* Product Name - full width */}
+   497→            <div className="sm:col-span-2 lg:col-span-3">
+   498→              <Label className="text-xs">Product Name <span className="text-red-500">*</span></Label>
+   499→              <Input placeholder="e.g., Paracetamol 500mg" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
+   500→            </div>
+   501→
+   502→            {/* SKU */}
+   503→            <div>
+   504→              <Label className="text-xs">SKU / NDC</Label>
+   505→              <Input placeholder="e.g., SKU-00123" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className="mt-1" />
+   506→            </div>
+   507→
+   508→            {/* Manufacturer Dropdown */}
+   509→            {showNewManufacturer ? (
+   510→              <div>
+   511→                <Label className="text-xs">New Manufacturer</Label>
+   512→                <div className="flex gap-1 mt-1">
+   513→                  <Input
+   514→                    placeholder="Enter manufacturer name"
+   515→                    value={newManufacturerName}
+   516→                    onChange={(e) => setNewManufacturerName(e.target.value)}
+   517→                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewManufacturer() }}
+   518→                    autoFocus
+   519→                  />
+   520→                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewManufacturer} className="shrink-0 px-3">
+   521→                    <CheckCircle2 className="h-4 w-4" />
+   522→                  </Button>
+   523→                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewManufacturer(false); setNewManufacturerName('') }} className="shrink-0 px-2">
+   524→                    <Trash2 className="h-3.5 w-3.5" />
+   525→                  </Button>
+   526→                </div>
+   527→              </div>
+   528→            ) : (
+   529→              <div>
+   530→                <Label className="text-xs">Manufacturer</Label>
+   531→                <Select
+   532→                  value={form.manufacturer || '_none'}
+   533→                  onValueChange={(v) => {
+   534→                    if (v === '__new__') {
+   535→                      setShowNewManufacturer(true)
+   536→                    } else {
+   537→                      setForm({ ...form, manufacturer: v === '_none' ? '' : v })
+   538→                    }
+   539→                  }}
+   540→                >
+   541→                  <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+   542→                  <SelectContent>
+   543→                    <SelectItem value="_none">None</SelectItem>
+   544→                    {existingManufacturers.map((m) => (
+   545→                      <SelectItem key={m} value={m}>{m}</SelectItem>
+   546→                    ))}
+   547→                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+   548→                      + Add new manufacturer
+   549→                    </SelectItem>
+   550→                  </SelectContent>
+   551→                </Select>
+   552→              </div>
+   553→            )}
+   554→
+   555→            {/* Category Dropdown */}
+   556→            {showNewCategory ? (
+   557→              <div>
+   558→                <Label className="text-xs">New Category</Label>
+   559→                <div className="flex gap-1 mt-1">
+   560→                  <Input
+   561→                    placeholder="Enter category name"
+   562→                    value={newCategoryName}
+   563→                    onChange={(e) => setNewCategoryName(e.target.value)}
+   564→                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewCategory() }}
+   565→                    autoFocus
+   566→                  />
+   567→                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewCategory} className="shrink-0 px-3">
+   568→                    <CheckCircle2 className="h-4 w-4" />
+   569→                  </Button>
+   570→                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewCategory(false); setNewCategoryName('') }} className="shrink-0 px-2">
+   571→                    <Trash2 className="h-3.5 w-3.5" />
+   572→                  </Button>
+   573→                </div>
+   574→              </div>
+   575→            ) : (
+   576→              <div>
+   577→                <Label className="text-xs">Category</Label>
+   578→                <Select
+   579→                  value={form.category}
+   580→                  onValueChange={(v) => {
+   581→                    if (v === '__new__') {
+   582→                      setShowNewCategory(true)
+   583→                    } else {
+   584→                      setForm({ ...form, category: v })
+   585→                    }
+   586→                  }}
+   587→                >
+   588→                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+   589→                  <SelectContent>
+   590→                    {BUILT_IN_CATEGORIES.map((c) => (
+   591→                      <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
+   592→                    ))}
+   593→                    {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
+   594→                      <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
+   595→                    ))}
+   596→                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+   597→                      + Add new category
+   598→                    </SelectItem>
+   599→                  </SelectContent>
+   600→                </Select>
+   601→              </div>
+   602→            )}
+   603→
+   604→            {/* Dosage Form Dropdown */}
+   605→            {showNewDosageForm ? (
+   606→              <div>
+   607→                <Label className="text-xs">New Dosage Form</Label>
+   608→                <div className="flex gap-1 mt-1">
+   609→                  <Input
+   610→                    placeholder="Enter dosage form"
+   611→                    value={newDosageFormName}
+   612→                    onChange={(e) => setNewDosageFormName(e.target.value)}
+   613→                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewDosageForm() }}
+   614→                    autoFocus
+   615→                  />
+   616→                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewDosageForm} className="shrink-0 px-3">
+   617→                    <CheckCircle2 className="h-4 w-4" />
+   618→                  </Button>
+   619→                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewDosageForm(false); setNewDosageFormName('') }} className="shrink-0 px-2">
+   620→                    <Trash2 className="h-3.5 w-3.5" />
+   621→                  </Button>
+   622→                </div>
+   623→              </div>
+   624→            ) : (
+   625→              <div>
+   626→                <Label className="text-xs">Dosage Form</Label>
+   627→                <Select
+   628→                  value={form.dosageForm || '_none'}
+   629→                  onValueChange={(v) => {
+   630→                    if (v === '__new__') {
+   631→                      setShowNewDosageForm(true)
+   632→                    } else {
+   633→                      setForm({ ...form, dosageForm: v === '_none' ? '' : v })
+   634→                    }
+   635→                  }}
+   636→                >
+   637→                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
+   638→                  <SelectContent>
+   639→                    <SelectItem value="_none">None</SelectItem>
+   640→                    {DOSAGE_FORMS.map((f) => (
+   641→                      <SelectItem key={f} value={f}>{f}</SelectItem>
+   642→                    ))}
+   643→                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+   644→                      + Add new dosage form
+   645→                    </SelectItem>
+   646→                  </SelectContent>
+   647→                </Select>
+   648→              </div>
+   649→            )}
+   650→
+   651→            {/* Cost Price */}
+   652→            <div>
+   653→              <Label className="text-xs">Cost Price ($)</Label>
+   654→              <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className="mt-1" />
+   655→            </div>
+   656→
+   657→            {/* Selling Price */}
+   658→            <div>
+   659→              <Label className="text-xs">Selling Price ($) <span className="text-red-500">*</span></Label>
+   660→              <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} className="mt-1" />
+   661→            </div>
+   662→
+   663→            {/* Vendor Dropdown */}
+   664→            {showNewVendor ? (
+   665→              <div>
+   666→                <Label className="text-xs">New Vendor</Label>
+   667→                <div className="flex gap-1 mt-1">
+   668→                  <Input
+   669→                    placeholder="Enter vendor name"
+   670→                    value={newVendorName}
+   671→                    onChange={(e) => setNewVendorName(e.target.value)}
+   672→                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddNewVendor() }}
+   673→                    autoFocus
+   674→                  />
+   675→                  <Button type="button" size="sm" variant="outline" onClick={handleAddNewVendor} className="shrink-0 px-3">
+   676→                    <CheckCircle2 className="h-4 w-4" />
+   677→                  </Button>
+   678→                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewVendor(false); setNewVendorName('') }} className="shrink-0 px-2">
+   679→                    <Trash2 className="h-3.5 w-3.5" />
+   680→                  </Button>
+   681→                </div>
+   682→              </div>
+   683→            ) : (
+   684→              <div>
+   685→                <Label className="text-xs">Vendor / Supplier</Label>
+   686→                <Select
+   687→                  value={form.vendorId || '_none'}
+   688→                  onValueChange={(v) => {
+   689→                    if (v === '__new__') {
+   690→                      setShowNewVendor(true)
+   691→                    } else {
+   692→                      setForm({ ...form, vendorId: v === '_none' ? '' : v })
+   693→                    }
+   694→                  }}
+   695→                >
+   696→                  <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
+   697→                  <SelectContent>
+   698→                    <SelectItem value="_none">None</SelectItem>
+   699→                    {vendors.map((v) => (
+   700→                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+   701→                    ))}
+   702→                    <SelectItem value="__new__" className="text-emerald-600 font-medium">
+   703→                      + Add new vendor
+   704→                    </SelectItem>
+   705→                  </SelectContent>
+   706→                </Select>
+   707→              </div>
+   708→            )}
+   709→
+   710→            {/* Stock Quantity */}
+   711→            <div>
+   712→              <Label className="text-xs">Stock Quantity</Label>
+   713→              <Input type="number" min="0" placeholder="0" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} className="mt-1" />
+   714→            </div>
+   715→
+   716→            {/* Min Stock Level */}
+   717→            <div>
+   718→              <Label className="text-xs">Min Stock Level</Label>
+   719→              <Input type="number" min="0" placeholder="10" value={form.minStockLevel} onChange={(e) => setForm({ ...form, minStockLevel: e.target.value })} className="mt-1" />
+   720→            </div>
+   721→
+   722→            {/* Expiry Date */}
+   723→            <div>
+   724→              <Label className="text-xs">Expiry Date</Label>
+   725→              <Input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="mt-1" />
+   726→            </div>
+   727→
+   728→            {/* Barcode */}
+   729→            <div>
+   730→              <Label className="text-xs">Barcode</Label>
+   731→              <Input placeholder="e.g., 1234567890123" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="mt-1" />
+   732→            </div>
+   733→
+   734→            {/* Submit - full width */}
+   735→            <div className="sm:col-span-2 lg:col-span-3">
+   736→              <Button
+   737→                onClick={handleCreate}
+   738→                disabled={!form.name || !form.sellingPrice || saving}
+   739→                className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700"
+   740→              >
+   741→                {saving ? 'Registering...' : <><Pill className="h-4 w-4 mr-2" /> Register Drug</>}
+   742→              </Button>
+   743→            </div>
+   744→          </div>
+   745→        </CardContent>
+   746→      </Card>
+   747→
+   748→      {/* Search */}
+   749→      <div className="relative max-w-sm">
+   750→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   751→        <Input placeholder="Search drugs by name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+   752→      </div>
+   753→
+   754→      {/* Drug Table */}
+   755→      <Card>
+   756→        <CardContent className="p-0">
+   757→          <Table>
+   758→            <TableHeader>
+   759→              <TableRow>
+   760→                <TableHead>Drug Name</TableHead>
+   761→                <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
+   762→                <TableHead className="hidden sm:table-cell">Dosage Form</TableHead>
+   763→                <TableHead className="hidden md:table-cell">Vendor</TableHead>
+   764→                <TableHead className="hidden lg:table-cell">SKU</TableHead>
+   765→                <TableHead className="hidden sm:table-cell">Category</TableHead>
+   766→                <TableHead className="text-right">Cost</TableHead>
+   767→                <TableHead className="text-right">Price</TableHead>
+   768→                <TableHead className="hidden lg:table-cell text-right">Stock</TableHead>
+   769→                <TableHead className="hidden lg:table-cell">Expiry</TableHead>
+   770→              </TableRow>
+   771→            </TableHeader>
+   772→            <TableBody>
+   773→              {loading ? (
+   774→                Array.from({ length: 8 }).map((_, i) => (
+   775→                  <TableRow key={i}>
+   776→                    {Array.from({ length: 8 }).map((_, j) => (
+   777→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   778→                    ))}
+   779→                  </TableRow>
+   780→                ))
+   781→              ) : filtered.length === 0 ? (
+   782→                <TableRow>
+   783→                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+   784→                </TableRow>
+   785→              ) : (
+   786→                filtered.map((drug) => (
+   787→                  <TableRow key={drug.id}>
+   788→                    <TableCell>
+   789→                      <div className="flex items-center gap-2">
+   790→                        <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+   791→                          <Pill className="h-3.5 w-3.5 text-teal-600" />
+   792→                        </div>
+   793→                        <div>
+   794→                          <p className="font-medium text-sm">{drug.name}</p>
+   795→                          {drug.strength && <p className="text-[10px] text-muted-foreground">{drug.strength}</p>}
+   796→                        </div>
+   797→                      </div>
+   798→                    </TableCell>
+   799→                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.manufacturer || '—'}</TableCell>
+   800→                    <TableCell className="hidden sm:table-cell">
+   801→                      {drug.dosageForm ? (
+   802→                        <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
+   803→                      ) : '—'}
+   804→                    </TableCell>
+   805→                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.vendor?.name || '—'}</TableCell>
+   806→                    <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
+   807→                    <TableCell className="hidden sm:table-cell">
+   808→                      <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
+   809→                    </TableCell>
+   810→                    <TableCell className="text-right text-xs text-muted-foreground">
+   811→                      ${drug.costPrice ? drug.costPrice.toFixed(2) : '—'}
+   812→                    </TableCell>
+   813→                    <TableCell className="text-right text-sm font-medium">
+   814→                      ${drug.sellingPrice.toFixed(2)}
+   815→                    </TableCell>
+   816→                    <TableCell className="hidden lg:table-cell text-right">
+   817→                      <div className="flex items-center justify-end gap-1">
+   818→                        <span className="text-sm font-bold">{drug.inventory?.[0]?.quantity || 0}</span>
+   819→                        <span className="text-[10px] text-muted-foreground">/ {drug.reorderPoint}</span>
+   820→                      </div>
+   821→                    </TableCell>
+   822→                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+   823→                      {drug.expiryDate || '—'}
+   824→                    </TableCell>
+   825→                  </TableRow>
+   826→                ))
+   827→              )}
+   828→            </TableBody>
+   829→          </Table>
+   830→        </CardContent>
+   831→      </Card>
+   832→    </div>
+   833→  )
+   834→}
+   835→
+   836→// ── VENDOR SECTION ──────────────────────────────────────────────────────
+   837→
+   838→function VendorSection() {
+   839→  const [vendors, setVendors] = useState<Vendor[]>([])
+   840→  const [loading, setLoading] = useState(true)
+   841→  const [saving, setSaving] = useState(false)
+   842→  const [search, setSearch] = useState('')
+   843→  const [form, setForm] = useState({
+   844→    name: '', contactPerson: '', email: '', phone: '', address: '', notes: '',
+   845→  })
+   846→  const addToast = useAppStore((s) => s.addToast)
+   847→
+   848→  const fetchVendors = useCallback(async () => {
+   849→    setLoading(true)
+   850→    try {
+   851→      const res = await fetch('/api/vendors')
+   852→      if (res.ok) setVendors(await res.json())
+   853→    } catch {
+   854→      addToast({ title: 'Error', description: 'Failed to load vendors', variant: 'destructive' })
+   855→    } finally {
+   856→      setLoading(false)
+   857→    }
+   858→  }, [addToast])
+   859→
+   860→  useEffect(() => { fetchVendors() }, [fetchVendors])
+   861→
+   862→  const handleCreate = async () => {
+   863→    if (!form.name.trim()) return
+   864→    setSaving(true)
+   865→    try {
+   866→      const res = await fetch('/api/vendors', {
+   867→        method: 'POST',
+   868→        headers: { 'Content-Type': 'application/json' },
+   869→        body: JSON.stringify(form),
+   870→      })
+   871→      if (!res.ok) {
+   872→        const err = await res.json()
+   873→        throw new Error(err.error || 'Failed')
+   874→      }
+   875→      addToast({ title: 'Vendor Added', description: `"${form.name.trim()}" registered as supplier`, variant: 'success' })
+   876→      setForm({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
+   877→      fetchVendors()
+   878→    } catch (err: any) {
+   879→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   880→    } finally {
+   881→      setSaving(false)
+   882→    }
+   883→  }
+   884→
+   885→  const handleDelete = async (vendor: Vendor) => {
+   886→    try {
+   887→      const res = await fetch(`/api/vendors/${vendor.id}`, { method: 'DELETE' })
+   888→      if (!res.ok) {
+   889→        const err = await res.json()
+   890→        throw new Error(err.error || 'Failed')
+   891→      }
+   892→      addToast({ title: 'Deleted', description: `"${vendor.name}" removed`, variant: 'success' })
+   893→      fetchVendors()
+   894→    } catch (err: any) {
+   895→      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+   896→    }
+   897→  }
+   898→
+   899→  const filtered = vendors.filter((v) =>
+   900→    v.name.toLowerCase().includes(search.toLowerCase()) ||
+   901→    (v.contactPerson && v.contactPerson.toLowerCase().includes(search.toLowerCase())) ||
+   902→    (v.email && v.email.toLowerCase().includes(search.toLowerCase()))
+   903→  )
+   904→
+   905→  return (
+   906→    <div className="space-y-4">
+   907→      {/* Create Form */}
+   908→      <Card>
+   909→        <CardContent className="p-4">
+   910→          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   911→            <Truck className="h-4 w-4 text-green-600" />
+   912→            Register New Vendor / Supplier
+   913→          </h3>
+   914→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   915→            <div className="sm:col-span-2 lg:col-span-2">
+   916→              <Label className="text-xs">Vendor Name <span className="text-red-500">*</span></Label>
+   917→              <Input placeholder="e.g., PharmaCorp Distribution" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
+   918→            </div>
+   919→            <div>
+   920→              <Label className="text-xs">Contact Person</Label>
+   921→              <Input placeholder="Full name" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} className="mt-1" />
+   922→            </div>
+   923→            <div>
+   924→              <Label className="text-xs">Email</Label>
+   925→              <Input type="email" placeholder="vendor@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
+   926→            </div>
+   927→            <div>
+   928→              <Label className="text-xs">Phone</Label>
+   929→              <Input placeholder="+1 (555) 000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1" />
+   930→            </div>
+   931→            <div className="sm:col-span-2">
+   932→              <Label className="text-xs">Address</Label>
+   933→              <Input placeholder="Street, City, State" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-1" />
+   934→            </div>
+   935→            <div>
+   936→              <Label className="text-xs">Notes</Label>
+   937→              <Input placeholder="Additional notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1" />
+   938→            </div>
+   939→            <div className="sm:col-span-2 lg:col-span-3">
+   940→              <Button
+   941→                onClick={handleCreate}
+   942→                disabled={!form.name.trim() || saving}
+   943→                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+   944→              >
+   945→                {saving ? 'Saving...' : <><Truck className="h-4 w-4 mr-2" /> Register Vendor</>}
+   946→              </Button>
+   947→            </div>
+   948→          </div>
+   949→        </CardContent>
+   950→      </Card>
+   951→
+   952→      {/* Search */}
+   953→      <div className="relative max-w-sm">
+   954→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   955→        <Input placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+   956→      </div>
+   957→
+   958→      {/* Vendor Table */}
+   959→      <Card>
+   960→        <CardContent className="p-0">
+   961→          <Table>
+   962→            <TableHeader>
+   963→              <TableRow>
+   964→                <TableHead>Vendor Name</TableHead>
+   965→                <TableHead className="hidden sm:table-cell">Contact Person</TableHead>
+   966→                <TableHead className="hidden md:table-cell">Email</TableHead>
+   967→                <TableHead className="hidden md:table-cell">Phone</TableHead>
+   968→                <TableHead className="text-center">Products</TableHead>
+   969→                <TableHead className="text-right">Actions</TableHead>
+   970→              </TableRow>
+   971→            </TableHeader>
+   972→            <TableBody>
+   973→              {loading ? (
+   974→                Array.from({ length: 5 }).map((_, i) => (
+   975→                  <TableRow key={i}>
+   976→                    {Array.from({ length: 6 }).map((_, j) => (
+   977→                      <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+   978→                    ))}
+   979→                  </TableRow>
+   980→                ))
+   981→              ) : filtered.length === 0 ? (
+   982→                <TableRow>
+   983→                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No vendors found</TableCell>
+   984→                </TableRow>
+   985→              ) : (
+   986→                filtered.map((vendor) => {
+   987→                  const prodCount = vendor._count?.products || 0
+   988→                  return (
+   989→                    <TableRow key={vendor.id}>
+   990→                      <TableCell>
+   991→                        <div className="flex items-center gap-2">
+   992→                          <div className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+   993→                            <Truck className="h-3.5 w-3.5 text-green-600" />
+   994→                          </div>
+   995→                          <div>
+   996→                            <p className="font-medium text-sm">{vendor.name}</p>
+   997→                            {vendor.address && <p className="text-[10px] text-muted-foreground">{vendor.address}</p>}
+   998→                          </div>
+   999→                        </div>
+  1000→                      </TableCell>
+  1001→                      <TableCell className="hidden sm:table-cell text-sm">{vendor.contactPerson || '—'}</TableCell>
+  1002→                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{vendor.email || '—'}</TableCell>
+  1003→                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{vendor.phone || '—'}</TableCell>
+  1004→                      <TableCell className="text-center">
+  1005→                        <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
+  1006→                      </TableCell>
+  1007→                      <TableCell className="text-right">
+  1008→                        <Button
+  1009→                          size="sm" variant="ghost"
+  1010→                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
+  1011→                          onClick={() => handleDelete(vendor)}
+  1012→                          disabled={prodCount > 0}
+  1013→                          title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+  1014→                        >
+  1015→                          <Trash2 className="h-3.5 w-3.5" />
+  1016→                        </Button>
+  1017→                      </TableCell>
+  1018→                    </TableRow>
+  1019→                  )
+  1020→                })
+  1021→              )}
+  1022→            </TableBody>
+  1023→          </Table>
+  1024→        </CardContent>
+  1025→      </Card>
+  1026→    </div>
+  1027→  )
+  1028→}
+  1029→
