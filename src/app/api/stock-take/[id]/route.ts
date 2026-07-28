@@ -46,7 +46,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             select: {
               id: true, name: true, ndc: true, category: true, unitOfMeasure: true,
               expiryDate: true, costPrice: true, sellingPrice: true, dosageForm: true,
-              strength: true, reorderPoint: true,
+              strength: true, reorderPoint: true, reorderQty: true,
+              manufacturer: true, manufacturerRef: { select: { name: true } },
+              vendor: { select: { name: true } },
             },
           },
         },
@@ -139,6 +141,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const report = {
         generatedAt: now.toISOString(),
         stockTakeRef: updated.reference,
+        stockTakeId: id,
         completedAt: updated.completedAt?.toISOString(),
         totalItemsChecked: countedItems.length,
         expiredGoods: {

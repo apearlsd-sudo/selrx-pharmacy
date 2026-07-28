@@ -20,6 +20,7 @@ export type ViewName =
   | 'returns'
   | 'product-sales-analytics'
   | 'stock-take'
+  | 'stock-take-report'
 
 export type PaymentMethodType =
   | 'CASH'
@@ -82,6 +83,8 @@ export interface NavigationState {
   setCurrentView: (view: ViewName) => void
   sidebarOpen: boolean
   toggleSidebar: () => void
+  stockTakeReportId: string | null
+  setStockTakeReportId: (id: string | null) => void
 }
 
 export interface AuthState {
@@ -188,6 +191,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   sidebarOpen: true,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  stockTakeReportId: null,
+  setStockTakeReportId: (id) => set({ stockTakeReportId: id }),
 
   // ---- Auth ----
   user: null,
