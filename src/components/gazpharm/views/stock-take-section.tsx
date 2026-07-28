@@ -13,6 +13,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useAppStore } from '@/store/app-store'
