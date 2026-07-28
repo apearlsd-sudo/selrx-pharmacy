@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 
 // GET /api/product-sales-analytics — aggregated sales per product
 // Supports ?userId=... & ?startDate=... & ?endDate=... & ?categoryId=...
+// RBAC: SUPER_ADMIN sees all users; other roles see only their own data
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -11,9 +12,17 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate') || undefined
     const categoryId = searchParams.get('categoryId') || undefined
 
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = req.headers.get('x-user-role') || ''
+    const requesterId = req.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
+    // Non-SUPER_ADMIN users can only see their own product sales
+    const effectiveUserId = isSuperAdmin ? userId : (requesterId || userId)
+
     // Build where clause for transactions
     const txWhere: any = { status: 'COMPLETED' }
-    if (userId) txWhere.userId = userId
+    if (effectiveUserId) txWhere.userId = effectiveUserId
     if (startDate) txWhere.createdAt = { ...txWhere.createdAt, gte: new Date(startDate) }
     if (endDate) txWhere.createdAt = { ...txWhere.createdAt, lte: new Date(endDate) }
 

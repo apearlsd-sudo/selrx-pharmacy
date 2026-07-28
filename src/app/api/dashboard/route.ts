@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // GET /api/dashboard - Get comprehensive dashboard data
-export async function GET(_request: NextRequest) {
+// RBAC: SUPER_ADMIN sees all data; other roles see only their own
+export async function GET(request: NextRequest) {
   try {
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = request.headers.get('x-user-role') || ''
+    const requesterId = request.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
+    // For non-SUPER_ADMIN, only fetch their own transactions
+    const userFilter = isSuperAdmin ? {} : (requesterId ? { userId: requesterId } : { userId: '__none__' })
+
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const startOfWeek = new Date(startOfDay)
@@ -24,6 +33,7 @@ export async function GET(_request: NextRequest) {
         where: {
           createdAt: { gte: startOfDay },
           status: 'COMPLETED',
+          ...userFilter,
         },
       }),
 
@@ -32,6 +42,7 @@ export async function GET(_request: NextRequest) {
         where: {
           createdAt: { gte: startOfWeek },
           status: 'COMPLETED',
+          ...userFilter,
         },
         select: {
           id: true,
@@ -60,6 +71,7 @@ export async function GET(_request: NextRequest) {
           transaction: {
             status: 'COMPLETED',
             createdAt: { gte: startOfMonth },
+            ...userFilter,
           },
         },
         _sum: {
@@ -74,6 +86,7 @@ export async function GET(_request: NextRequest) {
 
       // Recent transactions (last 10)
       db.transaction.findMany({
+        where: userFilter,
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: {

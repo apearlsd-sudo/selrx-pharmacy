@@ -12,6 +12,7 @@ function generateTransactionNo(): string {
 }
 
 // GET /api/transactions - List transactions with date filter
+// RBAC: SUPER_ADMIN sees all transactions; other roles see only their own
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -22,6 +23,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const action = searchParams.get('action')
 
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = request.headers.get('x-user-role') || ''
+    const requesterId = request.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
     // GET /api/transactions/stats - Sales statistics
     if (action === 'stats') {
       const now = new Date()
@@ -30,23 +36,29 @@ export async function GET(request: NextRequest) {
       startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
+      // For non-SUPER_ADMIN, only fetch their own transactions
+      const userFilter = isSuperAdmin ? {} : (requesterId ? { userId: requesterId } : { userId: '__none__' })
+
       const [todayTxns, weekTxns, monthTxns, topProducts] = await Promise.all([
         db.transaction.findMany({
           where: {
             createdAt: { gte: startOfDay },
             status: 'COMPLETED',
+            ...userFilter,
           },
         }),
         db.transaction.findMany({
           where: {
             createdAt: { gte: startOfWeek },
             status: 'COMPLETED',
+            ...userFilter,
           },
         }),
         db.transaction.findMany({
           where: {
             createdAt: { gte: startOfMonth },
             status: 'COMPLETED',
+            ...userFilter,
           },
           include: { items: true },
         }),
@@ -56,6 +68,7 @@ export async function GET(request: NextRequest) {
             transaction: {
               status: 'COMPLETED',
               createdAt: { gte: startOfMonth },
+              ...userFilter,
             },
           },
           _sum: { quantity: true, subtotal: true },
@@ -87,6 +100,11 @@ export async function GET(request: NextRequest) {
 
     // Regular transaction list
     const where: Record<string, unknown> = {}
+
+    // Non-SUPER_ADMIN users can only see their own transactions
+    if (!isSuperAdmin && requesterId) {
+      where.userId = requesterId
+    }
 
     if (from || to) {
       where.createdAt = {}

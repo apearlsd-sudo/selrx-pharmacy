@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 
 // GET /api/sales-history - Sales history with user breakdown
 // Supports ?from=&to=&userId=&page=&limit=&groupBy=user|daily
+// RBAC: SUPER_ADMIN sees all users; other roles see only their own data
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -11,6 +12,14 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
+
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = request.headers.get('x-user-role') || ''
+    const requesterId = request.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
+    // Non-SUPER_ADMIN users can only see their own sales
+    const effectiveUserId = isSuperAdmin ? userId : (requesterId || userId)
 
     // Build date filter
     const dateFilter: Record<string, unknown> = {}
@@ -27,8 +36,8 @@ export async function GET(request: NextRequest) {
     if (Object.keys(dateFilter).length > 0) {
       baseWhere.createdAt = dateFilter
     }
-    if (userId) {
-      baseWhere.userId = userId
+    if (effectiveUserId) {
+      baseWhere.userId = effectiveUserId
     }
 
     // 1. Overall summary stats

@@ -1,0 +1,252 @@
+     1→/home/z/my-project/src/components/ui/pagination.tsx:14:      role="navigation"
+     2→/home/z/my-project/src/components/gazpharm/company-setup-view.tsx:226:        role: data.owner.role,
+     3→/home/z/my-project/src/components/gazpharm/company-setup-view.tsx:506:                        This account will be created as <strong>Super Administrator</strong> with full access to all features. You can add more users later.
+     4→/home/z/my-project/src/components/gazpharm/views/goods-return-view.tsx:134:  user: { id: string; name: string; role: string }
+     5→/home/z/my-project/src/components/gazpharm/views/goods-return-view.tsx:519:            userRole={user?.role || ''}
+     6→/home/z/my-project/src/components/gazpharm/views/goods-return-view.tsx:533:            userRole={user?.role || ''}
+     7→/home/z/my-project/src/components/gazpharm/views/goods-return-view.tsx:977:  userRole,
+     8→/home/z/my-project/src/components/gazpharm/views/goods-return-view.tsx:987:  userRole: string
+     9→/home/z/my-project/src/components/ui/carousel.tsx:124:        role="region"
+    10→/home/z/my-project/src/components/ui/carousel.tsx:125:        aria-roledescription="carousel"
+    11→/home/z/my-project/src/components/ui/carousel.tsx:161:      role="group"
+    12→/home/z/my-project/src/components/ui/carousel.tsx:162:      aria-roledescription="slide"
+    13→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:31:  role: string
+    14→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:40:interface SystemRoleItem {
+    15→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:99:    category: 'Users & Roles',
+    16→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:103:      { key: 'users:roles', label: 'Manage Roles', icon: Shield, description: 'Create and customize roles & privileges' },
+    17→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:125:// Exported flat key list for use by login API (SUPER_ADMIN gets all)
+    18→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:128:// Default permissions per role — loaded from DB, fallback hardcoded
+    19→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:129:const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+    20→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:130:  SUPER_ADMIN: ['dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'prescriptions:view', 'prescriptions:process', 'customers:view', 'customers:manage', 'users:view', 'users:manage', 'users:roles', 'hardware:view', 'hardware:manage', 'reports:view', 'reports:export', 'master-data:view', 'master-data:manage'],
+    21→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:235:          <span className="text-amber-600 font-medium">Custom permissions (different from role defaults)</span>
+    22→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:251:    name: '', email: '', password: '', role: 'CLERK', phone: '', licenseNumber: '',
+    23→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:255:    role: '', phone: '', licenseNumber: '',
+    24→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:262:  // ── Roles Management State ──
+    25→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:263:  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users')
+    26→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:264:  const [roles, setRoles] = useState<SystemRoleItem[]>([])
+    27→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:265:  const [createRoleDialog, setCreateRoleDialog] = useState(false)
+    28→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:266:  const [editRoleDialog, setEditRoleDialog] = useState(false)
+    29→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:267:  const [selectedRole, setSelectedRole] = useState<SystemRoleItem | null>(null)
+    30→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:268:  const [roleForm, setRoleForm] = useState({ name: '', label: '', description: '' })
+    31→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:269:  const [roleFormPermissions, setRoleFormPermissions] = useState<string[]>([])
+    32→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:270:  const [editRoleForm, setEditRoleForm] = useState({ label: '', description: '', color: '' })
+    33→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:271:  const [editRolePermissions, setEditRolePermissions] = useState<string[]>([])
+    34→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:287:  // ── Roles CRUD ──
+    35→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:288:  const fetchRoles = useCallback(async () => {
+    36→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:290:      const res = await fetch('/api/roles', { headers: { 'x-user-role': 'SUPER_ADMIN' } })
+    37→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:293:        setRoles(data)
+    38→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:294:        // Update DEFAULT_ROLE_PERMISSIONS from DB roles
+    39→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:295:        data.forEach((r: SystemRoleItem) => {
+    40→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:298:            if (Array.isArray(perms)) DEFAULT_ROLE_PERMISSIONS[r.name] = perms
+    41→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:305:  useEffect(() => { fetchRoles() }, [fetchRoles])
+    42→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:307:  const handleCreateRole = async () => {
+    43→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:308:    if (!roleForm.name || !roleForm.label) return
+    44→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:311:      const res = await fetch('/api/roles', {
+    45→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:313:        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+    46→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:314:        body: JSON.stringify({ ...roleForm, permissions: roleFormPermissions }),
+    47→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:318:        throw new Error(err.error || 'Failed to create role')
+    48→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:320:      addToast({ title: 'Role Created', description: `"${roleForm.label}" role created successfully`, variant: 'success' })
+    49→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:321:      setCreateRoleDialog(false)
+    50→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:322:      setRoleForm({ name: '', label: '', description: '' })
+    51→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:323:      setRoleFormPermissions([])
+    52→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:324:      fetchRoles()
+    53→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:326:      addToast({ title: 'Error', description: err.message || 'Failed to create role', variant: 'destructive' })
+    54→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:332:  const openEditRoleDialog = (role: SystemRoleItem) => {
+    55→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:333:    setSelectedRole(role)
+    56→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:334:    setEditRoleForm({ label: role.label, description: role.description || '', color: role.color })
+    57→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:335:    try { setEditRolePermissions(JSON.parse(role.permissions)) } catch { setEditRolePermissions([]) }
+    58→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:336:    setEditRoleDialog(true)
+    59→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:339:  const handleUpdateRole = async () => {
+    60→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:340:    if (!selectedRole) return
+    61→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:343:      const res = await fetch(`/api/roles?id=${selectedRole.id}`, {
+    62→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:345:        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+    63→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:346:        body: JSON.stringify({ ...editRoleForm, permissions: editRolePermissions }),
+    64→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:350:        throw new Error(err.error || 'Failed to update role')
+    65→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:352:      addToast({ title: 'Role Updated', description: `"${editRoleForm.label}" updated successfully`, variant: 'success' })
+    66→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:353:      setEditRoleDialog(false)
+    67→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:354:      setSelectedRole(null)
+    68→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:355:      fetchRoles()
+    69→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:357:      addToast({ title: 'Error', description: err.message || 'Failed to update role', variant: 'destructive' })
+    70→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:363:  const handleDeleteRole = async (role: SystemRoleItem) => {
+    71→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:364:    if (role.isSystem || role._count.users > 0) {
+    72→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:365:      addToast({ title: 'Cannot Delete', description: role.isSystem ? 'System roles cannot be deleted' : `Reassign ${role._count.users} user(s) first`, variant: 'destructive' })
+    73→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:368:    if (!confirm(`Delete the "${role.label}" role? This cannot be undone.`)) return
+    74→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:370:      const res = await fetch(`/api/roles?id=${role.id}`, {
+    75→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:372:        headers: { 'x-user-role': 'SUPER_ADMIN' },
+    76→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:375:        addToast({ title: 'Deleted', description: `"${role.label}" role deleted`, variant: 'success' })
+    77→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:376:        fetchRoles()
+    78→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:379:      addToast({ title: 'Error', description: 'Failed to delete role', variant: 'destructive' })
+    79→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:383:  // Get role permissions from DB-loaded roles state, fallback to hardcoded defaults
+    80→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:384:  const getRolePerms = (roleName: string): string[] => {
+    81→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:385:    const dbRole = roles.find(r => r.name === roleName)
+    82→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:386:    if (dbRole) {
+    83→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:387:      try { const p = JSON.parse(dbRole.permissions); if (Array.isArray(p)) return p } catch { /* fall through */ }
+    84→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:389:    return DEFAULT_ROLE_PERMISSIONS[roleName] || []
+    85→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:392:  // When role changes in create dialog, auto-fill default permissions
+    86→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:393:  const handleCreateRoleChange = (newRole: string) => {
+    87→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:394:    setForm({ ...form, role: newRole })
+    88→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:395:    setFormPermissions([...getRolePerms(newRole)])
+    89→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:398:  // When role changes in edit dialog, auto-fill default permissions
+    90→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:399:  const handleEditRoleChange = (newRole: string) => {
+    91→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:400:    setEditForm({ ...editForm, role: newRole })
+    92→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:401:    setEditPermissions([...getRolePerms(newRole)])
+    93→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:407:    const perms = parsed.length > 0 ? parsed : [...getRolePerms(user.role)]
+    94→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:408:    setEditForm({ role: user.role, phone: user.phone || '', licenseNumber: user.licenseNumber || '' })
+    95→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:419:        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+    96→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:420:        body: JSON.stringify({ ...form, userRole: form.role, permissions: formPermissions }),
+    97→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:428:      setForm({ name: '', email: '', password: '', role: 'CLERK', phone: '', licenseNumber: '' })
+    98→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:444:        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+    99→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:445:        body: JSON.stringify({ userRole: editForm.role, phone: editForm.phone, licenseNumber: editForm.licenseNumber, permissions: editPermissions }),
+   100→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:466:        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+   101→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:479:    return getRolePerms(user.role)
+   102→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:525:              <p className="text-2xl font-bold text-red-600">{users.filter((u) => u.role === 'SUPER_ADMIN').length}</p>
+   103→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:540:        {(currentUser?.role === 'SUPER_ADMIN') && (
+   104→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:542:            onClick={() => setActiveTab('roles')}
+   105→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:543:            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'roles' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+   106→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:545:            <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Roles ({roles.length})</span>
+   107→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:557:          <p className="text-sm text-muted-foreground">Manage staff accounts and role permissions</p>
+   108→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:559:        {(currentUser?.role === 'SUPER_ADMIN') && (
+   109→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:561:            setForm({ name: '', email: '', password: '', role: 'CLERK', phone: '', licenseNumber: '' })
+   110→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:562:            setFormPermissions([...DEFAULT_ROLE_PERMISSIONS.CLERK])
+   111→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:579:                <TableHead>Role</TableHead>
+   112→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:597:                  const roleData = roles.find(r => r.name === userItem.role)
+   113→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:598:                  const roleColor = roleData?.color || 'bg-gray-100 text-gray-700 border-gray-200'
+   114→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:599:                  const roleLabel = roleData?.label || userItem.role
+   115→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:614:                        <Badge className={`text-xs ${roleColor}`}>{roleLabel}</Badge>
+   116→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:650:                          {currentUser?.role === 'SUPER_ADMIN' && userItem.id !== currentUser.id && (
+   117→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:676:      {/* Role Permission Reference Matrix */}
+   118→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:679:          <h3 className="text-sm font-semibold mb-3">Default Role Permissions</h3>
+   119→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:685:                  {roles.map((role) => (
+   120→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:686:                    <TableHead key={role.id} className="text-center">{role.label}</TableHead>
+   121→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:694:                    {roles.map((role) => {
+   122→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:695:                      const hasPerm = DEFAULT_ROLE_PERMISSIONS[role.name]?.includes(perm.key)
+   123→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:697:                        <TableCell key={role.id} className="text-center">
+   124→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:746:              {/* Role Dropdown */}
+   125→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:749:                  <Label className="text-sm font-semibold">Assign Role</Label>
+   126→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:750:                  <Select value={form.role} onValueChange={handleCreateRoleChange}>
+   127→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:752:                      <SelectValue placeholder="Select a role" />
+   128→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:755:                      {roles.filter(r => r.isActive).map((r) => (
+   129→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:760:                              {getRolePerms(r.name).length}/{ALL_PERMISSIONS.length}
+   130→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:768:                    Selecting a role auto-fills default permissions. You can customize them below.
+   131→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:789:      {/* ── Edit User Dialog (Role + Permissions) ─────────────────────── */}
+   132→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:827:                {/* Role Dropdown */}
+   133→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:830:                    <Label className="text-sm font-semibold">Change Role</Label>
+   134→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:831:                    <Select value={editForm.role} onValueChange={handleEditRoleChange}>
+   135→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:836:                        {roles.filter(r => r.isActive).map((r) => (
+   136→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:841:                                {getRolePerms(r.name).length}/{ALL_PERMISSIONS.length}
+   137→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:849:                      Changing the role resets permissions to defaults. Customize below as needed.
+   138→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:883:            const detailRoleData = roles.find(r => r.name === selectedUser.role)
+   139→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:884:            const detailRoleLabel = detailRoleData?.label || selectedUser.role
+   140→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:885:            const detailRoleColor = detailRoleData?.color || 'bg-gray-100 text-gray-700 border-gray-200'
+   141→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:900:                      <span className="text-muted-foreground">Role:</span>
+   142→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:901:                      <Badge className={`ml-2 text-xs ${detailRoleColor}`}>{detailRoleLabel}</Badge>
+   143→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:952:            {currentUser?.role === 'SUPER_ADMIN' && selectedUser?.id !== currentUser.id && (
+   144→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:964:      {/* Roles Tab */}
+   145→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:965:      {activeTab === 'roles' && currentUser?.role === 'SUPER_ADMIN' && (
+   146→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:969:              <h2 className="text-lg font-semibold">Roles & Privileges</h2>
+   147→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:970:              <p className="text-sm text-muted-foreground">Create and manage custom roles with granular permissions</p>
+   148→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:973:              setRoleForm({ name: '', label: '', description: '' })
+   149→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:974:              setRoleFormPermissions([])
+   150→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:975:              setCreateRoleDialog(true)
+   151→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:978:              Create Role
+   152→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:982:          {/* Roles Grid */}
+   153→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:984:            {roles.map((role) => {
+   154→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:985:              const permCount = (() => { try { return JSON.parse(role.permissions).length } catch { return 0 } })()
+   155→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:987:                <Card key={role.id} className={`relative overflow-hidden ${!role.isActive ? 'opacity-60' : ''}`}>
+   156→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:992:                          <Badge className={`text-xs px-2 py-0.5 border ${role.color}`}>{role.label}</Badge>
+   157→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:993:                          {role.isSystem && <Badge variant="outline" className="text-[10px] h-5">System</Badge>}
+   158→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:994:                          {!role.isActive && <Badge variant="secondary" className="text-[10px] h-5">Inactive</Badge>}
+   159→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:996:                        <p className="text-xs text-muted-foreground mt-1.5">{role.description || 'No description'}</p>
+   160→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:999:                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRoleDialog(role)}>
+   161→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1002:                        {!role.isSystem && (
+   162→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1003:                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => handleDeleteRole(role)}>
+   163→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1011:                      <span className="text-muted-foreground">{role._count.users} user{role._count.users !== 1 ? 's' : ''}</span>
+   164→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1016:                        try { return JSON.parse(role.permissions).slice(0, 5).map((p: string) => (
+   165→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1028:          {/* Create Role Dialog */}
+   166→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1029:          <Dialog open={createRoleDialog} onOpenChange={setCreateRoleDialog}>
+   167→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1032:                <DialogTitle>Create New Role</DialogTitle>
+   168→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1037:                    <Label>Role Name (Code) <span className="text-red-500">*</span></Label>
+   169→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1038:                    <Input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') })} placeholder="SHIFT_LEAD" className="mt-1" />
+   170→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1043:                    <Input value={roleForm.label} onChange={(e) => setRoleForm({ ...roleForm, label: e.target.value })} placeholder="Shift Lead" className="mt-1" />
+   171→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1048:                  <Input value={roleForm.description} onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })} placeholder="Brief role description" className="mt-1" />
+   172→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1050:                <PermissionGrid permissions={roleFormPermissions} onChange={setRoleFormPermissions} />
+   173→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1053:                <Button variant="outline" onClick={() => setCreateRoleDialog(false)}>Cancel</Button>
+   174→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1054:                <Button onClick={handleCreateRole} className="bg-emerald-600 hover:bg-emerald-700" disabled={!roleForm.name || !roleForm.label || saving}>
+   175→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1055:                  {saving ? 'Creating...' : 'Create Role'}
+   176→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1061:          {/* Edit Role Dialog */}
+   177→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1062:          <Dialog open={editRoleDialog} onOpenChange={setEditRoleDialog}>
+   178→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1065:                <DialogTitle>Edit Role: {selectedRole?.label}</DialogTitle>
+   179→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1069:                  <Label>Role Name</Label>
+   180→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1070:                  <Input value={selectedRole?.name || ''} disabled className="mt-1 bg-gray-50" />
+   181→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1071:                  <p className="text-[10px] text-muted-foreground mt-1">Role name cannot be changed after creation</p>
+   182→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1075:                  <Input value={editRoleForm.label} onChange={(e) => setEditRoleForm({ ...editRoleForm, label: e.target.value })} className="mt-1" />
+   183→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1079:                  <Input value={editRoleForm.description} onChange={(e) => setEditRoleForm({ ...editRoleForm, description: e.target.value })} className="mt-1" />
+   184→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1081:                <PermissionGrid permissions={editRolePermissions} onChange={setEditRolePermissions} />
+   185→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1084:                <Button variant="outline" onClick={() => setEditRoleDialog(false)}>Cancel</Button>
+   186→/home/z/my-project/src/components/gazpharm/views/users-view.tsx:1085:                <Button onClick={handleUpdateRole} className="bg-emerald-600 hover:bg-emerald-700" disabled={saving}>
+   187→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:247:        'Transaction #', 'Date', 'Time', 'Cashier', 'Cashier Role',
+   188→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:256:        txn.user?.role || '',
+   189→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:388:                      {u.name} ({u.role})
+   190→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:553:                    <TableHead>Role</TableHead>
+   191→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:599:                          <Badge variant="outline" className="text-[10px]">{u.userRole}</Badge>
+   192→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:703:                              <Badge variant="outline" className="text-[10px]">{u.userRole}</Badge>
+   193→/home/z/my-project/src/components/gazpharm/views/sales-history-view.tsx:797:                                <p className="text-[10px] text-muted-foreground">{txn.user?.role || ''}</p>
+   194→/home/z/my-project/src/components/gazpharm/views/prescriptions-view.tsx:295:                          {rx.status === 'PENDING' && (user?.role === 'PHARMACIST' || user?.role === 'SUPER_ADMIN') && (
+   195→/home/z/my-project/src/components/ui/alert.tsx:30:      role="alert"
+   196→/home/z/my-project/src/components/gazpharm/views/master-data-view.tsx:589:        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+   197→/home/z/my-project/src/components/gazpharm/views/master-data-view.tsx:1001:          'x-user-role': 'SUPER_ADMIN',
+   198→/home/z/my-project/src/components/gazpharm/views/inventory-view.tsx:186:        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+   199→/home/z/my-project/src/components/gazpharm/views/inventory-view.tsx:214:          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+   200→/home/z/my-project/src/components/gazpharm/views/inventory-view.tsx:461:            headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+   201→/home/z/my-project/src/components/gazpharm/sidebar.tsx:44:  roles: string[]
+   202→/home/z/my-project/src/components/gazpharm/sidebar.tsx:52:    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
+   203→/home/z/my-project/src/components/gazpharm/sidebar.tsx:58:    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER'],
+   204→/home/z/my-project/src/components/gazpharm/sidebar.tsx:64:    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'],
+   205→/home/z/my-project/src/components/gazpharm/sidebar.tsx:70:    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN'],
+   206→/home/z/my-project/src/components/gazpharm/sidebar.tsx:76:    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
+   207→/home/z/my-project/src/components/gazpharm/sidebar.tsx:82:    roles: ['SUPER_ADMIN'],
+   208→/home/z/my-project/src/components/gazpharm/sidebar.tsx:88:    roles: ['SUPER_ADMIN', 'PHARMACIST'],
+   209→/home/z/my-project/src/components/gazpharm/sidebar.tsx:94:    roles: ['SUPER_ADMIN', 'PHARMACIST'],
+   210→/home/z/my-project/src/components/gazpharm/sidebar.tsx:98:function getRoleBadgeColor(role: string) {
+   211→/home/z/my-project/src/components/gazpharm/sidebar.tsx:99:  switch (role) {
+   212→/home/z/my-project/src/components/gazpharm/sidebar.tsx:100:    case 'SUPER_ADMIN':
+   213→/home/z/my-project/src/components/gazpharm/sidebar.tsx:140:    () => NAV_ITEMS.filter((item) => hasPermission(item.roles)),
+   214→/home/z/my-project/src/components/gazpharm/sidebar.tsx:274:                    className={`mt-0.5 text-[10px] px-1.5 py-0 ${getRoleBadgeColor(user.role)}`}
+   215→/home/z/my-project/src/components/gazpharm/sidebar.tsx:276:                    {user.role.replace('_', ' ')}
+   216→/home/z/my-project/src/store/app-store.ts:37:  role: string
+   217→/home/z/my-project/src/store/app-store.ts:38:  roleLabel?: string
+   218→/home/z/my-project/src/store/app-store.ts:95:  hasPermission: (requiredRoles: string[]) => boolean
+   219→/home/z/my-project/src/store/app-store.ts:233:    // SUPER_ADMIN always has access
+   220→/home/z/my-project/src/store/app-store.ts:234:    if (state.user.role === 'SUPER_ADMIN') return true
+   221→/home/z/my-project/src/store/app-store.ts:240:    // No custom permissions set — deny access (unless SUPER_ADMIN)
+   222→/home/z/my-project/src/components/ui/table.tsx:73:        "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+   223→/home/z/my-project/src/components/ui/table.tsx:86:        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+   224→/home/z/my-project/src/components/ui/breadcrumb.tsx:56:      role="link"
+   225→/home/z/my-project/src/components/ui/breadcrumb.tsx:73:      role="presentation"
+   226→/home/z/my-project/src/components/ui/breadcrumb.tsx:90:      role="presentation"
+   227→/home/z/my-project/src/app/api/auth/session/route.ts:15:      include: { systemRole: true },
+   228→/home/z/my-project/src/app/api/auth/session/route.ts:25:    if (user.role === 'SUPER_ADMIN') {
+   229→/home/z/my-project/src/app/api/auth/session/route.ts:38:    if (permissions.length === 0 && user.systemRole) {
+   230→/home/z/my-project/src/app/api/auth/session/route.ts:40:        const rolePerms = JSON.parse(user.systemRole.permissions)
+   231→/home/z/my-project/src/app/api/auth/session/route.ts:41:        if (Array.isArray(rolePerms)) {
+   232→/home/z/my-project/src/app/api/auth/session/route.ts:42:          permissions = rolePerms
+   233→/home/z/my-project/src/app/api/auth/session/route.ts:55:        role: user.role,
+   234→/home/z/my-project/src/app/api/auth/session/route.ts:56:        roleLabel: user.systemRole?.label || user.role,
+   235→/home/z/my-project/src/app/api/auth/login/route.ts:19:      include: { systemRole: true },
+   236→/home/z/my-project/src/app/api/auth/login/route.ts:36:    // 1. SUPER_ADMIN always gets ALL permissions
+   237→/home/z/my-project/src/app/api/auth/login/route.ts:38:    // 3. SystemRole permissions (fallback when user has no custom override)
+   238→/home/z/my-project/src/app/api/auth/login/route.ts:41:    if (user.role === 'SUPER_ADMIN') {
+   239→/home/z/my-project/src/app/api/auth/login/route.ts:54:    // Fallback: load permissions from the SystemRole
+   240→/home/z/my-project/src/app/api/auth/login/route.ts:55:    if (permissions.length === 0 && user.systemRole) {
+   241→/home/z/my-project/src/app/api/auth/login/route.ts:57:        const rolePerms = JSON.parse(user.systemRole.permissions)
+   242→/home/z/my-project/src/app/api/auth/login/route.ts:58:        if (Array.isArray(rolePerms)) {
+   243→/home/z/my-project/src/app/api/auth/login/route.ts:59:          permissions = rolePerms
+   244→/home/z/my-project/src/app/api/auth/login/route.ts:71:        role: user.role,
+   245→/home/z/my-project/src/app/api/auth/login/route.ts:72:        roleLabel: user.systemRole?.label || user.role,
+   246→/home/z/my-project/src/app/api/product-sales-analytics/route.ts:41:            user: { select: { name: true, email: true, role: true } },
+   247→/home/z/my-project/src/app/api/company-setup/route.ts:112:      // Create the owner user first (SUPER_ADMIN)
+   248→/home/z/my-project/src/app/api/company-setup/route.ts:119:          role: 'SUPER_ADMIN',
+   249→/home/z/my-project/src/app/api/company-setup/route.ts:171:        role: result.owner.role,
+   250→/home/z/my-project/src/app/api/transactions/[id]/route.ts:16:          select: { id: true, name: true, email: true, role: true },
+   251→
+   252→[Showing results with pagination = limit: 250]

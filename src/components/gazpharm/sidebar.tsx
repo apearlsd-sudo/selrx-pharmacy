@@ -91,7 +91,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Reports',
     icon: BarChart3,
     view: 'reports',
-    roles: ['SUPER_ADMIN', 'PHARMACIST'],
+    roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
   },
 ]
 
