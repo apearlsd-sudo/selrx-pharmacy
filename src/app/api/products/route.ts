@@ -46,8 +46,6 @@ export async function GET(request: NextRequest) {
       }),
       db.product.count({ where }),
     ])
-    const products = result[0]
-    const total = result[1]
 
     return NextResponse.json({
       products,
