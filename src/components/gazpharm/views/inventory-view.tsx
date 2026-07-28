@@ -626,6 +626,9 @@ export function InventoryView() {
                 </TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Reorder Point</TableHead>
                 <TableHead className="text-right">Status</TableHead>
+                <TableHead className="hidden xl:table-cell">Manufacturer</TableHead>
+                <TableHead className="hidden xl:table-cell">Vendor</TableHead>
+                <TableHead className="hidden xl:table-cell">Dosage Form</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -642,7 +645,7 @@ export function InventoryView() {
                 ))
               ) : filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No inventory items found
                   </TableCell>
                 </TableRow>
@@ -677,6 +680,9 @@ export function InventoryView() {
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">In Stock</Badge>
                         )}
                       </TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.vendor?.name || '—'}</TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.dosageForm || '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">${item.product.costPrice?.toFixed(2) || '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">${item.product.sellingPrice.toFixed(2)}</TableCell>
                       <TableCell className="text-right">

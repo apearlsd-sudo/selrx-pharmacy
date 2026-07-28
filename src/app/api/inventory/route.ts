@@ -38,7 +38,12 @@ export async function GET(request: NextRequest) {
     // Regular inventory list — include products WITHOUT inventory records (qty=0)
     const inventory = await db.inventory.findMany({
       include: {
-        product: true,
+        product: {
+          include: {
+            manufacturerRef: { select: { name: true } },
+            vendor: { select: { name: true } },
+          },
+        },
       },
       orderBy: { updatedAt: 'desc' },
     })
@@ -47,6 +52,10 @@ export async function GET(request: NextRequest) {
     const productsWithInventory = new Set(inventory.map(i => i.productId))
     const productsWithoutInventory = await db.product.findMany({
       where: { id: { notIn: Array.from(productsWithInventory) } },
+      include: {
+        manufacturerRef: { select: { name: true } },
+        vendor: { select: { name: true } },
+      },
     })
 
     // Merge: products without inventory show qty=0
