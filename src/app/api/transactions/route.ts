@@ -153,7 +153,13 @@ export async function GET(request: NextRequest) {
 // POST /api/transactions - Create new transaction (complete POS sale)
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id') || 'demo-user'
+    const userId = request.headers.get('x-user-id')
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User authentication required. Please log in and try again.' },
+        { status: 401 }
+      )
+    }
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 

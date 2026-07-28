@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore, type CartItem, type PaymentMethodType } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 import { ReceiptModal } from './receipt-modal'
 
 interface Product {
@@ -116,7 +117,7 @@ export function POSView() {
       if (query) params.set('search', query)
       if (category) params.set('category', category)
       params.set('limit', '50')
-      const res = await fetch(`/api/products?${params.toString()}`)
+      const res = await fetch(`/api/products?${params.toString()}`, { headers: authHeaders() })
       if (res.ok) {
         const json = await res.json()
         setProducts(json.products || [])
@@ -135,7 +136,7 @@ export function POSView() {
       return
     }
     try {
-      const res = await fetch(`/api/customers?search=${encodeURIComponent(query)}&limit=10`)
+      const res = await fetch(`/api/customers?search=${encodeURIComponent(query)}&limit=10`, { headers: authHeaders() })
       if (res.ok) {
         const json = await res.json()
         setCustomerOptions(json.customers || [])
@@ -293,7 +294,7 @@ export function POSView() {
 
       const res = await fetch('/api/transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders() },
         body: JSON.stringify(payload),
       })
 
