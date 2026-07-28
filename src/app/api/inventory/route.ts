@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(lowStockAlerts)
     }
 
-    // Regular inventory list
+    // Regular inventory list — include products WITHOUT inventory records (qty=0)
     const inventory = await db.inventory.findMany({
       include: {
         product: true,
@@ -43,7 +43,25 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
-    return NextResponse.json(inventory)
+    // Also find products that have NO inventory record yet
+    const productsWithInventory = new Set(inventory.map(i => i.productId))
+    const productsWithoutInventory = await db.product.findMany({
+      where: { id: { notIn: Array.from(productsWithInventory) } },
+    })
+
+    // Merge: products without inventory show qty=0
+    const merged = [
+      ...inventory,
+      ...productsWithoutInventory.map(p => ({
+        id: `no-inv-${p.id}`,
+        productId: p.id,
+        quantity: 0,
+        lastCounted: null,
+        product: p,
+      })),
+    ]
+
+    return NextResponse.json(merged)
   } catch (error) {
     console.error('Error fetching inventory:', error)
     return NextResponse.json(

@@ -110,6 +110,24 @@ async function main() {
   await addColumn(turso, 'Product', 'manufacturer', 'TEXT')
   await addColumn(turso, 'Product', 'dosageForm', 'TEXT')
 
+  // ── Inventory: ensure records exist for all products ───────────
+  console.log('📦 Syncing Inventory records...')
+  const { rows: products } = await turso.execute(
+    `SELECT p."id" FROM "Product" p LEFT JOIN "Inventory" i ON p."id" = i."productId" WHERE i."id" IS NULL`
+  )
+  if (products.length > 0) {
+    console.log(`  📝 Creating inventory for ${products.length} products without records...`)
+    for (const p of products) {
+      await turso.execute({
+        sql: `INSERT OR IGNORE INTO "Inventory" ("id", "productId", "quantity", "createdAt", "updatedAt") VALUES (lower(hex(randomblob(16))), ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        args: [p.id],
+      })
+    }
+    console.log(`  ✅ Inventory records created`)
+  } else {
+    console.log('  ⏭️  All products already have inventory records')
+  }
+
   console.log('✅ Turso schema sync complete!')
 }
 
