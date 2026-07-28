@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 --turbopack 2>&1 | tee dev.log",
-    "build": "node scripts/install-turso-adapter.mjs && next build",
+    "build": "node scripts/install-turso-adapter.mjs && node scripts/turso-sync-schema.mjs && next build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",
