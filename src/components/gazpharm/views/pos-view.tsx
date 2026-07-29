@@ -67,7 +67,7 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
 
 
 
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency, currencySymbol } from '@/lib/currency'
 
 export function POSView() {
   // Local state
@@ -760,7 +760,7 @@ export function POSView() {
                     <p className="text-xs font-medium text-muted-foreground">Amount Tendered</p>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        $
+                        {currencySymbol()}
                       </span>
                       <Input
                         type="number"
@@ -790,7 +790,7 @@ export function POSView() {
                           className="flex-1 h-7 text-xs"
                           onClick={() => setAmountTendered(amt.toString())}
                         >
-                          ${amt}
+                          {currencySymbol()}{amt}
                         </Button>
                       ))}
                     </div>
