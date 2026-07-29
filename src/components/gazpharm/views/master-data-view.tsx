@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
@@ -81,10 +81,6 @@ interface DrugProduct {
   batchNumber: string | null
   status: string
 }
-
-const DOSAGE_FORMS: string[] = []
-
-const BUILT_IN_CATEGORIES: string[] = []
 
 // ── Section Button Component ─────────────────────────────────────────────
 
@@ -538,8 +534,6 @@ function DrugEditModal({
   onOpenAddVendor,
   onOpenAddCategory,
   onOpenAddDosageForm,
-  onDeleteCategory,
-  onDeleteDosageForm,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -553,8 +547,6 @@ function DrugEditModal({
   onOpenAddVendor: () => void
   onOpenAddCategory: () => void
   onOpenAddDosageForm: () => void
-  onDeleteCategory: (catName: string) => void
-  onDeleteDosageForm: (formName: string) => void
 }) {
   const [form, setForm] = useState({
     name: '', ndc: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
@@ -568,7 +560,7 @@ function DrugEditModal({
       setForm({
         name: editingDrug.name || '',
         ndc: editingDrug.ndc || '',
-        category: editingDrug.category || 'OTC',
+        category: editingDrug.category || '',
         dosageForm: editingDrug.dosageForm || '',
         manufacturerId: editingDrug.manufacturerId || '',
         costPrice: editingDrug.costPrice != null ? String(editingDrug.costPrice) : '',
@@ -635,19 +627,11 @@ function DrugEditModal({
           </div>
           <div>
             <Label className="text-xs">Category</Label>
-            <Select value={form.category} onValueChange={(v) => { if (v === '__new__') { onOpenAddCategory() } else if (v.startsWith('__del__:')) { onDeleteCategory(v.split(':').slice(1).join(':')) } else { setForm({ ...form, category: v }) } }}>
+            <Select value={form.category} onValueChange={(v) => { if (v === '__new__') { onOpenAddCategory() } else { setForm({ ...form, category: v }) } }}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {BUILT_IN_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
-                ))}
-                {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
-                  <Fragment key={c.id}>
-                    <SelectItem value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
-                    <SelectItem value={`__del__:${c.name}`} className="text-red-500 text-xs py-1 h-8 focus:bg-red-50 focus:text-red-600">
-                      ↳ Delete "{c.name.replace(/_/g, ' ')}"
-                    </SelectItem>
-                  </Fragment>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
                 ))}
                 <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new category</SelectItem>
               </SelectContent>
@@ -668,23 +652,13 @@ function DrugEditModal({
           </div>
           <div>
             <Label className="text-xs">Dosage Form</Label>
-            <Select value={form.dosageForm || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddDosageForm() } else if (v.startsWith('__del__:')) { onDeleteDosageForm(v.split(':').slice(1).join(':')) } else { setForm({ ...form, dosageForm: v === '_none' ? '' : v }) } }}>
+            <Select value={form.dosageForm || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddDosageForm() } else { setForm({ ...form, dosageForm: v === '_none' ? '' : v }) } }}>
               <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">None</SelectItem>
-                {dosageForms.map((f) => {
-                  const isBuiltIn = DOSAGE_FORMS.includes(f)
-                  return isBuiltIn ? (
-                    <SelectItem key={f} value={f}>{f}</SelectItem>
-                  ) : (
-                    <Fragment key={f}>
-                      <SelectItem value={f}>{f}</SelectItem>
-                      <SelectItem value={`__del__:${f}`} className="text-red-500 text-xs py-1 h-8 focus:bg-red-50 focus:text-red-600">
-                        ↳ Delete "{f}"
-                      </SelectItem>
-                    </Fragment>
-                  )
-                })}
+                {dosageForms.map((f) => (
+                  <SelectItem key={f} value={f}>{f}</SelectItem>
+                ))}
                 <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new dosage form</SelectItem>
               </SelectContent>
             </Select>
@@ -865,7 +839,6 @@ function CategorySection() {
                 <TableHead>Category Name</TableHead>
                 <TableHead className="hidden sm:table-cell">Description</TableHead>
                 <TableHead className="text-center">Products</TableHead>
-                <TableHead className="text-center">Type</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -873,18 +846,17 @@ function CategorySection() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
+                    {Array.from({ length: 4 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No categories found</TableCell>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No categories found</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((cat) => {
-                  const isBuiltIn = BUILT_IN_CATEGORIES.includes(cat.name)
                   const prodCount = cat._count?.products || 0
                   return (
                     <TableRow key={cat.id}>
@@ -895,13 +867,6 @@ function CategorySection() {
                       <TableCell className="text-center">
                         <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {isBuiltIn ? (
-                          <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">System</Badge>
-                        ) : (
-                          <Badge className="text-[10px] bg-purple-100 text-purple-700 border-purple-200">Custom</Badge>
-                        )}
-                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(cat)}>
@@ -911,8 +876,8 @@ function CategorySection() {
                             size="sm" variant="ghost"
                             className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
                             onClick={() => handleDelete(cat)}
-                            disabled={isBuiltIn || prodCount > 0}
-                            title={isBuiltIn ? 'System category' : prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+                            disabled={prodCount > 0}
+                            title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -984,7 +949,7 @@ function DrugSection() {
   const currentUser = useAppStore((s) => s.user)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
-  const allDosageForms = [...DOSAGE_FORMS, ...customDosageForms]
+  const allDosageForms = [...customDosageForms]
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -1011,36 +976,6 @@ function DrugSection() {
   }, [addToast])
 
   useEffect(() => { fetchData() }, [fetchData])
-
-  // Delete a custom category from the dropdown
-  const handleDeleteCategory = async (catName: string) => {
-    const cat = categories.find((c) => c.name === catName && !BUILT_IN_CATEGORIES.includes(c.name))
-    if (!cat) return
-    const prodCount = cat._count?.products || 0
-    if (prodCount > 0) {
-      addToast({ title: 'Cannot Delete', description: `${prodCount} product(s) linked to "${catName.replace(/_/g, ' ')}". Reassign them first.`, variant: 'destructive' })
-      return
-    }
-    try {
-      const res = await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to delete')
-      }
-      addToast({ title: 'Deleted', description: `"${catName.replace(/_/g, ' ')}" removed`, variant: 'success' })
-      if (form.category === catName) setForm({ ...form, category: '' })
-      fetchData()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    }
-  }
-
-  // Remove a custom dosage form
-  const handleDeleteDosageForm = (formName: string) => {
-    setCustomDosageForms((prev) => prev.filter((f) => f !== formName))
-    if (form.dosageForm === formName) setForm({ ...form, dosageForm: '' })
-    addToast({ title: 'Removed', description: `"${formName}" removed from dosage forms`, variant: 'success' })
-  }
 
   // Re-fetch drugs when inventory changes (stock counts, adjusts)
   const prevInvVer = useRef(inventoryVersion)
@@ -1288,9 +1223,6 @@ function DrugSection() {
                 onValueChange={(v) => {
                   if (v === '__new__') {
                     setCatModalOpen(true)
-                  } else if (v.startsWith('__del__:')) {
-                    const catName = v.split(':').slice(1).join(':')
-                    handleDeleteCategory(catName)
                   } else {
                     setForm({ ...form, category: v })
                   }
@@ -1298,16 +1230,8 @@ function DrugSection() {
               >
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {BUILT_IN_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>
-                  ))}
-                  {categories.filter((c) => !BUILT_IN_CATEGORIES.includes(c.name)).map((c) => (
-                    <Fragment key={c.id}>
-                      <SelectItem value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
-                      <SelectItem value={`__del__:${c.name}`} className="text-red-500 text-xs py-1 h-8 focus:bg-red-50 focus:text-red-600">
-                        ↳ Delete "{c.name.replace(/_/g, ' ')}"
-                      </SelectItem>
-                    </Fragment>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
                   ))}
                   <SelectItem value="__new__" className="text-emerald-600 font-medium">
                     + Add new category
@@ -1324,9 +1248,6 @@ function DrugSection() {
                 onValueChange={(v) => {
                   if (v === '__new__') {
                     setDosageFormModalOpen(true)
-                  } else if (v.startsWith('__del__:')) {
-                    const formName = v.split(':').slice(1).join(':')
-                    handleDeleteDosageForm(formName)
                   } else {
                     setForm({ ...form, dosageForm: v === '_none' ? '' : v })
                   }
@@ -1335,19 +1256,9 @@ function DrugSection() {
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">None</SelectItem>
-                  {allDosageForms.map((f) => {
-                    const isCustom = customDosageForms.includes(f)
-                    return isCustom ? (
-                      <Fragment key={f}>
-                        <SelectItem value={f}>{f}</SelectItem>
-                        <SelectItem value={`__del__:${f}`} className="text-red-500 text-xs py-1 h-8 focus:bg-red-50 focus:text-red-600">
-                          ↳ Delete "{f}"
-                        </SelectItem>
-                      </Fragment>
-                    ) : (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    )
-                  })}
+                  {allDosageForms.map((f) => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
                   <SelectItem value="__new__" className="text-emerald-600 font-medium">
                     + Add new dosage form
                   </SelectItem>
@@ -1563,8 +1474,6 @@ function DrugSection() {
         onOpenAddVendor={() => setVendorModalOpen(true)}
         onOpenAddCategory={() => setCatModalOpen(true)}
         onOpenAddDosageForm={() => setDosageFormModalOpen(true)}
-        onDeleteCategory={handleDeleteCategory}
-        onDeleteDosageForm={handleDeleteDosageForm}
       />
 
       {/* ── Import Products Dialog ──────────────────────────────── */}
