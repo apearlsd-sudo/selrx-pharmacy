@@ -96,7 +96,7 @@ function statusBadge(status: string) {
     case 'PENDING_APPROVAL':
       return <Badge className="bg-amber-100 text-amber-700 text-xs border-amber-200"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
     case 'APPROVED':
-      return <Badge className="bg-blue-100 text-blue-700 text-xs border-blue-200"><Check className="h-3 w-3 mr-1" />Approved</Badge>
+      return <Badge className="bg-blue-100 text-blue-700 text-xs border-blue-200"><Check className="h-3 w-3 mr-1" />Approved & Restocked</Badge>
     case 'REJECTED':
       return <Badge className="bg-red-100 text-red-700 text-xs border-red-200"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>
     case 'COMPLETED':
@@ -379,7 +379,7 @@ export function GoodsReturnView() {
       const data = await res.json()
       if (res.ok) {
         const actionLabels: Record<string, string> = {
-          approve: 'approved',
+          approve: 'approved & restocked',
           reject: 'rejected',
           complete: 'completed',
           cancel: 'cancelled',
@@ -1054,7 +1054,7 @@ export function GoodsReturnView() {
                               onClick={() => performAction(detailReturn.id, 'approve')}
                               disabled={actionLoading}
                             >
-                              <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                              <Check className="h-3.5 w-3.5 mr-1" /> Approve & Restock
                             </Button>
                             <Button
                               size="sm"
@@ -1220,7 +1220,7 @@ function ReturnTable({
                           {userRole === 'SUPER_ADMIN' && (
                             <>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'approve')} disabled={actionLoading}>
-                                <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Approve
+                                <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Approve & Restock
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'reject')} disabled={actionLoading}>
                                 <XCircle className="h-3.5 w-3.5 mr-2 text-red-600" /> Reject

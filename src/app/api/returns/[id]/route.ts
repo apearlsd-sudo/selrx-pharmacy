@@ -91,19 +91,69 @@ export async function PUT(
             { status: 400 }
           )
         }
+
+        const returnQty = Number(existing.quantity)
+
+        // 1. Restock the product inventory immediately on approval
+        await db.inventory.upsert({
+          where: { productId: existing.productId },
+          update: { quantity: { increment: returnQty } },
+          create: { productId: existing.productId, quantity: returnQty },
+        })
+
+        // 2. Adjust the original transaction item quantity (reduce by returned amount)
+        const txItem = await db.transactionItem.findUnique({
+          where: { id: existing.transactionItemId },
+        })
+        if (txItem) {
+          const originalQty = Number(txItem.quantity)
+          const returnedQty = Math.min(returnQty, originalQty)
+          const newQty = Math.max(0, originalQty - returnedQty)
+          const newSubtotal = Number(txItem.unitPrice) * newQty
+
+          await db.transactionItem.update({
+            where: { id: existing.transactionItemId },
+            data: {
+              quantity: newQty,
+              subtotal: newSubtotal,
+            },
+          })
+        }
+
+        // 3. Recalculate and update the original transaction totals
+        const allTxItems = await db.transactionItem.findMany({
+          where: { transactionId: existing.transactionId },
+        })
+        const newSubtotal = allTxItems.reduce(
+          (sum, item) => sum + Number(item.subtotal),
+          0
+        )
+
+        await db.transaction.update({
+          where: { id: existing.transactionId },
+          data: {
+            subtotal: newSubtotal,
+            total: Math.max(0, newSubtotal),
+            paymentAmount: Math.max(0, newSubtotal),
+            status: 'REFUNDED',
+          },
+        })
+
+        // 4. Mark as approved with restocked flag
         updated = await db.return.update({
           where: { id },
           data: {
             status: 'APPROVED',
             approvedById: approvedById || null,
             approvedAt: new Date(),
+            restocked: true,
             notes: notes || existing.notes,
           },
           include: {
             user: { select: { id: true, name: true, role: true } },
             approvedBy: { select: { id: true, name: true } },
             product: { select: { id: true, name: true } },
-            transaction: { select: { transactionNo: true } },
+            transaction: { select: { transactionNo: true, status: true, subtotal: true, total: true } },
           },
         })
         break
@@ -142,55 +192,8 @@ export async function PUT(
           )
         }
 
-        const returnQty = Number(existing.quantity)
-
-        // 1. Restock the product inventory
-        await db.inventory.upsert({
-          where: { productId: existing.productId },
-          update: { quantity: { increment: returnQty } },
-          create: { productId: existing.productId, quantity: returnQty },
-        })
-
-        // 2. Adjust the original transaction item quantity (reduce by returned amount)
-        const txItem = await db.transactionItem.findUnique({
-          where: { id: existing.transactionItemId },
-        })
-        if (txItem) {
-          const originalQty = Number(txItem.quantity)
-          const returnedQty = Math.min(returnQty, originalQty)
-          const newQty = Math.max(0, originalQty - returnedQty)
-          const newSubtotal = Number(txItem.unitPrice) * newQty
-
-          await db.transactionItem.update({
-            where: { id: existing.transactionItemId },
-            data: {
-              quantity: newQty,
-              subtotal: newSubtotal,
-            },
-          })
-        }
-
-        // 3. Recalculate and update the original transaction totals
-        const allTxItems = await db.transactionItem.findMany({
-          where: { transactionId: existing.transactionId },
-        })
-        const newSubtotal = allTxItems.reduce(
-          (sum, item) => sum + Number(item.subtotal),
-          0
-        )
-
-        // Mark the original transaction as REFUNDED (since a return was processed against it)
-        await db.transaction.update({
-          where: { id: existing.transactionId },
-          data: {
-            subtotal: newSubtotal,
-            total: Math.max(0, newSubtotal),
-            paymentAmount: Math.max(0, newSubtotal),
-            status: 'REFUNDED',
-          },
-        })
-
-        // 4. Mark the return as completed
+        // Inventory restock and transaction adjustments already done during approve.
+        // Complete just finalizes the return record.
         updated = await db.return.update({
           where: { id },
           data: {
