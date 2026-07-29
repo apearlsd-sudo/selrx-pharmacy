@@ -463,9 +463,9 @@ export function SalesHistoryView() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          {/* Sales by User - Bar Chart — SUPER_ADMIN only */}
           {isSuperAdmin && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Sales by User - Bar Chart */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Sales by User</CardTitle>
@@ -498,44 +498,83 @@ export function SalesHistoryView() {
               </CardContent>
             </Card>
 
-            {/* Sales Trend - Line Chart */}
+            {/* Sales Distribution Pie Chart — SUPER_ADMIN only */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Daily Sales Trend</CardTitle>
+                <CardTitle className="text-sm font-semibold">Sales Distribution</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <Skeleton className="h-64 w-full" />
-                ) : dailyChartData.length > 0 ? (
+                ) : sortedUserSales.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={dailyChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
-                      <Tooltip formatter={(value: any, name: string) => {
-                        if (name === 'sales') return formatCurrency(value)
-                        return value
-                      }} />
-                      <Line
-                        type="monotone"
-                        dataKey="sales"
-                        stroke="#059669"
-                        strokeWidth={2}
-                        dot={{ fill: '#059669', r: 3 }}
-                        activeDot={{ r: 5 }}
-                        name="Sales ($)"
-                      />
-                    </LineChart>
+                    <PieChart>
+                      <Pie
+                        data={sortedUserSales.slice(0, 8).map((u: any, i: number) => ({
+                          name: u.userName?.split(' ')[0] || 'Unknown',
+                          value: u.totalSales,
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={90}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {sortedUserSales.slice(0, 8).map((_: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                    </PieChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No trend data available
+                    No data available
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
           )}
+
+          {/* Daily Sales Trend — visible to all users */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Daily Sales Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : dailyChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={dailyChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
+                    <Tooltip formatter={(value: any, name: string) => {
+                      if (name === 'sales') return formatCurrency(value)
+                      return value
+                    }} />
+                    <Line
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="#059669"
+                      strokeWidth={2}
+                      dot={{ fill: '#059669', r: 3 }}
+                      activeDot={{ r: 5 }}
+                      name="Sales"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                  No trend data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Top Sellers Summary Table — SUPER_ADMIN only */}
           {isSuperAdmin && (
