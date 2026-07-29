@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { ALL_PERMISSION_KEYS } from '@/lib/permissions'
+import { ALL_PERMISSION_KEYS, ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,16 +10,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false }, { status: 401 })
     }
 
+    // Simple query — no SystemRole include to avoid query failures
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { systemRole: true },
     })
 
     if (!user || !user.active) {
       return NextResponse.json({ valid: false }, { status: 401 })
     }
 
-    // Resolve permissions with same priority as login
+    // Resolve permissions — same logic as login route
     let permissions: string[] = []
 
     if (user.role === 'SUPER_ADMIN') {
@@ -35,16 +35,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (permissions.length === 0 && user.systemRole) {
-      try {
-        const rolePerms = JSON.parse(user.systemRole.permissions)
-        if (Array.isArray(rolePerms)) {
-          permissions = rolePerms
-        }
-      } catch {
-        permissions = []
-      }
+    // Fallback: use in-code default permissions for the role
+    if (permissions.length === 0) {
+      permissions = DEFAULT_ROLE_PERMISSIONS[user.role] ?? []
     }
+
+    const roleLabel = ROLE_METADATA[user.role]?.label || user.role
 
     return NextResponse.json({
       valid: true,
@@ -53,7 +49,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
         email: user.email,
         role: user.role,
-        roleLabel: user.systemRole?.label || user.role,
+        roleLabel,
         permissions,
       },
     })

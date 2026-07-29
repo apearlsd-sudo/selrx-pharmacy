@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { ROLE_METADATA } from '@/lib/permissions'
 
 // GET /api/users - List all users (admin only)
 export async function GET(request: NextRequest) {
@@ -17,11 +18,13 @@ export async function GET(request: NextRequest) {
 
     // GET /api/users?action=roles - List available roles for dropdown
     if (action === 'roles') {
-      const roles = await db.systemRole.findMany({
-        where: { isActive: true },
-        orderBy: { isSystem: 'desc' },
-        select: { name: true, label: true, color: true, isSystem: true },
-      })
+      // Use in-code ROLE_METADATA instead of DB query to avoid SystemRole table dependency
+      const roles = Object.entries(ROLE_METADATA).map(([name, meta]) => ({
+        name,
+        label: meta.label,
+        color: meta.color,
+        isSystem: true,
+      }))
       return NextResponse.json(roles)
     }
 
