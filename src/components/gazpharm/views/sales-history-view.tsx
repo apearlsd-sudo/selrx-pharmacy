@@ -104,6 +104,9 @@ export function SalesHistoryView() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+  const user = useAppStore((s) => s.user)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const today = new Date().toISOString().slice(0, 10)
   const [dateFrom, setDateFrom] = useState(isSuperAdmin ? '' : today)
   const [dateTo, setDateTo] = useState(isSuperAdmin ? '' : today)
@@ -113,9 +116,6 @@ export function SalesHistoryView() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailTxn, setDetailTxn] = useState<any>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const addToast = useAppStore((s) => s.addToast)
-  const user = useAppStore((s) => s.user)
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
   const fetchSalesHistory = useCallback(async () => {
     setLoading(true)
