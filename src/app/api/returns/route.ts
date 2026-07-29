@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     }
 
     const [returns, total] = await Promise.all([
-      prisma.return.findMany({
+      db.return.findMany({
         where,
         include: {
           user: { select: { id: true, name: true, role: true } },
@@ -49,21 +49,21 @@ export async function GET(req: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.return.count({ where }),
+      db.return.count({ where }),
     ])
 
     // Summary stats
     const [totalReturns, pendingCount, completedCount, totalRefundAmount] = await Promise.all([
-      prisma.return.count(),
-      prisma.return.count({ where: { status: 'PENDING_APPROVAL' } }),
-      prisma.return.count({ where: { status: 'COMPLETED' } }),
-      prisma.return.aggregate({
+      db.return.count(),
+      db.return.count({ where: { status: 'PENDING_APPROVAL' } }),
+      db.return.count({ where: { status: 'COMPLETED' } }),
+      db.return.aggregate({
         where: { status: { in: ['APPROVED', 'COMPLETED'] } },
         _sum: { refundAmount: true },
       }),
     ])
 
-    const topReasons = await prisma.return.groupBy({
+    const topReasons = await db.return.groupBy({
       by: ['reason'],
       _count: { reason: true },
       orderBy: { _count: { reason: 'desc' } },
@@ -123,9 +123,34 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (quantity <= 0) {
+    const qty = Number(quantity)
+    const price = Number(unitPrice)
+    const refund = Number(refundAmount)
+
+    if (qty <= 0) {
       return NextResponse.json(
         { error: 'Quantity must be greater than 0' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the referenced transaction and item exist
+    const txExists = await db.transaction.findUnique({
+      where: { id: transactionId },
+    })
+    if (!txExists) {
+      return NextResponse.json(
+        { error: 'Referenced transaction not found' },
+        { status: 400 }
+      )
+    }
+
+    const txItemExists = await db.transactionItem.findUnique({
+      where: { id: transactionItemId },
+    })
+    if (!txItemExists) {
+      return NextResponse.json(
+        { error: 'Referenced transaction item not found' },
         { status: 400 }
       )
     }
@@ -134,7 +159,7 @@ export async function POST(req: NextRequest) {
     const now = new Date()
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const todayReturns = await prisma.return.count({
+    const todayReturns = await db.return.count({
       where: {
         createdAt: { gte: todayStart },
       },
@@ -143,16 +168,16 @@ export async function POST(req: NextRequest) {
     const returnNo = `RTN-${dateStr}-${seq}`
 
     // Create the return record
-    const returnRecord = await prisma.return.create({
+    const returnRecord = await db.return.create({
       data: {
         returnNo,
         transactionId,
         transactionItemId,
         productId,
         productName,
-        quantity,
-        unitPrice,
-        refundAmount: refundAmount || unitPrice * quantity,
+        quantity: qty,
+        unitPrice: price,
+        refundAmount: refund || price * qty,
         reason,
         reasonNote,
         customerId: customerId || null,

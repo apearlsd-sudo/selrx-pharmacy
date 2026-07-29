@@ -60,3 +60,4 @@ db/*.db
 
 # Skills directory
 /skills/
+tool-results/

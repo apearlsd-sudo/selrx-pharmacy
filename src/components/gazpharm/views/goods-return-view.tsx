@@ -17,7 +17,6 @@ import {
   Eye,
   MoreHorizontal,
   TrendingDown,
-  DollarSign,
   Ban,
   Check,
   ShoppingBag,
@@ -484,7 +483,7 @@ export function GoodsReturnView() {
                 <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(summary.totalRefundAmount)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-rose-100 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-rose-600" />
+                <TrendingDown className="h-5 w-5 text-rose-600" />
               </div>
             </div>
           </CardContent>
