@@ -247,6 +247,8 @@ export function UsersView() {
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
   const [detailDialog, setDetailDialog] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null)
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'CLERK', phone: '', licenseNumber: '',
@@ -474,10 +476,16 @@ export function UsersView() {
     }
   }
 
-  const handleDeleteUser = async (user: UserItem) => {
-    if (!confirm(`Delete user "${user.name}" (${user.email})? This action cannot be undone.`)) return
+  const openDeleteDialog = (user: UserItem) => {
+    setSelectedUser(user)
+    setDeleteDialog(true)
+  }
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return
+    setDeleting(true)
     try {
-      const res = await fetch(`/api/users?id=${user.id}`, {
+      const res = await fetch(`/api/users?id=${selectedUser.id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       })
@@ -485,10 +493,14 @@ export function UsersView() {
         const err = await res.json()
         throw new Error(err.error || 'Failed to delete')
       }
-      addToast({ title: 'User Deleted', description: `"${user.name}" has been removed`, variant: 'success' })
+      addToast({ title: 'User Deleted', description: `"${selectedUser.name}" has been removed`, variant: 'success' })
+      setDeleteDialog(false)
+      setSelectedUser(null)
       fetchUsers()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to delete user', variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -683,7 +695,7 @@ export function UsersView() {
                                 size="sm"
                                 variant="ghost"
                                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => handleDeleteUser(userItem)}
+                                onClick={() => openDeleteDialog(userItem)}
                                 title="Delete user"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -983,6 +995,41 @@ export function UsersView() {
                 Edit User
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete User Confirmation Dialog ────────────────────────────── */}
+      <Dialog open={deleteDialog} onOpenChange={(open) => { if (!open || !deleting) setDeleteDialog(false) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete User
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. All data for this user will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+              <p className="text-sm font-medium">{selectedUser.name}</p>
+              <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
+              <Badge className="text-xs">{selectedUser.role}</Badge>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(false)} disabled={deleting}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : <>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete User
+              </>}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
