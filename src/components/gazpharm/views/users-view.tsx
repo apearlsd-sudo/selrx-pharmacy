@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 
 interface UserItem {
   id: string
@@ -273,7 +274,7 @@ export function UsersView() {
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/users')
+      const res = await fetch('/api/users', { headers: authHeaders() })
       if (res.ok) setUsers(await res.json())
     } catch {
       addToast({ title: 'Error', description: 'Failed to load users', variant: 'destructive' })
