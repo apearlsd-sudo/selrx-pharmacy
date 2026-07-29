@@ -2,12 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  DollarSign,
-  ShoppingCart,
-  TrendingUp,
-  Users,
-  CalendarDays,
-  Download,
+  ShoppingCart, TrendingUp,
+  Users, CalendarDays, Download,
   Filter,
   ChevronLeft,
   ChevronRight,
@@ -40,6 +36,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area,
 } from 'recharts'
 import { useAppStore } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#047857', '#065f46']
 
@@ -116,6 +113,8 @@ export function SalesHistoryView() {
   const [detailTxn, setDetailTxn] = useState<any>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
+  const user = useAppStore((s) => s.user)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
   const fetchSalesHistory = useCallback(async () => {
     setLoading(true)
@@ -127,7 +126,7 @@ export function SalesHistoryView() {
       params.set('page', currentPage.toString())
       params.set('limit', '20')
 
-      const res = await fetch(`/api/sales-history?${params.toString()}`)
+      const res = await fetch(`/api/sales-history?${params.toString()}`, { headers: authHeaders() })
       if (res.ok) {
         const json = await res.json()
         setData(json)
@@ -140,10 +139,6 @@ export function SalesHistoryView() {
       setLoading(false)
     }
   }, [dateFrom, dateTo, selectedUserId, currentPage, addToast])
-
-  useEffect(() => {
-    fetchSalesHistory()
-  }, [fetchSalesHistory])
 
   // Reset page when filters change
   useEffect(() => {
@@ -237,7 +232,7 @@ export function SalesHistoryView() {
       if (selectedUserId && selectedUserId !== 'all') params.set('userId', selectedUserId)
       params.set('limit', '9999')
 
-      const res = await fetch(`/api/sales-history?${params.toString()}`)
+      const res = await fetch(`/api/sales-history?${params.toString()}`, { headers: authHeaders() })
       if (!res.ok) throw new Error('Export failed')
       const json = await res.json()
       const txns = json.transactions || []
@@ -374,7 +369,8 @@ export function SalesHistoryView() {
               ))}
             </div>
 
-            {/* User filter */}
+            {/* User filter — admin only */}
+            {isSuperAdmin && (
             <div className="flex items-center gap-2 ml-auto">
               <Label className="text-xs whitespace-nowrap">User:</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
@@ -391,6 +387,7 @@ export function SalesHistoryView() {
                 </SelectContent>
               </Select>
             </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -400,7 +397,7 @@ export function SalesHistoryView() {
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-              <DollarSign className="h-5 w-5 text-emerald-600" />
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
             </div>
             <div className="min-w-0">
               <div className="text-xl font-bold text-gray-900 truncate">
@@ -436,6 +433,7 @@ export function SalesHistoryView() {
             </div>
           </CardContent>
         </Card>
+        {isSuperAdmin && (
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
@@ -451,13 +449,14 @@ export function SalesHistoryView() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="by-user">By User</TabsTrigger>
+          {isSuperAdmin && <TabsTrigger value="by-user">By User</TabsTrigger>}
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
         </TabsList>
