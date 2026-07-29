@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS, PERMISSION_CATEGORIES, ALL_PERMISSION_KEYS } from '@/lib/permissions'
 
-// GET /api/roles - List all system roles
+// In-memory store for custom roles (persists only for the lifetime of the serverless function)
+// Since SystemRole table may not exist in the DB, we use in-code defaults + any custom overrides
+let customRoles: Record<string, {
+  id: string
+  name: string
+  label: string
+  description: string | null
+  permissions: string[]
+  color: string
+  isSystem: boolean
+  isActive: boolean
+}> = {}
+
+// GET /api/roles - List all roles (built from in-code metadata)
 export async function GET(request: NextRequest) {
   try {
     const role = request.headers.get('x-user-role')
@@ -12,11 +25,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const roles = await db.systemRole.findMany({
-      orderBy: { createdAt: 'asc' },
-      include: {
-        _count: { select: { users: true } },
-      },
+    // Build roles list from in-code ROLE_METADATA
+    const roles = Object.entries(ROLE_METADATA).map(([name, meta]) => ({
+      id: name, // use name as ID since we don't have DB IDs
+      name,
+      label: meta.label,
+      description: meta.description,
+      permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[name] || []),
+      color: meta.color,
+      isSystem: true,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      _count: { users: 0 }, // we can't count without DB query
+    }))
+
+    // Add any custom roles created during this server session
+    Object.values(customRoles).forEach(cr => {
+      roles.push({
+        ...cr,
+        permissions: JSON.stringify(cr.permissions),
+        _count: { users: 0 },
+      })
     })
 
     return NextResponse.json(roles)
@@ -29,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/roles - Create a new role (SUPER_ADMIN only)
+// POST /api/roles - Create a custom role (SUPER_ADMIN only)
 export async function POST(request: NextRequest) {
   try {
     const role = request.headers.get('x-user-role')
@@ -50,7 +80,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate name format: uppercase letters, numbers, underscores
     if (!/^[A-Z0-9_]+$/.test(name)) {
       return NextResponse.json(
         { error: 'Role name must be uppercase letters, numbers, and underscores only (e.g. SHIFT_LEAD)' },
@@ -58,28 +87,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for duplicate name
-    const existing = await db.systemRole.findUnique({ where: { name } })
-    if (existing) {
+    // Check for duplicate in built-in roles or custom roles
+    if (ROLE_METADATA[name] || customRoles[name]) {
       return NextResponse.json(
         { error: 'A role with this name already exists' },
         { status: 409 }
       )
     }
 
-    const newRole = await db.systemRole.create({
-      data: {
-        name,
-        label,
-        description: description || null,
-        permissions: JSON.stringify(permissions),
-        color: color || 'bg-gray-100 text-gray-700 border-gray-200',
-        isSystem: false,
-        active: true,
-      },
-    })
+    const id = `custom_${name}_${Date.now()}`
+    customRoles[name] = {
+      id,
+      name,
+      label,
+      description: description || null,
+      permissions: Array.isArray(permissions) ? permissions : [],
+      color: color || 'bg-gray-100 text-gray-700 border-gray-200',
+      isSystem: false,
+      isActive: true,
+    }
 
-    return NextResponse.json(newRole, { status: 201 })
+    return NextResponse.json(customRoles[name], { status: 201 })
   } catch (error) {
     console.error('Error creating role:', error)
     return NextResponse.json(
@@ -89,7 +117,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/roles - Update a role (SUPER_ADMIN only, cannot modify system roles' name)
+// PUT /api/roles - Update a role (SUPER_ADMIN only)
 export async function PUT(request: NextRequest) {
   try {
     const role = request.headers.get('x-user-role')
@@ -110,7 +138,9 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const existing = await db.systemRole.findUnique({ where: { id: roleId } })
+    // Find by ID or name
+    const existing = customRoles[roleId] || Object.values(customRoles).find(r => r.id === roleId)
+
     if (!existing) {
       return NextResponse.json(
         { error: 'Role not found' },
@@ -118,28 +148,16 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (existing.name === 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: 'Cannot modify the SUPER_ADMIN role' },
-        { status: 403 }
-      )
-    }
-
     const body = await request.json()
     const { label, description, permissions, color, isActive } = body
 
-    const updated = await db.systemRole.update({
-      where: { id: roleId },
-      data: {
-        ...(label !== undefined ? { label } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(permissions !== undefined ? { permissions: JSON.stringify(permissions) } : {}),
-        ...(color !== undefined ? { color } : {}),
-        ...(isActive !== undefined ? { isActive } : {}),
-      },
-    })
+    if (label !== undefined) existing.label = label
+    if (description !== undefined) existing.description = description
+    if (permissions !== undefined) existing.permissions = Array.isArray(permissions) ? permissions : existing.permissions
+    if (color !== undefined) existing.color = color
+    if (isActive !== undefined) existing.isActive = isActive
 
-    return NextResponse.json(updated)
+    return NextResponse.json(existing)
   } catch (error) {
     console.error('Error updating role:', error)
     return NextResponse.json(
@@ -149,7 +167,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/roles - Delete a custom role (SUPER_ADMIN only, cannot delete system roles or roles with users)
+// DELETE /api/roles - Delete a custom role (SUPER_ADMIN only)
 export async function DELETE(request: NextRequest) {
   try {
     const role = request.headers.get('x-user-role')
@@ -170,11 +188,15 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const existing = await db.systemRole.findUnique({
-      where: { id: roleId },
-      include: { _count: { select: { users: true } } },
-    })
+    // Don't allow deleting built-in system roles
+    if (ROLE_METADATA[roleId]) {
+      return NextResponse.json(
+        { error: 'Cannot delete system roles' },
+        { status: 403 }
+      )
+    }
 
+    const existing = customRoles[roleId] || Object.values(customRoles).find(r => r.id === roleId)
     if (!existing) {
       return NextResponse.json(
         { error: 'Role not found' },
@@ -182,21 +204,11 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    if (existing.isSystem) {
-      return NextResponse.json(
-        { error: 'Cannot delete system roles' },
-        { status: 403 }
-      )
-    }
-
-    if (existing._count.users > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete role: ${existing._count.users} user(s) are assigned to this role. Reassign them first.` },
-        { status: 409 }
-      )
-    }
-
-    await db.systemRole.delete({ where: { id: roleId } })
+    // Remove from custom roles
+    delete customRoles[existing.name]
+    // Also try removing by the roleId itself if it's stored that way
+    const keyToDelete = Object.keys(customRoles).find(k => customRoles[k].id === roleId)
+    if (keyToDelete) delete customRoles[keyToDelete]
 
     return NextResponse.json({ success: true })
   } catch (error) {
