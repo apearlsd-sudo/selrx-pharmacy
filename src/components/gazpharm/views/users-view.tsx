@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   UserCog, Shield, CheckCircle, XCircle, Edit, Clock, Plus, Ban, UserCheck,
   LayoutDashboard, ShoppingCart, Package, FileText, Users, Monitor, BarChart3, Eye, Trash2,
@@ -344,9 +344,6 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
     </Card>
   )
 }
-
-// Need React import for fragments
-import React from 'react'
 
 // ── Main View ──────────────────────────────────────────────────────────
 export function UsersView() {
