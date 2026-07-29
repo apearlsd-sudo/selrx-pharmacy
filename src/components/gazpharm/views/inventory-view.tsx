@@ -93,7 +93,7 @@ export function InventoryView() {
   const [addCatForm, setAddCatForm] = useState({ name: '', description: '' })
   const [addDfOpen, setAddDfOpen] = useState(false)
   const [addDfName, setAddDfName] = useState('')
-  const [dosageForms, setDosageForms] = useState<string[]>(['TABLET', 'CAPSULE', 'SYRUP', 'SUSPENSION', 'CREAM', 'OINTMENT', 'GEL', 'DROPS', 'INJECTION', 'INHALER', 'SPRAY', 'PATCH', 'POWDER', 'LOZENGE', 'SUPPOSITORY'])
+  const [dosageForms, setDosageForms] = useState<string[]>([])
   const [savingProduct, setSavingProduct] = useState(false)
 
   // ── Import state ────────────────────────────────────────────────

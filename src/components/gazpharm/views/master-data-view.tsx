@@ -82,13 +82,9 @@ interface DrugProduct {
   status: string
 }
 
-const DOSAGE_FORMS = [
-  'Tablet', 'Capsules', 'Syrup', 'Lozenges', 'Ointment',
-  'Suppository', 'Eyedrop', 'Eardrop', 'Contraceptive', 'Condom',
-  'Herbal', 'Cream', 'Gel', 'Injection', 'Spray', 'Powder', 'Drops', 'Patch', 'Other',
-]
+const DOSAGE_FORMS: string[] = []
 
-const BUILT_IN_CATEGORIES = ['OTC', 'PRESCRIPTION', 'SUPPLEMENT', 'MEDICAL_DEVICE', 'PERSONAL_CARE', 'CONSUMABLES']
+const BUILT_IN_CATEGORIES: string[] = []
 
 // ── Section Button Component ─────────────────────────────────────────────
 
@@ -956,7 +952,7 @@ function DrugSection() {
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
   const [form, setForm] = useState({
-    name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
+    name: '', sku: '', category: '', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
     stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
   })
 
@@ -1032,7 +1028,7 @@ function DrugSection() {
         throw new Error(err.error || 'Failed to delete')
       }
       addToast({ title: 'Deleted', description: `"${catName.replace(/_/g, ' ')}" removed`, variant: 'success' })
-      if (form.category === catName) setForm({ ...form, category: 'OTC' })
+      if (form.category === catName) setForm({ ...form, category: '' })
       fetchData()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })
