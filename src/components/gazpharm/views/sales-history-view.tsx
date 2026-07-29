@@ -104,8 +104,9 @@ export function SalesHistoryView() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const today = new Date().toISOString().slice(0, 10)
+  const [dateFrom, setDateFrom] = useState(isSuperAdmin ? '' : today)
+  const [dateTo, setDateTo] = useState(isSuperAdmin ? '' : today)
   const [selectedUserId, setSelectedUserId] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState<string>('totalSales')
@@ -335,44 +336,51 @@ export function SalesHistoryView() {
               <span className="text-xs font-medium text-muted-foreground">Filters:</span>
             </div>
 
-            {/* Date range */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Label className="text-xs whitespace-nowrap">From:</Label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="h-8 w-32 text-xs"
-              />
-              <Label className="text-xs whitespace-nowrap">To:</Label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="h-8 w-32 text-xs"
-              />
-            </div>
+            {/* Date range — SUPER_ADMIN only */}
+            {isSuperAdmin && (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Label className="text-xs whitespace-nowrap">From:</Label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-8 w-32 text-xs"
+                  />
+                  <Label className="text-xs whitespace-nowrap">To:</Label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="h-8 w-32 text-xs"
+                  />
+                </div>
 
-            {/* Quick date presets */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { label: 'Today', val: 'today' },
-                { label: '7 Days', val: 'week' },
-                { label: 'This Month', val: 'month' },
-                { label: '3 Months', val: 'quarter' },
-                { label: 'All Time', val: 'all' },
-              ].map((preset) => (
-                <Button
-                  key={preset.val}
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[11px] px-2.5"
-                  onClick={() => setPresetRange(preset.val)}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
+                {/* Quick date presets */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: 'Today', val: 'today' },
+                    { label: '7 Days', val: 'week' },
+                    { label: 'This Month', val: 'month' },
+                    { label: '3 Months', val: 'quarter' },
+                    { label: 'All Time', val: 'all' },
+                  ].map((preset) => (
+                    <Button
+                      key={preset.val}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5"
+                      onClick={() => setPresetRange(preset.val)}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+              </>
+            )}
+            {!isSuperAdmin && (
+              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Today's Sales Only</Badge>
+            )}
 
             {/* User filter — admin only */}
             {isSuperAdmin && (
