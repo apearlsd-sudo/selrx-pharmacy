@@ -312,6 +312,7 @@ export function SalesHistoryView() {
           <h2 className="text-lg font-bold text-gray-900">Sales History</h2>
           <p className="text-sm text-muted-foreground">Track and analyze sales performance across all users</p>
         </div>
+        {isSuperAdmin && (
         <Button
           variant="outline"
           size="sm"
@@ -325,6 +326,7 @@ export function SalesHistoryView() {
           )}
           {exporting ? 'Exporting...' : 'Export CSV'}
         </Button>
+        )}
       </div>
 
       {/* Filters Bar */}
