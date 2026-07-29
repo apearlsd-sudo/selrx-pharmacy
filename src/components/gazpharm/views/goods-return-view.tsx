@@ -51,6 +51,7 @@ import {
 } from 'recharts'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
+import { authHeaders } from '@/lib/auth-headers'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488']
 
@@ -211,7 +212,7 @@ export function GoodsReturnView() {
       if (filterReason !== 'ALL') params.set('reason', filterReason)
       if (searchQuery) params.set('search', searchQuery)
 
-      const res = await fetch(`/api/returns?${params}`)
+      const res = await fetch(`/api/returns?${params}`, { headers: authHeaders() })
       const data = await res.json()
       if (data.returns && Array.isArray(data.returns)) {
         setReturns(data.returns)
@@ -317,7 +318,7 @@ export function GoodsReturnView() {
 
       const res = await fetch('/api/returns', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           transactionId: foundTx.id,
           transactionItemId: selectedItem.id,
@@ -369,7 +370,7 @@ export function GoodsReturnView() {
     try {
       const res = await fetch(`/api/returns/${returnId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           action,
           approvedById: user.id,
@@ -1038,32 +1039,44 @@ export function GoodsReturnView() {
                 </div>
               )}
 
-              {/* Actions */}
+              {/* Actions — admin: approve/reject/complete; user: cancel own pending only */}
               {(detailReturn.status === 'PENDING_APPROVAL' || detailReturn.status === 'APPROVED') && (
                 <div className="border-t pt-4">
                   <p className="text-xs font-medium text-muted-foreground mb-2">Actions</p>
                   <div className="flex gap-2 flex-wrap">
                     {detailReturn.status === 'PENDING_APPROVAL' && (
                       <>
+                        {user?.role === 'SUPER_ADMIN' && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              onClick={() => performAction(detailReturn.id, 'approve')}
+                              disabled={actionLoading}
+                            >
+                              <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => performAction(detailReturn.id, 'reject')}
+                              disabled={actionLoading}
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                            </Button>
+                          </>
+                        )}
                         <Button
                           size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => performAction(detailReturn.id, 'approve')}
+                          variant="outline"
+                          onClick={() => performAction(detailReturn.id, 'cancel')}
                           disabled={actionLoading}
                         >
-                          <Check className="h-3.5 w-3.5 mr-1" /> Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => performAction(detailReturn.id, 'reject')}
-                          disabled={actionLoading}
-                        >
-                          <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                          <Ban className="h-3.5 w-3.5 mr-1" /> Cancel
                         </Button>
                       </>
                     )}
-                    {detailReturn.status === 'APPROVED' && (
+                    {detailReturn.status === 'APPROVED' && user?.role === 'SUPER_ADMIN' && (
                       <>
                         <Button
                           size="sm"
@@ -1204,15 +1217,22 @@ function ReturnTable({
                       {ret.status === 'PENDING_APPROVAL' && (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => onAction(ret.id, 'approve')} disabled={actionLoading}>
-                            <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Approve
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onAction(ret.id, 'reject')} disabled={actionLoading}>
-                            <XCircle className="h-3.5 w-3.5 mr-2 text-red-600" /> Reject
+                          {userRole === 'SUPER_ADMIN' && (
+                            <>
+                              <DropdownMenuItem onClick={() => onAction(ret.id, 'approve')} disabled={actionLoading}>
+                                <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onAction(ret.id, 'reject')} disabled={actionLoading}>
+                                <XCircle className="h-3.5 w-3.5 mr-2 text-red-600" /> Reject
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuItem onClick={() => onAction(ret.id, 'cancel')} disabled={actionLoading}>
+                            <Ban className="h-3.5 w-3.5 mr-2 text-gray-500" /> Cancel
                           </DropdownMenuItem>
                         </>
                       )}
-                      {ret.status === 'APPROVED' && (
+                      {ret.status === 'APPROVED' && userRole === 'SUPER_ADMIN' && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'complete')} disabled={actionLoading}>

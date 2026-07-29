@@ -4,12 +4,19 @@ import { db } from '@/lib/db'
 // Use shared db instance (supports Turso adapter)
 
 // GET /api/returns/[id] — single return detail
+// RBAC: SUPER_ADMIN sees all; other roles can only view their own returns
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
+
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = req.headers.get('x-user-role') || ''
+    const requesterId = req.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
     const returnRecord = await db.return.findUnique({
       where: { id },
       include: {
@@ -27,6 +34,11 @@ export async function GET(
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
 
+    // Non-admin can only view their own returns
+    if (!isSuperAdmin && returnRecord.userId !== requesterId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     return NextResponse.json({ return: returnRecord })
   } catch (error) {
     console.error('GET /api/returns/[id] error:', error)
@@ -35,6 +47,8 @@ export async function GET(
 }
 
 // PUT /api/returns/[id] — approve, reject, complete, or cancel a return
+// RBAC: SUPER_ADMIN can approve/reject/complete any return
+//       Other roles can only cancel their own PENDING_APPROVAL returns
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,9 +58,27 @@ export async function PUT(
     const body = await req.json()
     const { action, approvedById, refundMethod, notes } = body
 
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = req.headers.get('x-user-role') || ''
+    const requesterId = req.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
     const existing = await db.return.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
+    }
+
+    // Non-admin users: only allow cancelling their own pending returns
+    if (!isSuperAdmin) {
+      if (existing.userId !== requesterId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
+      if (action !== 'cancel') {
+        return NextResponse.json(
+          { error: 'Only admin can approve, reject, or complete returns' },
+          { status: 403 }
+        )
+      }
     }
 
     let updated

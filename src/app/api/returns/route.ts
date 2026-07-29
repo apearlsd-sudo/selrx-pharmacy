@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 // Use shared db instance (supports Turso adapter)
 
 // GET /api/returns — list returns with optional filters
+// RBAC: SUPER_ADMIN sees all returns; other roles see only their own
 export async function GET(req: NextRequest) {
   try {
     const url = req.nextUrl
@@ -15,7 +16,17 @@ export async function GET(req: NextRequest) {
     const page = parseInt(url.searchParams.get('page') || '1', 10)
     const limit = parseInt(url.searchParams.get('limit') || '20', 10)
 
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = req.headers.get('x-user-role') || ''
+    const requesterId = req.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+
     const where: Record<string, unknown> = {}
+
+    // Non-SUPER_ADMIN users can only see their own returns
+    if (!isSuperAdmin && requesterId) {
+      where.userId = requesterId
+    }
 
     if (status && status !== 'ALL') {
       where.status = status
@@ -52,19 +63,21 @@ export async function GET(req: NextRequest) {
       db.return.count({ where }),
     ])
 
-    // Summary stats
+    // Summary stats — also filtered by user for non-admin
+    const userFilter = isSuperAdmin ? {} : (requesterId ? { userId: requesterId } : { userId: '__none__' })
     const [totalReturns, pendingCount, completedCount, totalRefundAmount] = await Promise.all([
-      db.return.count(),
-      db.return.count({ where: { status: 'PENDING_APPROVAL' } }),
-      db.return.count({ where: { status: 'COMPLETED' } }),
+      db.return.count({ where: userFilter }),
+      db.return.count({ where: { ...userFilter, status: 'PENDING_APPROVAL' } }),
+      db.return.count({ where: { ...userFilter, status: 'COMPLETED' } }),
       db.return.aggregate({
-        where: { status: { in: ['APPROVED', 'COMPLETED'] } },
+        where: { ...userFilter, status: { in: ['APPROVED', 'COMPLETED'] } },
         _sum: { refundAmount: true },
       }),
     ])
 
     const topReasons = await db.return.groupBy({
       by: ['reason'],
+      where: userFilter,
       _count: { reason: true },
       orderBy: { _count: { reason: 'desc' } },
       take: 5,
