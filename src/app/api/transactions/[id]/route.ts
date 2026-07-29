@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // GET /api/transactions/[id] - Get single transaction with items
+// RBAC: SUPER_ADMIN can view any transaction; others can only view their own
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
+
+    // RBAC: extract requester role and userId from headers
+    const requesterRole = request.headers.get('x-user-role') || ''
+    const requesterId = request.headers.get('x-user-id') || ''
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
 
     const transaction = await db.transaction.findUnique({
       where: { id },
@@ -52,6 +58,14 @@ export async function GET(
       return NextResponse.json(
         { error: 'Transaction not found' },
         { status: 404 }
+      )
+    }
+
+    // Non-SUPER_ADMIN users can only view their own transactions
+    if (!isSuperAdmin && requesterId && transaction.userId !== requesterId) {
+      return NextResponse.json(
+        { error: 'You do not have permission to view this transaction' },
+        { status: 403 }
       )
     }
 
