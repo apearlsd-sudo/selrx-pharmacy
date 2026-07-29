@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso, generateId } from '@/lib/turso'
 import { ROLE_METADATA } from '@/lib/permissions'
+
+// Helper: convert SQLite row (with 0/1 booleans) to a proper JS object
+function rowToUser(row: Record<string, unknown>) {
+  return {
+    id: row.id as string,
+    email: row.email as string,
+    name: row.name as string,
+    role: row.role as string,
+    phone: (row.phone as string) || null,
+    licenseNumber: (row.licenseNumber as string) || null,
+    permissions: (row.permissions as string) || null,
+    department: (row.department as string) || null,
+    shift: (row.shift as string) || null,
+    hireDate: (row.hireDate as string) || null,
+    active: row.active === 1 || row.active === true,
+    lastLogin: (row.lastLogin as string) || null,
+    createdAt: (row.createdAt as string) || null,
+    updatedAt: (row.updatedAt as string) || null,
+  }
+}
 
 // GET /api/users - List all users (admin only)
 export async function GET(request: NextRequest) {
@@ -38,8 +58,60 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      const user = await db.user.findUnique({
-        where: { id: userId },
+      if (isTurso()) {
+        const result = await turso.execute({
+          sql: `SELECT "id", "email", "name", "role", "phone", "licenseNumber", "permissions", "active", "lastLogin", "createdAt", "updatedAt" FROM "User" WHERE "id" = ?`,
+          args: [userId],
+        })
+        if (result.rows.length === 0) {
+          return NextResponse.json(
+            { error: 'User not found' },
+            { status: 404 }
+          )
+        }
+        return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>))
+      } else {
+        const { db } = await import('@/lib/db')
+        const user = await db.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            phone: true,
+            licenseNumber: true,
+            permissions: true,
+            active: true,
+            lastLogin: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        })
+
+        if (!user) {
+          return NextResponse.json(
+            { error: 'User not found' },
+            { status: 404 }
+          )
+        }
+
+        return NextResponse.json(user)
+      }
+    }
+
+    // GET /api/users - List all users
+    if (isTurso()) {
+      const result = await turso.execute({
+        sql: `SELECT "id", "email", "name", "role", "phone", "licenseNumber", "permissions", "department", "shift", "hireDate", "active", "lastLogin", "createdAt", "updatedAt" FROM "User" ORDER BY "createdAt" DESC`,
+        args: [],
+      })
+      const users = result.rows.map((row) => rowToUser(row as Record<string, unknown>))
+      return NextResponse.json(users)
+    } else {
+      const { db } = await import('@/lib/db')
+      const users = await db.user.findMany({
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           email: true,
@@ -48,6 +120,9 @@ export async function GET(request: NextRequest) {
           phone: true,
           licenseNumber: true,
           permissions: true,
+          department: true,
+          shift: true,
+          hireDate: true,
           active: true,
           lastLogin: true,
           createdAt: true,
@@ -55,37 +130,8 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      if (!user) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        )
-      }
-
-      return NextResponse.json(user)
+      return NextResponse.json(users)
     }
-
-    const users = await db.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        licenseNumber: true,
-        permissions: true,
-        department: true,
-        shift: true,
-        hireDate: true,
-        active: true,
-        lastLogin: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
-
-    return NextResponse.json(users)
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json(
@@ -125,46 +171,92 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for duplicate email/username
-    const existing = await db.user.findUnique({ where: { email } })
-    if (existing) {
-      return NextResponse.json(
-        { error: 'A user with this username or email already exists' },
-        { status: 409 }
-      )
+    if (isTurso()) {
+      // Check for duplicate email/username
+      const existing = await turso.execute({
+        sql: `SELECT "id" FROM "User" WHERE "email" = ?`,
+        args: [email],
+      })
+      if (existing.rows.length > 0) {
+        return NextResponse.json(
+          { error: 'A user with this username or email already exists' },
+          { status: 409 }
+        )
+      }
+
+      const id = generateId()
+      const now = new Date().toISOString()
+
+      await turso.execute({
+        sql: `INSERT INTO "User" ("id", "email", "password", "name", "role", "phone", "licenseNumber", "permissions", "department", "shift", "hireDate", "active", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        args: [
+          id,
+          email,
+          password, // Demo mode: plain text password
+          name,
+          userRole || 'CLERK',
+          phone || null,
+          licenseNumber || null,
+          permissions ? JSON.stringify(permissions) : null,
+          department || null,
+          shift || null,
+          hireDate || null,
+          now,
+          now,
+        ],
+      })
+
+      // Fetch the created user to return it
+      const result = await turso.execute({
+        sql: `SELECT "id", "email", "name", "role", "phone", "licenseNumber", "permissions", "department", "shift", "hireDate", "active", "createdAt" FROM "User" WHERE "id" = ?`,
+        args: [id],
+      })
+
+      return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>), { status: 201 })
+    } else {
+      const { db } = await import('@/lib/db')
+
+      // Check for duplicate email/username
+      const existing = await db.user.findUnique({ where: { email } })
+      if (existing) {
+        return NextResponse.json(
+          { error: 'A user with this username or email already exists' },
+          { status: 409 }
+        )
+      }
+
+      const user = await db.user.create({
+        data: {
+          email,
+          password, // Demo mode: plain text password
+          name,
+          role: userRole || 'CLERK',
+          phone,
+          licenseNumber,
+          permissions: permissions ? JSON.stringify(permissions) : null,
+          department: department || null,
+          shift: shift || null,
+          hireDate: hireDate || null,
+          active: true,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          licenseNumber: true,
+          permissions: true,
+          department: true,
+          shift: true,
+          hireDate: true,
+          active: true,
+          createdAt: true,
+        },
+      })
+
+      return NextResponse.json(user, { status: 201 })
     }
-
-    const user = await db.user.create({
-      data: {
-        email,
-        password, // Demo mode: plain text password
-        name,
-        role: userRole || 'CLERK',
-        phone,
-        licenseNumber,
-        permissions: permissions ? JSON.stringify(permissions) : null,
-        department: department || null,
-        shift: shift || null,
-        hireDate: hireDate || null,
-        active: true,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        licenseNumber: true,
-        permissions: true,
-        department: true,
-        shift: true,
-        hireDate: true,
-        active: true,
-        createdAt: true,
-      },
-    })
-
-    return NextResponse.json(user, { status: 201 })
   } catch (error) {
     console.error('Error creating user:', error)
     return NextResponse.json(
@@ -194,27 +286,72 @@ export async function PUT(request: NextRequest) {
       const body = await request.json()
       const { name, phone, licenseNumber } = body
 
-      const user = await db.user.update({
-        where: { id: userId },
-        data: {
-          name: name !== undefined ? name : undefined,
-          phone: phone !== undefined ? phone : undefined,
-          licenseNumber: licenseNumber !== undefined ? licenseNumber : undefined,
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          phone: true,
-          licenseNumber: true,
-          active: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
+      if (isTurso()) {
+        // Build SET clause dynamically for only provided fields
+        const setClauses: string[] = []
+        const args: unknown[] = []
+        if (name !== undefined) {
+          setClauses.push(`"name" = ?`)
+          args.push(name)
+        }
+        if (phone !== undefined) {
+          setClauses.push(`"phone" = ?`)
+          args.push(phone)
+        }
+        if (licenseNumber !== undefined) {
+          setClauses.push(`"licenseNumber" = ?`)
+          args.push(licenseNumber)
+        }
+        // Always update updatedAt
+        setClauses.push(`"updatedAt" = ?`)
+        args.push(new Date().toISOString())
 
-      return NextResponse.json(user)
+        if (setClauses.length === 0) {
+          return NextResponse.json(
+            { error: 'No fields to update' },
+            { status: 400 }
+          )
+        }
+
+        args.push(userId)
+
+        await turso.execute({
+          sql: `UPDATE "User" SET ${setClauses.join(', ')} WHERE "id" = ?`,
+          args,
+        })
+
+        // Fetch updated user
+        const result = await turso.execute({
+          sql: `SELECT "id", "email", "name", "role", "phone", "licenseNumber", "active", "createdAt", "updatedAt" FROM "User" WHERE "id" = ?`,
+          args: [userId],
+        })
+
+        return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>))
+      } else {
+        const { db } = await import('@/lib/db')
+
+        const user = await db.user.update({
+          where: { id: userId },
+          data: {
+            name: name !== undefined ? name : undefined,
+            phone: phone !== undefined ? phone : undefined,
+            licenseNumber: licenseNumber !== undefined ? licenseNumber : undefined,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            phone: true,
+            licenseNumber: true,
+            active: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        })
+
+        return NextResponse.json(user)
+      }
     }
 
     // PUT /api/users/[id] - Update user role/status (admin only)
@@ -236,43 +373,109 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { userRole, active, permissions, phone, licenseNumber, department, shift } = body
 
-    const existing = await db.user.findUnique({ where: { id: targetUserId } })
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+    if (isTurso()) {
+      // Check user exists
+      const existing = await turso.execute({
+        sql: `SELECT "id", "name" FROM "User" WHERE "id" = ?`,
+        args: [targetUserId],
+      })
+      if (existing.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        )
+      }
+
+      // Build SET clause dynamically
+      const setClauses: string[] = []
+      const args: unknown[] = []
+      if (userRole !== undefined) {
+        setClauses.push(`"role" = ?`)
+        args.push(userRole)
+      }
+      if (active !== undefined) {
+        setClauses.push(`"active" = ?`)
+        args.push(active ? 1 : 0)
+      }
+      if (permissions !== undefined) {
+        setClauses.push(`"permissions" = ?`)
+        args.push(JSON.stringify(permissions))
+      }
+      if (phone !== undefined) {
+        setClauses.push(`"phone" = ?`)
+        args.push(phone)
+      }
+      if (licenseNumber !== undefined) {
+        setClauses.push(`"licenseNumber" = ?`)
+        args.push(licenseNumber)
+      }
+      if (department !== undefined) {
+        setClauses.push(`"department" = ?`)
+        args.push(department)
+      }
+      if (shift !== undefined) {
+        setClauses.push(`"shift" = ?`)
+        args.push(shift)
+      }
+      // Always update updatedAt
+      setClauses.push(`"updatedAt" = ?`)
+      args.push(new Date().toISOString())
+
+      args.push(targetUserId)
+
+      await turso.execute({
+        sql: `UPDATE "User" SET ${setClauses.join(', ')} WHERE "id" = ?`,
+        args,
+      })
+
+      // Fetch updated user
+      const result = await turso.execute({
+        sql: `SELECT "id", "email", "name", "role", "phone", "licenseNumber", "permissions", "department", "shift", "hireDate", "active", "createdAt", "updatedAt" FROM "User" WHERE "id" = ?`,
+        args: [targetUserId],
+      })
+
+      return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>))
+    } else {
+      const { db } = await import('@/lib/db')
+
+      const existing = await db.user.findUnique({ where: { id: targetUserId } })
+      if (!existing) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        )
+      }
+
+      const user = await db.user.update({
+        where: { id: targetUserId },
+        data: {
+          role: userRole !== undefined ? userRole : undefined,
+          active: active !== undefined ? active : undefined,
+          permissions: permissions !== undefined ? JSON.stringify(permissions) : undefined,
+          phone: phone !== undefined ? phone : undefined,
+          licenseNumber: licenseNumber !== undefined ? licenseNumber : undefined,
+          department: department !== undefined ? department : undefined,
+          shift: shift !== undefined ? shift : undefined,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          licenseNumber: true,
+          permissions: true,
+          department: true,
+          shift: true,
+          hireDate: true,
+          active: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+
+      return NextResponse.json(user)
     }
-
-    const user = await db.user.update({
-      where: { id: targetUserId },
-      data: {
-        role: userRole !== undefined ? userRole : undefined,
-        active: active !== undefined ? active : undefined,
-        permissions: permissions !== undefined ? JSON.stringify(permissions) : undefined,
-        phone: phone !== undefined ? phone : undefined,
-        licenseNumber: licenseNumber !== undefined ? licenseNumber : undefined,
-        department: department !== undefined ? department : undefined,
-        shift: shift !== undefined ? shift : undefined,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        licenseNumber: true,
-        permissions: true,
-        department: true,
-        shift: true,
-        hireDate: true,
-        active: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
-
-    return NextResponse.json(user)
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json(
@@ -311,17 +514,41 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const existing = await db.user.findUnique({ where: { id: targetUserId } })
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+    if (isTurso()) {
+      const existing = await turso.execute({
+        sql: `SELECT "id", "name" FROM "User" WHERE "id" = ?`,
+        args: [targetUserId],
+      })
+      if (existing.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        )
+      }
+
+      const existingName = existing.rows[0].name as string
+
+      await turso.execute({
+        sql: `DELETE FROM "User" WHERE "id" = ?`,
+        args: [targetUserId],
+      })
+
+      return NextResponse.json({ success: true, message: `User "${existingName}" deleted` })
+    } else {
+      const { db } = await import('@/lib/db')
+
+      const existing = await db.user.findUnique({ where: { id: targetUserId } })
+      if (!existing) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        )
+      }
+
+      await db.user.delete({ where: { id: targetUserId } })
+
+      return NextResponse.json({ success: true, message: `User "${existing.name}" deleted` })
     }
-
-    await db.user.delete({ where: { id: targetUserId } })
-
-    return NextResponse.json({ success: true, message: `User "${existing.name}" deleted` })
   } catch (error) {
     console.error('Error deleting user:', error)
     return NextResponse.json(

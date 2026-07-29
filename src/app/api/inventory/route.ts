@@ -1,41 +1,146 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso, generateId } from '@/lib/turso'
 
-// GET /api/inventory - List inventory with stock levels
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Convert libsql flat rows → array of Record<string, any> keyed by column name */
+function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c.name)
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {}
+    names.forEach((n, i) => {
+      obj[n] = row[i]
+    })
+    return obj
+  })
+}
+
+/** SQLite stores booleans as 0/1 – convert back */
+const bool = (v: unknown): boolean => v === 1 || v === true
+
+// ---------- reusable Product column fragment (all aliased with p_ prefix) ----
+
+const P_COLS = [
+  'p.id as p_id', 'p.ndc as p_ndc', 'p.name as p_name', 'p.genericName as p_genericName',
+  'p.manufacturer as p_manufacturer', 'p.manufacturerId as p_manufacturerId',
+  'p.vendorId as p_vendorId', 'p.category as p_category', 'p.description as p_description',
+  'p.dosageForm as p_dosageForm', 'p.strength as p_strength', 'p.unitOfMeasure as p_unitOfMeasure',
+  'p.requiresPrescription as p_requiresPrescription', 'p.status as p_status',
+  'p.sellingPrice as p_sellingPrice', 'p.costPrice as p_costPrice',
+  'p.reorderPoint as p_reorderPoint', 'p.reorderQty as p_reorderQty', 'p.maxStock as p_maxStock',
+  'p.storageLocation as p_storageLocation', 'p.batchNumber as p_batchNumber',
+  'p.expiryDate as p_expiryDate', 'p.controlledSubstance as p_controlledSubstance',
+  'p.deaSchedule as p_deaSchedule', 'p.createdAt as p_createdAt', 'p.updatedAt as p_updatedAt',
+].join(', ')
+
+/** Build a Prisma-compatible Product object from a flat aliased row */
+function mapProduct(r: Record<string, unknown>) {
+  return {
+    id: r.p_id, ndc: r.p_ndc, name: r.p_name, genericName: r.p_genericName,
+    manufacturer: r.p_manufacturer, manufacturerId: r.p_manufacturerId, vendorId: r.p_vendorId,
+    category: r.p_category, description: r.p_description, dosageForm: r.p_dosageForm,
+    strength: r.p_strength, unitOfMeasure: r.p_unitOfMeasure,
+    requiresPrescription: bool(r.p_requiresPrescription), status: r.p_status,
+    sellingPrice: r.p_sellingPrice, costPrice: r.p_costPrice, reorderPoint: r.p_reorderPoint,
+    reorderQty: r.p_reorderQty, maxStock: r.p_maxStock, storageLocation: r.p_storageLocation,
+    batchNumber: r.p_batchNumber, expiryDate: r.p_expiryDate,
+    controlledSubstance: bool(r.p_controlledSubstance), deaSchedule: r.p_deaSchedule,
+    createdAt: r.p_createdAt, updatedAt: r.p_updatedAt,
+    manufacturerRef: r.mfr_name ? { name: r.mfr_name } : null,
+    vendor: r.vendor_name ? { name: r.vendor_name } : null,
+  }
+}
+
+/** Build a Prisma-compatible Inventory row from a flat aliased row */
+function mapInventoryRow(r: Record<string, unknown>) {
+  return {
+    id: r.id,
+    productId: r.productId,
+    quantity: r.quantity as number,
+    lastCounted: r.lastCounted as string | null,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    product: mapProduct(r),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/inventory
+// ---------------------------------------------------------------------------
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
-    // GET /api/inventory/alerts - Get low stock alerts
+    // ---- Low-stock alerts ----
     if (action === 'alerts') {
-      const alerts = await db.inventory.findMany({
-        where: {
-          quantity: {
-            lte: db.inventory.fields.product.reorderPoint,
-          },
-        },
-        include: {
-          product: true,
-        },
-        orderBy: { quantity: 'asc' },
-      })
+      if (isTurso()) {
+        const result = await turso.execute({
+          sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+                       ${P_COLS}
+                FROM Inventory i
+                LEFT JOIN Product p ON i.productId = p.id
+                WHERE i.quantity <= p.reorderPoint
+                ORDER BY i.quantity ASC`,
+          args: [],
+        })
+        return NextResponse.json(toObjs(result).map(mapInventoryRow))
+      }
 
-      // Re-query with proper filter since Prisma doesn't support that syntax directly
-      const allInventory = await db.inventory.findMany({
-        include: {
-          product: true,
-        },
-      })
-
+      // Prisma fallback
+      const { db } = await import('@/lib/db')
+      const allInventory = await db.inventory.findMany({ include: { product: true } })
       const lowStockAlerts = allInventory.filter(
-        (inv) => inv.quantity <= inv.product.reorderPoint
+        (inv) => inv.quantity <= inv.product.reorderPoint,
       )
-
       return NextResponse.json(lowStockAlerts)
     }
 
-    // Regular inventory list — include products WITHOUT inventory records (qty=0)
+    // ---- Full inventory list (including products without inventory) ----
+    if (isTurso()) {
+      // 1. Inventory rows with product, manufacturer, vendor
+      const invResult = await turso.execute({
+        sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+                      ${P_COLS},
+                      m.name as mfr_name, v.name as vendor_name
+               FROM Inventory i
+               LEFT JOIN Product p ON i.productId = p.id
+               LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
+               LEFT JOIN Vendor v ON p.vendorId = v.id
+               ORDER BY i.updatedAt DESC`,
+        args: [],
+      })
+      const inventory = toObjs(invResult).map(mapInventoryRow)
+
+      // 2. Products WITHOUT an inventory record (qty=0 virtual)
+      const noInvResult = await turso.execute({
+        sql: `SELECT ${P_COLS}, m.name as mfr_name, v.name as vendor_name
+               FROM Product p
+               LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
+               LEFT JOIN Vendor v ON p.vendorId = v.id
+               LEFT JOIN Inventory inv ON p.id = inv.productId
+               WHERE inv.id IS NULL`,
+        args: [],
+      })
+
+      const noInvProducts = toObjs(noInvResult).map((r) => ({
+        id: `no-inv-${r.p_id}`,
+        productId: r.p_id,
+        quantity: 0,
+        lastCounted: null,
+        createdAt: r.p_createdAt,
+        updatedAt: r.p_updatedAt,
+        product: mapProduct(r),
+      }))
+
+      return NextResponse.json([...inventory, ...noInvProducts])
+    }
+
+    // Prisma fallback
+    const { db } = await import('@/lib/db')
     const inventory = await db.inventory.findMany({
       include: {
         product: {
@@ -48,8 +153,7 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
-    // Also find products that have NO inventory record yet
-    const productsWithInventory = new Set(inventory.map(i => i.productId))
+    const productsWithInventory = new Set(inventory.map((i) => i.productId))
     const productsWithoutInventory = await db.product.findMany({
       where: { id: { notIn: Array.from(productsWithInventory) } },
       include: {
@@ -58,10 +162,9 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Merge: products without inventory show qty=0
     const merged = [
       ...inventory,
-      ...productsWithoutInventory.map(p => ({
+      ...productsWithoutInventory.map((p) => ({
         id: `no-inv-${p.id}`,
         productId: p.id,
         quantity: 0,
@@ -73,100 +176,191 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(merged)
   } catch (error) {
     console.error('Error fetching inventory:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch inventory' }, { status: 500 })
   }
 }
 
-// PUT /api/inventory - Update stock level (adjustment with reason)
+// ---------------------------------------------------------------------------
+// PUT /api/inventory  –  stock adjustment / receive
+// ---------------------------------------------------------------------------
+
 export async function PUT(request: NextRequest) {
   try {
     const role = request.headers.get('x-user-role')
-    // Allow common roles — SUPER_ADMIN always passes; other roles also allowed
-    // since inventory management is a core operation
     const allowedRoles = ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CLERK', 'MANAGER', 'ADMIN']
     if (role && !allowedRoles.includes(role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
-    // POST /api/inventory/receive mapped to PUT for stock receive
+    // ---- Stock receive (PUT ?action=receive) ----
     if (action === 'receive') {
       const body = await request.json()
       const { items } = body
 
       if (!items || !Array.isArray(items) || items.length === 0) {
-        return NextResponse.json(
-          { error: 'Items array is required' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Items array is required' }, { status: 400 })
       }
 
-      const results = []
+      if (isTurso()) {
+        const now = new Date().toISOString()
 
-      for (const item of items) {
-        const existing = await db.inventory.findUnique({
-          where: { productId: item.productId },
+        for (const item of items) {
+          // Read current inventory (read-modify-write)
+          const existing = await turso.execute({
+            sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
+            args: [item.productId],
+          })
+
+          if (existing.rows.length > 0) {
+            const currentQty = existing.rows[0][0] as number
+            await turso.execute({
+              sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
+              args: [currentQty + item.quantity, now, now, item.productId],
+            })
+          } else {
+            await turso.execute({
+              sql: 'INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+              args: [generateId(), item.productId, item.quantity, now, now, now],
+            })
+          }
+        }
+
+        // Fetch updated records with product details
+        const pIds = items.map((i: { productId: string }) => i.productId)
+        const placeholders = pIds.map(() => '?').join(', ')
+        const result = await turso.execute({
+          sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+                       ${P_COLS}, m.name as mfr_name, v.name as vendor_name
+                FROM Inventory i
+                LEFT JOIN Product p ON i.productId = p.id
+                LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
+                LEFT JOIN Vendor v ON p.vendorId = v.id
+                WHERE i.productId IN (${placeholders})`,
+          args: pIds,
         })
 
+        return NextResponse.json({
+          message: 'Stock received successfully',
+          updatedItems: toObjs(result).map(mapInventoryRow),
+        })
+      }
+
+      // Prisma fallback
+      const { db } = await import('@/lib/db')
+      const results = []
+      for (const item of items) {
+        const existing = await db.inventory.findUnique({ where: { productId: item.productId } })
         if (existing) {
           const updated = await db.inventory.update({
             where: { productId: item.productId },
-            data: {
-              quantity: existing.quantity + item.quantity,
-              lastCounted: new Date(),
-            },
+            data: { quantity: existing.quantity + item.quantity, lastCounted: new Date() },
             include: { product: true },
           })
           results.push(updated)
         } else {
           const created = await db.inventory.create({
-            data: {
-              productId: item.productId,
-              quantity: item.quantity,
-              lastCounted: new Date(),
-            },
+            data: { productId: item.productId, quantity: item.quantity, lastCounted: new Date() },
             include: { product: true },
           })
           results.push(created)
         }
       }
+      return NextResponse.json({ message: 'Stock received successfully', updatedItems: results })
+    }
+
+    // ---- Regular stock adjustment ----
+    const body = await request.json()
+    const {
+      productId, quantity, adjustment, reason,
+      costPrice, sellingPrice, setQuantity, adjustmentType,
+    } = body
+
+    if (!productId || !reason) {
+      return NextResponse.json({ error: 'productId and reason are required' }, { status: 400 })
+    }
+
+    if (isTurso()) {
+      const now = new Date().toISOString()
+
+      // Read existing inventory
+      const existing = await turso.execute({
+        sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
+        args: [productId],
+      })
+      const currentQty = existing.rows.length > 0 ? (existing.rows[0][0] as number) : 0
+
+      // Determine new quantity
+      let newQuantity: number
+      if (adjustmentType === 'SET' || setQuantity !== undefined) {
+        newQuantity = setQuantity !== undefined ? setQuantity : (adjustment || 0)
+      } else if (adjustment !== undefined) {
+        newQuantity = currentQty + adjustment
+      } else {
+        newQuantity = currentQty
+      }
+
+      if (newQuantity < 0) {
+        return NextResponse.json(
+          { error: 'Insufficient stock for this adjustment' },
+          { status: 400 },
+        )
+      }
+
+      // Write (update or insert)
+      if (existing.rows.length > 0) {
+        await turso.execute({
+          sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
+          args: [newQuantity, now, now, productId],
+        })
+      } else {
+        await turso.execute({
+          sql: 'INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [generateId(), productId, newQuantity, now, now, now],
+        })
+      }
+
+      // Optionally update product prices
+      if (costPrice !== undefined || sellingPrice !== undefined) {
+        const setClauses: string[] = []
+        const setArgs: unknown[] = []
+        if (costPrice !== undefined) {
+          setClauses.push('costPrice = ?')
+          setArgs.push(costPrice)
+        }
+        if (sellingPrice !== undefined) {
+          setClauses.push('sellingPrice = ?')
+          setArgs.push(sellingPrice)
+        }
+        setClauses.push('updatedAt = ?')
+        setArgs.push(now)
+        setArgs.push(productId)
+        await turso.execute({
+          sql: `UPDATE Product SET ${setClauses.join(', ')} WHERE id = ?`,
+          args: setArgs,
+        })
+      }
+
+      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}`)
 
       return NextResponse.json({
-        message: 'Stock received successfully',
-        updatedItems: results,
+        success: true,
+        newQuantity,
+        productId,
+        message: `Stock set to ${newQuantity} (${reason})`,
       })
     }
 
-    // Regular stock adjustment (optionally includes costPrice / sellingPrice / setQuantity)
-    const body = await request.json()
-    const { productId, quantity, adjustment, reason, costPrice, sellingPrice, setQuantity, adjustmentType } = body
+    // Prisma fallback
+    const { db } = await import('@/lib/db')
+    const existing = await db.inventory.findUnique({ where: { productId } })
 
-    if (!productId || !reason) {
-      return NextResponse.json(
-        { error: 'productId and reason are required' },
-        { status: 400 }
-      )
-    }
-
-    const existing = await db.inventory.findUnique({
-      where: { productId },
-    })
-
-    // Determine new quantity
     let newQuantity: number
     if (adjustmentType === 'SET' || setQuantity !== undefined) {
-      // SET mode: physical count replaces system quantity
       newQuantity = setQuantity !== undefined ? setQuantity : (adjustment || 0)
     } else if (adjustment !== undefined) {
-      // ADD / REMOVE mode
       newQuantity = (existing?.quantity || 0) + adjustment
     } else {
       newQuantity = existing?.quantity || 0
@@ -175,43 +369,30 @@ export async function PUT(request: NextRequest) {
     if (newQuantity < 0) {
       return NextResponse.json(
         { error: 'Insufficient stock for this adjustment' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    // Build product price update if provided
-    let productUpdate: any = {}
+    let productUpdate: Record<string, unknown> = {}
     if (costPrice !== undefined) productUpdate.costPrice = costPrice
     if (sellingPrice !== undefined) productUpdate.sellingPrice = sellingPrice
 
-    // Create or update inventory record
     const updated = existing
       ? await db.inventory.update({
           where: { productId },
-          data: {
-            quantity: newQuantity,
-            lastCounted: new Date(),
-          },
+          data: { quantity: newQuantity, lastCounted: new Date() },
           include: { product: true },
         })
       : await db.inventory.create({
-          data: {
-            productId,
-            quantity: newQuantity,
-            lastCounted: new Date(),
-          },
+          data: { productId, quantity: newQuantity, lastCounted: new Date() },
           include: { product: true },
         })
 
-    // Also update product prices if changed
     if (Object.keys(productUpdate).length > 0) {
-      await db.product.update({
-        where: { id: productId },
-        data: productUpdate,
-      })
+      await db.product.update({ where: { id: productId }, data: productUpdate })
     }
 
-    console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity} DB_qty=${updated.quantity}`)
+    console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${updated.quantity}`)
 
     return NextResponse.json({
       success: true,
@@ -222,63 +403,97 @@ export async function PUT(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error updating inventory:', error)
-    return NextResponse.json(
-      { error: 'Failed to update inventory' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update inventory' }, { status: 500 })
   }
 }
 
-// POST /api/inventory/receive - Receive new stock shipment
+// ---------------------------------------------------------------------------
+// POST /api/inventory  –  receive new stock shipment
+// ---------------------------------------------------------------------------
+
 export async function POST(request: NextRequest) {
   try {
     const role = request.headers.get('x-user-role')
     const allowedRoles = ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CLERK', 'MANAGER', 'ADMIN']
     if (role && !allowedRoles.includes(role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const body = await request.json()
     const { items } = body
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Items array is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Items array is required' }, { status: 400 })
     }
 
+    if (isTurso()) {
+      const now = new Date().toISOString()
+
+      for (const item of items) {
+        if (!item.productId || !item.quantity) continue
+
+        // Read-modify-write
+        const existing = await turso.execute({
+          sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
+          args: [item.productId],
+        })
+
+        if (existing.rows.length > 0) {
+          const currentQty = existing.rows[0][0] as number
+          await turso.execute({
+            sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
+            args: [currentQty + item.quantity, now, now, item.productId],
+          })
+        } else {
+          await turso.execute({
+            sql: 'INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+            args: [generateId(), item.productId, item.quantity, now, now, now],
+          })
+        }
+      }
+
+      // Fetch updated records
+      const validItems = items.filter((i: { productId: string; quantity: number }) => i.productId && i.quantity)
+      const pIds = validItems.map((i: { productId: string }) => i.productId)
+      const placeholders = pIds.map(() => '?').join(', ')
+      const result = await turso.execute({
+        sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+                       ${P_COLS}, m.name as mfr_name, v.name as vendor_name
+                FROM Inventory i
+                LEFT JOIN Product p ON i.productId = p.id
+                LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
+                LEFT JOIN Vendor v ON p.vendorId = v.id
+                WHERE i.productId IN (${placeholders})`,
+        args: pIds,
+      })
+
+      const results = toObjs(result).map(mapInventoryRow)
+
+      return NextResponse.json({
+        message: 'Stock received successfully',
+        receivedItems: results,
+        count: results.length,
+      })
+    }
+
+    // Prisma fallback
+    const { db } = await import('@/lib/db')
     const results = []
 
     for (const item of items) {
-      if (!item.productId || !item.quantity) {
-        continue
-      }
+      if (!item.productId || !item.quantity) continue
 
-      const existing = await db.inventory.findUnique({
-        where: { productId: item.productId },
-      })
-
+      const existing = await db.inventory.findUnique({ where: { productId: item.productId } })
       if (existing) {
         const updated = await db.inventory.update({
           where: { productId: item.productId },
-          data: {
-            quantity: existing.quantity + item.quantity,
-            lastCounted: new Date(),
-          },
+          data: { quantity: existing.quantity + item.quantity, lastCounted: new Date() },
           include: { product: true },
         })
         results.push(updated)
       } else {
         const created = await db.inventory.create({
-          data: {
-            productId: item.productId,
-            quantity: item.quantity,
-            lastCounted: new Date(),
-          },
+          data: { productId: item.productId, quantity: item.quantity, lastCounted: new Date() },
           include: { product: true },
         })
         results.push(created)
@@ -292,9 +507,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error receiving stock:', error)
-    return NextResponse.json(
-      { error: 'Failed to receive stock' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to receive stock' }, { status: 500 })
   }
 }

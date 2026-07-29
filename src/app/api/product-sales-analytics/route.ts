@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso } from '@/lib/turso'
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c.name)
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {}
+    names.forEach((n, i) => {
+      obj[n] = row[i]
+    })
+    return obj
+  })
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/product-sales-analytics — aggregated sales per product
 // Supports ?userId=... & ?startDate=... & ?endDate=... & ?categoryId=...
 // RBAC: SUPER_ADMIN sees all users; other roles see only their own data
+// ---------------------------------------------------------------------------
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -19,6 +37,120 @@ export async function GET(req: NextRequest) {
 
     // Non-SUPER_ADMIN users can only see their own product sales
     const effectiveUserId = isSuperAdmin ? userId : (requesterId || userId)
+
+    // ========================================================================
+    // Turso (raw SQL) path
+    // ========================================================================
+    if (isTurso()) {
+      // ---- Build WHERE clause for Transaction ----
+      const conditions: string[] = [`t."status" = 'COMPLETED'`]
+      const args: unknown[] = []
+
+      if (effectiveUserId) {
+        conditions.push(`t."userId" = ?`)
+        args.push(effectiveUserId)
+      }
+      if (startDate) {
+        conditions.push(`t."createdAt" >= ?`)
+        args.push(new Date(startDate).toISOString())
+      }
+      if (endDate) {
+        conditions.push(`t."createdAt" <= ?`)
+        args.push(new Date(endDate).toISOString())
+      }
+
+      const txWhere = conditions.join(' AND ')
+
+      // Category filter applied via sub-select on Product
+      const categoryClause = categoryId
+        ? `AND ti."productId" IN (SELECT "id" FROM Product WHERE "category" = ?)`
+        : ''
+      if (categoryId) args.push(categoryId)
+
+      // ---- Single combined aggregation (replaces 3 Prisma groupBy calls) ----
+      const [aggResult, lastSoldResult] = await Promise.all([
+        // qtyAgg + revAgg + txCountAgg combined into one pass
+        turso.execute({
+          sql: `SELECT ti."productId",
+                       ti."productName",
+                       COALESCE(SUM(ti."quantity"), 0) as totalQuantity,
+                       COALESCE(SUM(ti."subtotal"), 0) as totalRevenue,
+                       COUNT(*)                        as transactions
+                FROM TransactionItem ti
+                JOIN Transaction t ON ti."transactionId" = t."id"
+                WHERE ${txWhere} ${categoryClause}
+                GROUP BY ti."productId", ti."productName"
+                ORDER BY totalQuantity DESC`,
+          args: [...args],
+        }),
+
+        // Last sold date per product
+        turso.execute({
+          sql: `SELECT ti."productId",
+                       MAX(ti."createdAt") as lastSold
+                FROM TransactionItem ti
+                JOIN Transaction t ON ti."transactionId" = t."id"
+                WHERE ${txWhere} ${categoryClause}
+                GROUP BY ti."productId"`,
+          args: [...args],
+        }),
+      ])
+
+      const aggRows = toObjs(aggResult)
+      const lastSoldRows = toObjs(lastSoldResult)
+
+      if (aggRows.length === 0) {
+        return NextResponse.json([])
+      }
+
+      // ---- Fetch product details for all product IDs ----
+      const productIds = aggRows.map((r) => r.productId as string)
+      const placeholders = productIds.map(() => '?').join(', ')
+
+      const productsResult = await turso.execute({
+        sql: `SELECT "id", "name", "ndc", "category",
+                     "strength", "dosageForm", "unitOfMeasure"
+              FROM Product
+              WHERE "id" IN (${placeholders})`,
+        args: productIds,
+      })
+
+      const productMap = new Map(
+        toObjs(productsResult).map((r) => [r.id as string, r]),
+      )
+
+      const lastSoldMap = new Map(
+        lastSoldRows.map((r) => [
+          r.productId as string,
+          (r.lastSold as string) || null,
+        ]),
+      )
+
+      // ---- Build final result ----
+      const result = aggRows.map((r) => {
+        const product = productMap.get(r.productId as string)
+        return {
+          productId: r.productId,
+          productName: r.productName,
+          productNdc: (product?.ndc as string) || null,
+          productCategory: (product?.category as string) || '',
+          productStrength: (product?.strength as string) || null,
+          productDosageForm: (product?.dosageForm as string) || null,
+          productUnit: (product?.unitOfMeasure as string) || '',
+          totalQuantity: Number(r.totalQuantity || 0),
+          totalRevenue: Number(r.totalRevenue || 0),
+          transactions: (r.transactions as number) || 0,
+          lastSold: lastSoldMap.get(r.productId as string) || null,
+        }
+      })
+
+      return NextResponse.json(result)
+    }
+
+    // ========================================================================
+    // Prisma fallback
+    // ========================================================================
+    const { db } = await import('@/lib/db')
 
     // Build where clause for transactions
     const txWhere: any = { status: 'COMPLETED' }

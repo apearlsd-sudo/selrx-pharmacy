@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso } from '@/lib/turso'
 
-// GET /api/sales-history - Sales history with user breakdown
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c.name)
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {}
+    names.forEach((n, i) => {
+      obj[n] = row[i]
+    })
+    return obj
+  })
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/sales-history — Sales history with user breakdown
 // Supports ?from=&to=&userId=&page=&limit=&groupBy=user|daily
 // RBAC: SUPER_ADMIN sees all users; other roles see only their own data
+// ---------------------------------------------------------------------------
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -20,6 +38,271 @@ export async function GET(request: NextRequest) {
 
     // Non-SUPER_ADMIN users can only see their own sales
     const effectiveUserId = isSuperAdmin ? userId : (requesterId || userId)
+
+    // ========================================================================
+    // Turso (raw SQL) path
+    // ========================================================================
+    if (isTurso()) {
+      // ---- Build dynamic WHERE clause ----
+      const conditions: string[] = [`t."status" = 'COMPLETED'`]
+      const args: unknown[] = []
+
+      if (from) {
+        conditions.push(`t."createdAt" >= ?`)
+        args.push(new Date(from).toISOString())
+      }
+      if (to) {
+        const toDate = new Date(to)
+        toDate.setHours(23, 59, 59, 999)
+        conditions.push(`t."createdAt" <= ?`)
+        args.push(toDate.toISOString())
+      }
+      if (effectiveUserId) {
+        conditions.push(`t."userId" = ?`)
+        args.push(effectiveUserId)
+      }
+
+      const whereClause = conditions.join(' AND ')
+
+      // ---- Run 6 queries in parallel ----
+      const [
+        aggResult,
+        userSalesResult,
+        userItemsResult,
+        dailyResult,
+        pagResult,
+        pagCountResult,
+      ] = await Promise.all([
+        // 1. Overall aggregate: SUM total, COUNT, SUM discount
+        turso.execute({
+          sql: `SELECT COALESCE(SUM(t."total"), 0) as totalSales,
+                       COUNT(*)                     as totalTransactions,
+                       COALESCE(SUM(t."discount"), 0) as totalDiscount
+                FROM Transaction t
+                WHERE ${whereClause}`,
+          args: [...args],
+        }),
+
+        // 2. Sales by user — GROUP BY userId with user name/email/role via JOIN
+        turso.execute({
+          sql: `SELECT t."userId",
+                       COALESCE(SUM(t."total"), 0)    as totalSales,
+                       COALESCE(SUM(t."subtotal"), 0) as totalSubtotal,
+                       COALESCE(SUM(t."discount"), 0) as totalDiscount,
+                       COUNT(*)                       as transactionCount,
+                       u."name"  as userName,
+                       u."email" as userEmail,
+                       u."role"  as userRole
+                FROM Transaction t
+                LEFT JOIN User u ON t."userId" = u."id"
+                WHERE ${whereClause}
+                GROUP BY t."userId"
+                ORDER BY totalSales DESC`,
+          args: [...args],
+        }),
+
+        // 3. Items per user — direct SUM via TransactionItem JOIN Transaction
+        turso.execute({
+          sql: `SELECT t."userId",
+                       COALESCE(SUM(ti."quantity"), 0) as totalItems
+                FROM TransactionItem ti
+                JOIN Transaction t ON ti."transactionId" = t."id"
+                WHERE ${whereClause}
+                GROUP BY t."userId"`,
+          args: [...args],
+        }),
+
+        // 4. Daily sales — GROUP BY date, last 30 days with activity
+        turso.execute({
+          sql: `SELECT date(t."createdAt")         as day,
+                       COALESCE(SUM(t."total"), 0)  as totalSales,
+                       COUNT(*)                      as txCount
+                FROM Transaction t
+                WHERE ${whereClause}
+                GROUP BY date(t."createdAt")
+                ORDER BY day DESC
+                LIMIT 30`,
+          args: [...args],
+        }),
+
+        // 5. Paginated transactions with User & Customer JOINs
+        turso.execute({
+          sql: `SELECT t."id", t."transactionNo", t."customerId", t."userId",
+                       t."subtotal", t."tax", t."discount", t."total",
+                       t."paymentMethod", t."paymentAmount", t."changeAmount",
+                       t."status", t."prescriptionId", t."notes",
+                       t."createdAt", t."updatedAt",
+                       u."id"        as u_id,
+                       u."name"      as u_name,
+                       u."email"     as u_email,
+                       u."role"      as u_role,
+                       c."id"        as c_id,
+                       c."firstName" as c_firstName,
+                       c."lastName"  as c_lastName
+                FROM Transaction t
+                LEFT JOIN User     u ON t."userId"     = u."id"
+                LEFT JOIN Customer c ON t."customerId" = c."id"
+                WHERE ${whereClause}
+                ORDER BY t."createdAt" DESC
+                LIMIT ? OFFSET ?`,
+          args: [...args, limit, (page - 1) * limit],
+        }),
+
+        // 6. Paginated total count
+        turso.execute({
+          sql: `SELECT COUNT(*) as cnt FROM Transaction t WHERE ${whereClause}`,
+          args: [...args],
+        }),
+      ])
+
+      // ---- 1. Process aggregate ----
+      const aggRow = toObjs(aggResult)[0]
+      const totalSales = (aggRow?.totalSales as number) ?? 0
+      const totalTransactions = (aggRow?.totalTransactions as number) ?? 0
+      const totalDiscount = (aggRow?.totalDiscount as number) ?? 0
+
+      // ---- 2. Process sales by user ----
+      const userSalesRows = toObjs(userSalesResult)
+      const userItemsRows = toObjs(userItemsResult)
+
+      const userItemsMap: Record<string, number> = {}
+      for (const r of userItemsRows) {
+        userItemsMap[r.userId as string] = (r.totalItems as number) ?? 0
+      }
+
+      const userSalesEnriched = userSalesRows.map((r) => {
+        const uid = r.userId as string
+        const txCount = (r.transactionCount as number) ?? 0
+        const sales = (r.totalSales as number) ?? 0
+        return {
+          userId: uid,
+          userName: (r.userName as string) || 'Unknown',
+          userEmail: (r.userEmail as string) || '',
+          userRole: (r.userRole as string) || 'CLERK',
+          transactionCount: txCount,
+          totalSales: sales,
+          totalSubtotal: (r.totalSubtotal as number) ?? 0,
+          totalDiscount: (r.totalDiscount as number) ?? 0,
+          averageSale: txCount > 0 ? sales / txCount : 0,
+          totalItemsSold: userItemsMap[uid] || 0,
+        }
+      })
+
+      // ---- 3. Process daily sales ----
+      const dailyRows = toObjs(dailyResult)
+      const dailySales = dailyRows
+        .reverse() // SQL returned DESC → flip to ASC
+        .map((r) => {
+          const dayDate = new Date((r.day as string) + 'T00:00:00')
+          return {
+            date: dayDate.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            sales: (r.totalSales as number) ?? 0,
+            count: (r.txCount as number) ?? 0,
+          }
+        })
+
+      // ---- 4. Process paginated transactions ----
+      const pagRows = toObjs(pagResult)
+      const pagTotal = (toObjs(pagCountResult)[0]?.cnt as number) ?? 0
+
+      // Fetch items for paginated transactions
+      const pTxnIds = pagRows.map((r) => r.id as string)
+      const pItemsMap: Record<string, unknown[]> = {}
+      if (pTxnIds.length > 0) {
+        const placeholders = pTxnIds.map(() => '?').join(', ')
+        const itemsResult = await turso.execute({
+          sql: `SELECT "id", "transactionId", "productId", "productName",
+                       "quantity", "unitPrice", "subtotal", "requiresRx",
+                       "dispensedQty", "createdAt"
+                FROM TransactionItem
+                WHERE "transactionId" IN (${placeholders})`,
+          args: pTxnIds,
+        })
+        for (const row of toObjs(itemsResult)) {
+          const tid = row.transactionId as string
+          if (!pItemsMap[tid]) pItemsMap[tid] = []
+          pItemsMap[tid].push({
+            id: row.id,
+            transactionId: row.transactionId,
+            productId: row.productId,
+            productName: row.productName,
+            quantity: row.quantity,
+            unitPrice: row.unitPrice,
+            subtotal: row.subtotal,
+            requiresRx: Boolean(row.requiresRx),
+            dispensedQty: row.dispensedQty,
+            createdAt: row.createdAt,
+          })
+        }
+      }
+
+      const transactions = pagRows.map((r) => ({
+        id: r.id,
+        transactionNo: r.transactionNo,
+        customerId: r.customerId,
+        userId: r.userId,
+        subtotal: r.subtotal,
+        tax: r.tax,
+        discount: r.discount,
+        total: r.total,
+        paymentMethod: r.paymentMethod,
+        paymentAmount: r.paymentAmount,
+        changeAmount: r.changeAmount,
+        status: r.status,
+        prescriptionId: r.prescriptionId,
+        notes: r.notes,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        user: r.u_id
+          ? { id: r.u_id, name: r.u_name, email: r.u_email, role: r.u_role }
+          : null,
+        customer: r.c_id
+          ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName }
+          : null,
+        items: pItemsMap[r.id as string] || [],
+      }))
+
+      // ---- 5. Top seller = first user by total sales ----
+      const topSeller = userSalesEnriched.length > 0 ? userSalesEnriched[0] : null
+
+      // ---- 6. All users list ----
+      const allUsers = userSalesRows.map((r) => ({
+        id: r.userId as string,
+        name: (r.userName as string) || 'Unknown',
+        role: (r.userRole as string) || 'CLERK',
+      }))
+
+      return NextResponse.json({
+        summary: {
+          totalSales,
+          totalTransactions,
+          totalDiscount,
+          averageTransaction:
+            totalTransactions > 0 ? totalSales / totalTransactions : 0,
+          topSeller,
+          dateRange: { from: from || null, to: to || null },
+        },
+        salesByUser: userSalesEnriched,
+        dailySales,
+        transactions,
+        pagination: {
+          page,
+          limit,
+          total: pagTotal,
+          pages: Math.ceil(pagTotal / limit),
+        },
+        allUsers,
+      })
+    }
+
+    // ========================================================================
+    // Prisma fallback
+    // ========================================================================
+    const { db } = await import('@/lib/db')
 
     // Build date filter
     const dateFilter: Record<string, unknown> = {}

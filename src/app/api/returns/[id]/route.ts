@@ -1,30 +1,148 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso, generateId } from '@/lib/turso'
 
-// Use shared db instance (supports Turso adapter)
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
+function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c.name)
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {}
+    names.forEach((n, i) => {
+      obj[n] = row[i]
+    })
+    return obj
+  })
+}
+
+const bool = (v: unknown): boolean => v === 1 || v === true
+
+/**
+ * Shared helper: fetch a single return with full JOINs for the response.
+ * Used by both GET and PUT to produce consistent shape.
+ */
+async function fetchReturnWithJoins(id: string) {
+  const result = await turso.execute({
+    sql: `SELECT r."id", r."returnNo", r."transactionId", r."transactionItemId",
+                r."productId", r."productName", r."quantity", r."unitPrice",
+                r."refundAmount", r."reason", r."reasonNote", r."customerId",
+                r."customerName", r."userId", r."status", r."approvedById",
+                r."approvedAt", r."refundMethod", r."refundProcessed", r."restocked",
+                r."notes", r."createdAt", r."updatedAt",
+                u."id" AS "userId_val", u."name" AS "userName", u."role" AS "userRole",
+                a."id" AS "approvedById_val", a."name" AS "approvedByName",
+                t."transactionNo", t."status" AS "txnStatus", t."subtotal" AS "txnSubtotal", t."total" AS "txnTotal",
+                ti."id" AS "txItemId", ti."quantity" AS "txItemQty", ti."unitPrice" AS "txItemUnitPrice",
+                ti."subtotal" AS "txItemSubtotal", ti."requiresRx" AS "txItemRequiresRx",
+                ti."productName" AS "txItemProductName", ti."productId" AS "txItemProductId",
+                p."id" AS "prodId", p."name" AS "prodName", p."ndc" AS "prodNdc", p."category" AS "prodCategory"
+         FROM "Return" r
+         LEFT JOIN "User" u ON u."id" = r."userId"
+         LEFT JOIN "User" a ON a."id" = r."approvedById"
+         LEFT JOIN "Transaction" t ON t."id" = r."transactionId"
+         LEFT JOIN "TransactionItem" ti ON ti."id" = r."transactionItemId"
+         LEFT JOIN "Product" p ON p."id" = r."productId"
+         WHERE r."id" = ?`,
+    args: [id],
+  })
+
+  if (result.rows.length === 0) return null
+
+  const row = toObjs(result)[0]
+  return {
+    id: row.id,
+    returnNo: row.returnNo,
+    transactionId: row.transactionId,
+    transactionItemId: row.transactionItemId,
+    productId: row.productId,
+    productName: row.productName,
+    quantity: Number(row.quantity),
+    unitPrice: Number(row.unitPrice),
+    refundAmount: Number(row.refundAmount),
+    reason: row.reason,
+    reasonNote: row.reasonNote,
+    customerId: row.customerId,
+    customerName: row.customerName,
+    userId: row.userId,
+    status: row.status,
+    approvedById: row.approvedById,
+    approvedAt: row.approvedAt,
+    refundMethod: row.refundMethod,
+    refundProcessed: bool(row.refundProcessed),
+    restocked: bool(row.restocked),
+    notes: row.notes,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    user: row.userId_val ? { id: row.userId_val, name: row.userName, role: row.userRole } : null,
+    approvedBy: row.approvedById_val
+      ? { id: row.approvedById_val, name: row.approvedByName }
+      : null,
+    transaction: row.transactionNo
+      ? {
+          transactionNo: row.transactionNo,
+          status: row.txnStatus,
+          subtotal: row.txnSubtotal,
+          total: row.txnTotal,
+        }
+      : null,
+    transactionItem: row.txItemId
+      ? {
+          id: row.txItemId,
+          transactionId: row.transactionId,
+          productId: row.txItemProductId,
+          productName: row.txItemProductName,
+          quantity: Number(row.txItemQty),
+          unitPrice: Number(row.txItemUnitPrice),
+          subtotal: Number(row.txItemSubtotal),
+          requiresRx: bool(row.txItemRequiresRx),
+        }
+      : null,
+    product: row.prodId
+      ? { id: row.prodId, name: row.prodName, ndc: row.prodNdc, category: row.prodCategory }
+      : null,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/returns/[id] — single return detail
 // RBAC: SUPER_ADMIN sees all; other roles can only view their own returns
+// ---------------------------------------------------------------------------
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params
 
-    // RBAC: extract requester role and userId from headers
     const requesterRole = req.headers.get('x-user-role') || ''
     const requesterId = req.headers.get('x-user-id') || ''
     const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
 
+    // ---- Turso raw SQL path ----
+    if (isTurso()) {
+      const returnRecord = await fetchReturnWithJoins(id)
+      if (!returnRecord) {
+        return NextResponse.json({ error: 'Return not found' }, { status: 404 })
+      }
+
+      // RBAC: non-admin can only view their own returns
+      if (!isSuperAdmin && returnRecord.userId !== requesterId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
+
+      return NextResponse.json({ return: returnRecord })
+    }
+
+    // ---- Prisma fallback ----
+    const { db } = await import('@/lib/db')
     const returnRecord = await db.return.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, name: true, role: true } },
         approvedBy: { select: { id: true, name: true } },
-        transaction: {
-          select: { transactionNo: true, items: true },
-        },
+        transaction: { select: { transactionNo: true, items: true } },
         transactionItem: true,
         product: { select: { id: true, name: true, ndc: true, category: true } },
       },
@@ -34,7 +152,6 @@ export async function GET(
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
 
-    // Non-admin can only view their own returns
     if (!isSuperAdmin && returnRecord.userId !== requesterId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
@@ -46,29 +163,231 @@ export async function GET(
   }
 }
 
+// ---------------------------------------------------------------------------
 // PUT /api/returns/[id] — approve, reject, complete, or cancel a return
 // RBAC: SUPER_ADMIN can approve/reject/complete any return
 //       Other roles can only cancel their own PENDING_APPROVAL returns
+// ---------------------------------------------------------------------------
+
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params
     const body = await req.json()
     const { action, approvedById, refundMethod, notes } = body
 
-    // RBAC: extract requester role and userId from headers
     const requesterRole = req.headers.get('x-user-role') || ''
     const requesterId = req.headers.get('x-user-id') || ''
     const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
 
+    // ---- Turso raw SQL path ----
+    if (isTurso()) {
+      // Fetch existing return
+      const existingResult = await turso.execute({
+        sql: `SELECT "id", "status", "userId", "productId", "transactionId", "transactionItemId",
+                    "quantity", "notes", "refundMethod"
+             FROM "Return" WHERE "id" = ?`,
+        args: [id],
+      })
+      if (existingResult.rows.length === 0) {
+        return NextResponse.json({ error: 'Return not found' }, { status: 404 })
+      }
+      const existing = toObjs(existingResult)[0]
+
+      // RBAC: non-admin can only cancel their own pending returns
+      if (!isSuperAdmin) {
+        if (existing.userId !== requesterId) {
+          return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+        }
+        if (action !== 'cancel') {
+          return NextResponse.json(
+            { error: 'Only admin can approve, reject, or complete returns' },
+            { status: 403 },
+          )
+        }
+      }
+
+      const now = new Date().toISOString()
+
+      // ---- APPROVE ----
+      if (action === 'approve') {
+        if (existing.status !== 'PENDING_APPROVAL') {
+          return NextResponse.json(
+            { error: 'Only pending returns can be approved' },
+            { status: 400 },
+          )
+        }
+
+        const returnQty = Number(existing.quantity)
+        const productId = existing.productId as string
+        const transactionItemId = existing.transactionItemId as string
+        const transactionId = existing.transactionId as string
+
+        // 1. Read current inventory quantity (read-modify-write)
+        const invResult = await turso.execute({
+          sql: 'SELECT "quantity" FROM "Inventory" WHERE "productId" = ?',
+          args: [productId],
+        })
+        const currentQty = invResult.rows.length > 0 ? Number(invResult.rows[0][0]) : 0
+        const newInvQty = currentQty + returnQty
+
+        if (invResult.rows.length > 0) {
+          await turso.execute({
+            sql: 'UPDATE "Inventory" SET "quantity" = ?, "lastCounted" = ?, "updatedAt" = ? WHERE "productId" = ?',
+            args: [newInvQty, now, now, productId],
+          })
+        } else {
+          const invId = generateId()
+          await turso.execute({
+            sql: `INSERT INTO "Inventory" ("id", "productId", "quantity", "lastCounted", "createdAt", "updatedAt")
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+            args: [invId, productId, newInvQty, now, now, now],
+          })
+        }
+
+        // 2. Adjust the original transaction item (reduce quantity by returned amount)
+        const txItemResult = await turso.execute({
+          sql: 'SELECT "quantity", "unitPrice" FROM "TransactionItem" WHERE "id" = ?',
+          args: [transactionItemId],
+        })
+        if (txItemResult.rows.length > 0) {
+          const txItem = toObjs(txItemResult)[0]
+          const originalQty = Number(txItem.quantity)
+          const unitPrice = Number(txItem.unitPrice)
+          const returnedQty = Math.min(returnQty, originalQty)
+          const adjQty = Math.max(0, originalQty - returnedQty)
+          const adjSubtotal = unitPrice * adjQty
+
+          await turso.execute({
+            sql: 'UPDATE "TransactionItem" SET "quantity" = ?, "subtotal" = ? WHERE "id" = ?',
+            args: [adjQty, adjSubtotal, transactionItemId],
+          })
+        }
+
+        // 3. Recalculate and update the original transaction totals
+        const allItemsResult = await turso.execute({
+          sql: 'SELECT "subtotal" FROM "TransactionItem" WHERE "transactionId" = ?',
+          args: [transactionId],
+        })
+        const allItems = toObjs(allItemsResult)
+        const recalculatedSubtotal = allItems.reduce(
+          (sum, item) => sum + Number(item.subtotal),
+          0,
+        )
+
+        await turso.execute({
+          sql: `UPDATE "Transaction" SET "subtotal" = ?, "total" = ?, "paymentAmount" = ?,
+               "status" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          args: [
+            recalculatedSubtotal,
+            Math.max(0, recalculatedSubtotal),
+            Math.max(0, recalculatedSubtotal),
+            'REFUNDED',
+            now,
+            transactionId,
+          ],
+        })
+
+        // 4. Update Return status to APPROVED
+        await turso.execute({
+          sql: `UPDATE "Return" SET "status" = ?, "approvedById" = ?, "approvedAt" = ?,
+               "restocked" = 1, "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          args: [
+            'APPROVED',
+            approvedById || null,
+            now,
+            notes || existing.notes || null,
+            now,
+            id,
+          ],
+        })
+
+        const updated = await fetchReturnWithJoins(id)
+        return NextResponse.json({ return: updated })
+      }
+
+      // ---- REJECT ----
+      if (action === 'reject') {
+        if (existing.status !== 'PENDING_APPROVAL') {
+          return NextResponse.json(
+            { error: 'Only pending returns can be rejected' },
+            { status: 400 },
+          )
+        }
+
+        await turso.execute({
+          sql: `UPDATE "Return" SET "status" = ?, "approvedById" = ?, "approvedAt" = ?,
+               "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          args: [
+            'REJECTED',
+            approvedById || null,
+            now,
+            notes || existing.notes || null,
+            now,
+            id,
+          ],
+        })
+
+        const updated = await fetchReturnWithJoins(id)
+        return NextResponse.json({ return: updated })
+      }
+
+      // ---- COMPLETE ----
+      if (action === 'complete') {
+        if (existing.status !== 'APPROVED') {
+          return NextResponse.json(
+            { error: 'Only approved returns can be completed' },
+            { status: 400 },
+          )
+        }
+
+        await turso.execute({
+          sql: `UPDATE "Return" SET "status" = ?, "restocked" = 1, "refundProcessed" = 1,
+               "refundMethod" = ?, "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          args: [
+            'COMPLETED',
+            refundMethod || existing.refundMethod || 'CASH',
+            notes || existing.notes || null,
+            now,
+            id,
+          ],
+        })
+
+        const updated = await fetchReturnWithJoins(id)
+        return NextResponse.json({ return: updated })
+      }
+
+      // ---- CANCEL ----
+      if (action === 'cancel') {
+        if (existing.status === 'COMPLETED') {
+          return NextResponse.json(
+            { error: 'Completed returns cannot be cancelled' },
+            { status: 400 },
+          )
+        }
+
+        await turso.execute({
+          sql: `UPDATE "Return" SET "status" = ?, "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          args: ['CANCELLED', notes || existing.notes || null, now, id],
+        })
+
+        const updated = await fetchReturnWithJoins(id)
+        return NextResponse.json({ return: updated })
+      }
+
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    }
+
+    // ---- Prisma fallback ----
+    const { db } = await import('@/lib/db')
     const existing = await db.return.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
 
-    // Non-admin users: only allow cancelling their own pending returns
+    // RBAC
     if (!isSuperAdmin) {
       if (existing.userId !== requesterId) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -76,7 +395,7 @@ export async function PUT(
       if (action !== 'cancel') {
         return NextResponse.json(
           { error: 'Only admin can approve, reject, or complete returns' },
-          { status: 403 }
+          { status: 403 },
         )
       }
     }
@@ -88,7 +407,7 @@ export async function PUT(
         if (existing.status !== 'PENDING_APPROVAL') {
           return NextResponse.json(
             { error: 'Only pending returns can be approved' },
-            { status: 400 }
+            { status: 400 },
           )
         }
 
@@ -105,22 +424,15 @@ export async function PUT(
           if (existingInv) {
             await tx.inventory.update({
               where: { productId: existing.productId },
-              data: {
-                quantity: newInvQty,
-                lastCounted: new Date(),
-              },
+              data: { quantity: newInvQty, lastCounted: new Date() },
             })
           } else {
             await tx.inventory.create({
-              data: {
-                productId: existing.productId,
-                quantity: newInvQty,
-                lastCounted: new Date(),
-              },
+              data: { productId: existing.productId, quantity: newInvQty, lastCounted: new Date() },
             })
           }
 
-          // 2. Adjust the original transaction item quantity (reduce by returned amount)
+          // 2. Adjust the original transaction item quantity
           const txItem = await tx.transactionItem.findUnique({
             where: { id: existing.transactionItemId },
           })
@@ -132,10 +444,7 @@ export async function PUT(
 
             await tx.transactionItem.update({
               where: { id: existing.transactionItemId },
-              data: {
-                quantity: adjQty,
-                subtotal: adjSubtotal,
-              },
+              data: { quantity: adjQty, subtotal: adjSubtotal },
             })
           }
 
@@ -145,7 +454,7 @@ export async function PUT(
           })
           const recalculatedSubtotal = allTxItems.reduce(
             (sum, item) => sum + Number(item.subtotal),
-            0
+            0,
           )
 
           await tx.transaction.update({
@@ -183,7 +492,7 @@ export async function PUT(
         if (existing.status !== 'PENDING_APPROVAL') {
           return NextResponse.json(
             { error: 'Only pending returns can be rejected' },
-            { status: 400 }
+            { status: 400 },
           )
         }
         updated = await db.return.update({
@@ -208,12 +517,9 @@ export async function PUT(
         if (existing.status !== 'APPROVED') {
           return NextResponse.json(
             { error: 'Only approved returns can be completed' },
-            { status: 400 }
+            { status: 400 },
           )
         }
-
-        // Inventory restock and transaction adjustments already done during approve.
-        // Complete just finalizes the return record.
         updated = await db.return.update({
           where: { id },
           data: {
@@ -237,15 +543,12 @@ export async function PUT(
         if (existing.status === 'COMPLETED') {
           return NextResponse.json(
             { error: 'Completed returns cannot be cancelled' },
-            { status: 400 }
+            { status: 400 },
           )
         }
         updated = await db.return.update({
           where: { id },
-          data: {
-            status: 'CANCELLED',
-            notes: notes || existing.notes,
-          },
+          data: { status: 'CANCELLED', notes: notes || existing.notes },
           include: {
             user: { select: { id: true, name: true, role: true } },
             approvedBy: { select: { id: true, name: true } },

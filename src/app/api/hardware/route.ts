@@ -1,7 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso, generateId } from '@/lib/turso'
 
-// GET /api/hardware - Get hardware status and barcode lookup
+// Helper: map a raw Product row (with joined inventory) to a proper object
+function rowToProduct(row: Record<string, unknown>) {
+  return {
+    id: row.id as string,
+    ndc: (row.ndc as string) || null,
+    name: row.name as string,
+    genericName: (row.genericName as string) || null,
+    manufacturer: (row.manufacturer as string) || null,
+    manufacturerId: (row.manufacturerId as string) || null,
+    vendorId: (row.vendorId as string) || null,
+    category: row.category as string,
+    description: (row.description as string) || null,
+    dosageForm: (row.dosageForm as string) || null,
+    strength: (row.strength as string) || null,
+    unitOfMeasure: row.unitOfMeasure as string,
+    requiresPrescription: Number(row.requiresPrescription) === 1,
+    status: row.status as string,
+    sellingPrice: Number(row.sellingPrice),
+    costPrice: row.costPrice != null ? Number(row.costPrice) : null,
+    reorderPoint: Number(row.reorderPoint),
+    reorderQty: Number(row.reorderQty),
+    maxStock: row.maxStock != null ? Number(row.maxStock) : null,
+    storageLocation: (row.storageLocation as string) || null,
+    batchNumber: (row.batchNumber as string) || null,
+    expiryDate: (row.expiryDate as string) || null,
+    controlledSubstance: Number(row.controlledSubstance) === 1,
+    deaSchedule: (row.deaSchedule as string) || null,
+    createdAt: row.createdAt as string,
+    updatedAt: row.updatedAt as string,
+    inventory: row.inv_id
+      ? {
+          id: row.inv_id as string,
+          productId: row.inv_productId as string,
+          quantity: Number(row.inv_quantity),
+          lastCounted: (row.inv_lastCounted as string) || null,
+          createdAt: row.inv_createdAt as string,
+          updatedAt: row.inv_updatedAt as string,
+        }
+      : null,
+  }
+}
+
+// Helper: map a raw HardwareLog row
+function rowToHardwareLog(row: Record<string, unknown>) {
+  return {
+    id: row.id as string,
+    transactionId: (row.transactionId as string) || null,
+    hardwareType: row.hardwareType as string,
+    action: row.action as string,
+    status: row.status as string,
+    details: (row.details as string) || null,
+    createdAt: row.createdAt as string,
+  }
+}
+
+// GET /api/hardware - Get hardware status or barcode lookup
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -52,30 +107,69 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      const product = await db.product.findFirst({
-        where: {
-          OR: [
-            { ndc: barcode },
-            { batchNumber: barcode },
-          ],
-          status: 'ACTIVE',
-        },
-        include: {
-          inventory: true,
-        },
-      })
+      if (isTurso()) {
+        // --- Raw SQL path ---
+        const result = await turso.execute({
+          sql: `
+            SELECT
+              p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
+              p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure",
+              p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
+              p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
+              p."batchNumber", p."expiryDate", p."controlledSubstance", p."deaSchedule",
+              p."createdAt", p."updatedAt",
+              i.id AS "inv_id", i."productId" AS "inv_productId", i.quantity AS "inv_quantity",
+              i."lastCounted" AS "inv_lastCounted", i."createdAt" AS "inv_createdAt", i."updatedAt" AS "inv_updatedAt"
+            FROM "Product" p
+            LEFT JOIN "Inventory" i ON p.id = i."productId"
+            WHERE (p.ndc = ? OR p."batchNumber" = ?) AND p.status = 'ACTIVE'
+            LIMIT 1
+          `,
+          args: [barcode, barcode],
+        })
 
-      if (!product) {
-        return NextResponse.json(
-          { error: 'Product not found for this barcode' },
-          { status: 404 }
-        )
+        if (result.rows.length === 0) {
+          return NextResponse.json(
+            { error: 'Product not found for this barcode' },
+            { status: 404 }
+          )
+        }
+
+        const product = rowToProduct(result.rows[0] as Record<string, unknown>)
+
+        return NextResponse.json({
+          product,
+          stockLevel: product.inventory?.quantity || 0,
+        })
+      } else {
+        // --- Prisma fallback ---
+        const { db } = await import('@/lib/db')
+
+        const product = await db.product.findFirst({
+          where: {
+            OR: [
+              { ndc: barcode },
+              { batchNumber: barcode },
+            ],
+            status: 'ACTIVE',
+          },
+          include: {
+            inventory: true,
+          },
+        })
+
+        if (!product) {
+          return NextResponse.json(
+            { error: 'Product not found for this barcode' },
+            { status: 404 }
+          )
+        }
+
+        return NextResponse.json({
+          product,
+          stockLevel: product.inventory?.quantity || 0,
+        })
       }
-
-      return NextResponse.json({
-        product,
-        stockLevel: product.inventory?.quantity || 0,
-      })
     }
 
     return NextResponse.json(
@@ -116,42 +210,100 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const hardwareLog = await db.hardwareLog.create({
-        data: {
-          transactionId,
-          hardwareType: hardwareType || 'receipt_printer',
-          action: 'RECEIPT_PRINTED',
-          status: 'success',
-          details: details ? JSON.stringify(details) : null,
-        },
-      })
+      if (isTurso()) {
+        // --- Raw SQL path ---
+        const logId = generateId()
+        const now = new Date().toISOString()
 
-      return NextResponse.json({
-        message: 'Receipt print logged successfully',
-        hardwareLog,
-      })
+        await turso.execute({
+          sql: `INSERT INTO "HardwareLog" ("id", "transactionId", "hardwareType", "action", "status", "details", "createdAt") VALUES (?, ?, ?, 'RECEIPT_PRINTED', 'success', ?, ?)`,
+          args: [
+            logId,
+            transactionId,
+            hardwareType || 'receipt_printer',
+            details ? JSON.stringify(details) : null,
+            now,
+          ],
+        })
+
+        const logResult = await turso.execute({
+          sql: `SELECT "id", "transactionId", "hardwareType", "action", "status", "details", "createdAt" FROM "HardwareLog" WHERE "id" = ?`,
+          args: [logId],
+        })
+
+        return NextResponse.json({
+          message: 'Receipt print logged successfully',
+          hardwareLog: rowToHardwareLog(logResult.rows[0] as Record<string, unknown>),
+        })
+      } else {
+        // --- Prisma fallback ---
+        const { db } = await import('@/lib/db')
+
+        const hardwareLog = await db.hardwareLog.create({
+          data: {
+            transactionId,
+            hardwareType: hardwareType || 'receipt_printer',
+            action: 'RECEIPT_PRINTED',
+            status: 'success',
+            details: details ? JSON.stringify(details) : null,
+          },
+        })
+
+        return NextResponse.json({
+          message: 'Receipt print logged successfully',
+          hardwareLog,
+        })
+      }
     }
 
     // POST /api/hardware/drawer - Log cash drawer open
     if (action === 'drawer') {
       const { details } = body
 
-      const hardwareLog = await db.hardwareLog.create({
-        data: {
-          hardwareType: 'cash_drawer',
-          action: 'CASH_DRAWER_OPENED',
-          status: 'success',
-          details: details ? JSON.stringify(details) : null,
-        },
-      })
+      if (isTurso()) {
+        // --- Raw SQL path ---
+        const logId = generateId()
+        const now = new Date().toISOString()
 
-      return NextResponse.json({
-        message: 'Cash drawer open logged successfully',
-        hardwareLog,
-      })
+        await turso.execute({
+          sql: `INSERT INTO "HardwareLog" ("id", "hardwareType", "action", "status", "details", "createdAt") VALUES (?, 'cash_drawer', 'CASH_DRAWER_OPENED', 'success', ?, ?)`,
+          args: [
+            logId,
+            details ? JSON.stringify(details) : null,
+            now,
+          ],
+        })
+
+        const logResult = await turso.execute({
+          sql: `SELECT "id", "transactionId", "hardwareType", "action", "status", "details", "createdAt" FROM "HardwareLog" WHERE "id" = ?`,
+          args: [logId],
+        })
+
+        return NextResponse.json({
+          message: 'Cash drawer open logged successfully',
+          hardwareLog: rowToHardwareLog(logResult.rows[0] as Record<string, unknown>),
+        })
+      } else {
+        // --- Prisma fallback ---
+        const { db } = await import('@/lib/db')
+
+        const hardwareLog = await db.hardwareLog.create({
+          data: {
+            hardwareType: 'cash_drawer',
+            action: 'CASH_DRAWER_OPENED',
+            status: 'success',
+            details: details ? JSON.stringify(details) : null,
+          },
+        })
+
+        return NextResponse.json({
+          message: 'Cash drawer open logged successfully',
+          hardwareLog,
+        })
+      }
     }
 
-    // POST /api/hardware/barcode - Simulate barcode scan lookup
+    // POST /api/hardware/barcode - Log barcode scan and lookup product
     if (action === 'barcode') {
       const { barcode } = body
 
@@ -162,42 +314,96 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Log the scan
-      await db.hardwareLog.create({
-        data: {
-          hardwareType: 'barcode_scanner',
-          action: 'BARCODE_SCANNED',
-          status: 'success',
-          details: JSON.stringify({ barcode }),
-        },
-      })
+      if (isTurso()) {
+        // --- Raw SQL path ---
 
-      // Look up product
-      const product = await db.product.findFirst({
-        where: {
-          OR: [
-            { ndc: barcode },
-            { batchNumber: barcode },
-            { name: { contains: barcode } },
+        // Log the scan first
+        const logId = generateId()
+        const now = new Date().toISOString()
+
+        await turso.execute({
+          sql: `INSERT INTO "HardwareLog" ("id", "hardwareType", "action", "status", "details", "createdAt") VALUES (?, 'barcode_scanner', 'BARCODE_SCANNED', 'success', ?, ?)`,
+          args: [
+            logId,
+            JSON.stringify({ barcode }),
+            now,
           ],
-          status: 'ACTIVE',
-        },
-        include: {
-          inventory: true,
-        },
-      })
+        })
 
-      if (!product) {
-        return NextResponse.json(
-          { error: 'Product not found for this barcode' },
-          { status: 404 }
-        )
+        // Look up product: ndc = ? OR batchNumber = ? OR name LIKE ?
+        const result = await turso.execute({
+          sql: `
+            SELECT
+              p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
+              p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure",
+              p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
+              p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
+              p."batchNumber", p."expiryDate", p."controlledSubstance", p."deaSchedule",
+              p."createdAt", p."updatedAt",
+              i.id AS "inv_id", i."productId" AS "inv_productId", i.quantity AS "inv_quantity",
+              i."lastCounted" AS "inv_lastCounted", i."createdAt" AS "inv_createdAt", i."updatedAt" AS "inv_updatedAt"
+            FROM "Product" p
+            LEFT JOIN "Inventory" i ON p.id = i."productId"
+            WHERE (p.ndc = ? OR p."batchNumber" = ? OR p.name LIKE '%' || ? || '%') AND p.status = 'ACTIVE'
+            LIMIT 1
+          `,
+          args: [barcode, barcode, barcode],
+        })
+
+        if (result.rows.length === 0) {
+          return NextResponse.json(
+            { error: 'Product not found for this barcode' },
+            { status: 404 }
+          )
+        }
+
+        const product = rowToProduct(result.rows[0] as Record<string, unknown>)
+
+        return NextResponse.json({
+          product,
+          stockLevel: product.inventory?.quantity || 0,
+        })
+      } else {
+        // --- Prisma fallback ---
+        const { db } = await import('@/lib/db')
+
+        // Log the scan
+        await db.hardwareLog.create({
+          data: {
+            hardwareType: 'barcode_scanner',
+            action: 'BARCODE_SCANNED',
+            status: 'success',
+            details: JSON.stringify({ barcode }),
+          },
+        })
+
+        // Look up product
+        const product = await db.product.findFirst({
+          where: {
+            OR: [
+              { ndc: barcode },
+              { batchNumber: barcode },
+              { name: { contains: barcode } },
+            ],
+            status: 'ACTIVE',
+          },
+          include: {
+            inventory: true,
+          },
+        })
+
+        if (!product) {
+          return NextResponse.json(
+            { error: 'Product not found for this barcode' },
+            { status: 404 }
+          )
+        }
+
+        return NextResponse.json({
+          product,
+          stockLevel: product.inventory?.quantity || 0,
+        })
       }
-
-      return NextResponse.json({
-        product,
-        stockLevel: product.inventory?.quantity || 0,
-      })
     }
 
     return NextResponse.json(

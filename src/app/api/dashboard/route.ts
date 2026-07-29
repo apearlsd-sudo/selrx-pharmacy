@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso } from '@/lib/turso'
 
-// GET /api/dashboard - Get comprehensive dashboard data
-// RBAC: SUPER_ADMIN sees all data; other roles see only their own
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c.name)
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {}
+    names.forEach((n, i) => {
+      obj[n] = row[i]
+    })
+    return obj
+  })
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/dashboard  –  comprehensive dashboard data
+// ---------------------------------------------------------------------------
+
 export async function GET(request: NextRequest) {
   try {
-    // RBAC: extract requester role and userId from headers
+    // RBAC
     const requesterRole = request.headers.get('x-user-role') || ''
     const requesterId = request.headers.get('x-user-id') || ''
     const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
-
-    // For non-SUPER_ADMIN, only fetch their own transactions
-    const userFilter = isSuperAdmin ? {} : (requesterId ? { userId: requesterId } : { userId: '__none__' })
 
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -19,7 +33,160 @@ export async function GET(request: NextRequest) {
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    // Run all dashboard queries in parallel
+    if (isTurso()) {
+      const userClause = isSuperAdmin ? '' : (requesterId ? ' AND userId = ?' : " AND userId = '__none__'")
+      const userArgs: unknown[] = isSuperAdmin ? [] : requesterId ? [requesterId] : []
+
+      // Run all dashboard queries in parallel
+      const [
+        todayResult,
+        weekResult,
+        inventoryResult,
+        rxCountResult,
+        topResult,
+        recentResult,
+      ] = await Promise.all([
+        // 1. Today's completed transactions
+        turso.execute({
+          sql: `SELECT total FROM Transaction
+                WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
+          args: [startOfDay.toISOString(), ...userArgs],
+        }),
+
+        // 2. Week's completed transactions (for trend)
+        turso.execute({
+          sql: `SELECT id, total, createdAt FROM Transaction
+                WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}
+                ORDER BY createdAt ASC`,
+          args: [startOfWeek.toISOString(), ...userArgs],
+        }),
+
+        // 3. All inventory with product (for low stock alerts)
+        turso.execute({
+          sql: `SELECT i.productId, i.quantity, i.lastCounted, i.createdAt as i_createdAt,
+                       i.updatedAt as i_updatedAt,
+                       p.reorderPoint as p_reorderPoint, p.name as p_name
+                FROM Inventory i
+                LEFT JOIN Product p ON i.productId = p.id`,
+          args: [],
+        }),
+
+        // 4. Pending prescriptions count
+        turso.execute({
+          sql: `SELECT COUNT(*) as cnt FROM Prescription
+                WHERE status IN ('PENDING', 'IN_PROGRESS', 'READY')`,
+          args: [],
+        }),
+
+        // 5. Top 5 selling products this month
+        turso.execute({
+          sql: `SELECT ti.productId as productId, ti.productName as productName,
+                       SUM(ti.quantity) as totalQty, SUM(ti.subtotal) as totalSubtotal
+                FROM TransactionItem ti
+                JOIN Transaction t ON ti.transactionId = t.id
+                WHERE t.status = 'COMPLETED' AND t.createdAt >= ?${userClause}
+                GROUP BY ti.productId, ti.productName
+                ORDER BY totalSubtotal DESC
+                LIMIT 5`,
+          args: [startOfMonth.toISOString(), ...userArgs],
+        }),
+
+        // 6. Recent 10 transactions with user/customer names
+        turso.execute({
+          sql: `SELECT t.id as t_id, t.transactionNo as t_transactionNo, t.total as t_total,
+                      t.status as t_status, t.createdAt as t_createdAt,
+                      u.id as u_id, u.name as u_name,
+                      c.id as c_id, c.firstName as c_firstName, c.lastName as c_lastName
+               FROM Transaction t
+               LEFT JOIN User u ON t.userId = u.id
+               LEFT JOIN Customer c ON t.customerId = c.id
+               ${isSuperAdmin ? '' : `WHERE t.userId = ?`}
+               ORDER BY t.createdAt DESC
+               LIMIT 10`,
+          args: isSuperAdmin ? [] : requesterId ? [requesterId] : [],
+        }),
+      ])
+
+      // ---- Process today's transactions ----
+      const todayRows = toObjs(todayResult)
+      const todaySales = todayRows.reduce((sum, r) => sum + (r.total as number), 0)
+      const todayCount = todayRows.length
+
+      // ---- Weekly trend (group by day) ----
+      const weekRows = toObjs(weekResult)
+      const weeklyTrend: { date: string; sales: number; count: number }[] = []
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(startOfDay)
+        dayStart.setDate(dayStart.getDate() - i)
+        const dayEnd = new Date(dayStart)
+        dayEnd.setDate(dayEnd.getDate() + 1)
+
+        const dayStartISO = dayStart.toISOString()
+        const dayEndISO = dayEnd.toISOString()
+
+        const dayTxns = weekRows.filter(
+          (r) => {
+            const d = r.createdAt as string
+            return d >= dayStartISO && d < dayEndISO
+          },
+        )
+
+        weeklyTrend.push({
+          date: dayStart.toISOString().slice(0, 10),
+          sales: dayTxns.reduce((sum, r) => sum + (r.total as number), 0),
+          count: dayTxns.length,
+        })
+      }
+
+      // ---- Low stock alerts ----
+      const allInv = toObjs(inventoryResult)
+      const lowStockAlerts = allInv.filter(
+        (r) => (r.quantity as number) <= (r.p_reorderPoint as number),
+      )
+
+      // ---- Pending prescriptions ----
+      const pendingPrescriptions = toObjs(rxCountResult)[0]?.cnt as number ?? 0
+
+      // ---- Top products ----
+      const topProducts = toObjs(topResult).map((r) => ({
+        productId: r.productId,
+        productName: r.productName,
+        _sum: { quantity: (r.totalQty as number) ?? 0, subtotal: (r.totalSubtotal as number) ?? 0 },
+      }))
+
+      // ---- Recent transactions ----
+      const recentTransactions = toObjs(recentResult).map((r) => ({
+        id: r.t_id,
+        transactionNo: r.t_transactionNo,
+        total: r.t_total,
+        status: r.t_status,
+        createdAt: r.t_createdAt,
+        user: r.u_id ? { id: r.u_id, name: r.u_name } : null,
+        customer: r.c_id ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName } : null,
+      }))
+
+      return NextResponse.json({
+        today: { sales: todaySales, count: todayCount },
+        weeklyTrend,
+        lowStockAlerts: {
+          count: lowStockAlerts.length,
+          items: lowStockAlerts.slice(0, 10).map((inv) => ({
+            productId: inv.productId,
+            productName: inv.p_name,
+            quantity: inv.quantity,
+            reorderPoint: inv.p_reorderPoint,
+          })),
+        },
+        pendingPrescriptions,
+        topProducts,
+        recentTransactions,
+      })
+    }
+
+    // Prisma fallback
+    const { db } = await import('@/lib/db')
+    const userFilter = isSuperAdmin ? {} : (requesterId ? { userId: requesterId } : { userId: '__none__' })
+
     const [
       todayTransactions,
       weekTransactions,
@@ -28,83 +195,44 @@ export async function GET(request: NextRequest) {
       topProducts,
       recentTransactions,
     ] = await Promise.all([
-      // Today's transactions
       db.transaction.findMany({
-        where: {
-          createdAt: { gte: startOfDay },
-          status: 'COMPLETED',
-          ...userFilter,
-        },
+        where: { createdAt: { gte: startOfDay }, status: 'COMPLETED', ...userFilter },
       }),
 
-      // Weekly transactions (last 7 days for trend)
       db.transaction.findMany({
-        where: {
-          createdAt: { gte: startOfWeek },
-          status: 'COMPLETED',
-          ...userFilter,
-        },
-        select: {
-          id: true,
-          total: true,
-          createdAt: true,
-        },
+        where: { createdAt: { gte: startOfWeek }, status: 'COMPLETED', ...userFilter },
+        select: { id: true, total: true, createdAt: true },
         orderBy: { createdAt: 'asc' },
       }),
 
-      // All inventory for low stock alerts
-      db.inventory.findMany({
-        include: { product: true },
-      }),
+      db.inventory.findMany({ include: { product: true } }),
 
-      // Pending prescriptions
       db.prescription.count({
-        where: {
-          status: { in: ['PENDING', 'IN_PROGRESS', 'READY'] },
-        },
+        where: { status: { in: ['PENDING', 'IN_PROGRESS', 'READY'] } },
       }),
 
-      // Top 5 selling products this month
       db.transactionItem.groupBy({
         by: ['productId', 'productName'],
-        where: {
-          transaction: {
-            status: 'COMPLETED',
-            createdAt: { gte: startOfMonth },
-            ...userFilter,
-          },
-        },
-        _sum: {
-          quantity: true,
-          subtotal: true,
-        },
-        orderBy: {
-          _sum: { subtotal: 'desc' },
-        },
+        where: { transaction: { status: 'COMPLETED', createdAt: { gte: startOfMonth }, ...userFilter } },
+        _sum: { quantity: true, subtotal: true },
+        orderBy: { _sum: { subtotal: 'desc' } },
         take: 5,
       }),
 
-      // Recent transactions (last 10)
       db.transaction.findMany({
         where: userFilter,
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: {
-            select: { id: true, name: true },
-          },
-          customer: {
-            select: { id: true, firstName: true, lastName: true },
-          },
+          user: { select: { id: true, name: true } },
+          customer: { select: { id: true, firstName: true, lastName: true } },
         },
       }),
     ])
 
-    // Calculate today's sales
     const todaySales = todayTransactions.reduce((sum, t) => sum + t.total, 0)
     const todayCount = todayTransactions.length
 
-    // Calculate weekly trend (group by day)
     const weeklyTrend: { date: string; sales: number; count: number }[] = []
     for (let i = 6; i >= 0; i--) {
       const dayStart = new Date(startOfDay)
@@ -113,7 +241,7 @@ export async function GET(request: NextRequest) {
       dayEnd.setDate(dayEnd.getDate() + 1)
 
       const dayTxns = weekTransactions.filter(
-        (t) => t.createdAt >= dayStart && t.createdAt < dayEnd
+        (t) => t.createdAt >= dayStart && t.createdAt < dayEnd,
       )
 
       weeklyTrend.push({
@@ -123,16 +251,12 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Low stock alerts
     const lowStockAlerts = allInventory.filter(
-      (inv) => inv.quantity <= inv.product.reorderPoint
+      (inv) => inv.quantity <= inv.product.reorderPoint,
     )
 
     return NextResponse.json({
-      today: {
-        sales: todaySales,
-        count: todayCount,
-      },
+      today: { sales: todaySales, count: todayCount },
       weeklyTrend,
       lowStockAlerts: {
         count: lowStockAlerts.length,
@@ -149,9 +273,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch dashboard data' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch dashboard data' }, { status: 500 })
   }
 }
