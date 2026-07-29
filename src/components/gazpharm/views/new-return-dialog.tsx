@@ -91,7 +91,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
       if (search && search.trim()) {
         params.set('search', search.trim())
       }
-      const res = await fetch(`/api/transactions?${params}`)
+      const res = await fetch(`/api/transactions?${params}`, { headers: authHeaders() })
       const data = await res.json()
       if (data.transactions && Array.isArray(data.transactions)) {
         setRecentReceipts(data.transactions)
@@ -130,7 +130,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
     setFoundTx(null)
     setSelectedItem(null)
     try {
-      const res = await fetch(`/api/transactions?search=${encodeURIComponent(txSearchQuery.trim())}&limit=10&status=COMPLETED`)
+      const res = await fetch(`/api/transactions?search=${encodeURIComponent(txSearchQuery.trim())}&limit=10&status=COMPLETED`, { headers: authHeaders() })
       const data = await res.json()
       if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
         setRecentReceipts(data.transactions)
