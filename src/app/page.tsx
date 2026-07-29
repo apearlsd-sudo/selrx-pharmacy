@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, Component, type ReactNode } from 'react'
+import { useEffect, Component, type ReactNode, useState } from 'react'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -21,12 +21,14 @@ import {
   RotateCcw,
   TrendingUp,
   ClipboardCheck,
+  Settings,
+  Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore, type ViewName } from '@/store/app-store'
-import { initCurrencyGetter, CURRENCIES, type CurrencyCode } from '@/lib/currency'
+import { initCurrencyGetter, type CurrencyCode } from '@/lib/currency'
 import { LoginScreen } from '@/components/gazpharm/login-screen'
 import { DashboardView } from '@/components/gazpharm/views/dashboard-view'
 import { POSView } from '@/components/gazpharm/views/pos-view'
@@ -43,9 +45,7 @@ import { CompanySetupView } from '@/components/gazpharm/company-setup-view'
 import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales-analytics'
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+import { OtherSettingsView } from '@/components/gazpharm/views/other-settings-view'
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
 interface ErrorBoundaryProps { children: ReactNode; fallback?: ReactNode }
@@ -102,7 +102,34 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
   { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware:view' },
   { name: 'users', label: 'User Management', icon: UserCog, permission: 'users:view' },
+  { name: 'settings', label: 'Other Settings', icon: Settings, permission: 'pos:sell' },
 ]
+
+// ── Live Clock for Topbar ──────────────────────────────────────────────
+function TopbarClock() {
+  const [time, setTime] = useState('')
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date()
+      setTime(
+        now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+        '  ' +
+        now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      )
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
+      <Clock className="h-3.5 w-3.5" />
+      <span className="font-medium tabular-nums">{time}</span>
+    </div>
+  )
+}
 
 export default function Home() {
   const currentView = useAppStore((s) => s.currentView)
@@ -293,6 +320,7 @@ export default function Home() {
       case 'product-sales-analytics': return <ProductSalesAnalytics />
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
       case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportViewWrapper /></ViewErrorBoundary>
+      case 'settings': return <OtherSettingsView />
       default: return <DashboardView />
     }
   }
@@ -434,21 +462,8 @@ export default function Home() {
           <h1 className="text-lg font-bold text-gray-900">{company?.name || 'SelRx'}</h1>
 
           <div className="ml-auto flex items-center gap-2">
-            {/* Currency Selector */}
-            <Select value={currency} onValueChange={(val) => setCurrency(val as CurrencyCode)}>
-              <SelectTrigger className="h-8 w-[110px] text-xs">
-                <span className="font-medium">{CURRENCIES[currency].symbol}</span>
-                <span className="text-muted-foreground">{currency}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(CURRENCIES) as CurrencyCode[]).map((code) => (
-                  <SelectItem key={code} value={code}>
-                    <span className="font-medium">{CURRENCIES[code].symbol}</span>
-                    <span className="ml-1.5">{CURRENCIES[code].name}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Live Clock */}
+            <TopbarClock />
             <Button variant="ghost" size="icon" className="h-9 w-9 relative">
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-emerald-500 rounded-full" />

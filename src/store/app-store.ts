@@ -155,6 +155,15 @@ export interface CurrencyState {
   setCurrency: (code: CurrencyCode) => void
 }
 
+export interface ReceiptSettingsState {
+  /** Automatically print receipt after a successful sale */
+  autoPrintReceipt: boolean
+  setAutoPrintReceipt: (val: boolean) => void
+  /** Show receipt modal dialog after sale (set to false to skip) */
+  showReceiptModal: boolean
+  setShowReceiptModal: (val: boolean) => void
+}
+
 export interface UIState {
   isModalOpen: boolean
   modalContent: string | null
@@ -350,6 +359,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ---- Currency ----
   currency: 'GHS' as CurrencyCode,
   setCurrency: (code) => set({ currency: code }),
+
+  // ---- Receipt Settings ----
+  autoPrintReceipt: false,
+  setAutoPrintReceipt: (val) => set({ autoPrintReceipt: val }),
+  showReceiptModal: true,
+  setShowReceiptModal: (val) => set({ showReceiptModal: val }),
 }))
 
 // ============ COMPUTED VALUES (selectors) ============
