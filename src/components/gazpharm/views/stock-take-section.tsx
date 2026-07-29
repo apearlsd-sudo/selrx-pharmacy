@@ -65,6 +65,7 @@ export function StockTakeSection() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StockTake | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [inventorySearch, setInventorySearch] = useState('')
   const addToast = useAppStore((s) => s.addToast)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
@@ -277,6 +278,17 @@ export function StockTakeSection() {
     return styles[status] || 'bg-gray-100 text-gray-700'
   }
 
+  // Filter inventory by search query
+  const filteredInventory = inventory.filter((inv) => {
+    if (!inventorySearch.trim()) return true
+    const q = inventorySearch.toLowerCase()
+    return (
+      inv.product.name.toLowerCase().includes(q) ||
+      (inv.product.ndc && inv.product.ndc.toLowerCase().includes(q)) ||
+      inv.product.category.toLowerCase().includes(q)
+    )
+  })
+
   // ── New Stock Take Form ──
   if (view === 'new') {
     return (
@@ -389,6 +401,21 @@ export function StockTakeSection() {
               {/* Counting interface */}
               {inventory.length > 0 ? (
                 <>
+                  {/* Search filter bar */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search product by name, NDC, or category..."
+                        className="pl-9 h-9"
+                        value={inventorySearch}
+                        onChange={(e) => setInventorySearch(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      {filteredInventory.length} of {inventory.length} products
+                    </p>
+                  </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Enter physical counts for each product:</p>
                     <div className="flex gap-2">
@@ -411,34 +438,42 @@ export function StockTakeSection() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {inventory.map((inv) => {
-                          const counted = countedItems[inv.productId] ?? ''
-                          const countedNum = typeof counted === 'number' ? counted : (counted !== '' ? parseInt(String(counted), 10) : null)
-                          const variance = countedNum !== null && !isNaN(countedNum) ? countedNum - inv.quantity : null
-                          return (
-                            <TableRow key={inv.productId}>
-                              <TableCell className="text-sm">{inv.product.name}</TableCell>
-                              <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={counted}
-                                  onChange={(e) => handleCountedChange(inv.productId, e.target.value)}
-                                  placeholder="—"
-                                  className="h-8 w-24"
-                                />
-                              </TableCell>
-                              <TableCell className="text-right text-sm font-medium">
-                                {variance !== null ? (
-                                  <span className={variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
-                                    {variance > 0 ? '+' : ''}{variance}
-                                  </span>
-                                ) : '—'}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
+                        {filteredInventory.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">
+                              No products match your search
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredInventory.map((inv) => {
+                            const counted = countedItems[inv.productId] ?? ''
+                            const countedNum = typeof counted === 'number' ? counted : (counted !== '' ? parseInt(String(counted), 10) : null)
+                            const variance = countedNum !== null && !isNaN(countedNum) ? countedNum - inv.quantity : null
+                            return (
+                              <TableRow key={inv.productId}>
+                                <TableCell className="text-sm">{inv.product.name}</TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={counted}
+                                    onChange={(e) => handleCountedChange(inv.productId, e.target.value)}
+                                    placeholder="—"
+                                    className="h-8 w-24"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right text-sm font-medium">
+                                  {variance !== null ? (
+                                    <span className={variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
+                                      {variance > 0 ? '+' : ''}{variance}
+                                    </span>
+                                  ) : '—'}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                        )}
                       </TableBody>
                     </Table>
                   </div>
