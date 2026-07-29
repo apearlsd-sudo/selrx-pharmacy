@@ -145,6 +145,11 @@ export function SalesHistoryView() {
     setCurrentPage(1)
   }, [dateFrom, dateTo, selectedUserId])
 
+  // Fetch data when filters or page change
+  useEffect(() => {
+    fetchSalesHistory()
+  }, [fetchSalesHistory])
+
   // Sort salesByUser
   const sortedUserSales = (data?.salesByUser || []).sort((a: any, b: any) => {
     const aVal = a[sortField] || 0
