@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { ALL_PERMISSION_KEYS } from '@/lib/permissions'
+import { ALL_PERMISSION_KEYS, ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,10 +13,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Try to find user by email field (which also stores usernames)
+    // Simple query — no include on SystemRole to avoid query failures
+    // if the table is missing or the relation has no matching row.
     const user = await db.user.findUnique({
       where: { email },
-      include: { systemRole: true },
     })
 
     if (!user || user.password !== password || !user.active) {
@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
 
     // Resolve permissions with this priority:
     // 1. SUPER_ADMIN always gets ALL permissions
-    // 2. User-level override permissions (stored in user.permissions)
-    // 3. SystemRole permissions (fallback when user has no custom override)
+    // 2. User-level override permissions (stored in user.permissions JSON)
+    // 3. Default role permissions from in-code DEFAULT_ROLE_PERMISSIONS map
     let permissions: string[] = []
 
     if (user.role === 'SUPER_ADMIN') {
@@ -51,17 +51,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fallback: load permissions from the SystemRole
-    if (permissions.length === 0 && user.systemRole) {
-      try {
-        const rolePerms = JSON.parse(user.systemRole.permissions)
-        if (Array.isArray(rolePerms)) {
-          permissions = rolePerms
-        }
-      } catch {
-        permissions = []
-      }
+    // Fallback: use in-code default permissions for the role
+    if (permissions.length === 0) {
+      permissions = DEFAULT_ROLE_PERMISSIONS[user.role] ?? []
     }
+
+    // Resolve role label from in-code metadata (no DB lookup needed)
+    const roleLabel = ROLE_METADATA[user.role]?.label || user.role
 
     return NextResponse.json({
       user: {
@@ -69,7 +65,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
         email: user.email,
         role: user.role,
-        roleLabel: user.systemRole?.label || user.role,
+        roleLabel,
         permissions,
       },
     })
