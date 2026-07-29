@@ -178,9 +178,13 @@ export function GoodsReturnView() {
 
   // State for new return dialog
   const [newReturnOpen, setNewReturnOpen] = useState(false)
+  const [recentReceipts, setRecentReceipts] = useState<any[]>([])
+  const [receiptsPage, setReceiptsPage] = useState(1)
+  const [receiptsTotalPages, setReceiptsTotalPages] = useState(1)
+  const [receiptsLoading, setReceiptsLoading] = useState(false)
   const [txSearchQuery, setTxSearchQuery] = useState('')
-  const [foundTx, setFoundTx] = useState<TransactionData | null>(null)
   const [searchingTx, setSearchingTx] = useState(false)
+  const [foundTx, setFoundTx] = useState<TransactionData | null>(null)
   const [selectedItem, setSelectedItem] = useState<TransactionItem | null>(null)
   const [returnQty, setReturnQty] = useState(1)
   const [returnReason, setReturnReason] = useState('')
@@ -228,25 +232,64 @@ export function GoodsReturnView() {
     fetchReturns()
   }, [fetchReturns])
 
-  // Search for transaction by transaction number
+  // Fetch recent completed sales receipts for the new return dialog
+  const fetchRecentReceipts = useCallback(async (pg: number, search?: string) => {
+    setReceiptsLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: String(pg),
+        limit: '10',
+        status: 'COMPLETED',
+      })
+      if (search && search.trim()) {
+        params.set('search', search.trim())
+      }
+      const res = await fetch(`/api/transactions?${params}`)
+      const data = await res.json()
+      if (data.transactions && Array.isArray(data.transactions)) {
+        setRecentReceipts(data.transactions)
+        setReceiptsPage(pg)
+        setReceiptsTotalPages(data.pagination ? data.pagination.pages : 1)
+      }
+    } catch (err) {
+      console.error('Failed to fetch recent receipts:', err)
+    } finally {
+      setReceiptsLoading(false)
+    }
+  }, [])
+
+  // Open the new return dialog and load recent receipts
+  const openNewReturnDialog = () => {
+    setNewReturnOpen(true)
+    setFoundTx(null)
+    setSelectedItem(null)
+    setTxSearchQuery('')
+    setReturnQty(1)
+    setReturnReason('')
+    setReturnReasonNote('')
+    setReturnRefundMethod('CASH')
+    fetchRecentReceipts(1)
+  }
+
+  // Search for transaction by transaction number or customer name
   const searchTransaction = async () => {
-    if (!txSearchQuery.trim()) return
+    if (!txSearchQuery.trim()) {
+      // If search cleared, reload recent receipts
+      fetchRecentReceipts(1)
+      return
+    }
     setSearchingTx(true)
     setFoundTx(null)
     setSelectedItem(null)
     try {
-      const res = await fetch(`/api/sales-history?search=${encodeURIComponent(txSearchQuery.trim())}&limit=5`)
+      // Use the transactions API which supports search by TXN number or customer name
+      const res = await fetch(`/api/transactions?search=${encodeURIComponent(txSearchQuery.trim())}&limit=10&status=COMPLETED`)
       const data = await res.json()
       if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
-        const tx = data.transactions[0]
-        setFoundTx({
-          id: tx.id,
-          transactionNo: tx.transactionNo,
-          status: tx.status,
-          items: tx.items,
-          customer: tx.customer,
-          createdAt: tx.createdAt,
-        })
+        // Replace the receipt list with search results
+        setRecentReceipts(data.transactions)
+        setReceiptsPage(1)
+        setReceiptsTotalPages(data.pagination ? data.pagination.pages : 1)
       } else {
         addToast({ title: 'Transaction not found', description: 'No matching transaction found', variant: 'destructive' })
       }
@@ -381,7 +424,7 @@ export function GoodsReturnView() {
           <p className="text-sm text-muted-foreground mt-1">Process product returns, restock inventory, and manage return tickets</p>
         </div>
         <Button
-          onClick={() => setNewReturnOpen(true)}
+          onClick={() => openNewReturnDialog()}
           className="bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -620,26 +663,35 @@ export function GoodsReturnView() {
               Process Goods Return
             </DialogTitle>
             <DialogDescription>
-              Search for the original transaction, select the item to return, and provide a reason.
+              Select a recent sale receipt or search by receipt number, then choose the item to return.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
             {/* Step 1: Find Transaction */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Step 1: Find Original Transaction</Label>
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Step 1: Find Original Sale Receipt</Label>
               <div className="flex gap-2">
-                <Input
-                  placeholder="Enter transaction number (e.g. TXN-...)"
-                  className="flex-1"
-                  value={txSearchQuery}
-                  onChange={(e) => setTxSearchQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') searchTransaction() }}
-                />
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by receipt # or customer name..."
+                    className="pl-9"
+                    value={txSearchQuery}
+                    onChange={(e) => setTxSearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') searchTransaction() }}
+                  />
+                </div>
                 <Button
                   variant="outline"
+                  onClick={() => { setTxSearchQuery(''); fetchRecentReceipts(1) }}
+                  title="Clear search and show recent receipts"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                <Button
                   onClick={searchTransaction}
-                  disabled={searchingTx || !txSearchQuery.trim()}
+                  disabled={searchingTx}
                 >
                   {searchingTx ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -650,59 +702,139 @@ export function GoodsReturnView() {
               </div>
             </div>
 
-            {/* Transaction Found */}
-            {foundTx && (
-              <Card className="border-emerald-200 bg-emerald-50/50">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShoppingBag className="h-4 w-4 text-emerald-600" />
-                      <span className="text-sm font-semibold">{foundTx.transactionNo}</span>
-                    </div>
-                    <Badge className="bg-emerald-100 text-emerald-700 text-xs border-emerald-200">
-                      {foundTx.status}
-                    </Badge>
+            {/* Recent Receipts List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {recentReceipts.length > 0
+                    ? `Showing ${recentReceipts.length} receipt${recentReceipts.length !== 1 ? 's' : ''} (Page ${receiptsPage} of ${receiptsTotalPages})`
+                    : 'No receipts found'}
+                </p>
+                {receiptsTotalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2"
+                      disabled={receiptsPage <= 1 || receiptsLoading}
+                      onClick={() => fetchRecentReceipts(receiptsPage - 1, txSearchQuery)}
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-1">{receiptsPage}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2"
+                      disabled={receiptsPage >= receiptsTotalPages || receiptsLoading}
+                      onClick={() => fetchRecentReceipts(receiptsPage + 1, txSearchQuery)}
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
                   </div>
-                  {foundTx.customer && (
-                    <p className="text-xs text-muted-foreground">
-                      Customer: {foundTx.customer.firstName} {foundTx.customer.lastName}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(foundTx.createdAt)}
-                  </p>
+                )}
+              </div>
 
-                  {/* Items */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-gray-700">Items in Transaction:</p>
-                    <div className="space-y-1.5">
-                      {foundTx.items.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedItem(item)
-                            setReturnQty(1)
-                          }}
-                          className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left text-xs transition-colors ${
-                            selectedItem?.id === item.id
-                              ? 'border-emerald-400 bg-emerald-100'
-                              : 'border-gray-200 bg-white hover:border-emerald-300'
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{item.productName}</p>
-                            <p className="text-muted-foreground">
-                              {formatCurrency(item.unitPrice)} x {item.quantity} = {formatCurrency(item.subtotal)}
+              {receiptsLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : recentReceipts.length === 0 ? (
+                <div className="text-center py-8 border rounded-lg border-dashed">
+                  <ShoppingBag className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-muted-foreground">No completed sales found</p>
+                  <p className="text-xs text-muted-foreground mt-1">Try a different search or check back later</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                  {recentReceipts.map((receipt) => {
+                    const isSelected = foundTx?.id === receipt.id
+                    return (
+                      <button
+                        key={receipt.id}
+                        onClick={() => {
+                          setFoundTx({
+                            id: receipt.id,
+                            transactionNo: receipt.transactionNo,
+                            status: receipt.status,
+                            items: receipt.items,
+                            customer: receipt.customer,
+                            createdAt: receipt.createdAt,
+                          })
+                          setSelectedItem(null)
+                          setReturnQty(1)
+                        }}
+                        className={`w-full text-left rounded-lg border p-3 transition-all ${
+                          isSelected
+                            ? 'border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200'
+                            : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              isSelected ? 'bg-emerald-600' : 'bg-gray-100'
+                            }`}>
+                              <ShoppingBag className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-gray-500'}`} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{receipt.transactionNo}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {receipt.customer
+                                  ? `${receipt.customer.firstName} ${receipt.customer.lastName}`
+                                  : 'Walk-in Customer'}
+                                {' · '}
+                                {formatDate(receipt.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-bold">{formatCurrency(receipt.total)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {receipt.items?.length || 0} item{(receipt.items?.length || 0) !== 1 ? 's' : ''}
                             </p>
                           </div>
-                          <Package className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                        </div>
+
+                        {/* Show items when receipt is selected */}
+                        {isSelected && foundTx && (
+                          <div className="mt-3 pt-3 border-t border-emerald-200 space-y-1.5">
+                            <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">
+                              Items — click to select for return
+                            </p>
+                            {foundTx.items.map((item: TransactionItem) => (
+                              <button
+                                key={item.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedItem(item)
+                                  setReturnQty(1)
+                                }}
+                                className={`w-full flex items-center justify-between p-2 rounded-lg border text-left text-xs transition-colors ${
+                                  selectedItem?.id === item.id
+                                    ? 'border-emerald-500 bg-emerald-100'
+                                    : 'border-gray-200 bg-white hover:border-emerald-300'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{item.productName}</p>
+                                  <p className="text-muted-foreground">
+                                    {formatCurrency(item.unitPrice)} × {item.quantity} = {formatCurrency(item.subtotal)}
+                                  </p>
+                                </div>
+                                <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-2" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Step 2: Return Details */}
             {selectedItem && (
