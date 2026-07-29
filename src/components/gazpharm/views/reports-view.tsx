@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react'
 import {
-  DollarSign, ShoppingCart, TrendingUp, CalendarDays, Download, FileText,
+  ShoppingCart, TrendingUp, CalendarDays, Download, FileText,
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -63,6 +63,7 @@ interface AllUser {
 
 export function ReportsView() {
   const [activeTab, setActiveTab] = useState('sales')
+  const [isPending, startTransition] = useTransition()
   const [salesStats, setSalesStats] = useState<any>(null)
   const [inventory, setInventory] = useState<any[]>([])
   const [prescriptions, setPrescriptions] = useState<any[]>([])
@@ -152,58 +153,75 @@ export function ReportsView() {
     }
   }, [inventoryVersion])
 
-  // Prepare chart data
-  const salesByCategory = salesStats?.topProducts?.map((p: any, i: number) => ({
-    name: p.productName?.split(' ').slice(0, 2).join(' ') || 'Unknown',
-    revenue: p._sum?.subtotal || 0,
-    units: p._sum?.quantity || 0,
-    fill: CHART_COLORS[i % CHART_COLORS.length],
-  })) || []
+  // Prepare chart data — memoized to avoid recomputing on every render
+  const salesByCategory = useMemo(() => {
+    return salesStats?.topProducts?.map((p: any, i: number) => ({
+      name: p.productName?.split(' ').slice(0, 2).join(' ') || 'Unknown',
+      revenue: p._sum?.subtotal || 0,
+      units: p._sum?.quantity || 0,
+      fill: CHART_COLORS[i % CHART_COLORS.length],
+    })) || []
+  }, [salesStats])
 
-  const dailySales = transactions
-    .filter((t: any) => t.status === 'COMPLETED')
-    .reduce((acc: any, t: any) => {
-      const date = new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      const existing = acc.find((d: any) => d.date === date)
-      if (existing) { existing.sales += t.total; existing.count += 1 }
-      else { acc.push({ date, sales: t.total, count: 1 }) }
+  const dailySales = useMemo(() => {
+    return transactions
+      .filter((t: any) => t.status === 'COMPLETED')
+      .reduce((acc: any, t: any) => {
+        const date = new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const existing = acc.find((d: any) => d.date === date)
+        if (existing) { existing.sales += t.total; existing.count += 1 }
+        else { acc.push({ date, sales: t.total, count: 1 }) }
+        return acc
+      }, [])
+      .slice(-7)
+  }, [transactions])
+
+  const categoryData = useMemo(() => {
+    return inventory.reduce((acc: any, item: any) => {
+      const cat = item.product?.category?.replace(/_/g, ' ') || 'Other'
+      const existing = acc.find((c: any) => c.category === cat)
+      if (existing) existing.count++
+      else acc.push({ category: cat, count: 1, fill: CHART_COLORS[acc.length % CHART_COLORS.length] })
       return acc
     }, [])
-    .slice(-7)
+  }, [inventory])
 
-  const categoryData = inventory.reduce((acc: any, item: any) => {
-    const cat = item.product?.category?.replace(/_/g, ' ') || 'Other'
-    const existing = acc.find((c: any) => c.category === cat)
-    if (existing) existing.count++
-    else acc.push({ category: cat, count: 1, fill: CHART_COLORS[acc.length % CHART_COLORS.length] })
-    return acc
-  }, [])
+  const lowStockItems = useMemo(() => {
+    return inventory.filter((i: any) => i.quantity <= i.product?.reorderPoint)
+  }, [inventory])
 
-  const lowStockItems = inventory.filter((i: any) => i.quantity <= i.product?.reorderPoint)
-  const expiringSoon = inventory.filter((i: any) => i.product?.expiryDate && new Date(i.product.expiryDate) <= new Date(Date.now() + 30 * 86400000))
+  const expiringSoon = useMemo(() => {
+    return inventory.filter((i: any) => i.product?.expiryDate && new Date(i.product.expiryDate) <= new Date(Date.now() + 30 * 86400000))
+  }, [inventory])
 
-  const rxByStatus = prescriptions.reduce((acc: any, rx: any) => {
-    const existing = acc.find((s: any) => s.status === rx.status)
-    if (existing) existing.count++
-    else acc.push({ status: rx.status?.replace(/_/g, ' '), count: 1, fill: CHART_COLORS[acc.length % CHART_COLORS.length] })
-    return acc
-  }, [])
+  const rxByStatus = useMemo(() => {
+    return prescriptions.reduce((acc: any, rx: any) => {
+      const existing = acc.find((s: any) => s.status === rx.status)
+      if (existing) existing.count++
+      else acc.push({ status: rx.status?.replace(/_/g, ' '), count: 1, fill: CHART_COLORS[acc.length % CHART_COLORS.length] })
+      return acc
+    }, [])
+  }, [prescriptions])
 
-  // Per-user sales chart data
-  const userSalesChartData = userSalesData.map((u, i) => ({
-    name: u.userName?.split(' ')[0] || 'Unknown',
-    sales: u.totalSales,
-    transactions: u.transactionCount,
-    items: u.totalItemsSold,
-    fill: CHART_COLORS[i % CHART_COLORS.length],
-  }))
+  // Per-user sales chart data — memoized
+  const userSalesChartData = useMemo(() => {
+    return userSalesData.map((u, i) => ({
+      name: u.userName?.split(' ')[0] || 'Unknown',
+      sales: u.totalSales,
+      transactions: u.transactionCount,
+      items: u.totalItemsSold,
+      fill: CHART_COLORS[i % CHART_COLORS.length],
+    }))
+  }, [userSalesData])
 
-  // Daily sales trend for user analytics
-  const userDailyChartData = dailySalesTrend.map((d) => ({
-    date: d.date,
-    sales: d.sales,
-    count: d.count,
-  }))
+  // Daily sales trend for user analytics — memoized
+  const userDailyChartData = useMemo(() => {
+    return dailySalesTrend.map((d) => ({
+      date: d.date,
+      sales: d.sales,
+      count: d.count,
+    }))
+  }, [dailySalesTrend])
 
   // CSV export for per-user analytics
   const exportUserSalesCSV = useCallback(() => {
@@ -230,7 +248,7 @@ export function ReportsView() {
   return (
     <div className="space-y-4">
       {/* Report Type Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <TabsList className="flex-wrap">
             <TabsTrigger value="sales">Sales Summary</TabsTrigger>
@@ -258,7 +276,7 @@ export function ReportsView() {
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
@@ -423,7 +441,7 @@ export function ReportsView() {
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
@@ -631,7 +649,7 @@ export function ReportsView() {
             <Card>
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{inventory.length}</p>
