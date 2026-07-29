@@ -17,6 +17,7 @@ import {
   Loader2,
   User,
   PackageX,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -100,6 +101,7 @@ export function POSView() {
   const setSelectedCustomer = useAppStore((s) => s.setSelectedCustomer)
   const paymentMethod = useAppStore((s) => s.paymentMethod)
   const setPaymentMethod = useAppStore((s) => s.setPaymentMethod)
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
   const isProcessingPayment = useAppStore((s) => s.isProcessingPayment)
   const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
   const addToast = useAppStore((s) => s.addToast)
@@ -808,6 +810,14 @@ export function POSView() {
                       Process Payment — {formatCurrency(total)}
                     </>
                   )}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-10 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 text-sm font-medium"
+                  onClick={() => setCurrentView('returns')}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Goods Return
                 </Button>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
