@@ -65,21 +65,14 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
   { value: 'FSA_HSA', label: 'FSA/HSA', icon: HeartPulse },
 ]
 
-const CATEGORIES = [
-  { value: '', label: 'All' },
-  { value: 'OTC', label: 'OTC' },
-  { value: 'PRESCRIPTION', label: 'Prescription' },
-  { value: 'SUPPLEMENT', label: 'Supplement' },
-  { value: 'MEDICAL_DEVICE', label: 'Medical Device' },
-  { value: 'PERSONAL_CARE', label: 'Personal Care' },
-  { value: 'CONSUMABLES', label: 'Consumables' },
-]
+
 
 import { formatCurrency } from '@/lib/currency'
 
 export function POSView() {
   // Local state
   const [searchQuery, setSearchQuery] = useState('')
+  const [posCategories, setPosCategories] = useState<{ value: string; label: string }[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [searching, setSearching] = useState(false)
   const [activeCategory, setActiveCategory] = useState('')
@@ -204,6 +197,19 @@ export function POSView() {
       setShowBarcodeInput(false)
     }
   }, [addToCart, addToast])
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetch('/api/categories', { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : [])
+      .then((cats: { name: string }[]) => {
+        setPosCategories([
+          { value: '', label: 'All' },
+          ...cats.map((c) => ({ value: c.name, label: c.name.replace(/_/g, ' ') })),
+        ])
+      })
+      .catch(() => {})
+  }, [])
 
   // Debounced product search
   useEffect(() => {
@@ -406,7 +412,7 @@ export function POSView() {
               )}
               {/* Category Filters */}
               <div className="flex items-center gap-1.5 px-3 pb-3 overflow-x-auto">
-                {CATEGORIES.map((cat) => (
+                {posCategories.map((cat) => (
                   <Button
                     key={cat.value}
                     variant={activeCategory === cat.value ? 'default' : 'outline'}
