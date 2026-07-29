@@ -33,6 +33,9 @@ model User {
   phone         String?
   licenseNumber String?  // For pharmacists
   permissions   String?  // JSON-encoded array of permission keys (overrides role defaults)
+  department    String?  // Department assignment (e.g. Pharmacy, Front Desk, Finance)
+  shift         String?  // Shift assignment (e.g. Morning, Afternoon, Night)
+  hireDate      String?  // ISO date string for hire date
   active        Boolean  @default(true)
   lastLogin     DateTime?
   createdAt     DateTime @default(now())

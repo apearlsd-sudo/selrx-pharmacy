@@ -72,6 +72,9 @@ export async function GET(request: NextRequest) {
         phone: true,
         licenseNumber: true,
         permissions: true,
+        department: true,
+        shift: true,
+        hireDate: true,
         active: true,
         lastLogin: true,
         createdAt: true,
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, password, name, userRole, phone, licenseNumber, permissions } = body
+    const { email, password, name, userRole, phone, licenseNumber, permissions, department, shift, hireDate } = body
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -137,6 +140,9 @@ export async function POST(request: NextRequest) {
         phone,
         licenseNumber,
         permissions: permissions ? JSON.stringify(permissions) : null,
+        department: department || null,
+        shift: shift || null,
+        hireDate: hireDate || null,
         active: true,
       },
       select: {
@@ -147,6 +153,9 @@ export async function POST(request: NextRequest) {
         phone: true,
         licenseNumber: true,
         permissions: true,
+        department: true,
+        shift: true,
+        hireDate: true,
         active: true,
         createdAt: true,
       },
@@ -222,7 +231,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { userRole, active, permissions } = body
+    const { userRole, active, permissions, phone, licenseNumber, department, shift } = body
 
     const existing = await db.user.findUnique({ where: { id: targetUserId } })
     if (!existing) {
@@ -238,6 +247,10 @@ export async function PUT(request: NextRequest) {
         role: userRole !== undefined ? userRole : undefined,
         active: active !== undefined ? active : undefined,
         permissions: permissions !== undefined ? JSON.stringify(permissions) : undefined,
+        phone: phone !== undefined ? phone : undefined,
+        licenseNumber: licenseNumber !== undefined ? licenseNumber : undefined,
+        department: department !== undefined ? department : undefined,
+        shift: shift !== undefined ? shift : undefined,
       },
       select: {
         id: true,
@@ -247,6 +260,9 @@ export async function PUT(request: NextRequest) {
         phone: true,
         licenseNumber: true,
         permissions: true,
+        department: true,
+        shift: true,
+        hireDate: true,
         active: true,
         createdAt: true,
         updatedAt: true,
