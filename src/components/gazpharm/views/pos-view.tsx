@@ -28,6 +28,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore, type CartItem, type PaymentMethodType } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { ReceiptModal } from './receipt-modal'
+import { NewReturnDialog } from './new-return-dialog'
 
 interface Product {
   id: string
@@ -87,6 +88,7 @@ export function POSView() {
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [amountTendered, setAmountTendered] = useState('')
   const [receiptTxn, setReceiptTxn] = useState<any | null>(null)
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false)
   const [barcodeInput, setBarcodeInput] = useState('')
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -101,7 +103,7 @@ export function POSView() {
   const setSelectedCustomer = useAppStore((s) => s.setSelectedCustomer)
   const paymentMethod = useAppStore((s) => s.paymentMethod)
   const setPaymentMethod = useAppStore((s) => s.setPaymentMethod)
-  const setCurrentView = useAppStore((s) => s.setCurrentView)
+
   const isProcessingPayment = useAppStore((s) => s.isProcessingPayment)
   const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
   const addToast = useAppStore((s) => s.addToast)
@@ -811,14 +813,6 @@ export function POSView() {
                     </>
                   )}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="w-full h-10 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 text-sm font-medium"
-                  onClick={() => setCurrentView('returns')}
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Goods Return
-                </Button>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="outline"
@@ -844,6 +838,14 @@ export function POSView() {
                     Clear Cart
                   </Button>
                 </div>
+                <Button
+                  variant="outline"
+                  className="w-full h-10 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 text-sm font-medium"
+                  onClick={() => setReturnDialogOpen(true)}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Goods Return
+                </Button>
               </div>
             </Card>
           </div>
@@ -857,6 +859,12 @@ export function POSView() {
           onClose={() => setReceiptTxn(null)}
         />
       )}
+
+      {/* Goods Return Dialog */}
+      <NewReturnDialog
+        open={returnDialogOpen}
+        onOpenChange={setReturnDialogOpen}
+      />
     </>
   )
 }
