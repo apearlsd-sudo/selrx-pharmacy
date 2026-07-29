@@ -474,6 +474,24 @@ export function UsersView() {
     }
   }
 
+  const handleDeleteUser = async (user: UserItem) => {
+    if (!confirm(`Delete user "${user.name}" (${user.email})? This action cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/users?id=${user.id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete')
+      }
+      addToast({ title: 'User Deleted', description: `"${user.name}" has been removed`, variant: 'success' })
+      fetchUsers()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to delete user', variant: 'destructive' })
+    }
+  }
+
   const getUserPermissions = (user: UserItem): string[] => {
     const parsed = parsePermissions(user.permissions)
     if (parsed.length > 0) return parsed
@@ -660,6 +678,15 @@ export function UsersView() {
                                 onClick={() => handleToggleActive(userItem)}
                               >
                                 {userItem.active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDeleteUser(userItem)}
+                                title="Delete user"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </>
                           )}

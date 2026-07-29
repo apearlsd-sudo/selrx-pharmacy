@@ -262,3 +262,52 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+// DELETE /api/users?id=<userId> - Delete user (SUPER_ADMIN only)
+export async function DELETE(request: NextRequest) {
+  try {
+    const role = request.headers.get('x-user-role')
+    if (role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Only SUPER_ADMIN can delete users' },
+        { status: 403 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const targetUserId = searchParams.get('id')
+    if (!targetUserId) {
+      return NextResponse.json(
+        { error: 'User ID required' },
+        { status: 400 }
+      )
+    }
+
+    // Prevent self-deletion
+    const callerId = request.headers.get('x-user-id')
+    if (callerId === targetUserId) {
+      return NextResponse.json(
+        { error: 'You cannot delete your own account' },
+        { status: 400 }
+      )
+    }
+
+    const existing = await db.user.findUnique({ where: { id: targetUserId } })
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    await db.user.delete({ where: { id: targetUserId } })
+
+    return NextResponse.json({ success: true, message: `User "${existing.name}" deleted` })
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
+}
