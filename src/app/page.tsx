@@ -205,8 +205,19 @@ export default function Home() {
           .then((data) => {
             if (data.valid && data.user) {
               store.setUser(data.user)
-              if (savedView && savedView !== 'login' && savedView !== 'company-setup') {
-                store.setCurrentView(savedView as ViewName)
+              // Restore saved view, but redirect to POS if user lacks permission for it
+              let targetView = savedView && savedView !== 'login' && savedView !== 'company-setup'
+                ? savedView as ViewName
+                : null
+              if (targetView) {
+                const perm = NAV_ITEMS.find((n) => n.name === targetView)?.permission
+                const perms = data.user.permissions || []
+                if (perm && data.user.role !== 'SUPER_ADMIN' && !perms.includes(perm)) {
+                  targetView = perms.includes('pos:sell') ? 'pos' : 'dashboard'
+                }
+              }
+              if (targetView) {
+                store.setCurrentView(targetView)
               }
             } else {
               localStorage.removeItem('selrx_session')
@@ -261,9 +272,10 @@ export default function Home() {
     // Find the permission required for the current view
     const navItem = NAV_ITEMS.find((n) => n.name === currentView)
     if (navItem && !hasPermission([navItem.permission])) {
-      // User doesn't have permission — redirect to dashboard
-      setTimeout(() => setCurrentView('dashboard'), 0)
-      return <DashboardView />
+      // User doesn't have permission — redirect to POS (most users can access)
+      const fallback = hasPermission(['pos:sell']) ? 'pos' : 'dashboard'
+      setTimeout(() => setCurrentView(fallback as ViewName), 0)
+      return null
     }
 
     switch (currentView) {

@@ -47,7 +47,9 @@ export function LoginScreen() {
 
       const user: UserState = data.user
       setUser(user)
-      setCurrentView('dashboard')
+      // Redirect to POS if user doesn't have dashboard permission
+      const hasDashboard = user.role === 'SUPER_ADMIN' || (user.permissions || []).includes('dashboard')
+      setCurrentView(hasDashboard ? 'dashboard' : 'pos')
       addToast({
         title: 'Welcome back!',
         description: `Signed in as ${user.name}`,
