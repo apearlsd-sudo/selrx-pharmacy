@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useTransition } from 'react'
 import {
   BarChart3, Search, Package, RefreshCw, Filter, X, ArrowUpDown, UserCircle,
 } from 'lucide-react'
@@ -52,6 +52,7 @@ export function ProductSalesAnalytics() {
   const [users, setUsers] = useState<UserOption[]>([])
   const [sortField, setSortField] = useState<SortField>('totalQuantity')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [isPending, startTransition] = useTransition()
 
   const user = useAppStore((s) => s.user)
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -63,11 +64,13 @@ export function ProductSalesAnalytics() {
       const res = await fetch('/api/users', { headers: authHeaders() })
       if (res.ok) {
         const json = await res.json()
-        setUsers((json.users || json || []).map((u: any) => ({
+        startTransition(() => {
+          setUsers((json.users || json || []).map((u: any) => ({
           id: u.id,
           name: u.name,
           role: u.role,
         })))
+        })
       }
     } catch {
       // ignore — users filter is optional
@@ -85,10 +88,11 @@ export function ProductSalesAnalytics() {
       })
       if (res.ok) {
         const json = await res.json()
-        setData(json)
-        // Extract unique categories
         const cats = Array.from(new Set(json.map((r: AnalyticsRow) => r.productCategory))).sort()
-        setCategories(cats)
+        startTransition(() => {
+          setData(json)
+          setCategories(cats)
+        })
       }
     } catch (err) {
       console.error('Failed to fetch analytics:', err)
@@ -128,12 +132,14 @@ export function ProductSalesAnalytics() {
   const totalTx = filtered.reduce((s, r) => s + r.transactions, 0)
 
   const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortField(field)
-      setSortDir('desc')
-    }
+    startTransition(() => {
+      if (sortField === field) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      } else {
+        setSortField(field)
+        setSortDir('desc')
+      }
+    })
   }
 
   const sortIcon = (field: SortField) => {
@@ -184,7 +190,7 @@ export function ProductSalesAnalytics() {
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">Category:</Label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select value={categoryFilter} onValueChange={(v) => startTransition(() => setCategoryFilter(v))}>
               <SelectTrigger className="h-9 w-[160px]">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
@@ -199,7 +205,7 @@ export function ProductSalesAnalytics() {
           {isSuperAdmin && (
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground whitespace-nowrap">User:</Label>
-              <Select value={userFilter} onValueChange={setUserFilter}>
+              <Select value={userFilter} onValueChange={(v) => startTransition(() => setUserFilter(v))}>
                 <SelectTrigger className="h-9 w-[170px]">
                   <SelectValue placeholder="All Users" />
                 </SelectTrigger>
@@ -239,7 +245,7 @@ export function ProductSalesAnalytics() {
               <TableRow className="bg-gray-50/50">
                 <TableHead className="text-xs w-8">#</TableHead>
                 <TableHead
-                  className="text-xs cursor-pointer select-none"
+                  className={`text-xs cursor-pointer select-none ${isPending ? 'opacity-60' : ''}`}
                   onClick={() => toggleSort('productName')}
                 >
                   Product {sortIcon('productName')}

@@ -26,81 +26,90 @@ export async function GET(req: NextRequest) {
     if (startDate) txWhere.createdAt = { ...txWhere.createdAt, gte: new Date(startDate) }
     if (endDate) txWhere.createdAt = { ...txWhere.createdAt, lte: new Date(endDate) }
 
-    // Get all transaction items matching filters
-    const transactionItems = await db.transactionItem.findMany({
-      where: {
-        transaction: txWhere,
-        ...(categoryId ? { product: { category: categoryId } } : {}),
-      },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            ndc: true,
-            category: true,
-            strength: true,
-            dosageForm: true,
-            unitOfMeasure: true,
-          },
-        },
-        transaction: {
-          select: {
-            userId: true,
-            user: { select: { name: true, email: true, role: true } },
-            createdAt: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    // Build where clause for transaction items
+    const itemWhere: any = { transaction: txWhere }
+    if (categoryId) itemWhere.product = { category: categoryId }
 
-    // Aggregate by product
-    const productMap = new Map<string, {
-      productId: string
-      productName: string
-      productNdc: string | null
-      productCategory: string
-      productStrength: string | null
-      productDosageForm: string | null
-      productUnit: string
-      totalQuantity: number
-      totalRevenue: number
-      transactions: number
-      lastSold: string | null
-    }>()
+    // Use Prisma groupBy for efficient server-side aggregation
+    const [qtyAgg, revAgg, txCountAgg] = await Promise.all([
+      // Sum of quantity grouped by product
+      db.transactionItem.groupBy({
+        by: ['productId', 'productName'],
+        where: itemWhere,
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+      }),
+      // Sum of revenue grouped by product
+      db.transactionItem.groupBy({
+        by: ['productId', 'productName'],
+        where: itemWhere,
+        _sum: { subtotal: true },
+      }),
+      // Count of transaction items grouped by product
+      db.transactionItem.groupBy({
+        by: ['productId', 'productName'],
+        where: itemWhere,
+        _count: true,
+      }),
+    ])
 
-    for (const item of transactionItems) {
-      const key = item.productId
-      const existing = productMap.get(key)
-      const txDate = item.transaction.createdAt?.toISOString() || null
+    // Build lookup maps
+    const qtyMap = new Map(qtyAgg.map((r) => [r.productId, r._sum.quantity || 0]))
+    const revMap = new Map(revAgg.map((r) => [r.productId, r._sum.subtotal || 0]))
+    const txMap = new Map(txCountAgg.map((r) => [r.productId, r._count]))
 
-      if (existing) {
-        existing.totalQuantity += item.quantity
-        existing.totalRevenue += item.subtotal
-        existing.transactions += 1
-        if (txDate && (!existing.lastSold || txDate > existing.lastSold)) {
-          existing.lastSold = txDate
-        }
-      } else {
-        productMap.set(key, {
-          productId: item.productId,
-          productName: item.productName,
-          productNdc: item.product.ndc,
-          productCategory: item.product.category,
-          productStrength: item.product.strength,
-          productDosageForm: item.product.dosageForm,
-          productUnit: item.product.unitOfMeasure,
-          totalQuantity: item.quantity,
-          totalRevenue: item.subtotal,
-          transactions: 1,
-          lastSold: txDate,
-        })
-      }
+    // Collect all product IDs to fetch product details in one query
+    const productIds = Array.from(new Set([
+      ...qtyAgg.map((r) => r.productId),
+      ...revAgg.map((r) => r.productId),
+      ...txCountAgg.map((r) => r.productId),
+    ]))
+
+    if (productIds.length === 0) {
+      return NextResponse.json([])
     }
 
-    // Sort by totalQuantity descending
-    const result = Array.from(productMap.values()).sort((a, b) => b.totalQuantity - a.totalQuantity)
+    const products = await db.product.findMany({
+      where: { id: { in: productIds } },
+      select: {
+        id: true,
+        name: true,
+        ndc: true,
+        category: true,
+        strength: true,
+        dosageForm: true,
+        unitOfMeasure: true,
+      },
+    })
+
+    const productDetailMap = new Map(products.map((p) => [p.id, p]))
+
+    // Get last sold date per product (lightweight query — only fetch id + createdAt)
+    const lastSoldItems = await db.transactionItem.findMany({
+      where: itemWhere,
+      distinct: ['productId'],
+      select: { productId: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    const lastSoldMap = new Map(lastSoldItems.map((r) => [r.productId, r.createdAt?.toISOString() || null]))
+
+    // Build final result
+    const result = qtyAgg.map((r) => {
+      const product = productDetailMap.get(r.productId)
+      return {
+        productId: r.productId,
+        productName: r.productName,
+        productNdc: product?.ndc || null,
+        productCategory: product?.category || '',
+        productStrength: product?.strength || null,
+        productDosageForm: product?.dosageForm || null,
+        productUnit: product?.unitOfMeasure || '',
+        totalQuantity: Number(qtyMap.get(r.productId) || 0),
+        totalRevenue: Number(revMap.get(r.productId) || 0),
+        transactions: txMap.get(r.productId) || 0,
+        lastSold: lastSoldMap.get(r.productId) || null,
+      }
+    })
 
     return NextResponse.json(result)
   } catch (error) {
