@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  BarChart3, Search, Package, RefreshCw, Filter, X,
+  BarChart3, Search, Package, RefreshCw, Filter, X, ArrowUpDown, UserCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
@@ -33,18 +34,52 @@ interface AnalyticsRow {
   lastSold: string | null
 }
 
+interface UserOption {
+  id: string
+  name: string
+  role: string
+}
+
+type SortField = 'totalQuantity' | 'totalRevenue' | 'transactions' | 'productName' | 'productCategory'
+
 export function ProductSalesAnalytics() {
   const [data, setData] = useState<AnalyticsRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [categories, setCategories] = useState<string[]>([])
+  const [userFilter, setUserFilter] = useState('all')
+  const [users, setUsers] = useState<UserOption[]>([])
+  const [sortField, setSortField] = useState<SortField>('totalQuantity')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const user = useAppStore((s) => s.user)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+
+  // Fetch users list (SUPER_ADMIN only)
+  const fetchUsers = useCallback(async () => {
+    if (!isSuperAdmin) return
+    try {
+      const res = await fetch('/api/users', { headers: authHeaders() })
+      if (res.ok) {
+        const json = await res.json()
+        setUsers((json.users || json || []).map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          role: u.role,
+        })))
+      }
+    } catch {
+      // ignore — users filter is optional
+    }
+  }, [isSuperAdmin])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (categoryFilter && categoryFilter !== 'all') params.set('categoryId', categoryFilter)
+      if (userFilter && userFilter !== 'all') params.set('userId', userFilter)
       const res = await fetch(`/api/product-sales-analytics?${params}`, {
         headers: authHeaders(),
       })
@@ -60,11 +95,13 @@ export function ProductSalesAnalytics() {
     } finally {
       setLoading(false)
     }
-  }, [categoryFilter])
+  }, [categoryFilter, userFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchUsers() }, [fetchUsers])
 
-  const filtered = data.filter((row) => {
+  // Filter by search
+  const filtered = useMemo(() => data.filter((row) => {
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -72,11 +109,45 @@ export function ProductSalesAnalytics() {
       (row.productNdc && row.productNdc.toLowerCase().includes(q)) ||
       row.productCategory.toLowerCase().includes(q)
     )
-  })
+  }), [data, search])
+
+  // Sort
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    const aVal = a[sortField]
+    const bVal = b[sortField]
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+    }
+    return sortDir === 'asc'
+      ? (Number(aVal) || 0) - (Number(bVal) || 0)
+      : (Number(bVal) || 0) - (Number(aVal) || 0)
+  }), [filtered, sortField, sortDir])
 
   const totalQty = filtered.reduce((s, r) => s + r.totalQuantity, 0)
   const totalRev = filtered.reduce((s, r) => s + r.totalRevenue, 0)
   const totalTx = filtered.reduce((s, r) => s + r.transactions, 0)
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir('desc')
+    }
+  }
+
+  const sortIcon = (field: SortField) => {
+    const active = sortField === field
+    return (
+      <ArrowUpDown
+        className={`h-3 w-3 ml-1 inline ${active ? (sortDir === 'desc' ? 'text-emerald-600' : 'text-amber-600') : 'text-gray-300'}`}
+      />
+    )
+  }
+
+  const selectedUserName = userFilter !== 'all'
+    ? users.find((u) => u.id === userFilter)?.name || ''
+    : ''
 
   return (
     <Card>
@@ -85,6 +156,13 @@ export function ProductSalesAnalytics() {
           <div className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-emerald-600" />
             <CardTitle className="text-base">Product Sales Analytics</CardTitle>
+            {selectedUserName && (
+              <Badge variant="secondary" className="text-xs">
+                <UserCircle className="h-3 w-3 mr-1" />
+                {selectedUserName}
+                <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setUserFilter('all')} />
+              </Badge>
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
@@ -118,6 +196,24 @@ export function ProductSalesAnalytics() {
               </SelectContent>
             </Select>
           </div>
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">User:</Label>
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger className="h-9 w-[170px]">
+                  <SelectValue placeholder="All Users" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name} ({u.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Summary stats */}
@@ -141,12 +237,37 @@ export function ProductSalesAnalytics() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50">
-                <TableHead className="text-xs">#</TableHead>
-                <TableHead className="text-xs">Product</TableHead>
-                <TableHead className="text-xs hidden sm:table-cell">Category</TableHead>
-                <TableHead className="text-xs text-right">Qty Sold</TableHead>
-                <TableHead className="text-xs text-right hidden md:table-cell">Transactions</TableHead>
-                <TableHead className="text-xs text-right">Revenue</TableHead>
+                <TableHead className="text-xs w-8">#</TableHead>
+                <TableHead
+                  className="text-xs cursor-pointer select-none"
+                  onClick={() => toggleSort('productName')}
+                >
+                  Product {sortIcon('productName')}
+                </TableHead>
+                <TableHead
+                  className="text-xs hidden sm:table-cell cursor-pointer select-none"
+                  onClick={() => toggleSort('productCategory')}
+                >
+                  Category {sortIcon('productCategory')}
+                </TableHead>
+                <TableHead
+                  className="text-xs text-right cursor-pointer select-none"
+                  onClick={() => toggleSort('totalQuantity')}
+                >
+                  Qty Sold {sortIcon('totalQuantity')}
+                </TableHead>
+                <TableHead
+                  className="text-xs text-right hidden md:table-cell cursor-pointer select-none"
+                  onClick={() => toggleSort('transactions')}
+                >
+                  Transactions {sortIcon('transactions')}
+                </TableHead>
+                <TableHead
+                  className="text-xs text-right cursor-pointer select-none"
+                  onClick={() => toggleSort('totalRevenue')}
+                >
+                  Revenue {sortIcon('totalRevenue')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -161,14 +282,14 @@ export function ProductSalesAnalytics() {
                     <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                   </TableRow>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : sorted.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
                     {search ? 'No products match your search' : 'No sales data available yet'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((row, i) => (
+                sorted.map((row, i) => (
                   <TableRow key={row.productId} className="hover:bg-emerald-50/30">
                     <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                     <TableCell>
@@ -200,6 +321,10 @@ export function ProductSalesAnalytics() {
             Showing {filtered.length} product{filtered.length !== 1 ? 's' : ''}
             {search ? ` matching "${search}"` : ''}
             {categoryFilter && categoryFilter !== 'all' ? ` in ${categoryFilter}` : ''}
+            {selectedUserName ? ` · User: ${selectedUserName}` : ''}
+            {sortField !== 'totalQuantity' && (
+              <> · Sorted by {sortField === 'totalRevenue' ? 'revenue' : sortField === 'transactions' ? 'transactions' : sortField === 'productName' ? 'product name' : 'category'} ({sortDir === 'desc' ? 'high → low' : 'low → high'})</>
+            )}
           </p>
         )}
       </CardContent>
