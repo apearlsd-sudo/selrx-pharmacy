@@ -463,6 +463,7 @@ export function SalesHistoryView() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          {isSuperAdmin && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Sales by User - Bar Chart */}
             <Card>
@@ -534,8 +535,10 @@ export function SalesHistoryView() {
               </CardContent>
             </Card>
           </div>
+          )}
 
-          {/* Top Sellers Summary Table */}
+          {/* Top Sellers Summary Table — SUPER_ADMIN only */}
+          {isSuperAdmin && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -618,6 +621,7 @@ export function SalesHistoryView() {
               </Table>
             </CardContent>
           </Card>
+          )}
         </TabsContent>
 
         {/* By User Tab - Detailed user cards */}
@@ -963,7 +967,8 @@ export function SalesHistoryView() {
             </Card>
           </div>
 
-          {/* Sales by User Comparison */}
+          {/* Sales by User Comparison — SUPER_ADMIN only */}
+          {isSuperAdmin && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">User Sales Comparison (Ranked)</CardTitle>
@@ -996,6 +1001,7 @@ export function SalesHistoryView() {
               )}
             </CardContent>
           </Card>
+          )}
         </TabsContent>
       </Tabs>
 
