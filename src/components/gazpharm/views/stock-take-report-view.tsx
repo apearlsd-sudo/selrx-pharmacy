@@ -139,10 +139,9 @@ interface ReportData {
 
 // ── Component ──
 
-export function StockTakeReportView({ stockTakeId: stockTakeIdProp }: { stockTakeId?: string }) {
-  // Read stockTakeReportId from store reactively as fallback when prop is missing
-  const storeReportId = useAppStore((s) => s.stockTakeReportId)
-  const stockTakeId = stockTakeIdProp || storeReportId || undefined
+export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
+  // stockTakeId is passed reactively via StockTakeReportViewWrapper which subscribes
+  // to useAppStore((s) => s.stockTakeReportId). No non-reactive store reads here.
 
   const [report, setReport] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
