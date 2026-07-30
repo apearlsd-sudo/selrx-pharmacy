@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, Component, type ReactNode, useState } from 'react'
+import { useEffect, useCallback, Component, type ReactNode, useState } from 'react'
 import {
   LayoutDashboard,
   ShoppingCart,
