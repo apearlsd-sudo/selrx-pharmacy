@@ -173,7 +173,15 @@ export function DashboardView() {
       const res = await fetch('/api/dashboard', { headers: authHeaders() })
       if (!res.ok) throw new Error('Failed to fetch dashboard data')
       const json = await res.json()
-      setData(json)
+      // Defensive: ensure all expected arrays exist
+      setData({
+        today: json.today || { sales: 0, count: 0 },
+        weeklyTrend: json.weeklyTrend || [],
+        lowStockAlerts: json.lowStockAlerts || { count: 0, items: [] },
+        pendingPrescriptions: json.pendingPrescriptions || 0,
+        topProducts: json.topProducts || [],
+        recentTransactions: json.recentTransactions || [],
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -344,7 +352,7 @@ export function DashboardView() {
                     data.recentTransactions.map((txn) => (
                       <TableRow key={txn.id}>
                         <TableCell className="font-mono text-xs">
-                          {txn.transactionNo.slice(-8)}
+                          {(txn.transactionNo || '').slice(-8)}
                         </TableCell>
                         <TableCell className="text-xs">
                           {txn.customer
@@ -358,7 +366,7 @@ export function DashboardView() {
                           {formatCurrency(txn.total)}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {txn.paymentMethod.replace(/_/g, ' ')}
+                          {(txn.paymentMethod || '').replace(/_/g, ' ')}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={txn.status} />
