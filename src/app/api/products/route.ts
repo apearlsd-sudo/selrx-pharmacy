@@ -98,15 +98,15 @@ export async function GET(request: NextRequest) {
         createdAt: row.createdAt as string,
         updatedAt: row.updatedAt as string,
         inventory: row.inv_id
-          ? {
+          ? [{
               id: row.inv_id as string,
               productId: row.inv_productId as string,
               quantity: Number(row.inv_quantity),
               lastCounted: row.inv_lastCounted as string | null,
               createdAt: row.inv_createdAt as string,
               updatedAt: row.inv_updatedAt as string,
-            }
-          : null,
+            }]
+          : [],
         vendor: row.vendor_id
           ? {
               id: row.vendor_id as string,
@@ -310,15 +310,15 @@ export async function POST(request: NextRequest) {
         createdAt: row.createdAt as string,
         updatedAt: row.updatedAt as string,
         inventory: row.inv_id
-          ? {
+          ? [{
               id: row.inv_id as string,
               productId: row.inv_productId as string,
               quantity: Number(row.inv_quantity),
               lastCounted: row.inv_lastCounted as string | null,
               createdAt: row.inv_createdAt as string,
               updatedAt: row.inv_updatedAt as string,
-            }
-          : null,
+            }]
+          : [],
         vendor: row.vendor_id
           ? {
               id: row.vendor_id as string,
