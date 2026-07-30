@@ -27,6 +27,16 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useAppStore, type ViewName } from '@/store/app-store'
 import { initCurrencyGetter, type CurrencyCode } from '@/lib/currency'
 import { LoginScreen } from '@/components/gazpharm/login-screen'
@@ -139,6 +149,7 @@ export default function Home() {
   const user = useAppStore((s) => s.user)
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
   const logout = useAppStore((s) => s.logout)
+  const [logoutOpen, setLogoutOpen] = useState(false)
   const hasPermission = useAppStore((s) => s.hasPermission)
   const toasts = useAppStore((s) => s.toasts)
   const addToast = useAppStore((s) => s.addToast)
@@ -442,7 +453,7 @@ export default function Home() {
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-red-600"
-              onClick={logout}
+              onClick={() => setLogoutOpen(true)}
             >
               <LogOut className="h-3.5 w-3.5" />
             </Button>
@@ -494,14 +505,7 @@ export default function Home() {
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1.5 text-xs border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                onClick={() => {
-                  logout()
-                  addToast({
-                    title: 'Signed out',
-                    description: 'You have been logged out successfully',
-                    variant: 'success',
-                  })
-                }}
+                onClick={() => setLogoutOpen(true)}
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden md:inline">Logout</span>
@@ -523,6 +527,35 @@ export default function Home() {
           </div>
         </footer>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to sign out? Any unsaved changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setLogoutOpen(false)
+                logout()
+                addToast({
+                  title: 'Signed out',
+                  description: 'You have been logged out successfully',
+                  variant: 'success',
+                })
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Toast Notifications */}
       <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm">
