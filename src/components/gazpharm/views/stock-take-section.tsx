@@ -283,9 +283,9 @@ export function StockTakeSection() {
     if (!inventorySearch.trim()) return true
     const q = inventorySearch.toLowerCase()
     return (
-      inv.product.name.toLowerCase().includes(q) ||
-      (inv.product.ndc && inv.product.ndc.toLowerCase().includes(q)) ||
-      inv.product.category.toLowerCase().includes(q)
+      (inv.product?.name || '').toLowerCase().includes(q) ||
+      (inv.product?.ndc || '').toLowerCase().includes(q) ||
+      (inv.product?.category || '').toLowerCase().includes(q)
     )
   })
 

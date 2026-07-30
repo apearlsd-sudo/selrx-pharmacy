@@ -879,7 +879,7 @@ export function UsersView() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
-                            {userItem.name.split(' ').map((n) => n[0]).join('')}
+                            {(userItem.name || '').split(' ').map((n) => n[0]).join('')}
                           </div>
                           <div>
                             <p className="font-medium text-sm">{userItem.name}</p>
@@ -1110,7 +1110,7 @@ export function UsersView() {
               <div className="bg-muted rounded-lg p-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700">
-                    {selectedUser.name.split(' ').map((n) => n[0]).join('')}
+                    {(selectedUser.name || '').split(' ').map((n) => n[0]).join('')}
                   </div>
                   <div>
                     <p className="font-medium">{selectedUser.name}</p>
@@ -1230,7 +1230,7 @@ export function UsersView() {
                 <div className="bg-muted rounded-lg p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-bold text-emerald-700">
-                      {selectedUser.name.split(' ').map((n) => n[0]).join('')}
+                      {(selectedUser.name || '').split(' ').map((n) => n[0]).join('')}
                     </div>
                     <div className="flex-1">
                       <p className="text-lg font-semibold">{selectedUser.name}</p>

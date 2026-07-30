@@ -5,8 +5,8 @@ import { turso, isTurso, safeArgs } from '@/lib/turso'
 // Helpers
 // ---------------------------------------------------------------------------
 
-function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c.name)
+function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c)
   return result.rows.map((row) => {
     const obj: Record<string, unknown> = {}
     names.forEach((n, i) => {

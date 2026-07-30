@@ -6,8 +6,8 @@ import { turso, isTurso, generateId } from '@/lib/turso'
 // ---------------------------------------------------------------------------
 
 /** Convert libsql flat rows → array of Record<string, any> keyed by column name */
-function toObjs(result: { columns: Array<{ name: string }>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c.name)
+function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => c)
   return result.rows.map((row) => {
     const obj: Record<string, unknown> = {}
     names.forEach((n, i) => {

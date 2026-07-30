@@ -154,7 +154,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Cashier:</span>
-                <span>{transaction.user.name}</span>
+                <span>{transaction.user?.name || 'Unknown'}</span>
               </div>
               {transaction.customer && (
                 <div className="flex justify-between">

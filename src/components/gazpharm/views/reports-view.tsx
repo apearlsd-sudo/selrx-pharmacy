@@ -232,7 +232,7 @@ export function ReportsView() {
     const headers = ['User', 'Email', 'Role', 'Transactions', 'Total Sales', 'Total Discount', 'Avg Sale', 'Items Sold']
     const rows = userSalesData.map(u => [
       u.userName, u.userEmail, u.userRole, u.transactionCount,
-      u.totalSales.toFixed(2), u.totalDiscount.toFixed(2), u.averageSale.toFixed(2), u.totalItemsSold,
+      (u.totalSales ?? 0).toFixed(2), (u.totalDiscount ?? 0).toFixed(2), (u.averageSale ?? 0).toFixed(2), u.totalItemsSold ?? 0,
     ])
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -609,7 +609,7 @@ export function ReportsView() {
                             <div className="flex items-center gap-2">
                               <div className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                                 <span className="text-xs font-semibold text-emerald-700">
-                                  {u.userName?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  {(u.userName || '').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                                 </span>
                               </div>
                               <span>{u.userName}</span>

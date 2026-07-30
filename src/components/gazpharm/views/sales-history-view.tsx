@@ -302,7 +302,7 @@ export function SalesHistoryView() {
 
   const summary = data?.summary || {}
   const transactions = data?.transactions || []
-  const pagination = data?.pagination || { page: 1, pages: 1 }
+  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
 
   return (
     <div className="space-y-4">
@@ -866,12 +866,12 @@ export function SalesHistoryView() {
                               {txn.items?.length || 0}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(txn.subtotal)}</TableCell>
+                          <TableCell className="text-right text-xs">{formatCurrency(txn.subtotal ?? 0)}</TableCell>
                           <TableCell className="text-right text-xs text-amber-600">
                             {txn.discount > 0 ? `-${formatCurrency(txn.discount)}` : '-'}
                           </TableCell>
                           <TableCell className="text-right font-semibold text-sm">
-                            {formatCurrency(txn.total)}
+                            {formatCurrency(txn.total ?? 0)}
                           </TableCell>
                           <TableCell>{statusBadge(txn.status)}</TableCell>
                           <TableCell>
@@ -1127,7 +1127,7 @@ export function SalesHistoryView() {
               <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(detailTxn.subtotal)}</span>
+                  <span>{formatCurrency(detailTxn.subtotal ?? 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax</span>
@@ -1139,11 +1139,11 @@ export function SalesHistoryView() {
                 </div>
                 <div className="flex justify-between font-bold border-t pt-1.5 text-base">
                   <span>Total</span>
-                  <span className="text-emerald-700">{formatCurrency(detailTxn.total)}</span>
+                  <span className="text-emerald-700">{formatCurrency(detailTxn.total ?? 0)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground pt-0.5">
                   <span>Paid</span>
-                  <span>{formatCurrency(detailTxn.paymentAmount)}</span>
+                  <span>{formatCurrency(detailTxn.paymentAmount ?? 0)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Change</span>
