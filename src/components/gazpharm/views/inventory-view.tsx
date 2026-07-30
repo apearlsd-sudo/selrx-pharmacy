@@ -77,7 +77,7 @@ export function InventoryView() {
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'category'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [productForm, setProductForm] = useState({
-    name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '',
+    name: '', sku: '', category: '', price: '', costPrice: '', stockQuantity: '',
     minStockLevel: '10', expiryDate: '', barcode: '',
     manufacturerId: '', vendorId: '', dosageForm: '',
   })
@@ -814,18 +814,13 @@ export function InventoryView() {
             <div>
               <Label htmlFor="prod-category">Category</Label>
               <div className="flex gap-1 mt-1">
-                <Select value={productForm.category} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
+                <Select value={productForm.category || undefined} onValueChange={(v) => setProductForm({ ...productForm, category: v })}>
                   <SelectTrigger className="flex-1">
-                    <SelectValue />
+                    <SelectValue placeholder="Select category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="OTC">OTC</SelectItem>
-                    <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
-                    <SelectItem value="SUPPLEMENT">Supplement</SelectItem>
-                    <SelectItem value="MEDICAL_DEVICE">Medical Device</SelectItem>
-                    <SelectItem value="PERSONAL_CARE">Personal Care</SelectItem>
-                    <SelectItem value="CONSUMABLES">Consumables</SelectItem>
-                    {categories.filter((c) => !['OTC','PRESCRIPTION','SUPPLEMENT','MEDICAL_DEVICE','PERSONAL_CARE','CONSUMABLES'].includes(c.name)).map((cat) => (
+                    {categories.length === 0 && <div className="px-2 py-3 text-xs text-muted-foreground text-center">No categories yet</div>}
+                    {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.name}>{cat.name.replace(/_/g, ' ')}</SelectItem>
                     ))}
                     <div className="border-t my-1" />
