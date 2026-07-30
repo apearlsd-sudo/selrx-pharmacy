@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
               u."name" AS "uName", u."email" AS "uEmail"
             FROM "StockTakeItem" sti
             LEFT JOIN "Product" p ON sti."productId" = p."id"
-            LEFT JOIN "Manufacturer" mrf ON p."manufacturerRefId" = mrf."id"
+            LEFT JOIN "Manufacturer" mrf ON p."manufacturerId" = mrf."id"
             LEFT JOIN "Vendor" v ON p."vendorId" = v."id"
             LEFT JOIN "StockTake" st ON sti."stockTakeId" = st."id"
             LEFT JOIN "User" u ON st."countedBy" = u."id"

@@ -130,7 +130,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               v."name" AS "vName"
             FROM "StockTakeItem" sti
             LEFT JOIN "Product" p ON sti."productId" = p."id"
-            LEFT JOIN "Manufacturer" mrf ON p."manufacturerRefId" = mrf."id"
+            LEFT JOIN "Manufacturer" mrf ON p."manufacturerId" = mrf."id"
             LEFT JOIN "Vendor" v ON p."vendorId" = v."id"
             WHERE sti."stockTakeId" = ? AND sti."countedQty" IS NOT NULL
           `,
