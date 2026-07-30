@@ -1,7 +1,17 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { db } from '@/lib/db'
 
+/**
+ * NextAuth configuration — safe for Vercel + Turso.
+ *
+ * Uses dynamic import for Prisma db client to avoid the Prisma+LibSQL
+ * adapter crash at module-load time. When TURSO_DATABASE_URL is set,
+ * we use raw @libsql/client SQL instead of Prisma.
+ *
+ * NOTE: The custom /api/auth/login endpoint (login/route.ts) is the
+ * primary login path and is already fully migrated to raw SQL.
+ * This NextAuth config serves as a secondary/fallback auth path.
+ */
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -15,24 +25,47 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email },
-        })
+        const tursoUrl = process.env.TURSO_DATABASE_URL
+        const authToken = process.env.DATABASE_AUTH_TOKEN
 
-        if (!user) {
-          return null
+        if (tursoUrl) {
+          // ── REMOTE: Turso cloud via raw libsql ──
+          const { createClient } = await import('@libsql/client')
+          const client = createClient({ url: tursoUrl, authToken: authToken || undefined })
+
+          const result = await client.execute({
+            sql: `SELECT id, email, name, password, role, active FROM "User" WHERE email = ? LIMIT 1`,
+            args: [credentials.email],
+          })
+
+          if (result.rows.length === 0) return null
+          const row = result.rows[0]
+
+          if (!row.active || Number(row.active) !== 1) return null
+          if (row.password !== credentials.password) return null
+
+          // Update last login
+          await client.execute({
+            sql: `UPDATE "User" SET "lastLogin" = CURRENT_TIMESTAMP WHERE id = ?`,
+            args: [row.id as string],
+          })
+
+          return {
+            id: row.id as string,
+            email: row.email as string,
+            name: row.name as string,
+            role: row.role as string,
+          }
         }
 
-        if (!user.active) {
-          return null
-        }
+        // ── LOCAL: Fallback to Prisma with local SQLite ──
+        const { db } = await import('@/lib/db')
 
-        // Demo mode: direct password comparison (plain text)
-        if (credentials.password !== user.password) {
-          return null
-        }
+        const user = await db.user.findUnique({ where: { email: credentials.email } })
+        if (!user) return null
+        if (!user.active) return null
+        if (credentials.password !== user.password) return null
 
-        // Update last login
         await db.user.update({
           where: { id: user.id },
           data: { lastLogin: new Date() },

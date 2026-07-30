@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { turso, isTurso, generateId } from '@/lib/turso'
 import * as XLSX from 'xlsx'
 
-// ── Excel column mapping (header name → Prisma field) ──────────────────────
+// ── Excel column mapping (header name → field name) ──────────────────────
 const COLUMN_MAP: Record<string, string> = {
   'name': 'name',
   'product name': 'name',
@@ -71,7 +71,6 @@ function parseBoolean(val: string): boolean {
 }
 
 function normalizeHeaders(headers: string[]): string[] {
-  // Strip trailing * (required indicator from template) and trim
   return headers.map((h) => h.trim().toLowerCase().replace(/\s*\*\s*$/, ''))
 }
 
@@ -94,7 +93,6 @@ function mapRowToProduct(
     const fieldName = COLUMN_MAP[header]
     if (!fieldName) continue
 
-    // Handle quantity specially — it creates the inventory record
     if (fieldName === 'quantity') {
       initialQty = Number(strVal) || 0
       continue
@@ -104,8 +102,6 @@ function mapRowToProduct(
       product[fieldName] = parseBoolean(strVal)
     } else if (NUMERIC_FIELDS.has(fieldName)) {
       product[fieldName] = Number(strVal) || 0
-    } else if (KEEP_NULL_IF_EMPTY.has(fieldName)) {
-      product[fieldName] = strVal
     } else {
       product[fieldName] = strVal
     }
@@ -199,7 +195,6 @@ export async function POST(request: NextRequest) {
         errors.push('Selling price must be a positive number')
       }
 
-      // Validate status if provided
       const validStatuses = ['ACTIVE', 'INACTIVE', 'DISCONTINUED', 'RECALLED']
       if (mapped.status && !validStatuses.includes(String(mapped.status).toUpperCase())) {
         errors.push(`Invalid status "${mapped.status}". Must be one of: ${validStatuses.join(', ')}`)
@@ -209,7 +204,7 @@ export async function POST(request: NextRequest) {
       }
 
       results.push({
-        row: i + 2, // 1-indexed, +1 for header
+        row: i + 2,
         product: mapped,
         initialQty: mapped.initialQty as number || 0,
         errors,
@@ -230,93 +225,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Resolve vendor/manufacturer names to IDs
-    const vendorNames = [...new Set(validRows.map((r) => r.product.vendorName).filter(Boolean).map(String))]
-    const manufacturerNames = [...new Set(validRows.map((r) => r.product.manufacturer).filter(Boolean).map(String))]
-
-    const [existingVendors, existingMfrs] = await Promise.all([
-      vendorNames.length > 0
-        ? db.vendor.findMany({ where: { name: { in: vendorNames } }, select: { id: true, name: true } })
-        : [],
-      manufacturerNames.length > 0
-        ? db.manufacturer.findMany({ where: { name: { in: manufacturerNames } }, select: { id: true, name: true } })
-        : [],
-    ])
-
-    const vendorMap = new Map(existingVendors.map((v) => [v.name.toLowerCase(), v.id]))
-    const mfrMap = new Map(existingMfrs.map((m) => [m.name.toLowerCase(), m.id]))
-
-    // Auto-create vendors and manufacturers that don't exist
-    for (const name of vendorNames) {
-      if (!vendorMap.has(name.toLowerCase())) {
-        const created = await db.vendor.create({ data: { name } })
-        vendorMap.set(name.toLowerCase(), created.id)
-      }
-    }
-    for (const name of manufacturerNames) {
-      if (!mfrMap.has(name.toLowerCase())) {
-        const created = await db.manufacturer.create({ data: { name } })
-        mfrMap.set(name.toLowerCase(), created.id)
-      }
+    // ── Turso raw SQL path ──
+    if (isTurso()) {
+      return await importViaTurso(validRows, invalidRows, rows.length)
     }
 
-    // Create products and inventory records in batches
-    let created = 0
-    let failed = 0
-    const createdProducts: { id: string; name: string; ndc: string | null }[] = []
-
-    for (const row of validRows) {
-      const p = row.product
-      const vendorName = p.vendorName ? String(p.vendorName) : null
-      const mfrName = p.manufacturer ? String(p.manufacturer) : null
-
-      const vendorId = vendorName ? vendorMap.get(vendorName.toLowerCase()) || null : null
-      const manufacturerId = mfrName ? mfrMap.get(mfrName.toLowerCase()) || null : null
-
-      // Clean up non-Prisma fields before create
-      const { vendorName: _, quantity: __, initialQty: ___, ...createData } = p
-      void _; void __; void ___
-
-      try {
-        const product = await db.product.create({
-          data: {
-            ...(createData as Record<string, unknown>),
-            vendorId,
-            manufacturerId,
-          },
-        })
-
-        // Create inventory record
-        await db.inventory.create({
-          data: {
-            productId: product.id,
-            quantity: row.initialQty,
-          },
-        })
-
-        createdProducts.push({ id: product.id, name: product.name, ndc: product.ndc })
-        created++
-      } catch (err: any) {
-        failed++
-        // Duplicate NDC error
-        if (err?.message?.includes('Unique') || err?.code === 'P2002') {
-          invalidRows.push({ row: row.row, product: row.product, initialQty: row.initialQty, errors: [`Duplicate NDC: "${p.ndc || p.name}" already exists`] })
-        } else {
-          invalidRows.push({ row: row.row, product: row.product, initialQty: row.initialQty, errors: [String(err?.message || 'Unknown error')] })
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Successfully imported ${created} product(s)`,
-      totalRows: rows.length,
-      created,
-      failed,
-      skipped: invalidRows.length - failed,
-      validationErrors: invalidRows.map((r) => ({ row: r.row, name: r.product.name || 'Unknown', errors: r.errors })),
-      createdProducts,
-    })
+    // ── Prisma fallback (local dev only) ──
+    return await importViaPrisma(validRows, invalidRows, rows.length)
   } catch (error) {
     console.error('[Product Import] Error:', error)
     return NextResponse.json(
@@ -326,142 +241,312 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// ── Turso raw SQL import ──
+async function importViaTurso(
+  validRows: { row: number; product: Record<string, unknown>; initialQty: number }[],
+  invalidRows: { row: number; product: Record<string, unknown>; initialQty: number; errors: string[] }[],
+  totalRows: number,
+) {
+  // Resolve vendor/manufacturer names to IDs
+  const vendorNames = [...new Set(validRows.map((r) => r.product.vendorName).filter(Boolean).map(String))]
+  const manufacturerNames = [...new Set(validRows.map((r) => r.product.manufacturer).filter(Boolean).map(String))]
+
+  // Fetch existing vendors
+  const vendorMap = new Map<string, string>()
+  if (vendorNames.length > 0) {
+    const placeholders = vendorNames.map(() => '?').join(', ')
+    const vendorResult = await turso.execute({
+      sql: `SELECT id, name FROM Vendor WHERE LOWER(name) IN (${placeholders})`,
+      args: vendorNames.map((n) => n.toLowerCase()),
+    })
+    for (const row of vendorResult.rows) {
+      vendorMap.set(String(row.name).toLowerCase(), row.id as string)
+    }
+  }
+
+  // Fetch existing manufacturers
+  const mfrMap = new Map<string, string>()
+  if (manufacturerNames.length > 0) {
+    const placeholders = manufacturerNames.map(() => '?').join(', ')
+    const mfrResult = await turso.execute({
+      sql: `SELECT id, name FROM Manufacturer WHERE LOWER(name) IN (${placeholders})`,
+      args: manufacturerNames.map((n) => n.toLowerCase()),
+    })
+    for (const row of mfrResult.rows) {
+      mfrMap.set(String(row.name).toLowerCase(), row.id as string)
+    }
+  }
+
+  // Auto-create vendors that don't exist
+  for (const name of vendorNames) {
+    if (!vendorMap.has(name.toLowerCase())) {
+      const id = generateId()
+      await turso.execute({
+        sql: `INSERT INTO Vendor (id, name, "createdAt", "updatedAt") VALUES (?, ?, ?, ?)`,
+        args: [id, name, new Date().toISOString(), new Date().toISOString()],
+      })
+      vendorMap.set(name.toLowerCase(), id)
+    }
+  }
+
+  // Auto-create manufacturers that don't exist
+  for (const name of manufacturerNames) {
+    if (!mfrMap.has(name.toLowerCase())) {
+      const id = generateId()
+      await turso.execute({
+        sql: `INSERT INTO Manufacturer (id, name, "createdAt", "updatedAt") VALUES (?, ?, ?, ?)`,
+        args: [id, name, new Date().toISOString(), new Date().toISOString()],
+      })
+      mfrMap.set(name.toLowerCase(), id)
+    }
+  }
+
+  // Create products and inventory records
+  let created = 0
+  let failed = 0
+  const createdProducts: { id: string; name: string; ndc: string | null }[] = []
+
+  for (const row of validRows) {
+    const p = row.product
+    const vendorName = p.vendorName ? String(p.vendorName) : null
+    const mfrName = p.manufacturer ? String(p.manufacturer) : null
+    const vendorId = vendorName ? vendorMap.get(vendorName.toLowerCase()) || null : null
+    const manufacturerId = mfrName ? mfrMap.get(mfrName.toLowerCase()) || null : null
+    const now = new Date().toISOString()
+
+    try {
+      const productId = generateId()
+
+      await turso.execute({
+        sql: `
+          INSERT INTO "Product" (
+            id, ndc, name, "genericName", manufacturer, "manufacturerId", "vendorId",
+            category, description, "dosageForm", strength, "unitOfMeasure",
+            "requiresPrescription", status, "sellingPrice", "costPrice",
+            "reorderPoint", "reorderQty", "maxStock", "storageLocation",
+            "batchNumber", "expiryDate", "controlledSubstance", "deaSchedule",
+            "createdAt", "updatedAt"
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        args: [
+          productId,
+          p.ndc || null,
+          p.name,
+          p.genericName || null,
+          p.manufacturer || null,
+          manufacturerId,
+          vendorId,
+          p.category || 'OTC',
+          p.description || null,
+          p.dosageForm || null,
+          p.strength || null,
+          p.unitOfMeasure || 'EA',
+          p.requiresPrescription ? 1 : 0,
+          p.status || 'ACTIVE',
+          p.sellingPrice,
+          p.costPrice != null ? p.costPrice : null,
+          p.reorderPoint || 10,
+          p.reorderQty || 50,
+          p.maxStock != null ? p.maxStock : null,
+          p.storageLocation || null,
+          p.batchNumber || null,
+          p.expiryDate || null,
+          p.controlledSubstance ? 1 : 0,
+          p.deaSchedule || null,
+          now,
+          now,
+        ],
+      })
+
+      // Create inventory record
+      const inventoryId = generateId()
+      await turso.execute({
+        sql: `INSERT INTO "Inventory" (id, "productId", quantity, "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?)`,
+        args: [inventoryId, productId, row.initialQty, now, now],
+      })
+
+      createdProducts.push({ id: productId, name: p.name as string, ndc: p.ndc as string | null })
+      created++
+    } catch (err: unknown) {
+      failed++
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('UNIQUE') || msg.includes('unique')) {
+        invalidRows.push({
+          row: row.row, product: row.product, initialQty: row.initialQty,
+          errors: [`Duplicate NDC: "${p.ndc || p.name}" already exists`],
+        })
+      } else {
+        invalidRows.push({
+          row: row.row, product: row.product, initialQty: row.initialQty,
+          errors: [msg],
+        })
+      }
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: `Successfully imported ${created} product(s)`,
+    totalRows,
+    created,
+    failed,
+    skipped: invalidRows.length - failed,
+    validationErrors: invalidRows.map((r) => ({ row: r.row, name: r.product.name || 'Unknown', errors: r.errors })),
+    createdProducts,
+  })
+}
+
+// ── Prisma fallback import (local dev only) ──
+async function importViaPrisma(
+  validRows: { row: number; product: Record<string, unknown>; initialQty: number }[],
+  invalidRows: { row: number; product: Record<string, unknown>; initialQty: number; errors: string[] }[],
+  totalRows: number,
+) {
+  const { db } = await import('@/lib/db')
+
+  // Resolve vendor/manufacturer names to IDs
+  const vendorNames = [...new Set(validRows.map((r) => r.product.vendorName).filter(Boolean).map(String))]
+  const manufacturerNames = [...new Set(validRows.map((r) => r.product.manufacturer).filter(Boolean).map(String))]
+
+  const [existingVendors, existingMfrs] = await Promise.all([
+    vendorNames.length > 0
+      ? db.vendor.findMany({ where: { name: { in: vendorNames } }, select: { id: true, name: true } })
+      : [],
+    manufacturerNames.length > 0
+      ? db.manufacturer.findMany({ where: { name: { in: manufacturerNames } }, select: { id: true, name: true } })
+      : [],
+  ])
+
+  const vendorMap = new Map(existingVendors.map((v) => [v.name.toLowerCase(), v.id]))
+  const mfrMap = new Map(existingMfrs.map((m) => [m.name.toLowerCase(), m.id]))
+
+  for (const name of vendorNames) {
+    if (!vendorMap.has(name.toLowerCase())) {
+      const created = await db.vendor.create({ data: { name } })
+      vendorMap.set(name.toLowerCase(), created.id)
+    }
+  }
+  for (const name of manufacturerNames) {
+    if (!mfrMap.has(name.toLowerCase())) {
+      const created = await db.manufacturer.create({ data: { name } })
+      mfrMap.set(name.toLowerCase(), created.id)
+    }
+  }
+
+  let created = 0
+  let failed = 0
+  const createdProducts: { id: string; name: string; ndc: string | null }[] = []
+
+  for (const row of validRows) {
+    const p = row.product
+    const vendorName = p.vendorName ? String(p.vendorName) : null
+    const mfrName = p.manufacturer ? String(p.manufacturer) : null
+    const vendorId = vendorName ? vendorMap.get(vendorName.toLowerCase()) || null : null
+    const manufacturerId = mfrName ? mfrMap.get(mfrName.toLowerCase()) || null : null
+
+    const { vendorName: _, quantity: __, initialQty: ___, ...createData } = p
+    void _; void __; void ___
+
+    try {
+      const product = await db.product.create({
+        data: {
+          ...(createData as Record<string, unknown>),
+          vendorId,
+          manufacturerId,
+        },
+      })
+
+      await db.inventory.create({
+        data: { productId: product.id, quantity: row.initialQty },
+      })
+
+      createdProducts.push({ id: product.id, name: product.name, ndc: product.ndc })
+      created++
+    } catch (err: any) {
+      failed++
+      if (err?.message?.includes('Unique') || err?.code === 'P2002') {
+        invalidRows.push({ row: row.row, product: row.product, initialQty: row.initialQty, errors: [`Duplicate NDC: "${p.ndc || p.name}" already exists`] })
+      } else {
+        invalidRows.push({ row: row.row, product: row.product, initialQty: row.initialQty, errors: [String(err?.message || 'Unknown error')] })
+      }
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: `Successfully imported ${created} product(s)`,
+    totalRows,
+    created,
+    failed,
+    skipped: invalidRows.length - failed,
+    validationErrors: invalidRows.map((r) => ({ row: r.row, name: r.product.name || 'Unknown', errors: r.errors })),
+    createdProducts,
+  })
+}
+
 // GET /api/products/import — Generate and return a downloadable Excel template
 export async function GET() {
   try {
     const headers = [
-      'Name *',
-      'NDC',
-      'Generic Name',
-      'Category',
-      'Dosage Form',
-      'Strength',
-      'Unit of Measure',
-      'Selling Price *',
-      'Cost Price',
-      'Reorder Point',
-      'Reorder Qty',
-      'Max Stock',
-      'Quantity',
-      'Batch Number',
-      'Expiry Date',
-      'Manufacturer',
-      'Vendor',
-      'Storage Location',
-      'Description',
-      'Requires Prescription',
-      'Controlled Substance',
-      'Status',
+      'Name *', 'NDC', 'Generic Name', 'Category',
+      'Dosage Form', 'Strength', 'Unit of Measure', 'Selling Price *',
+      'Cost Price', 'Reorder Point', 'Reorder Qty', 'Max Stock', 'Quantity',
+      'Batch Number', 'Expiry Date', 'Manufacturer', 'Vendor',
+      'Storage Location', 'Description', 'Requires Prescription',
+      'Controlled Substance', 'Status',
     ]
 
-    // Example data rows
     const exampleRows = [
       {
-        'Name *': 'Amoxicillin 500mg Capsules',
-        NDC: '12345-6789-01',
-        'Generic Name': 'Amoxicillin',
-        Category: 'PRESCRIPTION',
-        'Dosage Form': 'CAPSULE',
-        Strength: '500mg',
-        'Unit of Measure': 'EA',
-        'Selling Price *': 12.99,
-        'Cost Price': 8.50,
-        'Reorder Point': 20,
-        'Reorder Qty': 100,
-        'Max Stock': 500,
-        Quantity: 150,
-        'Batch Number': 'BATCH-2024-001',
-        'Expiry Date': '2026-12-31',
-        Manufacturer: 'PharmaCorp Inc.',
-        Vendor: 'MedSupply Distributors',
+        'Name *': 'Amoxicillin 500mg Capsules', NDC: '12345-6789-01',
+        'Generic Name': 'Amoxicillin', Category: 'PRESCRIPTION',
+        'Dosage Form': 'CAPSULE', Strength: '500mg', 'Unit of Measure': 'EA',
+        'Selling Price *': 12.99, 'Cost Price': 8.50, 'Reorder Point': 20,
+        'Reorder Qty': 100, 'Max Stock': 500, Quantity: 150,
+        'Batch Number': 'BATCH-2024-001', 'Expiry Date': '2026-12-31',
+        Manufacturer: 'PharmaCorp Inc.', Vendor: 'MedSupply Distributors',
         'Storage Location': 'A1-SH1',
         Description: 'Antibiotic capsule for bacterial infections',
-        'Requires Prescription': 'yes',
-        'Controlled Substance': 'no',
-        Status: 'ACTIVE',
+        'Requires Prescription': 'yes', 'Controlled Substance': 'no', Status: 'ACTIVE',
       },
       {
-        'Name *': 'Ibuprofen 200mg Tablets',
-        NDC: '23456-7890-02',
-        'Generic Name': 'Ibuprofen',
-        Category: 'OTC',
-        'Dosage Form': 'TABLET',
-        Strength: '200mg',
-        'Unit of Measure': 'EA',
-        'Selling Price *': 5.99,
-        'Cost Price': 2.50,
-        'Reorder Point': 50,
-        'Reorder Qty': 200,
-        'Max Stock': 1000,
-        Quantity: 300,
-        'Batch Number': 'BATCH-2024-002',
-        'Expiry Date': '2027-06-30',
-        Manufacturer: 'GenericLab Ltd.',
-        Vendor: 'MedSupply Distributors',
-        'Storage Location': 'A2-SH1',
-        Description: 'NSAID pain reliever',
-        'Requires Prescription': 'no',
-        'Controlled Substance': 'no',
-        Status: 'ACTIVE',
+        'Name *': 'Ibuprofen 200mg Tablets', NDC: '23456-7890-02',
+        'Generic Name': 'Ibuprofen', Category: 'OTC',
+        'Dosage Form': 'TABLET', Strength: '200mg', 'Unit of Measure': 'EA',
+        'Selling Price *': 5.99, 'Cost Price': 2.50, 'Reorder Point': 50,
+        'Reorder Qty': 200, 'Max Stock': 1000, Quantity: 300,
+        'Batch Number': 'BATCH-2024-002', 'Expiry Date': '2027-06-30',
+        Manufacturer: 'GenericLab Ltd.', Vendor: 'MedSupply Distributors',
+        'Storage Location': 'A2-SH1', Description: 'NSAID pain reliever',
+        'Requires Prescription': 'no', 'Controlled Substance': 'no', Status: 'ACTIVE',
       },
       {
-        'Name *': 'Metformin 500mg Tablets',
-        NDC: '34567-8901-03',
-        'Generic Name': 'Metformin',
-        Category: 'PRESCRIPTION',
-        'Dosage Form': 'TABLET',
-        Strength: '500mg',
-        'Unit of Measure': 'EA',
-        'Selling Price *': 9.50,
-        'Cost Price': 4.25,
-        'Reorder Point': 30,
-        'Reorder Qty': 150,
-        'Max Stock': 600,
-        Quantity: 0,
-        'Batch Number': '',
-        'Expiry Date': '',
-        Manufacturer: '',
-        Vendor: '',
-        'Storage Location': '',
+        'Name *': 'Metformin 500mg Tablets', NDC: '34567-8901-03',
+        'Generic Name': 'Metformin', Category: 'PRESCRIPTION',
+        'Dosage Form': 'TABLET', Strength: '500mg', 'Unit of Measure': 'EA',
+        'Selling Price *': 9.50, 'Cost Price': 4.25, 'Reorder Point': 30,
+        'Reorder Qty': 150, 'Max Stock': 600, Quantity: 0,
+        'Batch Number': '', 'Expiry Date': '', Manufacturer: '',
+        Vendor: '', 'Storage Location': '',
         Description: 'Oral antidiabetic medication',
-        'Requires Prescription': 'yes',
-        'Controlled Substance': 'no',
-        Status: 'ACTIVE',
+        'Requires Prescription': 'yes', 'Controlled Substance': 'no', Status: 'ACTIVE',
       },
     ]
 
     const worksheet = XLSX.utils.json_to_sheet(exampleRows, { header: headers })
-
-    // Set column widths
     worksheet['!cols'] = [
-      { wch: 35 }, // Name
-      { wch: 18 }, // NDC
-      { wch: 20 }, // Generic Name
-      { wch: 15 }, // Category
-      { wch: 14 }, // Dosage Form
-      { wch: 12 }, // Strength
-      { wch: 16 }, // Unit of Measure
-      { wch: 14 }, // Selling Price
-      { wch: 12 }, // Cost Price
-      { wch: 14 }, // Reorder Point
-      { wch: 12 }, // Reorder Qty
-      { wch: 10 }, // Max Stock
-      { wch: 10 }, // Quantity
-      { wch: 18 }, // Batch Number
-      { wch: 14 }, // Expiry Date
-      { wch: 22 }, // Manufacturer
-      { wch: 22 }, // Vendor
-      { wch: 16 }, // Storage Location
-      { wch: 35 }, // Description
-      { wch: 18 }, // Requires Prescription
-      { wch: 18 }, // Controlled Substance
-      { wch: 12 }, // Status
+      { wch: 35 }, { wch: 18 }, { wch: 20 }, { wch: 15 },
+      { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
+      { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+      { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 22 },
+      { wch: 22 }, { wch: 16 }, { wch: 35 }, { wch: 18 },
+      { wch: 18 }, { wch: 12 },
     ]
 
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Products')
 
-    // Add a Categories sheet as reference
+    // Categories reference sheet
     const catHeaders = ['Category', 'Description']
     const catData = [
       { Category: 'OTC', Description: 'Over-the-counter medications' },
@@ -475,7 +560,7 @@ export async function GET() {
     catSheet['!cols'] = [{ wch: 20 }, { wch: 40 }]
     XLSX.utils.book_append_sheet(workbook, catSheet, 'Categories Reference')
 
-    // Add a Dosage Forms sheet as reference
+    // Dosage Forms reference sheet
     const dfHeaders = ['Dosage Form', 'Description']
     const dfData = [
       { 'Dosage Form': 'TABLET', Description: 'Solid oral dosage form' },
@@ -488,7 +573,7 @@ export async function GET() {
       { 'Dosage Form': 'DROPS', Description: 'Eye/ear drops' },
       { 'Dosage Form': 'INJECTION', Description: 'Injectable solution' },
       { 'Dosage Form': 'INHALER', Description: 'Respiratory inhaler' },
-      { 'Dosage Form:': 'SPRAY', Description: 'Nasal/spray form' },
+      { 'Dosage Form': 'SPRAY', Description: 'Nasal/spray form' },
       { 'Dosage Form': 'PATCH', Description: 'Transdermal patch' },
       { 'Dosage Form': 'POWDER', Description: 'Powder form' },
       { 'Dosage Form': 'LOZENGE', Description: 'Lozenge/troche' },

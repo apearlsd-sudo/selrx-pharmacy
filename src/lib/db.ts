@@ -8,33 +8,55 @@ const globalForPrisma = globalThis as unknown as {
 /**
  * Creates the Prisma client instance.
  *
- * On Vercel + Turso:
- *   Uses PrismaLibSQL adapter with config object { url, authToken }.
- *   DATABASE_URL must be a valid file: path for Prisma's schema validation.
+ * IMPORTANT: This module should ONLY be imported dynamically via
+ * `await import('@/lib/db')` inside code paths that are NOT reached on
+ * Vercel (i.e., the `else` branch of `if (isTurso())` checks).
  *
- * Locally / sandbox:
- *   Uses Prisma's built-in SQLite driver with DATABASE_URL (file:).
+ * On Vercel + Turso, the Prisma+LibSQL adapter has a known runtime crash.
+ * All production code paths use raw @libsql/client via @/lib/turso instead.
+ *
+ * This module is wrapped in try-catch so that if Prisma initialization fails
+ * for any reason, it doesn't crash the entire serverless function.
  */
 function createPrismaClient(): PrismaClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
 
   if (tursoUrl) {
-    // Set a dummy file: URL so Prisma's internal datasource validation passes
     if (!process.env.DATABASE_URL?.startsWith('file:')) {
       process.env.DATABASE_URL = 'file:./dummy.db'
     }
 
-    const adapter = new PrismaLibSQL({
-      url: tursoUrl,
-      authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
-    })
-    return new PrismaClient({ adapter, log: ['error', 'warn'] })
+    try {
+      const adapter = new PrismaLibSQL({
+        url: tursoUrl,
+        authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+      })
+      return new PrismaClient({ adapter, log: ['error', 'warn'] })
+    } catch (error) {
+      console.error('[db.ts] Failed to create Prisma+LibSQL adapter. This is expected on Vercel. Use @/lib/turso instead.', error)
+      // Return a minimal Prisma client that will fail gracefully on use
+      // rather than crashing at module load time
+      return new PrismaClient({ log: ['error'] })
+    }
   }
 
   return new PrismaClient({ log: ['error', 'warn'] })
 }
 
-export const db =
-  globalForPrisma.prisma ?? createPrismaClient()
+let _db: PrismaClient | undefined
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+try {
+  _db = globalForPrisma.prisma ?? createPrismaClient()
+  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = _db
+} catch (error) {
+  console.error('[db.ts] Prisma client initialization failed:', error)
+}
+
+/**
+ * Prisma client instance.
+ *
+ * ⚠️ WARNING: Do NOT statically import this in any file that runs on Vercel.
+ * Always use `await import('@/lib/db')` inside a conditional branch.
+ * For production (Turso), use `import { turso } from '@/lib/turso'` instead.
+ */
+export const db = _db!
