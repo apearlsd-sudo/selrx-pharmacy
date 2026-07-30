@@ -403,3 +403,21 @@ Stage Summary:
 - All 31 API routes now safe for Vercel deployment
 - retry logic added for Turso transient network errors
 - Committed as 951cdad and pushed to main
+---
+Task ID: 1
+Agent: main
+Task: Fix dashboard crash on undefined transactionNo + harden all .replace() calls
+
+Work Log:
+- Verified dashboard-view.tsx fix already in place (txn.transactionNo || '').slice(-8) at line 355
+- Searched ALL .slice() and .replace() calls across gazpharm views directory
+- Found 5 additional unprotected .replace() calls on API-sourced fields
+- Fixed: receipt-modal.tsx (paymentMethod), return-ticket-modal.tsx (status), stock-take-section.tsx (2x status), goods-return-view.tsx (reason, refundMethod), reports-view.tsx (role, userRole)
+- Committed as 5ad11db and pushed to origin/main
+- Confirmed Vercel deployment is live (302 redirect on preview URL)
+
+Stage Summary:
+- Root cause: Previous fix (2991dff) was committed but Vercel CDN/browser served cached old chunk (identical hash cf421b1e441609fd)
+- Solution: New commit with additional null guards forces fresh build with new chunk hashes
+- 5 files changed, 8 insertions, 8 deletions
+- All .replace() calls on API-sourced string fields now have (field || '') fallback
