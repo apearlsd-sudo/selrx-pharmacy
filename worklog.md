@@ -421,3 +421,22 @@ Stage Summary:
 - Solution: New commit with additional null guards forces fresh build with new chunk hashes
 - 5 files changed, 8 insertions, 8 deletions
 - All .replace() calls on API-sourced string fields now have (field || '') fallback
+---
+Task ID: 2
+Agent: main
+Task: Fix Application Error crashes on multiple pages + sales history never loading
+
+Work Log:
+- Ran comprehensive audit of all 18 view components via Explore agent
+- Found 4 CRASH-severity bugs: .split().map() on null in reports-view (1) and users-view (3)
+- Found 5 HIGH-severity bugs: .toFixed() on undefined, .name without ?., .product without ?., formatCurrency(undefined)
+- Discovered ROOT CAUSE of sales-history never loading: toObjs() helper in 8 API routes was calling c.name on string columns (from @libsql/client v0.17.4), returning undefined for ALL column names, making ALL API responses return garbage data
+- Fixed toObjs in all 8 routes: dashboard, sales-history, inventory, transactions, transactions/[id], returns, returns/[id], product-sales-analytics
+- Fixed all client-side null guards across 6 view files
+- Committed as ad547fe and pushed to origin/main
+
+Stage Summary:
+- CRITICAL FIX: toObjs() was producing objects with all-undefined keys — this broke EVERY API route that used raw SQL (Turso path)
+- 13 files changed, 31 insertions, 31 deletions
+- Sales history, dashboard, inventory, returns, transactions should all now return proper data
+- Reports, users, receipt modal, stock-take pages should no longer crash on null data
