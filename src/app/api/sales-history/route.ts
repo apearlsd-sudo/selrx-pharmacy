@@ -64,7 +64,11 @@ export async function GET(request: NextRequest) {
 
       const whereClause = conditions.join(' AND ')
 
-      // ---- Run 6 queries in parallel ----
+      // ---- Build WHERE without userId filter for allUsers dropdown ----
+      const conditionsNoUser = conditions.filter((c) => !c.includes('t."userId"'))
+      const whereNoUser = conditionsNoUser.join(' AND ')
+
+      // ---- Run 7 queries in parallel ----
       const [
         aggResult,
         userSalesResult,
@@ -72,6 +76,7 @@ export async function GET(request: NextRequest) {
         dailyResult,
         pagResult,
         pagCountResult,
+        allUsersResult,
       ] = await Promise.all([
         // 1. Overall aggregate: SUM total, COUNT, SUM discount
         turso.execute({
@@ -152,6 +157,20 @@ export async function GET(request: NextRequest) {
         turso.execute({
           sql: `SELECT COUNT(*) as cnt FROM "Transaction" t WHERE ${whereClause}`,
           args: safeArgs(args),
+        }),
+
+        // 7. All users for dropdown (always unfiltered by userId)
+        turso.execute({
+          sql: `SELECT DISTINCT t."userId",
+                       u."name"  as userName,
+                       u."role"  as userRole
+                FROM "Transaction" t
+                LEFT JOIN User u ON t."userId" = u."id"
+                WHERE t."status" = 'COMPLETED'
+                  ${from ? `AND t."createdAt" >= ?` : ''}
+                  ${to ? `AND t."createdAt" <= ?` : ''}
+                ORDER BY u."name" ASC`,
+          args: safeArgs(from || to ? [from ? new Date(from).toISOString() : null, to ? (() => { const d = new Date(to); d.setHours(23, 59, 59, 999); return d.toISOString() })() : null].filter(Boolean) : []),
         }),
       ])
 
@@ -269,8 +288,9 @@ export async function GET(request: NextRequest) {
       // ---- 5. Top seller = first user by total sales ----
       const topSeller = userSalesEnriched.length > 0 ? userSalesEnriched[0] : null
 
-      // ---- 6. All users list ----
-      const allUsers = userSalesRows.map((r) => ({
+      // ---- 6. All users list (independent of userId filter) ----
+      const allUsersRows = toObjs(allUsersResult)
+      const allUsers = allUsersRows.map((r) => ({
         id: r.userId as string,
         name: (r.userName as string) || 'Unknown',
         role: (r.userRole as string) || 'CLERK',
@@ -323,8 +343,14 @@ export async function GET(request: NextRequest) {
       baseWhere.userId = effectiveUserId
     }
 
+    // Build baseWhere without userId for allUsers dropdown
+    const baseWhereNoUser: Record<string, unknown> = { status: 'COMPLETED' }
+    if (Object.keys(dateFilter).length > 0) {
+      baseWhereNoUser.createdAt = dateFilter
+    }
+
     // 1. Overall summary stats
-    const [allTransactions, totalSalesAgg] = await Promise.all([
+    const [allTransactions, totalSalesAgg, allUsersGrouped] = await Promise.all([
       db.transaction.findMany({
         where: baseWhere,
         include: {
@@ -343,7 +369,23 @@ export async function GET(request: NextRequest) {
         _count: true,
         _sum: { total: true, subtotal: true, discount: true },
       }),
+
+      // All users for dropdown (unfiltered by userId)
+      db.transaction.groupBy({
+        by: ['userId'],
+        where: baseWhereNoUser,
+      }),
     ])
+
+    // Fetch all user details for dropdown
+    const allUserIds = allUsersGrouped.map((u) => u.userId)
+    const allUsersFromDb = allUserIds.length > 0
+      ? await db.user.findMany({
+          where: { id: { in: allUserIds } },
+          select: { id: true, name: true, role: true },
+          orderBy: { name: 'asc' },
+        })
+      : []
 
     // 2. Sales by user (aggregated)
     const userSales = await db.transaction.groupBy({
@@ -482,7 +524,7 @@ export async function GET(request: NextRequest) {
         total: paginatedTotal,
         pages: Math.ceil(paginatedTotal / limit),
       },
-      allUsers: users.map((u) => ({
+      allUsers: allUsersFromDb.map((u) => ({
         id: u.id,
         name: u.name,
         role: u.role,
