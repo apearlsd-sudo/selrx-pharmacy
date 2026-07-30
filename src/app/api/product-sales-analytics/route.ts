@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, safeArgs } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
                 WHERE ${txWhere} ${categoryClause}
                 GROUP BY ti."productId", ti."productName"
                 ORDER BY totalQuantity DESC`,
-          args: [...args],
+          args: safeArgs(args),
         }),
 
         // Last sold date per product
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
                 JOIN "Transaction" t ON ti."transactionId" = t."id"
                 WHERE ${txWhere} ${categoryClause}
                 GROUP BY ti."productId"`,
-          args: [...args],
+          args: safeArgs(args),
         }),
       ])
 
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
                      "strength", "dosageForm", "unitOfMeasure"
               FROM Product
               WHERE "id" IN (${placeholders})`,
-        args: productIds,
+        args: safeArgs(productIds),
       })
 
       const productMap = new Map(

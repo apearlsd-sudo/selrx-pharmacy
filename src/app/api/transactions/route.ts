@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateTransactionNo } from '@/lib/turso'
+import { turso, isTurso, generateId, generateTransactionNo, safeArgs } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         const todayResult = await turso.execute({
           sql: `SELECT total FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
-          args: [startOfDay.toISOString(), ...commonArgs],
+          args: safeArgs([startOfDay.toISOString(), ...commonArgs]),
         })
 
         // Week's completed transactions
@@ -63,14 +63,14 @@ export async function GET(request: NextRequest) {
           sql: `SELECT id, total, createdAt FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}
                 ORDER BY createdAt ASC`,
-          args: [startOfWeek.toISOString(), ...commonArgs],
+          args: safeArgs([startOfWeek.toISOString(), ...commonArgs]),
         })
 
         // Month's completed transactions (we need totals only)
         const monthResult = await turso.execute({
           sql: `SELECT total FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
-          args: [startOfMonth.toISOString(), ...commonArgs],
+          args: safeArgs([startOfMonth.toISOString(), ...commonArgs]),
         })
 
         // Top products this month via GROUP BY
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
         sql: `SELECT COUNT(*) as cnt FROM "Transaction" t
               LEFT JOIN Customer c ON t.customerId = c.id
               ${whereClause}`,
-        args,
+        args: safeArgs(args),
       })
       const total = toObjs(countResult)[0]?.cnt as number ?? 0
 
@@ -193,8 +193,8 @@ export async function GET(request: NextRequest) {
                LEFT JOIN Customer c ON t.customerId = c.id
                ${whereClause}
                ORDER BY t.createdAt DESC
-               LIMIT ? OFFSET ?`,
-        args: [...args, limit, skip],
+               LIMIT ${limit} OFFSET ${skip}`,
+        args: safeArgs(args),
       })
 
       const transactions = toObjs(listResult).map((r) => {

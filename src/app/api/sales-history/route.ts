@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, safeArgs } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
                        COALESCE(SUM(t."discount"), 0) as totalDiscount
                 FROM "Transaction" t
                 WHERE ${whereClause}`,
-          args: [...args],
+          args: safeArgs(args),
         }),
 
         // 2. Sales by user — GROUP BY userId with user name/email/role via JOIN
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
                 WHERE ${whereClause}
                 GROUP BY t."userId"
                 ORDER BY totalSales DESC`,
-          args: [...args],
+          args: safeArgs(args),
         }),
 
         // 3. Items per user — direct SUM via TransactionItem JOIN Transaction
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
                 JOIN "Transaction" t ON ti."transactionId" = t."id"
                 WHERE ${whereClause}
                 GROUP BY t."userId"`,
-          args: [...args],
+          args: safeArgs(args),
         }),
 
         // 4. Daily sales — GROUP BY date, last 30 days with activity
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
                 GROUP BY date(t."createdAt")
                 ORDER BY day DESC
                 LIMIT 30`,
-          args: [...args],
+          args: safeArgs(args),
         }),
 
         // 5. Paginated transactions with User & Customer JOINs
@@ -144,14 +144,14 @@ export async function GET(request: NextRequest) {
                 LEFT JOIN Customer c ON t."customerId" = c."id"
                 WHERE ${whereClause}
                 ORDER BY t."createdAt" DESC
-                LIMIT ? OFFSET ?`,
-          args: [...args, limit, (page - 1) * limit],
+                LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+          args: safeArgs(args),
         }),
 
         // 6. Paginated total count
         turso.execute({
           sql: `SELECT COUNT(*) as cnt FROM "Transaction" t WHERE ${whereClause}`,
-          args: [...args],
+          args: safeArgs(args),
         }),
       ])
 
@@ -220,7 +220,7 @@ export async function GET(request: NextRequest) {
                        "dispensedQty", "createdAt"
                 FROM TransactionItem
                 WHERE "transactionId" IN (${placeholders})`,
-          args: pTxnIds,
+          args: safeArgs(pTxnIds),
         })
         for (const row of toObjs(itemsResult)) {
           const tid = row.transactionId as string
