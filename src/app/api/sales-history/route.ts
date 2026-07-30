@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
           args: safeArgs(args),
         }),
 
-        // 7. All users for dropdown (always unfiltered by userId)
+        // 7. All users for dropdown (completely unfiltered — no userId, no date range)
         turso.execute({
           sql: `SELECT DISTINCT t."userId",
                        u."name"  as userName,
@@ -167,10 +167,8 @@ export async function GET(request: NextRequest) {
                 FROM "Transaction" t
                 LEFT JOIN User u ON t."userId" = u."id"
                 WHERE t."status" = 'COMPLETED'
-                  ${from ? `AND t."createdAt" >= ?` : ''}
-                  ${to ? `AND t."createdAt" <= ?` : ''}
                 ORDER BY u."name" ASC`,
-          args: safeArgs(from || to ? [from ? new Date(from).toISOString() : null, to ? (() => { const d = new Date(to); d.setHours(23, 59, 59, 999); return d.toISOString() })() : null].filter(Boolean) : []),
+          args: [],
         }),
       ])
 
@@ -343,11 +341,8 @@ export async function GET(request: NextRequest) {
       baseWhere.userId = effectiveUserId
     }
 
-    // Build baseWhere without userId for allUsers dropdown
+    // Build baseWhere without any filters for allUsers dropdown
     const baseWhereNoUser: Record<string, unknown> = { status: 'COMPLETED' }
-    if (Object.keys(dateFilter).length > 0) {
-      baseWhereNoUser.createdAt = dateFilter
-    }
 
     // 1. Overall summary stats
     const [allTransactions, totalSalesAgg, allUsersGrouped] = await Promise.all([
