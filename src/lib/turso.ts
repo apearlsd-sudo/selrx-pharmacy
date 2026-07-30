@@ -70,6 +70,13 @@ export function isTurso(): boolean {
 }
 
 /**
+ * Sanitize args array — filters out undefined values that libsql rejects.
+ */
+export function safeArgs(args: unknown[]): unknown[] {
+  return args.filter((a) => a !== undefined)
+}
+
+/**
  * Execute a query with automatic retry on transient failures.
  */
 export async function tursoExecute(
