@@ -463,3 +463,22 @@ Stage Summary:
 - All 500 errors now include 'detail' field with actual SQL error message
 - Frontend toasts show detail when available: "error: detail"
 - Zero-row guard prevents broken INSERT SQL if table detection fails
+---
+Task ID: 4
+Agent: main
+Task: Fix SQLite FK constraint error when creating Dispenser role user
+
+Work Log:
+- Identified root cause: User.role has FK → SystemRole.name (Prisma schema line 49)
+- DISPENSER exists in ROLE_METADATA but not as a row in Turso SystemRole table (seed data gap)
+- Added ensureSystemRole() helper that checks SystemRole table and auto-creates missing roles
+- Uses INSERT OR IGNORE to handle race conditions
+- Pulls label/description/color from ROLE_METADATA, permissions from DEFAULT_ROLE_PERMISSIONS
+- Called in both POST (user creation) and PUT (role change) handlers
+- Results cached in-process to avoid repeated queries
+- Committed as cbdbf3f and pushed to origin/main
+
+Stage Summary:
+- Root cause: FK constraint User.role → SystemRole.name, DISPENSER role row missing
+- Fix: ensureSystemRole() auto-creates SystemRole rows from ROLE_METADATA before user INSERT/UPDATE
+- Any role in ROLE_METADATA will now work even if SystemRole table was seeded incompletely
