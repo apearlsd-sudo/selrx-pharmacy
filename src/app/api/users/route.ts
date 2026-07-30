@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
-import { ROLE_METADATA } from '@/lib/permissions'
+import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
 
 // ── Schema introspection ─────────────────────────────────────────────────
 // On Vercel/Turso the User table may have been created from an older schema
@@ -65,6 +65,41 @@ function rowToUser(row: Record<string, unknown>) {
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+// ── SystemRole FK helper ──────────────────────────────────────────────────
+// User.role has a FK → SystemRole.name.  Roles defined in ROLE_METADATA may
+// not have a corresponding SystemRole row in Turso (seed data gap).  This
+// helper auto-creates the row so the FK constraint is satisfied.
+
+let _ensuredRoles = new Set<string>()
+
+async function ensureSystemRole(roleName: string): Promise<void> {
+  if (_ensuredRoles.has(roleName)) return
+  const meta = ROLE_METADATA[roleName]
+  if (!meta) return // unknown role — let the FK error surface naturally
+  try {
+    // Check if the role already exists
+    const existing = await turso.execute({
+      sql: `SELECT "id" FROM "SystemRole" WHERE "name" = ?`,
+      args: [roleName],
+    })
+    if (existing.rows.length > 0) {
+      _ensuredRoles.add(roleName)
+      return
+    }
+    // Auto-create from ROLE_METADATA + DEFAULT_ROLE_PERMISSIONS
+    const perms = DEFAULT_ROLE_PERMISSIONS[roleName] || []
+    const now = new Date().toISOString()
+    await turso.execute({
+      sql: `INSERT OR IGNORE INTO "SystemRole" ("id","name","label","description","permissions","color","isSystem","isActive","createdAt","updatedAt") VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      args: [generateId(), roleName, meta.label, meta.description || null, JSON.stringify(perms), meta.color, 1, 1, now, now],
+    })
+    _ensuredRoles.add(roleName)
+    console.log(`[ensureSystemRole] Auto-created SystemRole "${roleName}"`)
+  } catch (e) {
+    console.warn(`[ensureSystemRole] Could not auto-create role "${roleName}":`, e)
+  }
 }
 
 // GET /api/users - List all users (admin only)
@@ -209,6 +244,11 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      const resolvedRole = userRole || 'CLERK'
+
+      // Ensure the role exists in SystemRole (FK: User.role → SystemRole.name)
+      await ensureSystemRole(resolvedRole)
+
       const id = generateId()
       const now = new Date().toISOString()
 
@@ -229,7 +269,7 @@ export async function POST(request: NextRequest) {
         ['email', email],
         ['password', password],
         ['name', name],
-        ['role', userRole || 'CLERK'],
+        ['role', resolvedRole],
         ['phone', phone || null],
         ['licenseNumber', licenseNumber || null],
         ['permissions', permissions ? JSON.stringify(permissions) : null],
@@ -424,6 +464,8 @@ export async function PUT(request: NextRequest) {
       const setClauses: string[] = []
       const args: unknown[] = []
       if (userRole !== undefined) {
+        // Ensure target role exists in SystemRole (FK constraint)
+        await ensureSystemRole(userRole)
         setClauses.push(`"role" = ?`)
         args.push(userRole)
       }
