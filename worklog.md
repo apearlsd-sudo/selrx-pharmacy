@@ -381,3 +381,25 @@ Stage Summary:
 - Files: src/app/api/products/import/route.ts (new), inventory-view.tsx (modified)
 - Import supports .xlsx, .xls, .csv files up to 5 MB
 - Handles: flexible headers, auto-vendor/manufacturer creation, duplicate NDC detection, row-level validation errors
+---
+Task ID: 1
+Agent: main
+Task: Proactive hardening — eliminate all Prisma crash vectors on Vercel
+
+Work Log:
+- Audited all 31 API routes for Prisma usage patterns
+- Found 2 files with CRITICAL static `import { db } from '@/lib/db'` that crash Vercel
+- Rewrote products/import/route.ts with dual-mode (raw SQL for Turso, dynamic Prisma for local)
+- Rewrote auth.ts (NextAuth config) with dual-mode pattern
+- Hardened db.ts with try-catch wrapper around Prisma initialization
+- Converted turso.ts from eager singleton to lazy Proxy-based init (fixes build without TURSO_DATABASE_URL)
+- Added tursoExecute() and tursoBatch() with retry logic for transient errors
+- Verified `next build` passes cleanly
+- Pushed to Vercel
+
+Stage Summary:
+- 0 files remain with static Prisma imports — full elimination
+- Build passes without TURSO_DATABASE_URL set (lazy init)
+- All 31 API routes now safe for Vercel deployment
+- retry logic added for Turso transient network errors
+- Committed as 951cdad and pushed to main
