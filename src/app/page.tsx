@@ -23,8 +23,12 @@ import {
   ClipboardCheck,
   Settings,
   Clock,
+  AlertTriangle,
+  PackageX,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -138,6 +142,128 @@ function TopbarClock() {
       <Clock className="h-3.5 w-3.5" />
       <span className="font-medium tabular-nums">{time}</span>
     </div>
+  )
+}
+
+// ── Notification Bell with live alerts ──────────────────────────────
+function NotificationBell() {
+  const [notifications, setNotifications] = useState<Array<{
+    id: string; type: string; title: string; message: string; severity: string; meta: Record<string, unknown>
+  }>>([])
+  const [count, setCount] = useState(0)
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications')
+      if (res.ok) {
+        const data = await res.json()
+        setNotifications(data.notifications || [])
+        setCount(data.count || 0)
+      }
+    } catch { /* silent */ } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Initial fetch + polling every 60s
+  useEffect(() => {
+    fetchNotifications()
+    const id = setInterval(fetchNotifications, 60000)
+    return () => clearInterval(id)
+  }, [fetchNotifications])
+
+  // Refresh when popover opens or inventory changes
+  useEffect(() => {
+    fetchNotifications()
+  }, [open, inventoryVersion, fetchNotifications])
+
+  const expiryNotifs = notifications.filter((n) => n.type === 'expiry')
+  const stockNotifs = notifications.filter((n) => n.type === 'low-stock')
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+          <Bell className={`h-4 w-4 ${count > 0 ? 'text-amber-500' : ''}`} />
+          {count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+              {count > 99 ? '99+' : count}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={8} className="w-80 p-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+          {count > 0 && (
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-50 text-red-600 border-red-200">
+              {count} alert{count !== 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
+        <ScrollArea className="max-h-[360px]">
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">Loading...</div>
+          ) : count === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <Bell className="h-8 w-8 text-gray-300 mb-2" />
+              <p className="text-sm font-medium text-gray-500">All clear</p>
+              <p className="text-xs text-muted-foreground mt-0.5">No expiry or low stock alerts</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {expiryNotifs.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-amber-50/60">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" /> Near Expiry
+                    </span>
+                  </div>
+                  {expiryNotifs.map((n) => (
+                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start gap-2.5">
+                        <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-amber-100'}`}>
+                          <AlertTriangle className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600' : 'text-amber-600'}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{n.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+              {stockNotifs.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-orange-50/60">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 flex items-center gap-1">
+                      <PackageX className="h-3 w-3" /> Low Stock
+                    </span>
+                  </div>
+                  {stockNotifs.map((n) => (
+                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start gap-2.5">
+                        <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-orange-100'}`}>
+                          <PackageX className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600' : 'text-orange-600'}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{n.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -487,10 +613,8 @@ export default function Home() {
           <div className="ml-auto flex items-center gap-2">
             {/* Live Clock */}
             <TopbarClock />
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-emerald-500 rounded-full" />
-            </Button>
+            {/* Notification Bell */}
+            <NotificationBell />
             <div className="hidden sm:flex items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mr-1">
                 <span className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center">
