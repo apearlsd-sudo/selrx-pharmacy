@@ -75,13 +75,19 @@ export function StockTakeSection() {
     setLoading(true)
     try {
       const res = await fetch('/api/stock-take', { headers: authHeaders() })
-      if (res.ok) setStockTakes(await res.json())
+      if (res.ok) {
+        setStockTakes(await res.json())
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Network error' }))
+        addToast({ title: 'Error', description: err.error || err.detail || 'Failed to fetch stock takes', variant: 'destructive' })
+      }
     } catch (err) {
       console.error('Failed to fetch stock takes:', err)
+      addToast({ title: 'Error', description: 'Network error fetching stock takes', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [addToast])
 
   useEffect(() => { fetchStockTakes() }, [fetchStockTakes])
 
@@ -140,9 +146,12 @@ export function StockTakeSection() {
           }
         }
         setCountedItems(counts)
+      } else {
+        addToast({ title: 'Error', description: 'Failed to load stock take details', variant: 'destructive' })
       }
     } catch (err) {
       console.error('Failed to fetch stock take detail:', err)
+      addToast({ title: 'Error', description: 'Network error loading stock take', variant: 'destructive' })
     }
   }
 
