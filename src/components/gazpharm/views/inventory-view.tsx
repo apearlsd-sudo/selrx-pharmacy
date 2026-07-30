@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
@@ -163,24 +163,28 @@ export function InventoryView() {
     }
   }, [])
 
-  useEffect(() => { fetchInventory(); fetchCategories(); fetchManufacturers(); fetchVendors() }, [fetchInventory, fetchCategories, fetchManufacturers, fetchVendors])
+  // Separate stable fetches from search-dependent inventory fetch
+  useEffect(() => { fetchCategories(); fetchManufacturers(); fetchVendors() }, [fetchCategories, fetchManufacturers, fetchVendors])
+  useEffect(() => { fetchInventory() }, [fetchInventory])
 
-  const filteredItems = items.filter((item) => {
-    const q = Number(item.quantity) || 0
-    const r = Number(item.product.reorderPoint) || 10
-    if (stockFilter === 'LOW') return q > 0 && q <= r
-    if (stockFilter === 'OUT') return q === 0
-    if (stockFilter === 'OK') return q > r
-    return true
-  }).sort((a, b) => {
-    if (sortBy === 'name') return sortDir === 'asc' ? a.product.name.localeCompare(b.product.name) : b.product.name.localeCompare(a.product.name)
-    if (sortBy === 'stock') return sortDir === 'asc' ? (Number(a.quantity)||0) - (Number(b.quantity)||0) : (Number(b.quantity)||0) - (Number(a.quantity)||0)
-    return sortDir === 'asc' ? a.product.category.localeCompare(b.product.category) : b.product.category.localeCompare(a.product.category)
-  })
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const q = Number(item.quantity) || 0
+      const r = Number(item.product.reorderPoint) || 10
+      if (stockFilter === 'LOW') return q > 0 && q <= r
+      if (stockFilter === 'OUT') return q === 0
+      if (stockFilter === 'OK') return q > r
+      return true
+    }).sort((a, b) => {
+      if (sortBy === 'name') return sortDir === 'asc' ? a.product.name.localeCompare(b.product.name) : b.product.name.localeCompare(a.product.name)
+      if (sortBy === 'stock') return sortDir === 'asc' ? (Number(a.quantity)||0) - (Number(b.quantity)||0) : (Number(b.quantity)||0) - (Number(a.quantity)||0)
+      return sortDir === 'asc' ? a.product.category.localeCompare(b.product.category) : b.product.category.localeCompare(a.product.category)
+    })
+  }, [items, stockFilter, sortBy, sortDir])
 
-  const lowStockCount = items.filter((i) => { const q = Number(i.quantity) || 0; const r = Number(i.product.reorderPoint) || 10; return q > 0 && q <= r }).length
-  const outOfStockCount = items.filter((i) => (Number(i.quantity) || 0) === 0).length
-  const totalValue = items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0)
+  const lowStockCount = useMemo(() => items.filter((i) => { const q = Number(i.quantity) || 0; const r = Number(i.product.reorderPoint) || 10; return q > 0 && q <= r }).length, [items])
+  const outOfStockCount = useMemo(() => items.filter((i) => (Number(i.quantity) || 0) === 0).length, [items])
+  const totalValue = useMemo(() => items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0), [items])
 
   const handleAdjust = async () => {
     if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return

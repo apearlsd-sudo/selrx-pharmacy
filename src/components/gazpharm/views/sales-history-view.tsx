@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ShoppingCart, TrendingUp,
   Users, CalendarDays, Download,
@@ -151,20 +151,20 @@ export function SalesHistoryView() {
     fetchSalesHistory()
   }, [fetchSalesHistory])
 
-  // Sort salesByUser
-  const sortedUserSales = (data?.salesByUser || []).sort((a: any, b: any) => {
+  // Sort salesByUser (memoized)
+  const sortedUserSales = useMemo(() => (data?.salesByUser || []).sort((a: any, b: any) => {
     const aVal = a[sortField] || 0
     const bVal = b[sortField] || 0
     return sortDir === 'asc' ? aVal - bVal : bVal - aVal
-  })
+  }), [data?.salesByUser, sortField, sortDir])
 
-  // User performance chart data
-  const userChart = (data?.salesByUser || []).slice(0, 8).map((u: any, i: number) => ({
+  // User performance chart data (memoized)
+  const userChart = useMemo(() => (data?.salesByUser || []).slice(0, 8).map((u: any, i: number) => ({
     name: u.userName?.split(' ')[0] || 'Unknown',
     sales: u.totalSales,
     transactions: u.transactionCount,
     fill: CHART_COLORS[i % CHART_COLORS.length],
-  }))
+  })), [data?.salesByUser])
 
   // Daily trend chart
   const dailyChartData = (data?.dailySales || []).map((d: any) => ({

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ClipboardCheck, Play, Save, AlertTriangle, Eye, ArrowLeft, RefreshCw,
   Search, CheckCircle2, XCircle, Clock, Plus, Trash2, FileText,
@@ -287,16 +287,16 @@ export function StockTakeSection() {
     return styles[status] || 'bg-gray-100 text-gray-700'
   }
 
-  // Filter inventory by search query
-  const filteredInventory = inventory.filter((inv) => {
-    if (!inventorySearch.trim()) return true
+  // Filter inventory by search query (memoized to avoid recomputing on every state change)
+  const filteredInventory = useMemo(() => {
+    if (!inventorySearch.trim()) return inventory
     const q = inventorySearch.toLowerCase()
-    return (
+    return inventory.filter((inv) => (
       (inv.product?.name || '').toLowerCase().includes(q) ||
       (inv.product?.ndc || '').toLowerCase().includes(q) ||
       (inv.product?.category || '').toLowerCase().includes(q)
-    )
-  })
+    ))
+  }, [inventory, inventorySearch])
 
   // ── New Stock Take Form ──
   if (view === 'new') {

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   UserCog, Shield, CheckCircle, XCircle, Edit, Clock, Plus, Ban, UserCheck,
   LayoutDashboard, ShoppingCart, Package, FileText, Users, Monitor, BarChart3, Eye, Trash2,
@@ -629,8 +629,8 @@ export function UsersView() {
     return getRolePerms(user.role)
   }
 
-  // Filter users
-  const filteredUsers = users.filter((userItem) => {
+  // Filter users (memoized)
+  const filteredUsers = useMemo(() => users.filter((userItem) => {
     const matchesSearch = searchQuery === '' || 
       userItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       userItem.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -642,14 +642,14 @@ export function UsersView() {
     const meta = ROLE_METADATA[userItem.role]
     const matchesTier = filterTier === 'all' || meta?.tier === filterTier
     return matchesSearch && matchesRole && matchesStatus && matchesTier
-  })
+  }), [users, searchQuery, filterRole, filterStatus, filterTier])
 
-  // Count by privilege tier
-  const tierCounts = Object.entries(PRIVILEGE_TIERS).map(([tier, info]) => ({
+  // Count by privilege tier (memoized)
+  const tierCounts = useMemo(() => Object.entries(PRIVILEGE_TIERS).map(([tier, info]) => ({
     tier,
     ...info,
     count: users.filter(u => ROLE_METADATA[u.role]?.tier === tier).length,
-  }))
+  })), [users])
 
   return (
     <div className="space-y-4">
