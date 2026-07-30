@@ -345,7 +345,7 @@ export function StockTakeSection() {
               </div>
             </div>
             <Badge className={statusBadge(selectedTake.status)}>
-              {selectedTake.status.replace(/_/g, ' ')}
+              {(selectedTake.status || '').replace(/_/g, ' ')}
             </Badge>
           </div>
         </CardHeader>
@@ -560,7 +560,7 @@ export function StockTakeSection() {
                     {st.items?.length || 0} items
                   </span>
                   <Badge className={statusBadge(st.status)} variant="secondary">
-                    {st.status.replace(/_/g, ' ')}
+                    {(st.status || '').replace(/_/g, ' ')}
                   </Badge>
                   {st.status === 'COMPLETED' && (
                     <Button

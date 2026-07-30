@@ -425,7 +425,7 @@ export function ReportsView() {
                   <SelectContent>
                     <SelectItem value="all">All Users</SelectItem>
                     {allUsers.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name} ({u.role.replace('_', ' ')})</SelectItem>
+                      <SelectItem key={u.id} value={u.id}>{u.name} ({(u.role || '').replace('_', ' ')})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -623,7 +623,7 @@ export function ReportsView() {
                           )}
                           {isSuperAdmin && selectedUserId === 'all' && (
                             <TableCell className="hidden md:table-cell">
-                              <Badge variant="outline" className="text-[10px]">{u.userRole.replace('_', ' ')}</Badge>
+                              <Badge variant="outline" className="text-[10px]">{(u.userRole || '').replace('_', ' ')}</Badge>
                             </TableCell>
                           )}
                           <TableCell className="text-right">{u.transactionCount}</TableCell>

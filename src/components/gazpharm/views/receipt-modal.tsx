@@ -164,7 +164,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
               )}
               <div className="flex justify-between">
                 <span className="text-gray-500">Payment:</span>
-                <span>{transaction.paymentMethod.replace(/_/g, ' ')}</span>
+                <span>{(transaction.paymentMethod || '').replace(/_/g, ' ')}</span>
               </div>
             </div>
 

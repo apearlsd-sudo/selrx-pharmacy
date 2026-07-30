@@ -101,7 +101,7 @@ export function ReturnTicketModal({ returnData, open, onClose }: ReturnTicketMod
                 returnData.status === 'CANCELLED' ? 'text-gray-500' :
                 'text-amber-600'
               }`}>
-                {returnData.status.replace(/_/g, ' ')}
+                {(returnData.status || '').replace(/_/g, ' ')}
               </span>
             </div>
             <div className="flex justify-between">

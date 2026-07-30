@@ -87,7 +87,7 @@ function reasonBadgeColor(reason: string): string {
 }
 
 function reasonLabel(reason: string): string {
-  return reason.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  return (reason || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 // Status badge
@@ -568,7 +568,7 @@ export function GoodsReturnView() {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Refund Method</p>
-                  <p className="font-semibold text-gray-900">{detailReturn.refundMethod.replace(/_/g, ' ')}</p>
+                  <p className="font-semibold text-gray-900">{(detailReturn.refundMethod || '').replace(/_/g, ' ')}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Processed By</p>
