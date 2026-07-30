@@ -440,3 +440,26 @@ Stage Summary:
 - 13 files changed, 31 insertions, 31 deletions
 - Sales history, dashboard, inventory, returns, transactions should all now return proper data
 - Reports, users, receipt modal, stock-take pages should no longer crash on null data
+---
+Task ID: 3
+Agent: main
+Task: Fix user creation failing + harden dynamic column detection
+
+Work Log:
+- Verified existing PRAGMA table_info implementation in /api/users/route.ts
+- Confirmed libsql Row type supports both indexed (row[0]) and named (row.name) access
+- Confirmed detail field already present in all 500 error responses
+- Confirmed frontend already surfaces err.detail in toast messages
+- Identified dead filterArgs() helper with incorrect index mapping (not used anywhere, removed)
+- Identified unused INSERT_COL_LIST constant (removed)
+- Added zero-row guard: if PRAGMA table_info returns 0 columns, fail early with clear error
+- Added console.error warning when PRAGMA returns empty result set
+- Pushed 4 previously unpushed commits (23f291f..e0f0ad3) to origin/main
+- Pushed hardening commit e3c8fb2
+
+Stage Summary:
+- All 5 commits now deployed to Vercel via git push
+- User creation uses PRAGMA table_info for dynamic SQL — only references columns that exist
+- All 500 errors now include 'detail' field with actual SQL error message
+- Frontend toasts show detail when available: "error: detail"
+- Zero-row guard prevents broken INSERT SQL if table detection fails
