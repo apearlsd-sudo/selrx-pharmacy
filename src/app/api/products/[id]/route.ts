@@ -117,8 +117,9 @@ export async function GET(
     }
   } catch (error) {
     console.error('Error fetching product:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to fetch product' },
+      { error: 'Failed to fetch product', detail: msg },
       { status: 500 }
     )
   }
@@ -384,8 +385,9 @@ export async function PUT(
     }
   } catch (error) {
     console.error('Error updating product:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to update product' },
+      { error: 'Failed to update product', detail: msg },
       { status: 500 }
     )
   }
@@ -486,8 +488,9 @@ export async function DELETE(
     }
   } catch (error) {
     console.error('Error deleting product:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { error: 'Failed to delete product', detail: msg },
       { status: 500 }
     )
   }

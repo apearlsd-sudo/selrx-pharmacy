@@ -159,7 +159,8 @@ export async function GET(
     return NextResponse.json({ return: returnRecord })
   } catch (error) {
     console.error('GET /api/returns/[id] error:', error)
-    return NextResponse.json({ error: 'Failed to fetch return' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch return', detail: msg }, { status: 500 })
   }
 }
 
@@ -566,6 +567,7 @@ export async function PUT(
     return NextResponse.json({ return: updated })
   } catch (error) {
     console.error('PUT /api/returns/[id] error:', error)
-    return NextResponse.json({ error: 'Failed to update return' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to update return', detail: msg }, { status: 500 })
   }
 }

@@ -158,8 +158,9 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error fetching prescriptions:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to fetch prescriptions' },
+      { error: 'Failed to fetch prescriptions', detail: msg },
       { status: 500 }
     )
   }
@@ -298,8 +299,9 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error creating prescription:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to create prescription' },
+      { error: 'Failed to create prescription', detail: msg },
       { status: 500 }
     )
   }

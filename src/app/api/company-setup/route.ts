@@ -65,8 +65,9 @@ export async function GET() {
     }
   } catch (error) {
     console.error('GET /api/company-setup error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to check company status' },
+      { error: 'Failed to check company status', detail: msg },
       { status: 500 }
     )
   }
@@ -325,8 +326,9 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error('POST /api/company-setup error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to create company' },
+      { error: 'Failed to create company', detail: msg },
       { status: 500 }
     )
   }

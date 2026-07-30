@@ -310,7 +310,8 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching transactions:', error)
-    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch transactions', detail: msg }, { status: 500 })
   }
 }
 

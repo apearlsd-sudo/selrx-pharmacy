@@ -194,8 +194,9 @@ export async function GET(
     }
   } catch (error) {
     console.error('Error fetching prescription:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to fetch prescription' },
+      { error: 'Failed to fetch prescription', detail: msg },
       { status: 500 }
     )
   }
@@ -605,8 +606,9 @@ export async function PUT(
     }
   } catch (error) {
     console.error('Error updating prescription:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to update prescription' },
+      { error: 'Failed to update prescription', detail: msg },
       { status: 500 }
     )
   }

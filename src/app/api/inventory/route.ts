@@ -176,7 +176,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(merged)
   } catch (error) {
     console.error('Error fetching inventory:', error)
-    return NextResponse.json({ error: 'Failed to fetch inventory' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch inventory', detail: msg }, { status: 500 })
   }
 }
 
@@ -403,7 +404,8 @@ export async function PUT(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error updating inventory:', error)
-    return NextResponse.json({ error: 'Failed to update inventory' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to update inventory', detail: msg }, { status: 500 })
   }
 }
 
@@ -507,6 +509,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error receiving stock:', error)
-    return NextResponse.json({ error: 'Failed to receive stock' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to receive stock', detail: msg }, { status: 500 })
   }
 }

@@ -246,6 +246,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error('Error fetching product sales analytics:', error)
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch analytics', detail: msg }, { status: 500 })
   }
 }

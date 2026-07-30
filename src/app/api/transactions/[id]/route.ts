@@ -167,7 +167,8 @@ export async function GET(
     return NextResponse.json(transaction)
   } catch (error) {
     console.error('Error fetching transaction:', error)
-    return NextResponse.json({ error: 'Failed to fetch transaction' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch transaction', detail: msg }, { status: 500 })
   }
 }
 
@@ -353,6 +354,7 @@ export async function POST(
     })
   } catch (error) {
     console.error('Error voiding transaction:', error)
-    return NextResponse.json({ error: 'Failed to void transaction' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to void transaction', detail: msg }, { status: 500 })
   }
 }

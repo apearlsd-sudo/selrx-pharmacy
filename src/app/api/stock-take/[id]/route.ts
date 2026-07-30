@@ -94,7 +94,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch (error) {
     console.error('Error fetching stock take:', error)
-    return NextResponse.json({ error: 'Failed to fetch stock take' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch stock take', detail: msg }, { status: 500 })
   }
 }
 
@@ -453,7 +454,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch (error) {
     console.error('Error updating stock take:', error)
-    return NextResponse.json({ error: 'Failed to update stock take' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to update stock take', detail: msg }, { status: 500 })
   }
 }
 
@@ -496,7 +498,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
   } catch (error) {
     console.error('Error deleting stock take:', error)
-    return NextResponse.json({ error: 'Failed to delete stock take' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to delete stock take', detail: msg }, { status: 500 })
   }
 }
 

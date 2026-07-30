@@ -1,7 +1,7 @@
 /**
  * src/lib/turso.ts
  *
- * Shared Turso/libsql client with lazy initialization and retry logic.
+ * Shared Turso/libsql client singleton.
  * All API routes should use this instead of Prisma's db client
  * to avoid the Prisma+LibSQL adapter runtime crash on Vercel.
  *
@@ -12,57 +12,54 @@
 
 import { createClient, type Client } from '@libsql/client'
 
-const _globalForTurso = globalThis as unknown as {
+const globalForTurso = globalThis as unknown as {
   turso: Client | undefined
-  _tursoCreating: Promise<Client> | undefined
 }
 
 /**
- * Lazily create the Turso client — only connects when actually used,
- * not at module load time. This prevents build failures when
- * TURSO_DATABASE_URL is not set during `next build`.
+ * Creates the Turso client.
+ *
+ * When TURSO_DATABASE_URL is set (Vercel / local-with-Turso):
+ *   Returns a real libsql Client — no Proxy, no indirection.
+ *
+ * When TURSO_DATABASE_URL is NOT set (build / local-without-Turso):
+ *   Returns a dead-client placeholder that throws a clear error on any
+ *   method call. This allows the module to load during `next build`
+ *   without crashing, while still failing fast if accidentally used.
  */
-function getOrCreateTurso(): Client {
-  // Return cached singleton if available
-  if (_globalForTurso.turso) return _globalForTurso.turso
-
+function createTursoClient(): Client {
   const tursoUrl = process.env.TURSO_DATABASE_URL
+  const authToken = process.env.DATABASE_AUTH_TOKEN
+
   if (!tursoUrl) {
-    throw new Error(
-      'TURSO_DATABASE_URL is not set. ' +
-      'This is expected during build or if running locally without Turso. ' +
-      'Set TURSO_DATABASE_URL in your .env or Vercel environment variables.'
-    )
+    // Dead client — module loads safely, but any actual use throws immediately
+    return new Proxy({} as Client, {
+      get() {
+        throw new Error(
+          '[turso] TURSO_DATABASE_URL is not set. ' +
+          'Database operations are unavailable. ' +
+          'This is expected during `next build` or local dev without Turso.'
+        )
+      },
+    })
   }
 
-  const client = createClient({
+  return createClient({
     url: tursoUrl,
-    authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+    authToken: authToken || undefined,
   })
-
-  if (process.env.NODE_ENV !== 'production') {
-    _globalForTurso.turso = client
-  }
-
-  return client
 }
 
 /**
- * Turso client proxy — lazily initializes on first use.
- * In development, the singleton is cached on globalThis to survive HMR.
- * In production (Vercel), a new client is created per serverless invocation,
- * which is the correct behavior for serverless functions.
+ * Singleton turso client. Uses globalThis singleton pattern to survive
+ * hot reloads during local dev (same pattern as Prisma's recommended setup).
  */
-export const turso: Client = new Proxy({} as Client, {
-  get(_target, prop, receiver) {
-    const client = getOrCreateTurso()
-    const value = Reflect.get(client, prop, receiver)
-    if (typeof value === 'function') {
-      return value.bind(client)
-    }
-    return value
-  },
-})
+export const turso: Client =
+  globalForTurso.turso ?? createTursoClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForTurso.turso = turso
+}
 
 /**
  * Returns true if we're running with a remote Turso database.
@@ -74,17 +71,15 @@ export function isTurso(): boolean {
 
 /**
  * Execute a query with automatic retry on transient failures.
- * Turso HTTP connections can occasionally fail with network errors;
- * this wrapper retries up to `maxRetries` times with exponential backoff.
  */
 export async function tursoExecute(
-  params: { sql: string; args?: unknown[] },
+  params: { sql: string; args?: (string | number | boolean | null | undefined)[] },
   maxRetries = 2
 ) {
   let lastError: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await turso.execute(params as { sql: string; args?: (string | number | boolean | null | undefined)[] })
+      return await turso.execute(params)
     } catch (error) {
       lastError = error
       const isTransient =
@@ -110,13 +105,13 @@ export async function tursoExecute(
  * Execute multiple statements in a batch with retry.
  */
 export async function tursoBatch(
-  stmts: Array<{ sql: string; args?: unknown[] }>,
+  stmts: Array<{ sql: string; args?: (string | number | boolean | null | undefined)[] }>,
   maxRetries = 2
 ) {
   let lastError: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await turso.batch(stmts as Array<{ sql: string; args?: (string | number | boolean | null | undefined)[] }>)
+      return await turso.batch(stmts)
     } catch (error) {
       lastError = error
       const isTransient =

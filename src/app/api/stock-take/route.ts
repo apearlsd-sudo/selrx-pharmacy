@@ -192,7 +192,8 @@ export async function GET(req: NextRequest) {
     }
   } catch (error) {
     console.error('Error fetching stock takes:', error)
-    return NextResponse.json({ error: 'Failed to fetch stock takes' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch stock takes', detail: msg }, { status: 500 })
   }
 }
 

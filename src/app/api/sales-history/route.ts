@@ -490,8 +490,9 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching sales history:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to fetch sales history' },
+      { error: 'Failed to fetch sales history', detail: msg },
       { status: 500 }
     )
   }

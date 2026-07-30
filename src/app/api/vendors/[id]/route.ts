@@ -91,7 +91,8 @@ export async function PUT(
         return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
       }
     }
-    return NextResponse.json({ error: 'Failed to update vendor' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to update vendor', detail: msg }, { status: 500 })
   }
 }
 
@@ -147,8 +148,9 @@ export async function DELETE(
     }
   } catch (error) {
     console.error('Error deleting vendor:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to delete vendor' },
+      { error: 'Failed to delete vendor', detail: msg },
       { status: 500 }
     )
   }

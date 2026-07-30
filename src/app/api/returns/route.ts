@@ -247,7 +247,8 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error('GET /api/returns error:', error)
-    return NextResponse.json({ error: 'Failed to fetch returns' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to fetch returns', detail: msg }, { status: 500 })
   }
 }
 
@@ -424,6 +425,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ return: returnRecord }, { status: 201 })
   } catch (error) {
     console.error('POST /api/returns error:', error)
-    return NextResponse.json({ error: 'Failed to create return' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to create return', detail: msg }, { status: 500 })
   }
 }
