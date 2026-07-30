@@ -60,7 +60,7 @@ export function InventoryView() {
   const [manufacturers, setManufacturers] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
   const [vendors, setVendors] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
-  const [adjustType, setAdjustType] = useState('ADD')
+  const [adjustType, setAdjustType] = useState('SET')
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
@@ -761,7 +761,7 @@ export function InventoryView() {
                       <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustDialog(true) }}>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />
                           Adjust
                         </Button>
@@ -1209,7 +1209,7 @@ export function InventoryView() {
                 </div>
                 <div>
                   <Label>Quantity</Label>
-                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="Leave blank to skip stock change" className="mt-1" />
+                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="New total stock count" className="mt-1" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
