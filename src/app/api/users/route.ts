@@ -22,7 +22,11 @@ async function getUserColumns(): Promise<Set<string>> {
     return _cachedColumns
   }
   const info = await turso.execute({ sql: `PRAGMA table_info("User")`, args: [] })
-  _cachedColumns = new Set(info.rows.map(r => (r.name as string).toLowerCase()))
+  const detected = new Set(info.rows.map(r => (r.name as string).toLowerCase()))
+  if (detected.size === 0) {
+    console.error('[getUserColumns] PRAGMA table_info("User") returned 0 rows — table may not exist')
+  }
+  _cachedColumns = detected
   return _cachedColumns
 }
 
@@ -32,21 +36,11 @@ async function existingCols(want: string[]): Promise<string> {
   return want.filter(c => cols.has(c.toLowerCase())).map(c => `"${c}"`).join(', ')
 }
 
-/** Filter an args array to only include values for columns that exist */
-async function filterArgs(want: string[], args: unknown[]): Promise<unknown[]> {
-  const cols = await getUserColumns()
-  return want.filter(c => cols.has(c.toLowerCase())).map((_, i) => args[i])
-}
-
-// All columns we'd like to SELECT/INSERT (in order)
+// All columns we'd like to SELECT (in order)
 const FULL_COL_LIST = [
   'id','email','name','role','phone','licenseNumber',
   'permissions','department','shift','hireDate','active',
   'lastLogin','createdAt','updatedAt',
-]
-const INSERT_COL_LIST = [
-  'id','email','password','name','role','phone','licenseNumber',
-  'permissions','department','shift','hireDate','active','createdAt','updatedAt',
 ]
 
 // Helper: convert SQLite row (with 0/1 booleans) to a proper JS object
@@ -220,6 +214,12 @@ export async function POST(request: NextRequest) {
 
       // Build INSERT dynamically based on columns that actually exist
       const allCols = await getUserColumns()
+      if (allCols.size === 0) {
+        return NextResponse.json(
+          { error: 'User table schema could not be detected', detail: 'PRAGMA table_info("User") returned 0 columns' },
+          { status: 500 }
+        )
+      }
       const insertCols: string[] = []
       const insertArgs: unknown[] = []
       const placeholders: string[] = []
