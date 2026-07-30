@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Pill,
   LayoutDashboard,
@@ -36,6 +36,16 @@ import {
 import { useAppStore } from '@/store/app-store'
 import type { ViewName } from '@/store/app-store'
 import { useIsMobile } from '@/hooks/use-mobile'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface NavItem {
   label: string
@@ -149,7 +159,14 @@ function SidebarNavContent({
     [setCurrentView, onNavClick]
   )
 
+  const [logoutOpen, setLogoutOpen] = useState(false)
+
   const handleLogout = useCallback(() => {
+    setLogoutOpen(true)
+  }, [])
+
+  const confirmLogout = useCallback(() => {
+    setLogoutOpen(false)
     logout()
     onNavClick?.()
   }, [logout, onNavClick])
@@ -289,6 +306,23 @@ function SidebarNavContent({
           </>
         )}
       </div>
+
+      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to sign out? Any unsaved changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLogout} className="bg-red-600 hover:bg-red-700">
+              Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
