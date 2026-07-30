@@ -182,8 +182,6 @@ export default function Home() {
         if (savedCompany.currency) {
           store.setCurrency(savedCompany.currency as CurrencyCode)
         }
-        companyRestored = true
-        finish()
       } else {
         // No cached company — check server
         fetch('/api/company-setup')
@@ -207,6 +205,17 @@ export default function Home() {
             finish()
           })
       }
+
+      // Restore receipt settings from localStorage
+      const receiptData = localStorage.getItem('selrx_receipt_settings')
+      if (receiptData) {
+        const rs = JSON.parse(receiptData)
+        if (typeof rs.autoPrintReceipt === 'boolean') store.setAutoPrintReceipt(rs.autoPrintReceipt)
+        if (typeof rs.showReceiptModal === 'boolean') store.setShowReceiptModal(rs.showReceiptModal)
+      }
+
+      companyRestored = true
+      finish()
     } catch {
       store.setIsCompanySetup(true)
       companyRestored = true

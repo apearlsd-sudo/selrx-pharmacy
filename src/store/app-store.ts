@@ -184,6 +184,7 @@ export type AppState = NavigationState &
   InventoryUIState &
   CompanyState &
   CurrencyState &
+  ReceiptSettingsState &
   UIState
 
 // ============ STORE ============
@@ -360,11 +361,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   currency: 'GHS' as CurrencyCode,
   setCurrency: (code) => set({ currency: code }),
 
-  // ---- Receipt Settings ----
+  // ---- Receipt Settings (persisted to localStorage) ----
   autoPrintReceipt: false,
-  setAutoPrintReceipt: (val) => set({ autoPrintReceipt: val }),
+  setAutoPrintReceipt: (val) => {
+    set({ autoPrintReceipt: val })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
+        autoPrintReceipt: val,
+        showReceiptModal: get().showReceiptModal,
+      }))
+    }
+  },
   showReceiptModal: true,
-  setShowReceiptModal: (val) => set({ showReceiptModal: val }),
+  setShowReceiptModal: (val) => {
+    set({ showReceiptModal: val })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
+        autoPrintReceipt: get().autoPrintReceipt,
+        showReceiptModal: val,
+      }))
+    }
+  },
 }))
 
 // ============ COMPUTED VALUES (selectors) ============

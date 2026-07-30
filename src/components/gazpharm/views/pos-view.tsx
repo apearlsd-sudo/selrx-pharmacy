@@ -101,6 +101,8 @@ export function POSView() {
   const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
   const addToast = useAppStore((s) => s.addToast)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+  const showReceiptModal = useAppStore((s) => s.showReceiptModal)
+  const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0)
   const tax = 0
@@ -314,7 +316,6 @@ export function POSView() {
       }
 
       const transaction = await res.json()
-      setReceiptTxn(transaction)
       clearCart()
       setAmountTendered('')
       addToast({
@@ -323,6 +324,23 @@ export function POSView() {
         variant: 'success',
         duration: 3000,
       })
+
+      // Handle receipt based on settings
+      if (showReceiptModal) {
+        setReceiptTxn(transaction)
+      }
+      if (autoPrintReceipt) {
+        // Auto-send receipt to printer (fire-and-forget)
+        fetch('/api/hardware?action=receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transactionId: transaction.id,
+            hardwareType: 'receipt_printer',
+            details: { transactionNo: transaction.transactionNo, total: transaction.total },
+          }),
+        }).catch(() => { /* silent fail for auto-print */ })
+      }
     } catch (err) {
       addToast({
         title: 'Payment Failed',
