@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
                        COALESCE(SUM(ti."subtotal"), 0) as totalRevenue,
                        COUNT(*)                        as transactions
                 FROM TransactionItem ti
-                JOIN Transaction t ON ti."transactionId" = t."id"
+                JOIN "Transaction" t ON ti."transactionId" = t."id"
                 WHERE ${txWhere} ${categoryClause}
                 GROUP BY ti."productId", ti."productName"
                 ORDER BY totalQuantity DESC`,
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
           sql: `SELECT ti."productId",
                        MAX(ti."createdAt") as lastSold
                 FROM TransactionItem ti
-                JOIN Transaction t ON ti."transactionId" = t."id"
+                JOIN "Transaction" t ON ti."transactionId" = t."id"
                 WHERE ${txWhere} ${categoryClause}
                 GROUP BY ti."productId"`,
           args: [...args],

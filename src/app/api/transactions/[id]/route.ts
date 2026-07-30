@@ -49,7 +49,7 @@ export async function GET(
                       pr.id as pr_id, pr.rxNumber as pr_rxNumber, pr.productName as pr_productName,
                       hl.id as hl_id, hl.hardwareType as hl_hardwareType, hl.action as hl_action,
                       hl.status as hl_status, hl.details as hl_details, hl.createdAt as hl_createdAt
-               FROM Transaction t
+               FROM "Transaction" t
                LEFT JOIN User u ON t.userId = u.id
                LEFT JOIN Customer c ON t.customerId = c.id
                LEFT JOIN Prescription pr ON t.prescriptionId = pr.id
@@ -200,7 +200,7 @@ export async function POST(
     if (isTurso()) {
       // 1. Check transaction exists and its status
       const txnResult = await turso.execute({
-        sql: 'SELECT status FROM Transaction WHERE id = ?',
+        sql: 'SELECT status FROM "Transaction" WHERE id = ?',
         args: [id],
       })
 
@@ -244,7 +244,7 @@ export async function POST(
 
       // 4. Update transaction status to VOIDED
       await turso.execute({
-        sql: "UPDATE Transaction SET status = 'VOIDED', updatedAt = ? WHERE id = ?",
+        sql: "UPDATE \"Transaction\" SET status = 'VOIDED', updatedAt = ? WHERE id = ?",
         args: [now, id],
       })
 
@@ -258,7 +258,7 @@ export async function POST(
                       t.notes as t_notes, t.createdAt as t_createdAt, t.updatedAt as t_updatedAt,
                       u.id as u_id, u.name as u_name,
                       c.id as c_id, c.firstName as c_firstName, c.lastName as c_lastName
-               FROM Transaction t
+               FROM "Transaction" t
                LEFT JOIN User u ON t.userId = u.id
                LEFT JOIN Customer c ON t.customerId = c.id
                WHERE t.id = ?`,

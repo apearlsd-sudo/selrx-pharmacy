@@ -53,14 +53,14 @@ export async function GET(request: NextRequest) {
 
         // Today's completed transactions
         const todayResult = await turso.execute({
-          sql: `SELECT total FROM Transaction
+          sql: `SELECT total FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
           args: [startOfDay.toISOString(), ...commonArgs],
         })
 
         // Week's completed transactions
         const weekResult = await turso.execute({
-          sql: `SELECT id, total, createdAt FROM Transaction
+          sql: `SELECT id, total, createdAt FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}
                 ORDER BY createdAt ASC`,
           args: [startOfWeek.toISOString(), ...commonArgs],
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
         // Month's completed transactions (we need totals only)
         const monthResult = await turso.execute({
-          sql: `SELECT total FROM Transaction
+          sql: `SELECT total FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
           args: [startOfMonth.toISOString(), ...commonArgs],
         })
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
           sql: `SELECT ti.productId as productId, ti.productName as productName,
                        SUM(ti.quantity) as totalQty, SUM(ti.subtotal) as totalSubtotal
                 FROM TransactionItem ti
-                JOIN Transaction t ON ti.transactionId = t.id
+                JOIN "Transaction" t ON ti.transactionId = t.id
                 WHERE t.status = 'COMPLETED' AND t.createdAt >= ?${userClause}
                 GROUP BY ti.productId, ti.productName
                 ORDER BY totalSubtotal DESC
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
 
       // Total count
       const countResult = await turso.execute({
-        sql: `SELECT COUNT(*) as cnt FROM Transaction t
+        sql: `SELECT COUNT(*) as cnt FROM "Transaction" t
               LEFT JOIN Customer c ON t.customerId = c.id
               ${whereClause}`,
         args,
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
                       t.notes as t_notes, t.createdAt as t_createdAt, t.updatedAt as t_updatedAt,
                       u.id as u_id, u.name as u_name, u.email as u_email,
                       c.id as c_id, c.firstName as c_firstName, c.lastName as c_lastName
-               FROM Transaction t
+               FROM "Transaction" t
                LEFT JOIN User u ON t.userId = u.id
                LEFT JOIN Customer c ON t.customerId = c.id
                ${whereClause}
@@ -385,7 +385,7 @@ export async function POST(request: NextRequest) {
 
       // 3. Insert Transaction
       await turso.execute({
-        sql: `INSERT INTO Transaction
+        sql: `INSERT INTO "Transaction"
               (id, transactionNo, customerId, userId, subtotal, tax, discount, total,
                paymentMethod, paymentAmount, changeAmount, status, prescriptionId, notes, createdAt, updatedAt)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -435,7 +435,7 @@ export async function POST(request: NextRequest) {
                       t.notes as t_notes, t.createdAt as t_createdAt, t.updatedAt as t_updatedAt,
                       u.id as u_id, u.name as u_name, u.email as u_email,
                       c.id as c_id, c.firstName as c_firstName, c.lastName as c_lastName
-               FROM Transaction t
+               FROM "Transaction" t
                LEFT JOIN User u ON t.userId = u.id
                LEFT JOIN Customer c ON t.customerId = c.id
                WHERE t.id = ?`,

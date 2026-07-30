@@ -48,14 +48,14 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
         // 1. Today's completed transactions
         turso.execute({
-          sql: `SELECT total FROM Transaction
+          sql: `SELECT total FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
           args: [startOfDay.toISOString(), ...userArgs],
         }),
 
         // 2. Week's completed transactions (for trend)
         turso.execute({
-          sql: `SELECT id, total, createdAt FROM Transaction
+          sql: `SELECT id, total, createdAt FROM "Transaction"
                 WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}
                 ORDER BY createdAt ASC`,
           args: [startOfWeek.toISOString(), ...userArgs],
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
           sql: `SELECT ti.productId as productId, ti.productName as productName,
                        SUM(ti.quantity) as totalQty, SUM(ti.subtotal) as totalSubtotal
                 FROM TransactionItem ti
-                JOIN Transaction t ON ti.transactionId = t.id
+                JOIN "Transaction" t ON ti.transactionId = t.id
                 WHERE t.status = 'COMPLETED' AND t.createdAt >= ?${userClause}
                 GROUP BY ti.productId, ti.productName
                 ORDER BY totalSubtotal DESC
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
                       t.status as t_status, t.createdAt as t_createdAt,
                       u.id as u_id, u.name as u_name,
                       c.id as c_id, c.firstName as c_firstName, c.lastName as c_lastName
-               FROM Transaction t
+               FROM "Transaction" t
                LEFT JOIN User u ON t.userId = u.id
                LEFT JOIN Customer c ON t.customerId = c.id
                ${isSuperAdmin ? '' : `WHERE t.userId = ?`}

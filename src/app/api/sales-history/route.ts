@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
           sql: `SELECT COALESCE(SUM(t."total"), 0) as totalSales,
                        COUNT(*)                     as totalTransactions,
                        COALESCE(SUM(t."discount"), 0) as totalDiscount
-                FROM Transaction t
+                FROM "Transaction" t
                 WHERE ${whereClause}`,
           args: [...args],
         }),
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
                        u."name"  as userName,
                        u."email" as userEmail,
                        u."role"  as userRole
-                FROM Transaction t
+                FROM "Transaction" t
                 LEFT JOIN User u ON t."userId" = u."id"
                 WHERE ${whereClause}
                 GROUP BY t."userId"
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
           sql: `SELECT t."userId",
                        COALESCE(SUM(ti."quantity"), 0) as totalItems
                 FROM TransactionItem ti
-                JOIN Transaction t ON ti."transactionId" = t."id"
+                JOIN "Transaction" t ON ti."transactionId" = t."id"
                 WHERE ${whereClause}
                 GROUP BY t."userId"`,
           args: [...args],
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
           sql: `SELECT date(t."createdAt")         as day,
                        COALESCE(SUM(t."total"), 0)  as totalSales,
                        COUNT(*)                      as txCount
-                FROM Transaction t
+                FROM "Transaction" t
                 WHERE ${whereClause}
                 GROUP BY date(t."createdAt")
                 ORDER BY day DESC
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
                        c."id"        as c_id,
                        c."firstName" as c_firstName,
                        c."lastName"  as c_lastName
-                FROM Transaction t
+                FROM "Transaction" t
                 LEFT JOIN User     u ON t."userId"     = u."id"
                 LEFT JOIN Customer c ON t."customerId" = c."id"
                 WHERE ${whereClause}
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
 
         // 6. Paginated total count
         turso.execute({
-          sql: `SELECT COUNT(*) as cnt FROM Transaction t WHERE ${whereClause}`,
+          sql: `SELECT COUNT(*) as cnt FROM "Transaction" t WHERE ${whereClause}`,
           args: [...args],
         }),
       ])
