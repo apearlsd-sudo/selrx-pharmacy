@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { ROLE_METADATA } from '@/lib/permissions'
 
+// Columns that were added after initial DB creation.
+// If the Turso table was created from an older schema, these may be missing.
+// This function safely adds them (ALTER TABLE ADD COLUMN is a no-op if the column exists,
+// but SQLite throws an error, so we catch it).
+let _schemaPatched = false
+async function ensureUserColumns() {
+  if (_schemaPatched || !isTurso()) return
+  _schemaPatched = true
+  const extraCols: Array<{ col: string; type: string }> = [
+    { col: '"department"', type: 'TEXT' },
+    { col: '"shift"', type: 'TEXT' },
+    { col: '"hireDate"', type: 'TEXT' },
+  ]
+  for (const { col, type } of extraCols) {
+    try {
+      await turso.execute({ sql: `ALTER TABLE "User" ADD COLUMN ${col} ${type}`, args: [] })
+    } catch (err: any) {
+      // SQLite: "duplicate column name" — expected, column already exists
+      if (!err?.message?.includes('duplicate column')) {
+        console.warn(`[ensureUserColumns] Unexpected error adding ${col}:`, err)
+      }
+    }
+  }
+}
+
 // Helper: convert SQLite row (with 0/1 booleans) to a proper JS object
 function rowToUser(row: Record<string, unknown>) {
   return {
@@ -25,6 +50,8 @@ function rowToUser(row: Record<string, unknown>) {
 // GET /api/users - List all users (admin only)
 export async function GET(request: NextRequest) {
   try {
+    await ensureUserColumns()
+
     const role = request.headers.get('x-user-role')
     if (role !== 'SUPER_ADMIN' && role !== 'PHARMACIST') {
       return NextResponse.json(
@@ -144,6 +171,8 @@ export async function GET(request: NextRequest) {
 // POST /api/users - Create user (SUPER_ADMIN only)
 export async function POST(request: NextRequest) {
   try {
+    await ensureUserColumns()
+
     const role = request.headers.get('x-user-role')
     if (role !== 'SUPER_ADMIN') {
       return NextResponse.json(
@@ -269,6 +298,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/users - Update user (role/status or own profile)
 export async function PUT(request: NextRequest) {
   try {
+    await ensureUserColumns()
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
     const targetUserId = searchParams.get('id')

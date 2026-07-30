@@ -390,7 +390,12 @@ export function UsersView() {
     setLoading(true)
     try {
       const res = await fetch('/api/users', { headers: authHeaders() })
-      if (res.ok) setUsers(await res.json())
+      if (res.ok) {
+        setUsers(await res.json())
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to load users' }))
+        addToast({ title: 'Error', description: err.error || `Failed to load users (${res.status})`, variant: 'destructive' })
+      }
     } catch {
       addToast({ title: 'Error', description: 'Failed to load users', variant: 'destructive' })
     } finally {
@@ -583,15 +588,19 @@ export function UsersView() {
 
   const handleToggleActive = async (user: UserItem) => {
     try {
-      await fetch(`/api/users?id=${user.id}`, {
+      const res = await fetch(`/api/users?id=${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ active: !user.active }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to update user' }))
+        throw new Error(err.error || 'Failed to update user')
+      }
       addToast({ title: user.active ? 'Deactivated' : 'Activated', description: `${user.name} ${user.active ? 'deactivated' : 'activated'}`, variant: 'success' })
       fetchUsers()
-    } catch {
-      addToast({ title: 'Error', description: 'Failed to update user', variant: 'destructive' })
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to update user', variant: 'destructive' })
     }
   }
 
