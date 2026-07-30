@@ -394,7 +394,7 @@ export function UsersView() {
         setUsers(await res.json())
       } else {
         const err = await res.json().catch(() => ({ error: 'Failed to load users' }))
-        addToast({ title: 'Error', description: err.error || `Failed to load users (${res.status})`, variant: 'destructive' })
+        addToast({ title: 'Error', description: err.detail ? `${err.error}: ${err.detail}` : (err.error || `Failed to load users (${res.status})`), variant: 'destructive' })
       }
     } catch {
       addToast({ title: 'Error', description: 'Failed to load users', variant: 'destructive' })
@@ -548,7 +548,7 @@ export function UsersView() {
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Failed to create user')
+        throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Failed to create user'))
       }
       addToast({ title: 'Created', description: 'User created successfully', variant: 'success' })
       setCreateDialog(false)
@@ -573,7 +573,7 @@ export function UsersView() {
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Failed to update user')
+        throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Failed to update user'))
       }
       addToast({ title: 'Updated', description: `${selectedUser.name} has been updated`, variant: 'success' })
       setEditDialog(false)
@@ -595,7 +595,7 @@ export function UsersView() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to update user' }))
-        throw new Error(err.error || 'Failed to update user')
+        throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Failed to update user'))
       }
       addToast({ title: user.active ? 'Deactivated' : 'Activated', description: `${user.name} ${user.active ? 'deactivated' : 'activated'}`, variant: 'success' })
       fetchUsers()
