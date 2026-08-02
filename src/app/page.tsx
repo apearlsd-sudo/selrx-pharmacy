@@ -232,7 +232,7 @@ function NotificationBell() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{n.message}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
                         </div>
                       </div>
                     </div>
@@ -254,7 +254,7 @@ function NotificationBell() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{n.message}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
                         </div>
                       </div>
                     </div>
@@ -733,7 +733,7 @@ export default function Home() {
                     ? 'text-red-600'
                     : toast.variant === 'success'
                     ? 'text-emerald-600'
-                    : 'text-gray-500'
+                    : 'text-gray-600'
                 }`}>
                   {toast.description}
                 </p>
@@ -741,7 +741,8 @@ export default function Home() {
             </div>
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-muted-foreground hover:text-gray-900 shrink-0"
+              className="p-1 rounded-md text-muted-foreground hover:text-gray-900 hover:bg-gray-100 shrink-0"
+              aria-label="Dismiss notification"
             >
               <X className="h-3.5 w-3.5" />
             </button>

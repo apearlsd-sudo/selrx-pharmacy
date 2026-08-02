@@ -273,7 +273,7 @@ export function PrescriptionsView() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <p className="text-sm">{rx.productName}</p>
-                        {rx.dosage && <p className="text-xs text-muted-foreground">{rx.dosage} × {rx.quantity}</p>}
+                        {rx.dosage && <p className="text-xs text-gray-600">{rx.dosage} × {rx.quantity}</p>}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-sm">{rx.prescriberName}</TableCell>
                       <TableCell className="hidden sm:table-cell text-sm">
@@ -285,7 +285,7 @@ export function PrescriptionsView() {
                       <TableCell>
                         <Badge className={`text-xs ${statusCfg.color}`}>{statusCfg.label}</Badge>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+                      <TableCell className="hidden sm:table-cell text-xs text-gray-600">
                         {formatDate(rx.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">

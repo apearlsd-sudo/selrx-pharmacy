@@ -746,7 +746,7 @@ export function InventoryView() {
                       <TableCell>
                         <div>
                           <p className="font-medium text-sm">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-gray-600">
                             {item.product.strength} {item.product.dosageForm} · {item.product.unitOfMeasure}
                           </p>
                         </div>
@@ -755,25 +755,25 @@ export function InventoryView() {
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.product.vendor?.name || '—'}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.product.dosageForm || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.vendor?.name || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.dosageForm || '—'}</TableCell>
                       <TableCell className="text-right font-bold">{qty}</TableCell>
                       <TableCell>
                         {showExpired ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
                         ) : isDiscontinued ? (
-                          <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[10px]">Discontinued</Badge>
+                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">Discontinued</Badge>
                         ) : nearExpiry && daysToExpiry !== null ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">{daysToExpiry} day{daysToExpiry !== 1 ? 's' : ''} to expiry</Badge>
                         ) : (
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">Active</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorder}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-right text-gray-600">{reorder}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                      <TableCell className="hidden md:table-cell text-xs text-gray-600">
                         {formatDate(item.product.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -1351,7 +1351,7 @@ export function InventoryView() {
                         <tr key={entry.productId} className="hover:bg-muted/30">
                           <td className="px-3 py-2">
                             <p className="font-medium truncate max-w-[200px]">{entry.name}</p>
-                            <p className="text-xs text-muted-foreground">{entry.ndc || '—'}</p>
+                            <p className="text-xs text-gray-600">{entry.ndc || '—'}</p>
                           </td>
                           <td className="text-center px-3 py-2 font-mono">
                             {entry.currentQty} <span className="text-xs text-muted-foreground">{entry.unit}</span>

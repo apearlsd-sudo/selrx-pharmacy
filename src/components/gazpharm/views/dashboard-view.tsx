@@ -366,7 +366,7 @@ export function DashboardView() {
                         <TableCell>
                           <StatusBadge status={txn.status} />
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="text-xs text-gray-600">
                           {formatDate(txn.createdAt)}
                         </TableCell>
                       </TableRow>

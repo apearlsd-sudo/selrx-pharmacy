@@ -654,7 +654,7 @@ export function SalesHistoryView() {
                         <TableCell className="text-right font-semibold text-emerald-700">
                           {formatCurrency(u.totalSales)}
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
+                        <TableCell className="text-right text-gray-600">
                           {formatCurrency(u.averageSale)}
                         </TableCell>
                       </TableRow>
@@ -833,7 +833,7 @@ export function SalesHistoryView() {
                           <TableCell>
                             <div>
                               <p className="text-xs font-medium">{formatDate(txn.createdAt)}</p>
-                              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <p className="text-xs text-gray-600 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {formatTime(txn.createdAt)}
                               </p>
@@ -1136,11 +1136,11 @@ export function SalesHistoryView() {
                   <span>Total</span>
                   <span className="text-emerald-700">{formatCurrency(detailTxn.total ?? 0)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground pt-0.5">
+                <div className="flex justify-between text-xs text-gray-600 pt-0.5">
                   <span>Paid</span>
                   <span>{formatCurrency(detailTxn.paymentAmount ?? 0)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-xs text-gray-600">
                   <span>Change</span>
                   <span>{formatCurrency(detailTxn.changeAmount || 0)}</span>
                 </div>

@@ -600,7 +600,7 @@ export function POSView() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-gray-600">
                             {formatCurrency(item.product.sellingPrice)} / {item.product.unitOfMeasure}
                           </p>
                         </div>

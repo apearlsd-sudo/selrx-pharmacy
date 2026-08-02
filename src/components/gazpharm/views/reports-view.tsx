@@ -1230,7 +1230,7 @@ export function ReportsView() {
                             <TableCell className="text-right text-xs text-red-600 hidden md:table-cell">{p.stockQty > 0 ? formatCurrency(p.lossValue) : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-emerald-600 hidden md:table-cell">{p.qtySold > 0 ? p.qtySold : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-emerald-600 hidden lg:table-cell">{p.salesRevenue > 0 ? formatCurrency(p.salesRevenue) : '—'}</TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                            <TableCell className="text-right text-xs text-gray-600 whitespace-nowrap">
                               {formatDate(p.expiryDate)}
                             </TableCell>
                             <TableCell className="text-center">
@@ -1243,7 +1243,7 @@ export function ReportsView() {
                                   <AlertTriangle className="h-3 w-3" /> In Stock
                                 </Badge>
                               ) : (
-                                <Badge className="bg-gray-100 text-gray-500 text-[10px]">No Stock</Badge>
+                                <Badge className="bg-gray-100 text-gray-600 text-[10px]">No Stock</Badge>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1606,13 +1606,13 @@ export function ReportsView() {
                                 {actionIcon} {h.action}
                               </Badge>
                             </TableCell>
-                            <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+                            <TableCell className="hidden sm:table-cell text-xs text-gray-600">
                               {h.changedFields
                                 ? (typeof h.changedFields === 'string' ? h.changedFields : h.changedFields.join(', '))
                                 : '—'}
                             </TableCell>
-                            <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{h.userName}</TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">{dateStr}</TableCell>
+                            <TableCell className="hidden md:table-cell text-xs text-gray-600">{h.userName}</TableCell>
+                            <TableCell className="text-right text-xs text-gray-600 whitespace-nowrap">{dateStr}</TableCell>
                             <TableCell className="w-9" onClick={(e) => e.stopPropagation()}>
                               <Button
                                 variant="ghost"

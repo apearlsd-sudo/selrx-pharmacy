@@ -783,7 +783,7 @@ export function MasterDataView() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-gray-700'}`}>{sec.label}</p>
-                <p className={`text-xs ${isActive ? 'text-emerald-600' : 'text-gray-400'}`}>{sec.desc}</p>
+                <p className={`text-xs ${isActive ? 'text-emerald-600' : 'text-gray-500'}`}>{sec.desc}</p>
               </div>
               {isActive && (
                 <ChevronRight className="h-5 w-5 text-emerald-500 shrink-0" />
@@ -1513,14 +1513,14 @@ function DrugSection() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs font-mono text-gray-600">{drug.ndc || '—'}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      <TableCell className="hidden md:table-cell text-sm text-gray-600">
                         {drug.manufacturerRef?.name || drug.manufacturer || '—'}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.vendor?.name || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-gray-600">{drug.vendor?.name || '—'}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {drug.dosageForm ? (
                           <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
@@ -1533,15 +1533,15 @@ function DrugSection() {
                         {showExpired ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
                         ) : isDiscontinued ? (
-                          <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[10px]">Discontinued</Badge>
+                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">Discontinued</Badge>
                         ) : nearExpiry && daysToExpiry !== null ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">{daysToExpiry} day{daysToExpiry !== 1 ? 's' : ''} to expiry</Badge>
                         ) : (
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">Active</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorderLvl}</TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
+                      <TableCell className="hidden lg:table-cell text-right text-gray-600">{reorderLvl}</TableCell>
+                      <TableCell className="text-right text-xs text-gray-600">
                         {drug.costPrice != null ? formatCurrency(drug.costPrice) : '—'}
                       </TableCell>
                       <TableCell className="text-right text-sm font-medium">

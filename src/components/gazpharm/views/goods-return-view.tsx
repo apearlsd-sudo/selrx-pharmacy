@@ -94,7 +94,7 @@ function statusBadge(status: string) {
     case 'COMPLETED':
       return <Badge className="bg-emerald-100 text-emerald-700 text-xs border-emerald-200"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>
     case 'CANCELLED':
-      return <Badge className="bg-gray-100 text-gray-500 text-xs border-gray-200"><Ban className="h-3 w-3 mr-1" />Cancelled</Badge>
+      return <Badge className="bg-gray-100 text-gray-600 text-xs border-gray-200"><Ban className="h-3 w-3 mr-1" />Cancelled</Badge>
     default:
       return <Badge className="bg-gray-100 text-gray-700 text-xs border-gray-200">{status}</Badge>
   }
@@ -757,10 +757,10 @@ function ReturnTable({
                 <TableCell>
                   <div className="text-xs">
                     <p className="font-medium truncate max-w-[150px]">{ret.productName}</p>
-                    <p className="text-muted-foreground">{formatCurrency(ret.unitPrice)}/ea</p>
+                    <p className="text-gray-600">{formatCurrency(ret.unitPrice)}/ea</p>
                   </div>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-xs text-gray-600">
                   {ret.customerName ? ret.customerName : <span className="italic">Walk-in</span>}
                 </TableCell>
                 <TableCell className="text-xs font-medium text-right">{ret.quantity}</TableCell>
@@ -771,8 +771,8 @@ function ReturnTable({
                   </Badge>
                 </TableCell>
                 <TableCell>{statusBadge(ret.status)}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{ret.user?.name}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{formatShortDate(ret.createdAt)}</TableCell>
+                <TableCell className="text-xs text-gray-600">{ret.user?.name}</TableCell>
+                <TableCell className="text-xs text-gray-600">{formatShortDate(ret.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
