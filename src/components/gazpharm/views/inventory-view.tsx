@@ -1469,7 +1469,7 @@ export function InventoryView() {
                 className="border-teal-600 text-teal-700 hover:bg-teal-100"
                 onClick={async () => {
                   try {
-                    const res = await fetch('/api/products/import')
+                    const res = await fetch(`/api/products/import?dateFormat=${encodeURIComponent(dateFormat)}`)
                     if (res.ok) {
                       const blob = await res.blob()
                       const url = URL.createObjectURL(blob)

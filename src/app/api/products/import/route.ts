@@ -581,8 +581,26 @@ async function importViaPrisma(
 }
 
 // GET /api/products/import — Generate and return a downloadable Excel template
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const dateFormat = request.nextUrl.searchParams.get('dateFormat') || 'dd/mm/yyyy'
+
+    function fmtDate(isoStr: string): string {
+      const d = new Date(isoStr + 'T00:00:00')
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      switch (dateFormat) {
+        case 'mm/dd/yyyy': return `${m}/${day}/${y}`
+        case 'yyyy-mm-dd': return `${y}-${m}-${day}`
+        case 'dd Mon yyyy': return `${day} ${monthNames[d.getMonth()]} ${y}`
+        case 'Mon dd, yyyy': return `${monthNames[d.getMonth()]} ${d.getDate()}, ${y}`
+        case 'dd/mm/yyyy':
+        default: return `${day}/${m}/${y}`
+      }
+    }
+
     const headers = [
       'Drug Name', 'SKU', 'Category', 'Manufacturer', 'Vendor',
       'Dosage Form', 'Stock Qty', 'Status', 'Reorder Level',
@@ -595,14 +613,14 @@ export async function GET() {
         Category: 'PRESCRIPTION', Manufacturer: 'PharmaCorp Inc.',
         Vendor: 'MedSupply Distributors', 'Dosage Form': 'CAPSULE',
         'Stock Qty': 150, Status: 'ACTIVE', 'Reorder Level': 20,
-        Cost: 8.50, Retail: 12.99, Expiry: '2026-12-31', Actions: '',
+        Cost: 8.50, Retail: 12.99, Expiry: fmtDate('2026-12-31'), Actions: '',
       },
       {
         'Drug Name': 'Ibuprofen 200mg Tablets', SKU: '23456-7890-02',
         Category: 'OTC', Manufacturer: 'GenericLab Ltd.',
         Vendor: 'MedSupply Distributors', 'Dosage Form': 'TABLET',
         'Stock Qty': 300, Status: 'ACTIVE', 'Reorder Level': 50,
-        Cost: 2.50, Retail: 5.99, Expiry: '2027-06-30', Actions: '',
+        Cost: 2.50, Retail: 5.99, Expiry: fmtDate('2027-06-30'), Actions: '',
       },
       {
         'Drug Name': 'Metformin 500mg Tablets', SKU: '34567-8901-03',
