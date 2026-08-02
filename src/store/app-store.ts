@@ -164,6 +164,23 @@ export interface ReceiptSettingsState {
   setShowReceiptModal: (val: boolean) => void
 }
 
+export type DateFormatOption = 'dd/mm/yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd' | 'dd Mon yyyy' | 'Mon dd, yyyy'
+export type TimeFormatOption = '24h' | '12h'
+
+export interface RegionalSettingsState {
+  /** IANA timezone identifier, e.g. 'Africa/Lagos' */
+  timezone: string
+  setTimezone: (tz: string) => void
+  /** Date display format */
+  dateFormat: DateFormatOption
+  setDateFormat: (fmt: DateFormatOption) => void
+  /** Time display format: 24-hour or 12-hour */
+  timeFormat: TimeFormatOption
+  setTimeFormat: (fmt: TimeFormatOption) => void
+  /** Bumped when any regional setting changes, so views re-render */
+  regionalVersion: number
+}
+
 export interface UIState {
   isModalOpen: boolean
   modalContent: string | null
@@ -185,6 +202,7 @@ export type AppState = NavigationState &
   CompanyState &
   CurrencyState &
   ReceiptSettingsState &
+  RegionalSettingsState &
   UIState
 
 // ============ STORE ============
@@ -379,6 +397,42 @@ export const useAppStore = create<AppState>((set, get) => ({
       localStorage.setItem('selrx_receipt_settings', JSON.stringify({
         autoPrintReceipt: get().autoPrintReceipt,
         showReceiptModal: val,
+      }))
+    }
+  },
+
+  // ---- Regional Settings (persisted to localStorage) ----
+  timezone: 'Africa/Lagos',
+  dateFormat: 'dd/mm/yyyy' as DateFormatOption,
+  timeFormat: '24h' as TimeFormatOption,
+  regionalVersion: 0,
+  setTimezone: (tz) => {
+    set({ timezone: tz, regionalVersion: get().regionalVersion + 1 })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_regional_settings', JSON.stringify({
+        timezone: tz,
+        dateFormat: get().dateFormat,
+        timeFormat: get().timeFormat,
+      }))
+    }
+  },
+  setDateFormat: (fmt) => {
+    set({ dateFormat: fmt, regionalVersion: get().regionalVersion + 1 })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_regional_settings', JSON.stringify({
+        timezone: get().timezone,
+        dateFormat: fmt,
+        timeFormat: get().timeFormat,
+      }))
+    }
+  },
+  setTimeFormat: (fmt) => {
+    set({ timeFormat: fmt, regionalVersion: get().regionalVersion + 1 })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_regional_settings', JSON.stringify({
+        timezone: get().timezone,
+        dateFormat: get().dateFormat,
+        timeFormat: fmt,
       }))
     }
   },

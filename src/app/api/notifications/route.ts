@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { turso, isTurso, safeArgs } from '@/lib/turso'
-import { getDaysToExpiry, getTodayWAT } from '@/lib/date-utils'
+import { getDaysToExpiry, getTimezoneOffsetHours, getTodayWAT } from '@/lib/date-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,9 +34,11 @@ interface Notification {
 export async function GET() {
   try {
     if (isTurso()) {
+      // Compute dynamic UTC offset from the configured timezone
+      const offsetH = getTimezoneOffsetHours()
+      const tzModifier = offsetH >= 0 ? `+${offsetH} hour` : `${offsetH} hour`
       const [expiringResult, lowStockResult] = await Promise.all([
-        // Products expiring within 14 days in WAT (still have stock > 0, not yet expired)
-        // date('now', '+1 hour') shifts UTC to WAT (Africa/Lagos, UTC+1)
+        // Products expiring within 14 days in configured timezone
         turso.execute({
           sql: `SELECT p.id, p.name, p.expiryDate, i.quantity,
                        p.sellingPrice, p.category, p.batchNumber
@@ -45,8 +47,8 @@ export async function GET() {
                 WHERE p.expiryDate IS NOT NULL
                   AND p.expiryDate != ''
                   AND i.quantity > 0
-                  AND date(p.expiryDate) >= date('now', '+1 hour')
-                  AND date(p.expiryDate) <= date('now', '+1 hour', '+14 days')
+                  AND date(p.expiryDate) >= date('now', '${tzModifier}')
+                  AND date(p.expiryDate) <= date('now', '${tzModifier}', '+14 days')
                 ORDER BY date(p.expiryDate) ASC`,
           args: [],
         }),

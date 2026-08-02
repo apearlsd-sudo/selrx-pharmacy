@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useCallback, Component, type ReactNode, useState } from 'react'
-import { WAT_TZ, formatDateWeekday } from '@/lib/date-utils'
+import { formatDateWeekday } from '@/lib/date-utils'
+import { useAppStore } from '@/store/app-store'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -127,10 +128,11 @@ function TopbarClock() {
   useEffect(() => {
     const update = () => {
       const now = new Date()
+      const { timezone, timeFormat } = useAppStore.getState()
       setTime(
         formatDateWeekday(now.toISOString()) +
         '  ' +
-        now.toLocaleTimeString('en-GB', { timeZone: WAT_TZ, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        now.toLocaleTimeString('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: timeFormat === '12h' })
       )
     }
     update()

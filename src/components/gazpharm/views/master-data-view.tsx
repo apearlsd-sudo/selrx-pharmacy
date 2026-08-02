@@ -1557,7 +1557,8 @@ function DrugSection() {
                       </TableCell>
                     </TableRow>
                   )
-                })()}
+                })
+                })()
               )}
             </TableBody>
           </Table>

@@ -784,7 +784,8 @@ export function InventoryView() {
                       </TableCell>
                     </TableRow>
                   )
-                })()}
+                })
+                })()
               )}
             </TableBody>
           </Table>

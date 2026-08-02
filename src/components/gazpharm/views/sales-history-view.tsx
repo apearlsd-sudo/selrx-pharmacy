@@ -42,7 +42,7 @@ const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0
 
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTimeShort, formatDateShort, formatDate as formatDateDMY, getTodayWAT } from '@/lib/date-utils'
-import { WAT_TZ } from '@/lib/date-utils'
+import { useAppStore } from '@/store/app-store'
 
 function formatDate(dateStr: string): string {
   return formatDateTimeShort(dateStr)
@@ -53,7 +53,9 @@ function formatShortDate(dateStr: string): string {
 }
 
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('en-GB', { timeZone: WAT_TZ, hour: '2-digit', minute: '2-digit' })
+  const tz = useAppStore.getState().timezone
+  const tf = useAppStore.getState().timeFormat
+  return new Date(dateStr).toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: tf === '12h' })
 }
 
 
@@ -183,8 +185,8 @@ export function SalesHistoryView() {
   const setPresetRange = (preset: string) => {
     const todayStr = getTodayWAT()
     const toWAT = (d: Date) => {
-      const wat = d.toLocaleDateString('en-CA', { timeZone: WAT_TZ })
-      return wat
+      const tz = useAppStore.getState().timezone
+      return d.toLocaleDateString('en-CA', { timeZone: tz })
     }
     const now = new Date()
     switch (preset) {
@@ -246,7 +248,7 @@ export function SalesHistoryView() {
       const rows = txns.map((txn: any) => [
         txn.transactionNo || '',
         txn.createdAt ? formatDateDMY(txn.createdAt) : '',
-        txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString('en-GB', { timeZone: WAT_TZ, hour: '2-digit', minute: '2-digit' }) : '',
+        txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString('en-GB', { timeZone: useAppStore.getState().timezone, hour: '2-digit', minute: '2-digit', hour12: useAppStore.getState().timeFormat === '12h' }) : '',
         txn.user?.name || 'Unknown',
         txn.user?.role || '',
         txn.customer ? `${txn.customer.firstName} ${txn.customer.lastName}` : 'Walk-in',
