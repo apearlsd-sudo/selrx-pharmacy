@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, safeArgs } from '@/lib/turso'
+import { formatDate } from '@/lib/date-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -210,13 +211,9 @@ export async function GET(request: NextRequest) {
       const dailySales = dailyRows
         .reverse() // SQL returned DESC → flip to ASC
         .map((r) => {
-          const dayDate = new Date((r.day as string) + 'T00:00:00')
+          const dayStr = r.day as string
           return {
-            date: dayDate.toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            }),
+            date: formatDate(dayStr + 'T12:00:00'),
             sales: (r.totalSales as number) ?? 0,
             count: (r.txCount as number) ?? 0,
           }
@@ -450,18 +447,17 @@ export async function GET(request: NextRequest) {
     })
 
     // Aggregate by date string
-    const dailyMap: Record<string, { date: string; sales: number; count: number }> = {}
+    const dailyMap: Record<string, { rawDate: string; date: string; sales: number; count: number }> = {}
     for (const ds of dailySales) {
-      const dateStr = new Date(ds.createdAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-      if (dailyMap[dateStr]) {
-        dailyMap[dateStr].sales += ds._sum.total || 0
-        dailyMap[dateStr].count += ds._count
+      const rawDate = new Date(ds.createdAt).toISOString().slice(0, 10)
+      const dateStr = formatDate(ds.createdAt as string)
+      const key = rawDate
+      if (dailyMap[key]) {
+        dailyMap[key].sales += ds._sum.total || 0
+        dailyMap[key].count += ds._count
       } else {
-        dailyMap[dateStr] = {
+        dailyMap[key] = {
+          rawDate,
           date: dateStr,
           sales: ds._sum.total || 0,
           count: ds._count,
@@ -469,7 +465,7 @@ export async function GET(request: NextRequest) {
       }
     }
     const dailySalesArray = Object.values(dailyMap).sort((a, b) => {
-      return new Date(a.date).getTime() - new Date(b.date).getTime()
+      return a.rawDate.localeCompare(b.rawDate)
     }).slice(-30) // Last 30 days
 
     // 4. Paginated transactions for the table

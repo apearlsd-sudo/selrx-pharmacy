@@ -304,7 +304,7 @@ export function ReportsView() {
       (p.costPrice ?? 0).toFixed(2), (p.sellingPrice ?? 0).toFixed(2),
       p.stockQty, (p.costValue ?? 0).toFixed(2), (p.retailValue ?? 0).toFixed(2),
       (p.lossValue ?? 0).toFixed(2), p.qtySold, (p.salesRevenue ?? 0).toFixed(2),
-      p.expiryDate ? p.expiryDate.split('T')[0] : '',
+      p.expiryDate ? formatDate(p.expiryDate) : '',
     ])
     const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -470,7 +470,7 @@ export function ReportsView() {
     return transactions
       .filter((t: any) => t.status === 'COMPLETED')
       .reduce((acc: any, t: any) => {
-        const date = new Date(t.createdAt).toLocaleDateString('en-GB', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'short' })
+        const date = formatDate(t.createdAt)
         const existing = acc.find((d: any) => d.date === date)
         if (existing) { existing.sales += t.total; existing.count += 1 }
         else { acc.push({ date, sales: t.total, count: 1 }) }

@@ -41,7 +41,7 @@ import { authHeaders } from '@/lib/auth-headers'
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#047857', '#065f46']
 
 import { formatCurrency } from '@/lib/currency'
-import { formatDateTimeShort, formatDateShort } from '@/lib/date-utils'
+import { formatDateTimeShort, formatDateShort, formatDate as formatDateDMY, getTodayWAT } from '@/lib/date-utils'
 import { WAT_TZ } from '@/lib/date-utils'
 
 function formatDate(dateStr: string): string {
@@ -98,7 +98,7 @@ export function SalesHistoryView() {
   const addToast = useAppStore((s) => s.addToast)
   const user = useAppStore((s) => s.user)
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getTodayWAT()
   const [dateFrom, setDateFrom] = useState(isSuperAdmin ? '' : today)
   const [dateTo, setDateTo] = useState(isSuperAdmin ? '' : today)
   const [selectedUserId, setSelectedUserId] = useState<string>('all')
@@ -181,33 +181,36 @@ export function SalesHistoryView() {
 
   // Set today as date range preset
   const setPresetRange = (preset: string) => {
+    const todayStr = getTodayWAT()
+    const toWAT = (d: Date) => {
+      const wat = d.toLocaleDateString('en-CA', { timeZone: WAT_TZ })
+      return wat
+    }
     const now = new Date()
-    const fmt = (d: Date) => d.toISOString().slice(0, 10)
     switch (preset) {
       case 'today': {
-        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        setDateFrom(fmt(start))
-        setDateTo(fmt(now))
+        setDateFrom(todayStr)
+        setDateTo(todayStr)
         break
       }
       case 'week': {
         const start = new Date(now)
         start.setDate(start.getDate() - 7)
-        setDateFrom(fmt(start))
-        setDateTo(fmt(now))
+        setDateFrom(toWAT(start))
+        setDateTo(todayStr)
         break
       }
       case 'month': {
         const start = new Date(now.getFullYear(), now.getMonth(), 1)
-        setDateFrom(fmt(start))
-        setDateTo(fmt(now))
+        setDateFrom(toWAT(start))
+        setDateTo(todayStr)
         break
       }
       case 'quarter': {
         const start = new Date(now)
         start.setMonth(start.getMonth() - 3)
-        setDateFrom(fmt(start))
-        setDateTo(fmt(now))
+        setDateFrom(toWAT(start))
+        setDateTo(todayStr)
         break
       }
       case 'all': {
@@ -242,8 +245,8 @@ export function SalesHistoryView() {
       ]
       const rows = txns.map((txn: any) => [
         txn.transactionNo || '',
-        txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '',
-        txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+        txn.createdAt ? formatDateDMY(txn.createdAt) : '',
+        txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString('en-GB', { timeZone: WAT_TZ, hour: '2-digit', minute: '2-digit' }) : '',
         txn.user?.name || 'Unknown',
         txn.user?.role || '',
         txn.customer ? `${txn.customer.firstName} ${txn.customer.lastName}` : 'Walk-in',

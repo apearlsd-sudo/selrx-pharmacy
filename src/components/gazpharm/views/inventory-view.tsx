@@ -735,11 +735,10 @@ export function InventoryView() {
                   const reorder = Number(item.product.reorderPoint) || 10
                   const isOut = qty === 0
                   const isLow = qty > 0 && qty <= reorder
-                  const prodStatus = item.product.status
                   let daysToExpiry = getDaysToExpiry(item.product.expiryDate)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = prodStatus === 'EXPIRED' || (daysToExpiry !== null && daysToExpiry <= 0)
-                  const isDiscontinued = prodStatus === 'DISCONTINUED'
+                  const showExpired = daysToExpiry !== null && daysToExpiry <= 0
+                  const isDiscontinued = item.product.status === 'DISCONTINUED'
                   return (
                     <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
                       <TableCell>

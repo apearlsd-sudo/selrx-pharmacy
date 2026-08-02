@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { turso, isTurso, safeArgs } from '@/lib/turso'
+import { getDaysToExpiry, getTodayWAT } from '@/lib/date-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,7 +35,8 @@ export async function GET() {
   try {
     if (isTurso()) {
       const [expiringResult, lowStockResult] = await Promise.all([
-        // Products expiring within 14 days (still have stock > 0, not yet expired)
+        // Products expiring within 14 days in WAT (still have stock > 0, not yet expired)
+        // date('now', '+1 hour') shifts UTC to WAT (Africa/Lagos, UTC+1)
         turso.execute({
           sql: `SELECT p.id, p.name, p.expiryDate, i.quantity,
                        p.sellingPrice, p.category, p.batchNumber
@@ -43,8 +45,8 @@ export async function GET() {
                 WHERE p.expiryDate IS NOT NULL
                   AND p.expiryDate != ''
                   AND i.quantity > 0
-                  AND date(p.expiryDate) >= date('now')
-                  AND date(p.expiryDate) <= date('now', '+14 days')
+                  AND date(p.expiryDate) >= date('now', '+1 hour')
+                  AND date(p.expiryDate) <= date('now', '+1 hour', '+14 days')
                 ORDER BY date(p.expiryDate) ASC`,
           args: [],
         }),
@@ -64,14 +66,10 @@ export async function GET() {
 
       const notifications: Notification[] = []
 
-      // Process expiry notifications
+      // Process expiry notifications using WAT-aware calculation
       for (const r of toObjs(expiringResult)) {
         const expDate = r.expiryDate as string
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const expiry = new Date(expDate)
-        expiry.setHours(0, 0, 0, 0)
-        const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        const daysLeft = getDaysToExpiry(expDate) ?? 0
 
         notifications.push({
           id: `exp-${r.id}`,
@@ -123,17 +121,17 @@ export async function GET() {
     ])
 
     const notifications: Notification[] = []
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const limit14 = new Date(today)
-    limit14.setDate(limit14.getDate() + 14)
+    const todayWAT = getTodayWAT()
+    const todayDate = new Date(todayWAT + 'T12:00:00')
+    const limit14Date = new Date(todayDate)
+    limit14Date.setDate(limit14Date.getDate() + 14)
+    const limit14Str = limit14Date.toISOString().split('T')[0]
 
     for (const p of expiringProducts) {
       if (!p.expiryDate) continue
-      const expiry = new Date(p.expiryDate)
-      expiry.setHours(0, 0, 0, 0)
-      if (expiry < today || expiry > limit14) continue
-      const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      const expStr = p.expiryDate.split('T')[0]
+      if (expStr < todayWAT || expStr > limit14Str) continue
+      const daysLeft = getDaysToExpiry(p.expiryDate) ?? 0
       const qty = p.inventory?.[0]?.quantity ?? 0
       notifications.push({
         id: `exp-${p.id}`,

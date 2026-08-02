@@ -1494,11 +1494,10 @@ function DrugSection() {
                 filtered.map((drug) => {
                   const stockQty = drug.inventory?.[0]?.quantity || 0
                   const reorderLvl = drug.reorderPoint || 10
-                  const isExpired = drug.status === 'EXPIRED'
                   const isDiscontinued = drug.status === 'DISCONTINUED'
                   let daysToExpiry = getDaysToExpiry(drug.expiryDate)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = isExpired || (daysToExpiry !== null && daysToExpiry <= 0)
+                  const showExpired = daysToExpiry !== null && daysToExpiry <= 0
                   return (
                     <TableRow key={drug.id} className={showExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : nearExpiry ? 'bg-amber-50/50' : ''}>
                       <TableCell>
