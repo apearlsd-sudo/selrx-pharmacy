@@ -1495,8 +1495,16 @@ function DrugSection() {
                   const reorderLvl = drug.reorderPoint || 10
                   const isExpired = drug.status === 'EXPIRED'
                   const isDiscontinued = drug.status === 'DISCONTINUED'
+                  let daysToExpiry: number | null = null
+                  if (drug.expiryDate) {
+                    const now = new Date(); now.setHours(0,0,0,0)
+                    const exp = new Date(drug.expiryDate); exp.setHours(0,0,0,0)
+                    daysToExpiry = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                  }
+                  const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
+                  const showExpired = isExpired || (daysToExpiry !== null && daysToExpiry <= 0)
                   return (
-                    <TableRow key={drug.id} className={isExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : ''}>
+                    <TableRow key={drug.id} className={showExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : nearExpiry ? 'bg-amber-50/50' : ''}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
@@ -1525,10 +1533,12 @@ function DrugSection() {
                         <span className={`text-sm font-bold ${stockQty === 0 ? 'text-red-600' : stockQty <= reorderLvl ? 'text-amber-600' : ''}`}>{stockQty}</span>
                       </TableCell>
                       <TableCell>
-                        {isExpired ? (
+                        {showExpired ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
                         ) : isDiscontinued ? (
                           <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[10px]">Discontinued</Badge>
+                        ) : nearExpiry && daysToExpiry !== null ? (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">{daysToExpiry} day{daysToExpiry !== 1 ? 's' : ''} to expiry</Badge>
                         ) : (
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">Active</Badge>
                         )}
