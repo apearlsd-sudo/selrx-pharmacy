@@ -92,8 +92,9 @@ interface DrugProduct {
 // ── Section Button Component ─────────────────────────────────────────────
 
 const SECTIONS = [
-  { key: 'category', label: 'Add Category', icon: Tags, desc: 'Drug categories & departments', color: 'bg-emerald-600 hover:bg-emerald-700' },
   { key: 'drug', label: 'Add Drug Name', icon: Pill, desc: 'Register new products', color: 'bg-teal-600 hover:bg-teal-700' },
+  { key: 'category', label: 'Add Category', icon: Tags, desc: 'Drug categories & departments', color: 'bg-emerald-600 hover:bg-emerald-700' },
+  { key: 'dosage-form', label: 'Add Dosage Form', icon: Pill, desc: 'Tablet, capsule, syrup, etc.', color: 'bg-cyan-600 hover:bg-cyan-700' },
   { key: 'vendor', label: 'Add Vendor', icon: Truck, desc: 'Suppliers & distributors', color: 'bg-green-600 hover:bg-green-700' },
   { key: 'manufacturer', label: 'Add Manufacturer', icon: Factory, desc: 'Drug manufacturers & producers', color: 'bg-indigo-600 hover:bg-indigo-700' },
 ] as const
@@ -489,7 +490,7 @@ function DosageFormModal({
   }
 
   const handleSave = () => {
-    const trimmed = name.trim()
+    const trimmed = name.trim().toUpperCase()
     if (!trimmed) return
     addToast({ title: 'Dosage Form Added', description: `"${trimmed}" added to list`, variant: 'success' })
     onSaved(trimmed)
@@ -757,12 +758,12 @@ function DrugEditModal({
 // ── Main View ──────────────────────────────────────────────────────────
 
 export function MasterDataView() {
-  const [activeSection, setActiveSection] = useState<SectionKey>('category')
+  const [activeSection, setActiveSection] = useState<SectionKey>('drug')
 
   return (
     <div className="space-y-6">
       {/* Section Selector Buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
         {SECTIONS.map((sec) => {
           const Icon = sec.icon
           const isActive = activeSection === sec.key
@@ -794,6 +795,7 @@ export function MasterDataView() {
       {/* Active Section Content */}
       {activeSection === 'category' && <CategorySection />}
       {activeSection === 'drug' && <DrugSection />}
+      {activeSection === 'dosage-form' && <DosageFormSection />}
       {activeSection === 'vendor' && <VendorSection />}
       {activeSection === 'manufacturer' && <ManufacturerSection />}
     </div>
@@ -987,8 +989,8 @@ function DrugSection() {
   const [historyData, setHistoryData] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
-  // Custom dosage forms
-  const [customDosageForms, setCustomDosageForms] = useState<string[]>([])
+  // Custom dosage forms (synced with localStorage via DosageFormSection)
+  const [customDosageForms, setCustomDosageForms] = useState<string[]>(() => loadDosageForms())
 
   // ── Import state ────────────────────────────────────────────────
   const [importDialog, setImportDialog] = useState(false)
@@ -1114,8 +1116,13 @@ function DrugSection() {
   }
 
   const handleDosageFormCreated = (name: string) => {
-    setCustomDosageForms((prev) => [...prev, name])
-    setForm((prev) => ({ ...prev, dosageForm: name }))
+    const upper = name.trim().toUpperCase()
+    setCustomDosageForms((prev) => {
+      const updated = prev.includes(upper) ? prev : [...prev, upper].sort()
+      saveDosageForms(updated)
+      return updated
+    })
+    setForm((prev) => ({ ...prev, dosageForm: upper }))
   }
 
   // Handlers for drug edit modal "+ Add new"
@@ -1132,7 +1139,12 @@ function DrugSection() {
   }
 
   const handleEditDosageFormCreated = (name: string) => {
-    setCustomDosageForms((prev) => [...prev, name])
+    const upper = name.trim().toUpperCase()
+    setCustomDosageForms((prev) => {
+      const updated = prev.includes(upper) ? prev : [...prev, upper].sort()
+      saveDosageForms(updated)
+      return updated
+    })
   }
 
   // ── Import handlers ──────────────────────────────────────────────
@@ -1873,6 +1885,166 @@ function DrugSection() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ── DOSAGE FORM SECTION ──────────────────────────────────────────
+
+const STORAGE_KEY_DOSAGE = 'selrx-custom-dosage-forms'
+
+function loadDosageForms(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_DOSAGE)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function saveDosageForms(forms: string[]) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(STORAGE_KEY_DOSAGE, JSON.stringify(forms))
+}
+
+function DosageFormSection() {
+  const [forms, setForms] = useState<string[]>([])
+  const [search, setSearch] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingForm, setEditingForm] = useState<string | null>(null)
+  const [newName, setNewName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+
+  useEffect(() => { setForms(loadDosageForms()) }, [])
+
+  const openAdd = () => { setEditingForm(null); setNewName(''); setModalOpen(true) }
+  const openEdit = (f: string) => { setEditingForm(f); setNewName(f); setModalOpen(true) }
+
+  const handleSave = () => {
+    const trimmed = newName.trim().toUpperCase()
+    if (!trimmed) return
+    setSaving(true)
+    try {
+      if (editingForm) {
+        const updated = forms.map((f) => f === editingForm ? trimmed : f)
+        setForms(updated)
+        saveDosageForms(updated)
+        addToast({ title: 'Updated', description: `Renamed to "${trimmed}"`, variant: 'success' })
+      } else {
+        if (forms.includes(trimmed)) {
+          addToast({ title: 'Duplicate', description: `"${trimmed}" already exists`, variant: 'destructive' })
+          setSaving(false)
+          return
+        }
+        const updated = [...forms, trimmed].sort()
+        setForms(updated)
+        saveDosageForms(updated)
+        addToast({ title: 'Added', description: `"${trimmed}" added`, variant: 'success' })
+      }
+      setModalOpen(false)
+      setNewName('')
+    } finally { setSaving(false) }
+  }
+
+  const handleDelete = (f: string) => {
+    const updated = forms.filter((x) => x !== f)
+    setForms(updated)
+    saveDosageForms(updated)
+    addToast({ title: 'Deleted', description: `"${f}" removed`, variant: 'success' })
+  }
+
+  const filtered = forms.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Pill className="h-4 w-4 text-cyan-600" />
+          Dosage Forms ({forms.length})
+        </h3>
+        <Button onClick={openAdd} size="sm" className="bg-cyan-600 hover:bg-cyan-700">
+          <Plus className="h-4 w-4 mr-2" /> Add Dosage Form
+        </Button>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search dosage forms..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Dosage Form</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    {forms.length === 0 ? 'No dosage forms yet. Add your first one.' : 'No matches found'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((f, i) => (
+                  <TableRow key={f}>
+                    <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs">{f}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(f)}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm" variant="ghost"
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                          onClick={() => handleDelete(f)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add/Edit Dosage Form Dialog */}
+      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setNewName(''); setEditingForm(null) }; setModalOpen(o) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingForm ? 'Edit Dosage Form' : 'Add Dosage Form'}</DialogTitle>
+            <DialogDescription>{editingForm ? 'Rename the dosage form' : 'Create a new dosage form type (e.g., TABLET, CAPSULE, SYRUP)'}</DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label className="text-xs">Dosage Form Name <span className="text-red-500">*</span></Label>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g., INHALER"
+              className="mt-1"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+              autoFocus
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Will be saved in uppercase (e.g., CHEWABLE TABLET)</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!newName.trim() || saving} className="bg-cyan-600 hover:bg-cyan-700">
+              <><Save className="h-4 w-4 mr-2" /> {editingForm ? 'Update' : 'Create'}</>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
