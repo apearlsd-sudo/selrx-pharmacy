@@ -94,11 +94,26 @@ function mapRowToProduct(
     const rawVal = row[rawHeaders[i]]
     if (rawVal === undefined || rawVal === null) continue
 
-    const strVal = String(rawVal).trim()
-    if (strVal === '') continue
-
     const fieldName = COLUMN_MAP[header]
     if (!fieldName) continue
+
+    // Handle date values (from Excel cellDates or string dates)
+    if (fieldName === 'expiryDate') {
+      if (rawVal instanceof Date) {
+        const y = rawVal.getFullYear()
+        const m = String(rawVal.getMonth() + 1).padStart(2, '0')
+        const d = String(rawVal.getDate()).padStart(2, '0')
+        product[fieldName] = `${y}-${m}-${d}`
+      } else {
+        const strVal = String(rawVal).trim()
+        if (strVal === '') continue
+        product[fieldName] = strVal
+      }
+      continue
+    }
+
+    const strVal = String(rawVal).trim()
+    if (strVal === '') continue
 
     if (fieldName === 'quantity') {
       initialQty = Number(strVal) || 0
@@ -154,13 +169,18 @@ export async function POST(request: NextRequest) {
 
     // Parse the file
     const buffer = Buffer.from(await file.arrayBuffer())
-    const workbook = XLSX.read(buffer, { type: 'buffer' })
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
     const sheetName = workbook.SheetNames[0]
     if (!sheetName) {
       return NextResponse.json({ error: 'Empty workbook — no sheets found' }, { status: 400 })
     }
     const sheet = workbook.Sheets[sheetName]
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+    const allRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+
+    // Filter out completely blank rows (all values empty)
+    const rows = allRows.filter((row) =>
+      Object.values(row).some((v) => v !== null && v !== undefined && String(v).trim() !== '')
+    )
 
     if (rows.length === 0) {
       return NextResponse.json({ error: 'No data rows found in the file' }, { status: 400 })

@@ -1149,16 +1149,26 @@ function DrugSection() {
   }
 
   // ── Import handlers ──────────────────────────────────────────────
-  const handleImportFileSelect = (file: File) => {
+  const handleImportFileSelect = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
       addToast({ title: 'File Too Large', description: 'Maximum file size is 5 MB', variant: 'destructive' })
       return
     }
     setImportFile(file)
     setImportResult(null)
-    const estRows = Math.max(1, Math.floor(file.size / 200))
     const sizeStr = file.size < 1024 ? `${file.size} B` : file.size < 1048576 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / 1048576).toFixed(1)} MB`
-    setImportPreview({ name: file.name, rows: estRows, size: sizeStr })
+    // Parse file to count actual non-empty rows
+    let rowCount = 1
+    try {
+      const XLSX = await import('xlsx')
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const allRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+      rowCount = allRows.filter((r) => Object.values(r).some((v) => v !== null && v !== undefined && String(v).trim() !== '')).length
+      if (rowCount === 0) rowCount = 1
+    } catch { /* fall back to estimate */ }
+    setImportPreview({ name: file.name, rows: rowCount, size: sizeStr })
   }
 
   const handleImport = async () => {
