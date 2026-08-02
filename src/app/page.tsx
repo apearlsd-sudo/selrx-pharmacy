@@ -357,6 +357,17 @@ export default function Home() {
         }
       } catch { /* corrupted receipt settings — ignore */ }
 
+      // Restore regional settings from localStorage (timezone, date/time format)
+      try {
+        const regionalData = localStorage.getItem('selrx_regional_settings')
+        if (regionalData) {
+          const rs = JSON.parse(regionalData)
+          if (rs.timezone) store.setTimezone(rs.timezone)
+          if (rs.dateFormat) store.setDateFormat(rs.dateFormat)
+          if (rs.timeFormat) store.setTimeFormat(rs.timeFormat)
+        }
+      } catch { /* corrupted regional settings — ignore */ }
+
       // Only finish company restoration synchronously if we had cached data
       if (companyRestored) finish()
     } catch {

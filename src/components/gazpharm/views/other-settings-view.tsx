@@ -85,16 +85,6 @@ const TIME_FORMATS: { value: TimeFormatOption; label: string; example: string }[
   { value: '12h', label: '12-hour (AM/PM)', example: '2:30 PM' },
 ]
 
-// ── Hydration helper: load persisted regional settings on mount ──
-
-function loadRegionalSettings() {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem('selrx_regional_settings')
-    return raw ? JSON.parse(raw) : null
-  } catch { return null }
-}
-
 export function OtherSettingsView() {
   const currency = useAppStore((s) => s.currency)
   const setCurrency = useAppStore((s) => s.setCurrency)
@@ -105,7 +95,7 @@ export function OtherSettingsView() {
   const addToast = useAppStore((s) => s.addToast)
   const company = useAppStore((s) => s.company)
 
-  // Regional settings
+  // Regional settings (hydrated at app level from localStorage)
   const timezone = useAppStore((s) => s.timezone)
   const setTimezone = useAppStore((s) => s.setTimezone)
   const dateFormat = useAppStore((s) => s.dateFormat)
@@ -113,17 +103,6 @@ export function OtherSettingsView() {
   const timeFormat = useAppStore((s) => s.timeFormat)
   const setTimeFormat = useAppStore((s) => s.setTimeFormat)
   const regionalVersion = useAppStore((s) => s.regionalVersion)
-
-  // Hydrate from localStorage on first mount
-  useEffect(() => {
-    const saved = loadRegionalSettings()
-    if (saved) {
-      if (saved.timezone) setTimezone(saved.timezone)
-      if (saved.dateFormat) setDateFormat(saved.dateFormat)
-      if (saved.timeFormat) setTimeFormat(saved.timeFormat)
-    }
-    // Run once — eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Live preview clock
   const [now, setNow] = useState(new Date())
