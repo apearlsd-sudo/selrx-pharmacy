@@ -52,12 +52,19 @@ export function getTodayWAT(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: WAT_TZ })
 }
 
-/** Get days to expiry (timezone-aware, WAT). Returns null if no expiry date. */
-export function getDaysToExpiry(expiryDate: string | null | undefined): number | null {
+/**
+ * Lightweight days-to-expiry using a pre-computed today string.
+ * Use this inside .map() loops — call getTodayWAT() once before the loop.
+ */
+export function daysToExpiryFrom(expiryDate: string | null | undefined, todayWAT: string): number | null {
   if (!expiryDate) return null
   const expDateStr = expiryDate.split('T')[0]
-  const todayStr = getTodayWAT()
   const exp = new Date(expDateStr + 'T12:00:00')
-  const now = new Date(todayStr + 'T12:00:00')
+  const now = new Date(todayWAT + 'T12:00:00')
   return Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+/** Get days to expiry (timezone-aware, WAT). Returns null if no expiry date. */
+export function getDaysToExpiry(expiryDate: string | null | undefined): number | null {
+  return daysToExpiryFrom(expiryDate, getTodayWAT())
 }

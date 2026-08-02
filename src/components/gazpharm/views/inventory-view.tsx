@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
-import { formatDate, getDaysToExpiry } from '@/lib/date-utils'
+import { formatDate, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 
 interface InventoryItem {
   id: string
@@ -730,12 +730,14 @@ export function InventoryView() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((item) => {
+                (() => {
+                  const todayWAT = getTodayWAT()
+                  return filteredItems.map((item) => {
                   const qty = Number(item.quantity) || 0
                   const reorder = Number(item.product.reorderPoint) || 10
                   const isOut = qty === 0
                   const isLow = qty > 0 && qty <= reorder
-                  let daysToExpiry = getDaysToExpiry(item.product.expiryDate)
+                  const daysToExpiry = daysToExpiryFrom(item.product.expiryDate, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = daysToExpiry !== null && daysToExpiry <= 0
                   const isDiscontinued = item.product.status === 'DISCONTINUED'
@@ -782,7 +784,7 @@ export function InventoryView() {
                       </TableCell>
                     </TableRow>
                   )
-                })
+                })()}
               )}
             </TableBody>
           </Table>

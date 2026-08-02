@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
-import { formatDate, formatDateTimeShort, getDaysToExpiry } from '@/lib/date-utils'
+import { formatDate, formatDateTimeShort, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -1491,11 +1491,13 @@ function DrugSection() {
                   <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
                 </TableRow>
               ) : (
-                filtered.map((drug) => {
+                (() => {
+                  const todayWAT = getTodayWAT()
+                  return filtered.map((drug) => {
                   const stockQty = drug.inventory?.[0]?.quantity || 0
                   const reorderLvl = drug.reorderPoint || 10
                   const isDiscontinued = drug.status === 'DISCONTINUED'
-                  let daysToExpiry = getDaysToExpiry(drug.expiryDate)
+                  const daysToExpiry = daysToExpiryFrom(drug.expiryDate, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = daysToExpiry !== null && daysToExpiry <= 0
                   return (
@@ -1555,7 +1557,7 @@ function DrugSection() {
                       </TableCell>
                     </TableRow>
                   )
-                })
+                })()}
               )}
             </TableBody>
           </Table>
