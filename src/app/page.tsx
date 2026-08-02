@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, Component, type ReactNode, useState } from 'react'
 import { formatDateWeekday } from '@/lib/date-utils'
-import { useAppStore } from '@/store/app-store'
+import { useAppStore, type ViewName } from '@/store/app-store'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -43,7 +43,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useAppStore, type ViewName } from '@/store/app-store'
 import { initCurrencyGetter, type CurrencyCode } from '@/lib/currency'
 import { LoginScreen } from '@/components/gazpharm/login-screen'
 import { DashboardView } from '@/components/gazpharm/views/dashboard-view'
