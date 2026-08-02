@@ -95,8 +95,6 @@ export function ReportsView() {
   const [expiredGoods, setExpiredGoods] = useState<any[]>([])
   const [expiredSummary, setExpiredSummary] = useState<any>(null)
   const [expiredLoading, setExpiredLoading] = useState(false)
-  const [expiredFrom, setExpiredFrom] = useState('')
-  const [expiredTo, setExpiredTo] = useState('')
   const [processingExpired, setProcessingExpired] = useState(false)
   const [selectedExpiredIds, setSelectedExpiredIds] = useState<Set<string>>(new Set())
 
@@ -265,13 +263,10 @@ export function ReportsView() {
   }
 
   // Fetch expired goods report
-  const fetchExpiredGoods = useCallback(async (from?: string, to?: string) => {
+  const fetchExpiredGoods = useCallback(async () => {
     setExpiredLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (from) params.set('from', from)
-      if (to) params.set('to', to)
-      const res = await fetch(`/api/reports/expired-goods?${params.toString()}`)
+      const res = await fetch('/api/reports/expired-goods')
       if (res.ok) {
         const data = await res.json()
         setExpiredGoods(data.products || [])
@@ -284,12 +279,12 @@ export function ReportsView() {
     }
   }, [addToast])
 
-  // Load expired goods when tab activates or filters change
+  // Load expired goods when tab activates
   useEffect(() => {
     if (activeTab === 'expired-goods') {
-      fetchExpiredGoods(expiredFrom, expiredTo)
+      fetchExpiredGoods()
     }
-  }, [activeTab, expiredFrom, expiredTo, fetchExpiredGoods])
+  }, [activeTab, fetchExpiredGoods])
 
   // CSV export for expired goods
   const exportExpiredCSV = useCallback(() => {
@@ -369,7 +364,7 @@ export function ReportsView() {
         bumpInventoryVersion()
         setSelectedExpiredIds(new Set())
         // Refresh expired goods report
-        fetchExpiredGoods(expiredFrom, expiredTo)
+        fetchExpiredGoods()
       } else {
         addToast({ title: 'No Action', description: 'No expired goods with stock to process', variant: 'default' })
       }
@@ -378,7 +373,7 @@ export function ReportsView() {
     } finally {
       setProcessingExpired(false)
     }
-  }, [user, addToast, bumpInventoryVersion, fetchExpiredGoods, expiredFrom, expiredTo])
+  }, [user, addToast, bumpInventoryVersion, fetchExpiredGoods])
 
   // Per-user sales analytics state
   const [userSalesData, setUserSalesData] = useState<UserSalesData[]>([])
@@ -1037,19 +1032,9 @@ export function ReportsView() {
 
         {/* Expired Goods Tab */}
         <TabsContent value="expired-goods" className="space-y-4">
-          {/* Date filters + actions */}
+          {/* Actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Label className="text-xs">Expiry from:</Label>
-              <Input type="date" value={expiredFrom} onChange={(e) => setExpiredFrom(e.target.value)} className="h-8 w-36 text-xs" />
-              <Label className="text-xs">to:</Label>
-              <Input type="date" value={expiredTo} onChange={(e) => setExpiredTo(e.target.value)} className="h-8 w-36 text-xs" />
-              {(expiredFrom || expiredTo) && (
-                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setExpiredFrom(''); setExpiredTo('') }}>
-                  Clear
-                </Button>
-              )}
-            </div>
+            <div />
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportExpiredCSV} disabled={expiredGoods.length === 0}>
                 <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
