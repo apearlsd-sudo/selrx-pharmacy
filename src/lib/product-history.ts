@@ -30,7 +30,7 @@ async function ensureTable() {
  */
 export async function writeProductHistory(params: {
   productId: string
-  action: 'CREATED' | 'UPDATED' | 'DELETED'
+  action: 'CREATED' | 'UPDATED' | 'DELETED' | 'EXPIRED'
   changedFields?: string[]
   previousValues?: Record<string, unknown>
   newValues?: Record<string, unknown>

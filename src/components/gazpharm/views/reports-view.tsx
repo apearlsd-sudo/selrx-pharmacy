@@ -5,6 +5,7 @@ import {
   ShoppingCart, TrendingUp, CalendarDays, Download, FileText,
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
   Trash2, Clock, ChevronLeft, ChevronRight, Search, PackageX,
+  AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -85,6 +86,7 @@ export function ReportsView() {
   const [completedStockTakes, setCompletedStockTakes] = useState<any[]>([])
   const addToast = useAppStore((s) => s.addToast)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
   const user = useAppStore((s) => s.user)
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
@@ -94,6 +96,8 @@ export function ReportsView() {
   const [expiredLoading, setExpiredLoading] = useState(false)
   const [expiredFrom, setExpiredFrom] = useState('')
   const [expiredTo, setExpiredTo] = useState('')
+  const [processingExpired, setProcessingExpired] = useState(false)
+  const [selectedExpiredIds, setSelectedExpiredIds] = useState<Set<string>>(new Set())
 
   // Product activity log state
   const [activityLog, setActivityLog] = useState<any[]>([])
@@ -311,6 +315,69 @@ export function ReportsView() {
     URL.revokeObjectURL(url)
     addToast({ title: 'Exported', description: 'Expired goods report exported as CSV', variant: 'success' })
   }, [expiredGoods, addToast])
+
+  // Toggle selection of expired goods
+  const toggleExpiredSelection = useCallback((id: string) => {
+    setSelectedExpiredIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  // Toggle select all unprocessed expired goods
+  const toggleSelectAllExpired = useCallback(() => {
+    const unprocessed = expiredGoods.filter((p: any) => !p.processed)
+    if (selectedExpiredIds.size === unprocessed.length && unprocessed.length > 0) {
+      setSelectedExpiredIds(new Set())
+    } else {
+      setSelectedExpiredIds(new Set(unprocessed.map((p: any) => p.id)))
+    }
+  }, [selectedExpiredIds, expiredGoods])
+
+  // Process expired goods — remove from inventory
+  const processExpiredGoods = useCallback(async (productIds?: string[]) => {
+    setProcessingExpired(true)
+    try {
+      const body: any = {}
+      if (productIds && productIds.length > 0) body.productIds = productIds
+
+      const res = await fetch('/api/reports/expired-goods', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || '',
+          'x-user-role': user?.role || '',
+        },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to process expired goods')
+      }
+      const data = await res.json()
+      const count = data.processedCount || 0
+      const costOff = data.totalCostWrittenOff || 0
+      if (count > 0) {
+        addToast({
+          title: 'Expired Goods Processed',
+          description: `${count} item${count === 1 ? '' : 's'} removed from inventory. Cost written off: ${formatCurrency(costOff)}`,
+          variant: 'success',
+        })
+        bumpInventoryVersion()
+        setSelectedExpiredIds(new Set())
+        // Refresh expired goods report
+        fetchExpiredGoods(expiredFrom, expiredTo)
+      } else {
+        addToast({ title: 'No Action', description: 'No expired goods with stock to process', variant: 'default' })
+      }
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to process expired goods', variant: 'destructive' })
+    } finally {
+      setProcessingExpired(false)
+    }
+  }, [user, addToast, bumpInventoryVersion, fetchExpiredGoods, expiredFrom, expiredTo])
 
   // Per-user sales analytics state
   const [userSalesData, setUserSalesData] = useState<UserSalesData[]>([])
@@ -969,9 +1036,9 @@ export function ReportsView() {
 
         {/* Expired Goods Tab */}
         <TabsContent value="expired-goods" className="space-y-4">
-          {/* Date filters + export */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex items-center gap-2">
+          {/* Date filters + actions */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <Label className="text-xs">Expiry from:</Label>
               <Input type="date" value={expiredFrom} onChange={(e) => setExpiredFrom(e.target.value)} className="h-8 w-36 text-xs" />
               <Label className="text-xs">to:</Label>
@@ -982,10 +1049,44 @@ export function ReportsView() {
                 </Button>
               )}
             </div>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportExpiredCSV} disabled={expiredGoods.length === 0}>
-              <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportExpiredCSV} disabled={expiredGoods.length === 0}>
+                <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+              </Button>
+              {(expiredSummary?.unprocessedItems || 0) > 0 && (
+                <Button
+                  size="sm"
+                  className="h-8 text-xs bg-red-600 hover:bg-red-700 text-white"
+                  disabled={processingExpired}
+                  onClick={() => processExpiredGoods(selectedExpiredIds.size > 0 ? Array.from(selectedExpiredIds) : undefined)}
+                >
+                  {processingExpired ? (
+                    <span className="flex items-center gap-1"><span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</span>
+                  ) : selectedExpiredIds.size > 0 ? (
+                    <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Remove Selected ({selectedExpiredIds.size})</>
+                  ) : (
+                    <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Remove All Expired from Inventory</>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Selection toolbar */}
+          {selectedExpiredIds.size > 0 && (
+            <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
+              <Checkbox
+                checked={expiredGoods.filter((p: any) => !p.processed).every((p: any) => selectedExpiredIds.has(p.id))}
+                onCheckedChange={toggleSelectAllExpired}
+              />
+              <span className="text-red-700 font-medium">{selectedExpiredIds.size} item{selectedExpiredIds.size === 1 ? '' : 's'} selected</span>
+              <span className="text-red-500">— cost to write off: {formatCurrency(expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id)).reduce((s: number, p: any) => s + p.costValue, 0))}</span>
+              <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto" disabled={processingExpired} onClick={() => processExpiredGoods(Array.from(selectedExpiredIds))}>
+                {processingExpired ? 'Processing...' : 'Remove Selected'}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedExpiredIds(new Set())}>Cancel</Button>
+            </div>
+          )}
 
           {expiredLoading ? (
             <div className="space-y-3">
@@ -1004,42 +1105,55 @@ export function ReportsView() {
           ) : (
             <>
               {/* KPI cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <Card>
                   <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Expired Items</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Expired</p>
                     <p className="text-xl font-bold mt-1">{expiredSummary?.totalItems || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">{expiredSummary?.processedItems || 0} processed, {expiredSummary?.unprocessedItems || 0} pending</p>
+                  </CardContent>
+                </Card>
+                <Card className={(expiredSummary?.unprocessedItems || 0) > 0 ? 'border-red-200 bg-red-50/50' : ''}>
+                  <CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Unprocessed (In Stock)</p>
+                    <p className={`text-xl font-bold mt-1 ${(expiredSummary?.unprocessedItems || 0) > 0 ? 'text-red-600' : ''}`}>{expiredSummary?.unprocessedItems || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Stock qty: {expiredSummary?.totalStockQty || 0}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Stock Qty (Waste)</p>
-                  <p className="text-xl font-bold mt-1">{expiredSummary?.totalStockQty || 0}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost Value at Risk</p>
+                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Cost Value</p>
-                  <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Potential Loss</p>
+                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Additional KPI row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <Card>
+                  <CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Retail Value</p>
+                    <p className="text-xl font-bold mt-1">{formatCurrency(expiredSummary?.totalRetailValue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Retail Value</p>
-                  <p className="text-xl font-bold mt-1">{formatCurrency(expiredSummary?.totalRetailValue || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sold Before Expiry</p>
+                    <p className="text-xl font-bold mt-1 text-emerald-600">{expiredSummary?.totalQtySold || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Revenue: {formatCurrency(expiredSummary?.totalSalesRevenue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Potential Loss</p>
-                  <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sold Before Expiry</p>
-                  <p className="text-xl font-bold mt-1 text-emerald-600">{expiredSummary?.totalQtySold || 0}</p>
-                  <p className="text-[10px] text-muted-foreground">Revenue: {formatCurrency(expiredSummary?.totalSalesRevenue || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Already Processed</p>
+                    <p className="text-xl font-bold mt-1 text-muted-foreground">{expiredSummary?.processedItems || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Removed from inventory</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1047,30 +1161,52 @@ export function ReportsView() {
               {/* Detailed table */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Expired Products Detail</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">Expired Products Detail</CardTitle>
+                    {(expiredSummary?.unprocessedItems || 0) > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={expiredGoods.filter((p: any) => !p.processed).every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.filter((p: any) => !p.processed).length > 0}
+                          onCheckedChange={toggleSelectAllExpired}
+                        />
+                        <span className="text-[10px] text-muted-foreground">Select all unprocessed</span>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          {(expiredSummary?.unprocessedItems || 0) > 0 && <TableHead className="w-8"></TableHead>}
                           <TableHead>Product</TableHead>
                           <TableHead className="hidden md:table-cell">Batch</TableHead>
                           <TableHead className="hidden lg:table-cell">Category</TableHead>
                           <TableHead className="text-right">Cost</TableHead>
                           <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">In Stock</TableHead>
+                          <TableHead className="text-right">Stock</TableHead>
                           <TableHead className="text-right hidden sm:table-cell">Cost Value</TableHead>
                           <TableHead className="text-right hidden sm:table-cell">Retail Value</TableHead>
                           <TableHead className="text-right hidden md:table-cell">Loss</TableHead>
                           <TableHead className="text-right hidden md:table-cell">Sold</TableHead>
                           <TableHead className="text-right hidden lg:table-cell">Revenue</TableHead>
                           <TableHead className="text-right">Expired</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {expiredGoods.map((p: any) => (
-                          <TableRow key={p.id}>
+                          <TableRow key={p.id} className={p.processed ? 'opacity-60' : ''}>
+                            {(expiredSummary?.unprocessedItems || 0) > 0 && (
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedExpiredIds.has(p.id)}
+                                  disabled={p.processed}
+                                  onCheckedChange={() => toggleExpiredSelection(p.id)}
+                                />
+                              </TableCell>
+                            )}
                             <TableCell>
                               <div>
                                 <p className="font-medium text-sm">{p.name}</p>
@@ -1088,13 +1224,26 @@ export function ReportsView() {
                                 {p.stockQty}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">{formatCurrency(p.costValue)}</TableCell>
-                            <TableCell className="text-right text-xs hidden sm:table-cell">{formatCurrency(p.retailValue)}</TableCell>
-                            <TableCell className="text-right text-xs text-red-600 hidden md:table-cell">{formatCurrency(p.lossValue)}</TableCell>
+                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">{p.stockQty > 0 ? formatCurrency(p.costValue) : '—'}</TableCell>
+                            <TableCell className="text-right text-xs hidden sm:table-cell">{p.stockQty > 0 ? formatCurrency(p.retailValue) : '—'}</TableCell>
+                            <TableCell className="text-right text-xs text-red-600 hidden md:table-cell">{p.stockQty > 0 ? formatCurrency(p.lossValue) : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-emerald-600 hidden md:table-cell">{p.qtySold > 0 ? p.qtySold : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-emerald-600 hidden lg:table-cell">{p.salesRevenue > 0 ? formatCurrency(p.salesRevenue) : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
                               {p.expiryDate ? p.expiryDate.split('T')[0] : '—'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {p.processed ? (
+                                <Badge className="bg-gray-100 text-gray-600 text-[10px] gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> Removed
+                                </Badge>
+                              ) : p.stockQty > 0 ? (
+                                <Badge className="bg-red-100 text-red-700 text-[10px] gap-1">
+                                  <AlertTriangle className="h-3 w-3" /> In Stock
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-gray-100 text-gray-500 text-[10px]">No Stock</Badge>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1104,6 +1253,7 @@ export function ReportsView() {
                   {/* Totals footer */}
                   <div className="border-t px-4 py-2 bg-gray-50/80 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
                     <span>Totals —</span>
+                    <span>Items: <strong>{expiredSummary?.totalItems || 0}</strong></span>
                     <span>Cost Value: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</strong></span>
                     <span>Retail Value: <strong>{formatCurrency(expiredSummary?.totalRetailValue || 0)}</strong></span>
                     <span>Loss: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</strong></span>
