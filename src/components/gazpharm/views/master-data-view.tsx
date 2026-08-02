@@ -1801,11 +1801,9 @@ function DrugSection() {
 
                 {/* Column guide */}
                 <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-foreground">Required columns (marked with * in template):</p>
-                  <p><span className="text-red-500 font-bold">*</span> <strong>Name</strong> — Product name</p>
-                  <p><span className="text-red-500 font-bold">*</span> <strong>Selling Price</strong> — Retail price</p>
-                  <p className="mt-1 font-medium text-foreground">Optional:</p>
-                  <p>NDC, Category, Dosage Form, Strength, Cost Price, Quantity, Manufacturer, Vendor, Batch Number, Expiry Date, and more</p>
+                  <p className="font-medium text-foreground">Template columns:</p>
+                  <p><span className="text-red-500 font-bold">*</span> <strong>Drug Name</strong> — Product name (required)</p>
+                  <p>SKU, Category, Manufacturer, Vendor, Dosage Form, Stock Qty, Status, Reorder Level, Cost, Retail, Expiry</p>
                 </div>
 
                 {/* Import button */}

@@ -1533,11 +1533,9 @@ export function InventoryView() {
 
                 {/* Column guide */}
                 <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-foreground">Required columns (marked with * in template):</p>
-                  <p><span className="text-red-500 font-bold">*</span> <strong>Name</strong> — Product name (required)</p>
-                  <p><span className="text-red-500 font-bold">*</span> <strong>Selling Price</strong> — Retail selling price (required)</p>
-                  <p className="mt-1 font-medium text-foreground">Optional columns:</p>
-                  <p>NDC, Generic Name, Category, Dosage Form, Strength, Unit of Measure, Cost Price, Reorder Point, Reorder Qty, Max Stock, Quantity (initial stock), Batch Number, Expiry Date, Manufacturer, Vendor, Storage Location, Description, Requires Prescription, Controlled Substance, Status</p>
+                  <p className="font-medium text-foreground">Template columns:</p>
+                  <p><span className="text-red-500 font-bold">*</span> <strong>Drug Name</strong> — Product name (required)</p>
+                  <p>SKU, Category, Manufacturer, Vendor, Dosage Form, Stock Qty, Status, Reorder Level, Cost, Retail, Expiry</p>
                 </div>
 
                 {/* Import button */}

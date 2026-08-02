@@ -4,41 +4,49 @@ import * as XLSX from 'xlsx'
 
 // ── Excel column mapping (header name → field name) ──────────────────────
 const COLUMN_MAP: Record<string, string> = {
+  // Primary columns (template order)
+  'drug name': 'name',
   'name': 'name',
   'product name': 'name',
+  'sku': 'ndc',
   'ndc': 'ndc',
   'national drug code': 'ndc',
-  'generic name': 'genericName',
-  'generic': 'genericName',
   'category': 'category',
+  'manufacturer': 'manufacturer',
+  'vendor': 'vendorName',
   'dosage form': 'dosageForm',
   'dosageform': 'dosageForm',
+  'stock qty': 'quantity',
+  'stock quantity': 'quantity',
+  'quantity': 'quantity',
+  'initial qty': 'quantity',
+  'initial quantity': 'quantity',
+  'status': 'status',
+  'reorder level': 'reorderPoint',
+  'reorder point': 'reorderPoint',
+  'min stock': 'reorderPoint',
+  'cost': 'costPrice',
+  'cost price': 'costPrice',
+  'wholesale price': 'costPrice',
+  'retail': 'sellingPrice',
+  'retail price': 'sellingPrice',
+  'selling price': 'sellingPrice',
+  'price': 'sellingPrice',
+  'expiry': 'expiryDate',
+  'expiry date': 'expiryDate',
+  'expiration date': 'expiryDate',
+  // Legacy / extra columns (still accepted but not in template)
+  'generic name': 'genericName',
+  'generic': 'genericName',
   'strength': 'strength',
   'unit of measure': 'unitOfMeasure',
   'uom': 'unitOfMeasure',
   'unit': 'unitOfMeasure',
-  'selling price': 'sellingPrice',
-  'price': 'sellingPrice',
-  'retail price': 'sellingPrice',
-  'cost price': 'costPrice',
-  'cost': 'costPrice',
-  'wholesale price': 'costPrice',
-  'reorder point': 'reorderPoint',
-  'min stock': 'reorderPoint',
   'reorder qty': 'reorderQty',
   'reorder quantity': 'reorderQty',
   'max stock': 'maxStock',
-  'quantity': 'quantity',
-  'stock quantity': 'quantity',
-  'initial qty': 'quantity',
-  'initial quantity': 'quantity',
   'batch number': 'batchNumber',
   'batch': 'batchNumber',
-  'expiry date': 'expiryDate',
-  'expiry': 'expiryDate',
-  'expiration date': 'expiryDate',
-  'manufacturer': 'manufacturer',
-  'vendor': 'vendorName',
   'storage location': 'storageLocation',
   'location': 'storageLocation',
   'description': 'description',
@@ -46,7 +54,6 @@ const COLUMN_MAP: Record<string, string> = {
   'rx required': 'requiresPrescription',
   'controlled substance': 'controlledSubstance',
   'dea schedule': 'deaSchedule',
-  'status': 'status',
 }
 
 // ── Fields that should NOT become empty strings ─────────────────────────────
@@ -167,8 +174,8 @@ export async function POST(request: NextRequest) {
     if (!hasName) {
       return NextResponse.json(
         {
-          error: 'Missing required column "Name". Please use the template or ensure your file has a "Name" column.',
-          requiredColumns: ['Name (required)', 'Selling Price (required)', 'NDC', 'Category', 'Cost Price', 'Dosage Form', 'Strength', 'Unit of Measure', 'Reorder Point', 'Reorder Qty', 'Max Stock', 'Quantity', 'Batch Number', 'Expiry Date', 'Manufacturer', 'Vendor', 'Storage Location'],
+          error: 'Missing required column "Drug Name". Please use the template or ensure your file has a "Drug Name" column.',
+          requiredColumns: ['Drug Name (required)', 'SKU', 'Category', 'Manufacturer', 'Vendor', 'Dosage Form', 'Stock Qty', 'Status', 'Reorder Level', 'Cost', 'Retail', 'Expiry'],
         },
         { status: 400 }
       )
@@ -188,11 +195,7 @@ export async function POST(request: NextRequest) {
       const errors: string[] = []
 
       if (!mapped.name || String(mapped.name).trim() === '') {
-        errors.push('Name is required')
-      }
-
-      if (mapped.sellingPrice === undefined || mapped.sellingPrice === null || Number(mapped.sellingPrice) <= 0) {
-        errors.push('Selling price must be a positive number')
+        errors.push('Drug Name is required')
       }
 
       const validStatuses = ['ACTIVE', 'INACTIVE', 'DISCONTINUED', 'RECALLED']
@@ -488,59 +491,41 @@ async function importViaPrisma(
 export async function GET() {
   try {
     const headers = [
-      'Name *', 'NDC', 'Generic Name', 'Category',
-      'Dosage Form', 'Strength', 'Unit of Measure', 'Selling Price *',
-      'Cost Price', 'Reorder Point', 'Reorder Qty', 'Max Stock', 'Quantity',
-      'Batch Number', 'Expiry Date', 'Manufacturer', 'Vendor',
-      'Storage Location', 'Description', 'Requires Prescription',
-      'Controlled Substance', 'Status',
+      'Drug Name', 'SKU', 'Category', 'Manufacturer', 'Vendor',
+      'Dosage Form', 'Stock Qty', 'Status', 'Reorder Level',
+      'Cost', 'Retail', 'Expiry', 'Actions',
     ]
 
     const exampleRows = [
       {
-        'Name *': 'Amoxicillin 500mg Capsules', NDC: '12345-6789-01',
-        'Generic Name': 'Amoxicillin', Category: 'PRESCRIPTION',
-        'Dosage Form': 'CAPSULE', Strength: '500mg', 'Unit of Measure': 'EA',
-        'Selling Price *': 12.99, 'Cost Price': 8.50, 'Reorder Point': 20,
-        'Reorder Qty': 100, 'Max Stock': 500, Quantity: 150,
-        'Batch Number': 'BATCH-2024-001', 'Expiry Date': '2026-12-31',
-        Manufacturer: 'PharmaCorp Inc.', Vendor: 'MedSupply Distributors',
-        'Storage Location': 'A1-SH1',
-        Description: 'Antibiotic capsule for bacterial infections',
-        'Requires Prescription': 'yes', 'Controlled Substance': 'no', Status: 'ACTIVE',
+        'Drug Name': 'Amoxicillin 500mg Capsules', SKU: '12345-6789-01',
+        Category: 'PRESCRIPTION', Manufacturer: 'PharmaCorp Inc.',
+        Vendor: 'MedSupply Distributors', 'Dosage Form': 'CAPSULE',
+        'Stock Qty': 150, Status: 'ACTIVE', 'Reorder Level': 20,
+        Cost: 8.50, Retail: 12.99, Expiry: '2026-12-31', Actions: '',
       },
       {
-        'Name *': 'Ibuprofen 200mg Tablets', NDC: '23456-7890-02',
-        'Generic Name': 'Ibuprofen', Category: 'OTC',
-        'Dosage Form': 'TABLET', Strength: '200mg', 'Unit of Measure': 'EA',
-        'Selling Price *': 5.99, 'Cost Price': 2.50, 'Reorder Point': 50,
-        'Reorder Qty': 200, 'Max Stock': 1000, Quantity: 300,
-        'Batch Number': 'BATCH-2024-002', 'Expiry Date': '2027-06-30',
-        Manufacturer: 'GenericLab Ltd.', Vendor: 'MedSupply Distributors',
-        'Storage Location': 'A2-SH1', Description: 'NSAID pain reliever',
-        'Requires Prescription': 'no', 'Controlled Substance': 'no', Status: 'ACTIVE',
+        'Drug Name': 'Ibuprofen 200mg Tablets', SKU: '23456-7890-02',
+        Category: 'OTC', Manufacturer: 'GenericLab Ltd.',
+        Vendor: 'MedSupply Distributors', 'Dosage Form': 'TABLET',
+        'Stock Qty': 300, Status: 'ACTIVE', 'Reorder Level': 50,
+        Cost: 2.50, Retail: 5.99, Expiry: '2027-06-30', Actions: '',
       },
       {
-        'Name *': 'Metformin 500mg Tablets', NDC: '34567-8901-03',
-        'Generic Name': 'Metformin', Category: 'PRESCRIPTION',
-        'Dosage Form': 'TABLET', Strength: '500mg', 'Unit of Measure': 'EA',
-        'Selling Price *': 9.50, 'Cost Price': 4.25, 'Reorder Point': 30,
-        'Reorder Qty': 150, 'Max Stock': 600, Quantity: 0,
-        'Batch Number': '', 'Expiry Date': '', Manufacturer: '',
-        Vendor: '', 'Storage Location': '',
-        Description: 'Oral antidiabetic medication',
-        'Requires Prescription': 'yes', 'Controlled Substance': 'no', Status: 'ACTIVE',
+        'Drug Name': 'Metformin 500mg Tablets', SKU: '34567-8901-03',
+        Category: 'PRESCRIPTION', Manufacturer: '',
+        Vendor: '', 'Dosage Form': 'TABLET',
+        'Stock Qty': 0, Status: 'ACTIVE', 'Reorder Level': 30,
+        Cost: 4.25, Retail: 9.50, Expiry: '', Actions: '',
       },
     ]
 
     const worksheet = XLSX.utils.json_to_sheet(exampleRows, { header: headers })
     worksheet['!cols'] = [
-      { wch: 35 }, { wch: 18 }, { wch: 20 }, { wch: 15 },
-      { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
-      { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
-      { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 22 },
-      { wch: 22 }, { wch: 16 }, { wch: 35 }, { wch: 18 },
-      { wch: 18 }, { wch: 12 },
+      { wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 22 },
+      { wch: 24 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+      { wch: 12 },
     ]
 
     const workbook = XLSX.utils.book_new()
