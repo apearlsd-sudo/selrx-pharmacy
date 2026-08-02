@@ -13,8 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useAppStore } from '@/store/app-store'
-import type { UserState } from '@/store/app-store'
+import { useAppStore, type UserState } from '@/store/app-store'
 
 export function LoginScreen() {
   const [username, setUsername] = useState('')

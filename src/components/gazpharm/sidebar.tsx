@@ -33,8 +33,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { useAppStore } from '@/store/app-store'
-import type { ViewName } from '@/store/app-store'
+import { useAppStore, type ViewName } from '@/store/app-store'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
   AlertDialog,

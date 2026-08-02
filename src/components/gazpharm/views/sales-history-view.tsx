@@ -42,7 +42,6 @@ const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0
 
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTimeShort, formatDateShort, formatDate as formatDateDMY, getTodayWAT } from '@/lib/date-utils'
-import { useAppStore } from '@/store/app-store'
 
 function formatDate(dateStr: string): string {
   return formatDateTimeShort(dateStr)
