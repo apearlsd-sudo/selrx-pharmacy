@@ -191,6 +191,9 @@ export interface UIState {
   removeToast: (id: string) => void
   isLoading: boolean
   setIsLoading: (val: boolean) => void
+  /** Prevents UI flash on reload — true once hydration completes */
+  isHydrated: boolean
+  setHydrated: () => void
 }
 
 // ============ COMBINED APP STATE TYPE ============

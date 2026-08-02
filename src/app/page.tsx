@@ -150,7 +150,7 @@ function TopbarClock() {
 // ── Notification Bell with live alerts ──────────────────────────────
 function NotificationBell() {
   const [notifications, setNotifications] = useState<Array<{
-    id: string; type: string; title: string; message: string; severity: string; meta: Record<string, unknown>
+    id: string; type: string; title: string; message: string; severity: string; productName: string; productId: string; meta: Record<string, unknown>
   }>>([])
   const [count, setCount] = useState(0)
   const [open, setOpen] = useState(false)
