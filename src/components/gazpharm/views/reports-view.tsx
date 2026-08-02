@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from
 import {
   ShoppingCart, TrendingUp, CalendarDays, Download, FileText,
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
+  Trash2, Clock, ChevronLeft, ChevronRight, Search,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,15 @@ import {
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
@@ -76,6 +86,88 @@ export function ReportsView() {
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
   const user = useAppStore((s) => s.user)
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+
+  // Product activity log state
+  const [activityLog, setActivityLog] = useState<any[]>([])
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityTotalPages, setActivityTotalPages] = useState(1)
+  const [activityFilter, setActivityFilter] = useState<string>('all')
+  const [activitySearch, setActivitySearch] = useState('')
+  const [expandedActivity, setExpandedActivity] = useState<string | null>(null)
+
+  // Product delete state
+  const [deleteProduct, setDeleteProduct] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  // Product list for delete functionality
+  const [products, setProducts] = useState<any[]>([])
+  const [productSearch, setProductSearch] = useState('')
+  const fetchProducts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/products?limit=200')
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(Array.isArray(data) ? data : data.products || [])
+      }
+    } catch { /* silent */ }
+  }, [])
+
+  // Fetch product activity log
+  const fetchActivityLog = useCallback(async (page?: number, action?: string, search?: string) => {
+    setActivityLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('page', String(page || 1))
+      params.set('limit', '30')
+      if (action && action !== 'all') params.set('action', action)
+      if (search) params.set('search', search)
+
+      const res = await fetch(`/api/product-history/all?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setActivityLog(data.history || [])
+        setActivityTotalPages(data.pagination?.pages || 1)
+        setActivityPage(data.pagination?.page || 1)
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load activity log', variant: 'destructive' })
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [addToast])
+
+  // Load activity log when tab activates or filters change
+  useEffect(() => {
+    if (activeTab === 'product-activity') {
+      fetchActivityLog(1, activityFilter, activitySearch)
+      fetchProducts()
+    }
+  }, [activeTab, activityFilter, fetchActivityLog, fetchProducts])
+
+  // Handle product delete
+  const handleDeleteProduct = async () => {
+    if (!deleteProduct) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/products/${deleteProduct.id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-role': user?.role || 'SUPER_ADMIN' },
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete product')
+      }
+      addToast({ title: 'Product Discontinued', description: `"${deleteProduct.name}" has been discontinued`, variant: 'success' })
+      setDeleteProduct(null)
+      fetchProducts()
+      fetchActivityLog(activityPage, activityFilter, activitySearch)
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Per-user sales analytics state
   const [userSalesData, setUserSalesData] = useState<UserSalesData[]>([])
@@ -256,6 +348,7 @@ export function ReportsView() {
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
             <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
             <TabsTrigger value="stocktake">Stock Take</TabsTrigger>
+            <TabsTrigger value="product-activity">Product Activity</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2">
@@ -885,7 +978,292 @@ export function ReportsView() {
             </>
           )}
         </TabsContent>
+
+        {/* Product Activity Tab */}
+        <TabsContent value="product-activity" className="space-y-4">
+          {/* KPI summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <span className="text-lg font-bold text-emerald-600">+</span>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{products.length}</p>
+                  <p className="text-xs text-muted-foreground">Active Products</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
+                  <p className="text-xs text-muted-foreground">Edits (this page)</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
+                  <p className="text-xs text-muted-foreground">Deleted (this page)</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters row */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search activity by product name..."
+                value={activitySearch}
+                onChange={(e) => setActivitySearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchActivityLog(1, activityFilter, activitySearch)}
+                className="pl-9 h-8 text-xs"
+              />
+            </div>
+            <Select value={activityFilter} onValueChange={(v) => setActivityFilter(v)}>
+              <SelectTrigger className="h-8 w-40 text-xs">
+                <SelectValue placeholder="Filter action" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Actions</SelectItem>
+                <SelectItem value="CREATED">Created</SelectItem>
+                <SelectItem value="UPDATED">Edited</SelectItem>
+                <SelectItem value="DELETED">Deleted</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Activity log table */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Product Activity Log</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8"></TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead className="hidden sm:table-cell">Changed Fields</TableHead>
+                    <TableHead className="hidden md:table-cell">By</TableHead>
+                    <TableHead className="text-right">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activityLoading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <TableRow key={i}>
+                        {Array.from({ length: 6 }).map((_, j) => (
+                          <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : activityLog.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <Clock className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm text-muted-foreground">No activity recorded yet</p>
+                        <p className="text-xs text-muted-foreground mt-1">Product changes (add, edit, delete) will appear here</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    activityLog.map((h: any) => {
+                      const isExpanded = expandedActivity === h.id
+                      const actionColor = h.action === 'CREATED'
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : h.action === 'DELETED'
+                        ? 'text-red-700 bg-red-50 border-red-200'
+                        : 'text-blue-700 bg-blue-50 border-blue-200'
+                      const actionIcon = h.action === 'CREATED' ? '+' : h.action === 'DELETED' ? '-' : '~'
+                      const prev = h.previousValues ? (typeof h.previousValues === 'string' ? JSON.parse(h.previousValues) : h.previousValues) : null
+                      const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
+                      const dateStr = h.createdAt
+                        ? new Date(h.createdAt).toLocaleString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })
+                        : ''
+
+                      return (
+                        <>
+                          <TableRow
+                            key={h.id}
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => setExpandedActivity(isExpanded ? null : h.id)}
+                          >
+                            <TableCell className="w-8 text-center">
+                              <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-sm">{h.productName}</p>
+                                {h.productNdc && <p className="text-[10px] text-muted-foreground font-mono">{h.productNdc}</p>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={`text-[10px] ${actionColor}`}>
+                                {actionIcon} {h.action}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+                              {h.changedFields
+                                ? (typeof h.changedFields === 'string' ? h.changedFields : h.changedFields.join(', '))
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{h.userName}</TableCell>
+                            <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">{dateStr}</TableCell>
+                          </TableRow>
+                          {/* Expanded detail row */}
+                          {isExpanded && (
+                            <TableRow key={`${h.id}-detail`}>
+                              <TableCell colSpan={6} className="bg-gray-50/80 px-6 py-3">
+                                {h.action === 'UPDATED' && h.changedFields && (
+                                  <div className="space-y-1.5">
+                                    {(typeof h.changedFields === 'string' ? h.changedFields.split(', ') : (h.changedFields || [])).map((field: string, i: number) => (
+                                      <div key={i} className="text-xs flex items-start gap-2 bg-white rounded px-3 py-2 border">
+                                        <span className="font-medium text-gray-600 min-w-[100px]">{field}:</span>
+                                        <span className="text-red-500 line-through">{prev?.[field] != null ? String(prev[field]) : '—'}</span>
+                                        <span className="text-gray-400 mx-1">→</span>
+                                        <span className="text-emerald-600 font-medium">{next?.[field] != null ? String(next[field]) : '—'}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {h.action === 'CREATED' && next && (
+                                  <div className="text-xs text-muted-foreground space-y-1">
+                                    <p>Created: <span className="font-medium text-foreground">{next.name}</span></p>
+                                    {next.category && <p>Category: {next.category}</p>}
+                                    {next.sellingPrice != null && <p>Price: {formatCurrency(next.sellingPrice)}</p>}
+                                  </div>
+                                )}
+                                {h.action === 'DELETED' && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Status changed to <span className="text-red-600 font-medium">DISCONTINUED</span>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              {activityTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <p className="text-xs text-muted-foreground">Page {activityPage} of {activityTotalPages}</p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={activityPage <= 1}
+                      onClick={() => fetchActivityLog(activityPage - 1, activityFilter, activitySearch)}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={activityPage >= activityTotalPages}
+                      onClick={() => fetchActivityLog(activityPage + 1, activityFilter, activitySearch)}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delete Product Section */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-red-500" />
+                Discontinue Product
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">Search for a product and discontinue it. Discontinued products won't appear in active listings but transaction records are preserved.</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search products to discontinue..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="pl-9 h-8 text-xs"
+                  />
+                </div>
+              </div>
+              {productSearch && (
+                <div className="mt-2 max-h-48 overflow-y-auto border rounded-lg">
+                  {products
+                    .filter((p: any) =>
+                      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                      (p.ndc && p.ndc.toLowerCase().includes(productSearch.toLowerCase()))
+                    )
+                    .slice(0, 10)
+                    .map((p: any) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 cursor-pointer"
+                        onClick={() => setDeleteProduct({ id: p.id, name: p.name })}
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{p.name}</p>
+                          {p.ndc && <p className="text-[10px] text-muted-foreground font-mono">{p.ndc}</p>}
+                        </div>
+                        <Badge variant="outline" className="text-[10px]">{p.category?.replace(/_/g, ' ')}</Badge>
+                      </div>
+                    ))}
+                  {products.filter((p: any) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">No products found</div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteProduct} onOpenChange={(open) => { if (!open) setDeleteProduct(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discontinue Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to discontinue <strong>{deleteProduct?.name}</strong>? This will mark the product as discontinued. It will no longer appear in active listings but existing transaction records are preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleDeleteProduct}
+              disabled={deleting}
+            >
+              {deleting ? 'Discontinuing...' : 'Discontinue'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
