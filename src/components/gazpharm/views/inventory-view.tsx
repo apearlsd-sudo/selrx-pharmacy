@@ -207,7 +207,7 @@ export function InventoryView() {
 
       const res = await fetch('/api/inventory', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
         body: JSON.stringify(body),
       })
       if (!res.ok) {
@@ -482,7 +482,7 @@ export function InventoryView() {
         try {
           const res = await fetch('/api/inventory', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+            headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
             body: JSON.stringify(body),
           })
           if (res.ok) {

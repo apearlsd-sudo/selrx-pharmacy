@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeProductHistory } from '@/lib/product-history'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -341,6 +342,38 @@ export async function PUT(request: NextRequest) {
         await turso.execute({
           sql: `UPDATE Product SET ${setClauses.join(', ')} WHERE id = ?`,
           args: setArgs,
+        })
+      }
+
+      // Record inventory adjustment in product history
+      const userId = request.headers.get('x-user-id') || ''
+      const changedFields: string[] = []
+      const previousValues: Record<string, unknown> = {}
+      const newValues: Record<string, unknown> = {}
+      if (currentQty !== newQuantity) {
+        changedFields.push('quantity')
+        previousValues.quantity = currentQty
+        newValues.quantity = newQuantity
+      }
+      if (costPrice !== undefined) {
+        changedFields.push('costPrice')
+        previousValues.costPrice = '—'
+        newValues.costPrice = costPrice
+      }
+      if (sellingPrice !== undefined) {
+        changedFields.push('sellingPrice')
+        previousValues.sellingPrice = '—'
+        newValues.sellingPrice = sellingPrice
+      }
+
+      if (changedFields.length > 0) {
+        writeProductHistory({
+          productId,
+          action: 'UPDATED',
+          changedFields,
+          previousValues,
+          newValues,
+          userId,
         })
       }
 
