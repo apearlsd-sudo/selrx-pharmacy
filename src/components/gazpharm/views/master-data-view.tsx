@@ -557,10 +557,12 @@ function DrugEditModal({
 }) {
   const [form, setForm] = useState({
     name: '', ndc: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
-    vendorId: '', reorderPoint: '', expiryDate: '', batchNumber: '',
+    vendorId: '', reorderPoint: '', expiryDate: '', batchNumber: '', stockQuantity: '',
   })
   const [saving, setSaving] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
+  const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
+  const currentUser = useAppStore((s) => s.user)
 
   useEffect(() => {
     if (open && editingDrug) {
@@ -576,6 +578,7 @@ function DrugEditModal({
         reorderPoint: String(editingDrug.reorderPoint || 10),
         expiryDate: editingDrug.expiryDate ? editingDrug.expiryDate.split('T')[0] : '',
         batchNumber: editingDrug.batchNumber || '',
+        stockQuantity: editingDrug.inventory?.[0]?.quantity != null ? String(editingDrug.inventory[0].quantity) : '',
       })
       setSaving(false)
     }
@@ -606,6 +609,30 @@ function DrugEditModal({
         const err = await res.json()
         throw new Error(err.error || 'Failed to update product')
       }
+
+      // Update stock quantity if changed
+      if (form.stockQuantity !== '' && editingDrug) {
+        const currentQty = editingDrug.inventory?.[0]?.quantity ?? 0
+        const newQty = parseInt(form.stockQuantity) || 0
+        if (newQty !== currentQty) {
+          await fetch('/api/inventory', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-role': currentUser?.role || '',
+              'x-user-id': currentUser?.id || '',
+            },
+            body: JSON.stringify({
+              productId: editingDrug.id,
+              setQuantity: newQty,
+              adjustmentType: 'SET',
+              reason: 'Updated from Drug Catalog edit',
+            }),
+          }).catch(() => {})
+          bumpInventoryVersion()
+        }
+      }
+
       addToast({ title: 'Drug Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
       onSaved()
       onOpenChange(false)
@@ -702,6 +729,18 @@ function DrugEditModal({
           <div>
             <Label className="text-xs">Batch Number</Label>
             <Input value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g., BN-00123" className="mt-1" />
+          </div>
+          <div className="col-span-2 border-t pt-3 mt-1">
+            <Label className="text-xs font-medium text-foreground">Stock Quantity</Label>
+            <p className="text-[10px] text-muted-foreground mb-1">Set the current stock on hand. Leave blank to keep unchanged.</p>
+            <Input
+              type="number"
+              min="0"
+              value={form.stockQuantity}
+              onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
+              placeholder={editingDrug?.inventory?.[0]?.quantity != null ? `Current: ${editingDrug.inventory[0].quantity}` : 'Enter quantity'}
+              className="max-w-[200px]"
+            />
           </div>
         </div>
         <DialogFooter>
