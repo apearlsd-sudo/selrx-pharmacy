@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, Component, type ReactNode, useState, startTransition } from 'react'
+import { useEffect, useCallback, Component, type ReactNode, useState } from 'react'
 import { formatDateWeekday } from '@/lib/date-utils'
 import { useAppStore, type ViewName } from '@/store/app-store'
 import {
@@ -490,17 +490,6 @@ export default function Home() {
   // Filter nav items based on user permissions
   const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission([item.permission]))
 
-  // Navigate to a view without blocking the sidebar paint
-  const navigateTo = useCallback(
-    (view: ViewName) => {
-      startTransition(() => {
-        setCurrentView(view)
-      })
-      if (window.innerWidth < 1024) toggleSidebar()
-    },
-    [setCurrentView, toggleSidebar]
-  )
-
   const currentLabel = NAV_ITEMS.find((n) => n.name === currentView)?.label || 'Dashboard'
 
   return (
@@ -546,7 +535,10 @@ export default function Home() {
                     ? 'bg-emerald-50 text-emerald-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
-                onClick={() => navigateTo(item.name)}
+                onClick={() => {
+                  setCurrentView(item.name)
+                  if (window.innerWidth < 1024) toggleSidebar()
+                }}
               >
                 <item.icon className={`h-4 w-4 ${currentView === item.name ? 'text-emerald-600' : ''}`} />
                 {item.label}
@@ -574,7 +566,10 @@ export default function Home() {
                     ? 'bg-emerald-50 text-emerald-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
-                onClick={() => navigateTo(item.name)}
+                onClick={() => {
+                  setCurrentView(item.name)
+                  if (window.innerWidth < 1024) toggleSidebar()
+                }}
               >
                 <item.icon className={`h-4 w-4 ${currentView === item.name ? 'text-emerald-600' : ''}`} />
                 {item.label}
