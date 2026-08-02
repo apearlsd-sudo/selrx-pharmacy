@@ -9,6 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -95,6 +96,8 @@ export function ReportsView() {
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [activitySearch, setActivitySearch] = useState('')
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null)
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set())
+  const [deletingLog, setDeletingLog] = useState(false)
 
   // Product delete state
   const [deleteProduct, setDeleteProduct] = useState<{ id: string; name: string } | null>(null)
@@ -166,6 +169,86 @@ export function ReportsView() {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // Toggle single log entry selection
+  const toggleLogSelection = useCallback((id: string) => {
+    setSelectedLogIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  // Toggle select all on current page
+  const toggleSelectAll = useCallback(() => {
+    if (selectedLogIds.size === activityLog.length && activityLog.length > 0) {
+      setSelectedLogIds(new Set())
+    } else {
+      setSelectedLogIds(new Set(activityLog.map((h: any) => h.id)))
+    }
+  }, [selectedLogIds, activityLog])
+
+  // Delete selected log entries
+  const handleDeleteSelectedLogs = async () => {
+    if (selectedLogIds.size === 0) return
+    setDeletingLog(true)
+    try {
+      const res = await fetch('/api/product-history/all', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedLogIds) }),
+      })
+      if (!res.ok) throw new Error('Failed to delete')
+      addToast({ title: 'Deleted', description: `${selectedLogIds.size} log entr${selectedLogIds.size === 1 ? 'y' : 'ies'} removed`, variant: 'success' })
+      setSelectedLogIds(new Set())
+      fetchActivityLog(activityPage, activityFilter, activitySearch)
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete log entries', variant: 'destructive' })
+    } finally {
+      setDeletingLog(false)
+    }
+  }
+
+  // Delete single log entry
+  const handleDeleteSingleLog = async (id: string) => {
+    setDeletingLog(true)
+    try {
+      const res = await fetch('/api/product-history/all', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] }),
+      })
+      if (!res.ok) throw new Error('Failed to delete')
+      addToast({ title: 'Deleted', description: 'Log entry removed', variant: 'success' })
+      setSelectedLogIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+      fetchActivityLog(activityPage, activityFilter, activitySearch)
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete log entry', variant: 'destructive' })
+    } finally {
+      setDeletingLog(false)
+    }
+  }
+
+  // Delete all log entries
+  const handleDeleteAllLogs = async () => {
+    setDeletingLog(true)
+    try {
+      const res = await fetch('/api/product-history/all', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteAll: true }),
+      })
+      if (!res.ok) throw new Error('Failed to delete')
+      addToast({ title: 'Cleared', description: 'All activity log entries removed', variant: 'success' })
+      setSelectedLogIds(new Set())
+      fetchActivityLog(1, activityFilter, activitySearch)
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to clear log', variant: 'destructive' })
+    } finally {
+      setDeletingLog(false)
     }
   }
 
@@ -1043,35 +1126,81 @@ export function ReportsView() {
             </Select>
           </div>
 
+          {/* Selection toolbar */}
+          {selectedLogIds.size > 0 && (
+            <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+              <span className="text-xs font-medium text-red-700">{selectedLogIds.size} selected</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleDeleteSelectedLogs}
+                disabled={deletingLog}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                {deletingLog ? 'Deleting...' : 'Delete Selected'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setSelectedLogIds(new Set())}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          )}
+
           {/* Activity log table */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Product Activity Log</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold">Product Activity Log</CardTitle>
+                {activityLog.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={handleDeleteAllLogs}
+                    disabled={deletingLog}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-9">
+                      <Checkbox
+                        checked={activityLog.length > 0 && selectedLogIds.size === activityLog.length}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead className="hidden sm:table-cell">Changed Fields</TableHead>
                     <TableHead className="hidden md:table-cell">By</TableHead>
                     <TableHead className="text-right">Date</TableHead>
+                    <TableHead className="w-9"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {activityLoading ? (
                     Array.from({ length: 6 }).map((_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 6 }).map((_, j) => (
+                        {Array.from({ length: 8 }).map((_, j) => (
                           <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : activityLog.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12">
+                      <TableCell colSpan={8} className="text-center py-12">
                         <Clock className="h-10 w-10 mx-auto mb-2 text-gray-300" />
                         <p className="text-sm text-muted-foreground">No activity recorded yet</p>
                         <p className="text-xs text-muted-foreground mt-1">Product changes (add, edit, delete) will appear here</p>
@@ -1099,9 +1228,15 @@ export function ReportsView() {
                         <>
                           <TableRow
                             key={h.id}
-                            className="cursor-pointer hover:bg-gray-50"
+                            className={`${selectedLogIds.has(h.id) ? 'bg-red-50/50' : 'hover:bg-gray-50'} cursor-pointer`}
                             onClick={() => setExpandedActivity(isExpanded ? null : h.id)}
                           >
+                            <TableCell className="w-9" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedLogIds.has(h.id)}
+                                onCheckedChange={() => toggleLogSelection(h.id)}
+                              />
+                            </TableCell>
                             <TableCell className="w-8 text-center">
                               <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                             </TableCell>
@@ -1123,11 +1258,22 @@ export function ReportsView() {
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{h.userName}</TableCell>
                             <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">{dateStr}</TableCell>
+                            <TableCell className="w-9" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteSingleLog(h.id)}
+                                disabled={deletingLog}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                           {/* Expanded detail row */}
                           {isExpanded && (
                             <TableRow key={`${h.id}-detail`}>
-                              <TableCell colSpan={6} className="bg-gray-50/80 px-6 py-3">
+                              <TableCell colSpan={8} className="bg-gray-50/80 px-6 py-3">
                                 {h.action === 'UPDATED' && h.changedFields && (
                                   <div className="space-y-1.5">
                                     {(typeof h.changedFields === 'string' ? h.changedFields.split(', ') : (h.changedFields || [])).map((field: string, i: number) => (
@@ -1172,7 +1318,7 @@ export function ReportsView() {
                       size="icon"
                       className="h-7 w-7"
                       disabled={activityPage <= 1}
-                      onClick={() => fetchActivityLog(activityPage - 1, activityFilter, activitySearch)}
+                      onClick={() => { setSelectedLogIds(new Set()); fetchActivityLog(activityPage - 1, activityFilter, activitySearch) }}
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </Button>
@@ -1181,7 +1327,7 @@ export function ReportsView() {
                       size="icon"
                       className="h-7 w-7"
                       disabled={activityPage >= activityTotalPages}
-                      onClick={() => fetchActivityLog(activityPage + 1, activityFilter, activitySearch)}
+                      onClick={() => { setSelectedLogIds(new Set()); fetchActivityLog(activityPage + 1, activityFilter, activitySearch) }}
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>

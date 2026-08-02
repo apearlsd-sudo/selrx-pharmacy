@@ -5,6 +5,10 @@ import { turso, isTurso } from '@/lib/turso'
  * GET /api/product-history/all
  * Returns all product activity log across all products (for Reports page).
  * Supports: ?action=CREATED|UPDATED|DELETED, ?search=product name, ?page, ?limit
+ *
+ * DELETE /api/product-history/all
+ * Body: { ids: string[] } — delete specific entries
+ * Body: { deleteAll: true } — delete ALL entries
  */
 
 export async function GET(request: NextRequest) {
@@ -82,5 +86,46 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching all product history:', error)
     return NextResponse.json({ error: 'Failed to fetch product history' }, { status: 500 })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/product-history/all
+// Body: { ids: string[] }  — delete selected entries by ID
+// Body: { deleteAll: true } — delete every entry in the table
+// ---------------------------------------------------------------------------
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { ids, deleteAll } = body as { ids?: string[]; deleteAll?: boolean }
+
+    if (!isTurso()) {
+      return NextResponse.json({ error: 'Not available' }, { status: 400 })
+    }
+
+    if (deleteAll) {
+      await turso.execute({ sql: 'DELETE FROM "ProductHistory"', args: [] })
+      return NextResponse.json({ deleted: 'all' })
+    }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: 'ids array is required' }, { status: 400 })
+    }
+
+    // Batch delete using individual DELETEs (SQLite doesn't support bulk bind arrays)
+    let deleted = 0
+    for (const id of ids) {
+      const res = await turso.execute({
+        sql: 'DELETE FROM "ProductHistory" WHERE id = ?',
+        args: [id],
+      })
+      deleted += res.rowsAffected ?? 1
+    }
+
+    return NextResponse.json({ deleted, count: ids.length })
+  } catch (error) {
+    console.error('Error deleting product history:', error)
+    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 })
   }
 }
