@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
+import { writeProductHistory } from '@/lib/product-history'
 
 // GET /api/products/[id] - Get single product
 export async function GET(
@@ -260,7 +261,52 @@ export async function PUT(
         const sql = `UPDATE "Product" SET ${updateFields.join(', ')} WHERE id = ?`
         updateArgs.push(id)
 
+        // Capture previous values before update for history
+        const prevResult = await turso.execute({
+          sql: `SELECT name, category, "sellingPrice", "costPrice", "reorderPoint",
+                       "expiryDate", "batchNumber", status, ndc, "dosageForm",
+                       manufacturer, "vendorId", "manufacturerId", strength
+                FROM "Product" WHERE id = ?`,
+          args: [id],
+        })
+        const prevRow = prevResult.rows[0]
+
         await turso.execute({ sql, args: updateArgs })
+
+        // Record update in product history (fire-and-forget)
+        const fieldMap: Record<number, string> = {
+          0: 'ndc', 1: 'name', 2: 'genericName', 3: 'manufacturer',
+          4: 'manufacturerId', 5: 'vendorId', 6: 'category', 7: 'description',
+          8: 'dosageForm', 9: 'strength', 10: 'unitOfMeasure', 11: 'requiresPrescription',
+          12: 'status', 13: 'sellingPrice', 14: 'costPrice', 15: 'reorderPoint',
+          16: 'reorderQty', 17: 'maxStock', 18: 'storageLocation', 19: 'batchNumber',
+          20: 'expiryDate', 21: 'controlledSubstance', 22: 'deaSchedule',
+        }
+        const changedFieldNames = updateFields
+          .filter((f) => f !== '"updatedAt" = ?')
+          .map((f) => {
+            const col = f.split(' = ')[0].replace(/"/g, '')
+            return col
+          })
+
+        const previousValues: Record<string, unknown> = {}
+        if (prevRow) {
+          for (const fieldName of changedFieldNames) {
+            const idx = prevResult.columns.indexOf(fieldName)
+            if (idx >= 0) previousValues[fieldName] = prevRow[idx]
+          }
+        }
+        const newValues: Record<string, unknown> = {}
+        for (const fieldName of changedFieldNames) {
+          if (body[fieldName] !== undefined) newValues[fieldName] = body[fieldName]
+        }
+
+        const userId = request.headers.get('x-user-id') || ''
+        writeProductHistory({
+          productId: id, action: 'UPDATED',
+          changedFields: changedFieldNames,
+          previousValues, newValues, userId,
+        })
       }
 
       // Fetch the updated product with inventory
@@ -381,6 +427,15 @@ export async function PUT(
         include: { inventory: true },
       })
 
+      const changedFieldNames = Object.keys(body)
+      writeProductHistory({
+        productId: id, action: 'UPDATED',
+        changedFields: changedFieldNames,
+        previousValues: Object.fromEntries(changedFieldNames.map((f) => [f, (existing as any)[f]])),
+        newValues: body,
+        userId: request.headers.get('x-user-id') || '',
+      })
+
       return NextResponse.json(product)
     }
   } catch (error) {
@@ -425,9 +480,25 @@ export async function DELETE(
 
       // Soft delete: set status to DISCONTINUED
       const now = new Date().toISOString()
+
+      // Capture product name before deleting for history
+      const nameResult = await turso.execute({
+        sql: `SELECT name FROM "Product" WHERE id = ?`,
+        args: [id],
+      })
+      const productName = (nameResult.rows[0]?.name as string) || ''
+
       await turso.execute({
         sql: `UPDATE "Product" SET status = 'DISCONTINUED', "updatedAt" = ? WHERE id = ?`,
         args: [now, id],
+      })
+
+      // Record deletion in product history (fire-and-forget)
+      writeProductHistory({
+        productId: id, action: 'DELETED',
+        previousValues: { name: productName, status: 'ACTIVE' },
+        newValues: { name: productName, status: 'DISCONTINUED' },
+        userId: request.headers.get('x-user-id') || '',
       })
 
       // Fetch the updated product
@@ -482,6 +553,13 @@ export async function DELETE(
       const product = await db.product.update({
         where: { id },
         data: { status: 'DISCONTINUED' },
+      })
+
+      writeProductHistory({
+        productId: id, action: 'DELETED',
+        previousValues: { name: existing.name, status: existing.status },
+        newValues: { name: product.name, status: 'DISCONTINUED' },
+        userId: request.headers.get('x-user-id') || '',
       })
 
       return NextResponse.json({ message: 'Product discontinued successfully', product })

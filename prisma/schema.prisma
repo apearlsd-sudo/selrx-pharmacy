@@ -47,6 +47,7 @@ model User {
   prescriptionsFilled Prescription[] @relation("Dispenser")
   prescriptionsVerified Prescription[] @relation("Verifier")
   logs               AuditLog[]
+  productHistory     ProductHistory[]
   ownedCompany      Company?  @relation("CompanyOwner")
   stockTakes        StockTake[]  @relation("StockTakeCounter")
   systemRole        SystemRole? @relation(fields: [role], references: [name])
@@ -118,6 +119,7 @@ model Product {
   categories        Category[]
   returns           Return[]
   stockTakeItems    StockTakeItem[]
+  history           ProductHistory[]
 }
 
 // ============ INVENTORY ============
@@ -411,6 +413,20 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model ProductHistory {
+  id            String   @id @default(cuid())
+  productId     String
+  action        String   // CREATED, UPDATED, DELETED
+  changedFields String?  // comma-separated list of changed field names
+  previousValues String? // JSON string of previous field values
+  newValues     String?  // JSON string of new field values
+  userId        String?
+  createdAt     DateTime @default(now())
+
+  product       Product  @relation(fields: [productId], references: [id])
+  user          User?    @relation(fields: [userId], references: [id])
 }
 
 // ============ STOCK TAKE ============

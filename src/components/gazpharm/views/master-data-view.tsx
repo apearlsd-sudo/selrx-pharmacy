@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
-  Upload, FileSpreadsheet, Download,
+  Upload, FileSpreadsheet, Download, History, Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +23,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -580,7 +587,7 @@ function DrugEditModal({
     try {
       const res = await fetch(`/api/products/${editingDrug?.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name.trim(),
           ndc: form.ndc.trim() || null,
@@ -931,6 +938,16 @@ function DrugSection() {
   const [drugEditOpen, setDrugEditOpen] = useState(false)
   const [editingDrug, setEditingDrug] = useState<DrugProduct | null>(null)
 
+  // Delete confirmation
+  const [deleteDrug, setDeleteDrug] = useState<DrugProduct | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  // Product history
+  const [historyDrug, setHistoryDrug] = useState<DrugProduct | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyData, setHistoryData] = useState<any[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
   // Custom dosage forms
   const [customDosageForms, setCustomDosageForms] = useState<string[]>([])
 
@@ -1121,6 +1138,45 @@ function DrugSection() {
       addToast({ title: 'Import Error', description: err.message || 'Failed to import', variant: 'destructive' })
     } finally {
       setImporting(false)
+    }
+  }
+
+  // Delete handler
+  const handleDeleteDrug = async () => {
+    if (!deleteDrug) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/products/${deleteDrug.id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete product')
+      }
+      addToast({ title: 'Product Discontinued', description: `"${deleteDrug.name}" has been discontinued`, variant: 'success' })
+      fetchData()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeleting(false)
+      setDeleteDrug(null)
+    }
+  }
+
+  // History handler
+  const handleOpenHistory = async (drug: DrugProduct) => {
+    setHistoryDrug(drug)
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`/api/product-history?productId=${drug.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setHistoryData(data.history || [])
+      }
+    } catch { /* silent */ } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -1423,9 +1479,17 @@ function DrugSection() {
                       {drug.expiryDate ? drug.expiryDate.split('T')[0] : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="View History" onClick={() => handleOpenHistory(drug)}>
+                          <History className="h-3.5 w-3.5 text-gray-400" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteDrug(drug)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -1475,6 +1539,100 @@ function DrugSection() {
         onOpenAddCategory={() => setCatModalOpen(true)}
         onOpenAddDosageForm={() => setDosageFormModalOpen(true)}
       />
+
+      {/* ── Delete Confirmation Dialog ─────────────────────── */}
+      <AlertDialog open={!!deleteDrug} onOpenChange={(open) => { if (!open) setDeleteDrug(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discontinue Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to discontinue <strong>{deleteDrug?.name}</strong>? This will mark the product as discontinued. It will no longer appear in active listings but existing transaction records are preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleDeleteDrug}
+              disabled={deleting}
+            >
+              {deleting ? 'Discontinuing...' : 'Discontinue'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Product History Dialog ─────────────────────────────── */}
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-teal-600" />
+              Product History
+            </DialogTitle>
+            <DialogDescription>
+              {historyDrug?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[55vh] pr-2">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">Loading...</div>
+            ) : historyData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <History className="h-8 w-8 text-gray-300 mb-2" />
+                <p className="text-sm text-muted-foreground">No history recorded yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {historyData.map((h: any) => {
+                  const actionColor = h.action === 'CREATED' ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                    : h.action === 'DELETED' ? 'text-red-600 bg-red-50 border-red-200'
+                    : 'text-blue-600 bg-blue-50 border-blue-200'
+                  const actionIcon = h.action === 'CREATED' ? '+' : h.action === 'DELETED' ? '-' : '~'
+                  const prev = h.previousValues ? (typeof h.previousValues === 'string' ? JSON.parse(h.previousValues) : h.previousValues) : null
+                  const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
+                  const dateStr = h.createdAt ? new Date(h.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+                  return (
+                    <div key={h.id} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`text-[10px] ${actionColor}`}>
+                            {actionIcon} {h.action}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">by {h.userName}</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+                      </div>
+                      {h.action === 'UPDATED' && h.changedFields && (
+                        <div className="mt-2 space-y-1">
+                          {(typeof h.changedFields === 'string' ? h.changedFields.split(', ') : (h.changedFields || [])).map((field: string, i: number) => (
+                            <div key={i} className="text-xs flex items-start gap-2 bg-gray-50 rounded px-2 py-1.5">
+                              <span className="font-medium text-gray-600 min-w-[80px]">{field}:</span>
+                              <span className="text-red-500 line-through">{prev?.[field] != null ? String(prev[field]) : '—'}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="text-emerald-600">{next?.[field] != null ? String(next[field]) : '—'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {h.action === 'CREATED' && next && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Created: {next.name}{next.category ? ` (${next.category})` : ''} — {next.sellingPrice != null ? formatCurrency(next.sellingPrice) : ''}
+                        </div>
+                      )}
+                      {h.action === 'DELETED' && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Status changed to <span className="text-red-600 font-medium">DISCONTINUED</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Import Products Dialog ──────────────────────────────── */}
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>

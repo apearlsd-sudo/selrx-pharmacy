@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeProductHistory } from '@/lib/product-history'
 
 // GET /api/products - List all products with search, filter, pagination
 export async function GET(request: NextRequest) {
@@ -333,6 +334,15 @@ export async function POST(request: NextRequest) {
           : null,
       }
 
+      // Record creation in product history (fire-and-forget)
+      const userId = request.headers.get('x-user-id') || ''
+      writeProductHistory({
+        productId: id,
+        action: 'CREATED',
+        newValues: { name: body.name, category: body.category || 'OTC', sellingPrice: body.sellingPrice },
+        userId,
+      })
+
       return NextResponse.json(product, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -372,6 +382,14 @@ export async function POST(request: NextRequest) {
           productId: product.id,
           quantity: 0,
         },
+      })
+
+      const userId = request.headers.get('x-user-id') || ''
+      writeProductHistory({
+        productId: product.id,
+        action: 'CREATED',
+        newValues: { name: body.name, category: body.category || 'OTC', sellingPrice: body.sellingPrice },
+        userId,
       })
 
       return NextResponse.json(product, { status: 201 })
