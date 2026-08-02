@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
+import { formatDate, formatDateTime } from '@/lib/date-utils'
 
 interface Prescription {
   id: string
@@ -285,7 +286,7 @@ export function PrescriptionsView() {
                         <Badge className={`text-xs ${statusCfg.color}`}>{statusCfg.label}</Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                        {new Date(rx.createdAt).toLocaleDateString()}
+                        {formatDate(rx.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -345,7 +346,7 @@ export function PrescriptionsView() {
                 <div><span className="text-muted-foreground">Refills:</span><p className="font-medium">{selectedRx.refillsRemaining}/{selectedRx.refillsTotal}</p></div>
                 <div><span className="text-muted-foreground">Days Supply:</span><p className="font-medium">{selectedRx.daysSupply || '—'}</p></div>
                 <div><span className="text-muted-foreground">DAW:</span><p className="font-medium">{selectedRx.dispenseAsWritten ? 'Yes' : 'No'}</p></div>
-                <div><span className="text-muted-foreground">Created:</span><p className="font-medium">{new Date(selectedRx.createdAt).toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">Created:</span><p className="font-medium">{formatDateTime(selectedRx.createdAt)}</p></div>
               </div>
               {selectedRx.notes && (
                 <div className="bg-muted rounded-lg p-3">

@@ -36,6 +36,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
+import { formatDate, formatDateTimeShort } from '@/lib/date-utils'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#0891b2', '#06b6d4']
 
@@ -469,7 +470,7 @@ export function ReportsView() {
     return transactions
       .filter((t: any) => t.status === 'COMPLETED')
       .reduce((acc: any, t: any) => {
-        const date = new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = new Date(t.createdAt).toLocaleDateString('en-GB', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'short' })
         const existing = acc.find((d: any) => d.date === date)
         if (existing) { existing.sales += t.total; existing.count += 1 }
         else { acc.push({ date, sales: t.total, count: 1 }) }
@@ -1230,7 +1231,7 @@ export function ReportsView() {
                             <TableCell className="text-right text-xs text-emerald-600 hidden md:table-cell">{p.qtySold > 0 ? p.qtySold : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-emerald-600 hidden lg:table-cell">{p.salesRevenue > 0 ? formatCurrency(p.salesRevenue) : '—'}</TableCell>
                             <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                              {p.expiryDate ? p.expiryDate.split('T')[0] : '—'}
+                              {formatDate(p.expiryDate)}
                             </TableCell>
                             <TableCell className="text-center">
                               {p.processed ? (
@@ -1392,7 +1393,7 @@ export function ReportsView() {
                         <TableRow key={st.id}>
                           <TableCell className="font-medium text-sm">{st.reference}</TableCell>
                           <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
-                            {st.completedAt ? new Date(st.completedAt).toLocaleDateString() : new Date(st.createdAt).toLocaleDateString()}
+                            {st.completedAt ? formatDate(st.completedAt) : formatDate(st.createdAt)}
                           </TableCell>
                           <TableCell className="text-xs hidden md:table-cell">
                             {st.countedByUser?.name || '—'}
@@ -1576,12 +1577,7 @@ export function ReportsView() {
                       const actionIcon = h.action === 'CREATED' ? '+' : h.action === 'DELETED' ? '-' : '~'
                       const prev = h.previousValues ? (typeof h.previousValues === 'string' ? JSON.parse(h.previousValues) : h.previousValues) : null
                       const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
-                      const dateStr = h.createdAt
-                        ? new Date(h.createdAt).toLocaleString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit',
-                          })
-                        : ''
+                      const dateStr = h.createdAt ? formatDateTimeShort(h.createdAt) : ''
 
                       return (
                         <>

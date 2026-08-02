@@ -86,19 +86,14 @@ interface DashboardData {
 }
 
 import { formatCurrency } from '@/lib/currency'
+import { formatDateTime, formatDateWeekday } from '@/lib/date-utils'
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(dateStr)
 }
 
 function formatChartDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  return formatDateWeekday(dateStr)
 }
 
 function StatusBadge({ status }: { status: string }) {

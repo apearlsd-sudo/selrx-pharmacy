@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
+import { formatDate, getDaysToExpiry } from '@/lib/date-utils'
 
 interface InventoryItem {
   id: string
@@ -735,14 +736,7 @@ export function InventoryView() {
                   const isOut = qty === 0
                   const isLow = qty > 0 && qty <= reorder
                   const prodStatus = item.product.status
-                  let daysToExpiry: number | null = null
-                  if (item.product.expiryDate) {
-                    const expDateStr = item.product.expiryDate.split('T')[0]
-                    const todayStr = new Date().toLocaleDateString('en-CA')
-                    const exp = new Date(expDateStr + 'T12:00:00')
-                    const now = new Date(todayStr + 'T12:00:00')
-                    daysToExpiry = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                  }
+                  let daysToExpiry = getDaysToExpiry(item.product.expiryDate)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = prodStatus === 'EXPIRED' || (daysToExpiry !== null && daysToExpiry <= 0)
                   const isDiscontinued = prodStatus === 'DISCONTINUED'
@@ -779,7 +773,7 @@ export function InventoryView() {
                       <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                        {item.product.expiryDate ? item.product.expiryDate.split('T')[0] : '—'}
+                        {formatDate(item.product.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustDialog(true) }}>

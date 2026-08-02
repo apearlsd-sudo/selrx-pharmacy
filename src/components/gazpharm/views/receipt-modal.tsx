@@ -55,16 +55,10 @@ interface ReceiptModalProps {
 }
 
 import { formatCurrency } from '@/lib/currency'
+import { formatDateTime } from '@/lib/date-utils'
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
+  return formatDateTime(dateStr)
 }
 
 export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {

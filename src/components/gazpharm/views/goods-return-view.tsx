@@ -51,25 +51,17 @@ import {
 } from 'recharts'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
+import { formatDateTimeShort, formatDateShort } from '@/lib/date-utils'
 import { authHeaders } from '@/lib/auth-headers'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488']
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTimeShort(dateStr)
 }
 
 function formatShortDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatDateShort(dateStr)
 }
 
 // Reason badge colors

@@ -49,6 +49,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/store/app-store'
+import { formatDateTime } from '@/lib/date-utils'
 
 type DeviceKey = 'receiptPrinter' | 'barcodeScanner' | 'cashDrawer' | 'labelPrinter' | 'scale'
 
@@ -403,7 +404,7 @@ export function HardwareView() {
                       paginatedLogs.map((log) => (
                         <TableRow key={log.id}>
                           <TableCell className="text-xs text-muted-foreground">
-                            {new Date(log.createdAt).toLocaleString()}
+                            {formatDateTime(log.createdAt)}
                           </TableCell>
                           <TableCell className="text-sm font-medium">
                             {DEVICE_CONFIG[log.hardwareType as DeviceKey]?.label || log.hardwareType}

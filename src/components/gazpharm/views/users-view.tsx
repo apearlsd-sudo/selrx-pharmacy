@@ -42,6 +42,7 @@ import {
   SHIFTS,
 } from '@/lib/permissions'
 import type { PrivilegeTier } from '@/lib/permissions'
+import { formatDateTime, formatDate } from '@/lib/date-utils'
 
 // ── Icon map for permission categories ─────────────────────────────────
 const CATEGORY_ICONS: Record<string, any> = {
@@ -928,7 +929,7 @@ export function UsersView() {
                         {userItem.lastLogin ? (
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {new Date(userItem.lastLogin).toLocaleString()}
+                            {formatDateTime(userItem.lastLogin)}
                           </div>
                         ) : (
                           'Never'
@@ -1267,7 +1268,7 @@ export function UsersView() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Created:</span>
-                      <span className="ml-2 font-medium">{new Date(selectedUser.createdAt).toLocaleDateString()}</span>
+                      <span className="ml-2 font-medium">{formatDate(selectedUser.createdAt)}</span>
                     </div>
                     {(selectedUser as any).department && (
                       <div>

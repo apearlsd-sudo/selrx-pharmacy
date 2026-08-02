@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
+import { formatDate, formatDateTimeShort, getDaysToExpiry } from '@/lib/date-utils'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -1495,14 +1496,7 @@ function DrugSection() {
                   const reorderLvl = drug.reorderPoint || 10
                   const isExpired = drug.status === 'EXPIRED'
                   const isDiscontinued = drug.status === 'DISCONTINUED'
-                  let daysToExpiry: number | null = null
-                  if (drug.expiryDate) {
-                    const expDateStr = drug.expiryDate.split('T')[0]
-                    const todayStr = new Date().toLocaleDateString('en-CA')
-                    const exp = new Date(expDateStr + 'T12:00:00')
-                    const now = new Date(todayStr + 'T12:00:00')
-                    daysToExpiry = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                  }
+                  let daysToExpiry = getDaysToExpiry(drug.expiryDate)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = isExpired || (daysToExpiry !== null && daysToExpiry <= 0)
                   return (
@@ -1553,7 +1547,7 @@ function DrugSection() {
                         {formatCurrency(drug.sellingPrice)}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                        {drug.expiryDate ? drug.expiryDate.split('T')[0] : '—'}
+                        {formatDate(drug.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
@@ -1661,7 +1655,7 @@ function DrugSection() {
                   const actionIcon = h.action === 'CREATED' ? '+' : h.action === 'DELETED' ? '-' : '~'
                   const prev = h.previousValues ? (typeof h.previousValues === 'string' ? JSON.parse(h.previousValues) : h.previousValues) : null
                   const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
-                  const dateStr = h.createdAt ? new Date(h.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+                  const dateStr = h.createdAt ? formatDateTimeShort(h.createdAt) : ''
                   return (
                     <div key={h.id} className="border rounded-lg p-3">
                       <div className="flex items-center justify-between mb-1.5">
