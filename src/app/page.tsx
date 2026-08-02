@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, Component, type ReactNode, useState, startTransition, useMemo } from 'react'
+import { useEffect, useCallback, Component, type ReactNode, useState, startTransition } from 'react'
 import { formatDateWeekday } from '@/lib/date-utils'
 import { useAppStore, type ViewName } from '@/store/app-store'
 import {
@@ -487,11 +487,8 @@ export default function Home() {
     }
   }
 
-  // Memoize permission-filtered nav items (avoids re-filtering 14 items every render)
-  const visibleNavItems = useMemo(
-    () => NAV_ITEMS.filter((item) => hasPermission([item.permission])),
-    [hasPermission]
-  )
+  // Filter nav items based on user permissions
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission([item.permission]))
 
   // Navigate to a view without blocking the sidebar paint
   const navigateTo = useCallback(
