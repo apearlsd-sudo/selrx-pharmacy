@@ -737,9 +737,11 @@ export function InventoryView() {
                   const prodStatus = item.product.status
                   let daysToExpiry: number | null = null
                   if (item.product.expiryDate) {
-                    const now = new Date(); now.setHours(0,0,0,0)
-                    const exp = new Date(item.product.expiryDate); exp.setHours(0,0,0,0)
-                    daysToExpiry = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                    const expDateStr = item.product.expiryDate.split('T')[0]
+                    const todayStr = new Date().toLocaleDateString('en-CA')
+                    const exp = new Date(expDateStr + 'T12:00:00')
+                    const now = new Date(todayStr + 'T12:00:00')
+                    daysToExpiry = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
                   }
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = prodStatus === 'EXPIRED' || (daysToExpiry !== null && daysToExpiry <= 0)

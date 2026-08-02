@@ -1497,9 +1497,11 @@ function DrugSection() {
                   const isDiscontinued = drug.status === 'DISCONTINUED'
                   let daysToExpiry: number | null = null
                   if (drug.expiryDate) {
-                    const now = new Date(); now.setHours(0,0,0,0)
-                    const exp = new Date(drug.expiryDate); exp.setHours(0,0,0,0)
-                    daysToExpiry = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                    const expDateStr = drug.expiryDate.split('T')[0]
+                    const todayStr = new Date().toLocaleDateString('en-CA')
+                    const exp = new Date(expDateStr + 'T12:00:00')
+                    const now = new Date(todayStr + 'T12:00:00')
+                    daysToExpiry = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
                   }
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = isExpired || (daysToExpiry !== null && daysToExpiry <= 0)
