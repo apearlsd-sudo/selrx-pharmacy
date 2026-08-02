@@ -711,6 +711,18 @@ function DrugEditModal({
             </Select>
           </div>
           <div>
+            <Label className="text-xs">Stock Quantity</Label>
+            <p className="text-[10px] text-muted-foreground mb-0.5">Leave blank to keep unchanged</p>
+            <Input
+              type="number"
+              min="0"
+              value={form.stockQuantity}
+              onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
+              placeholder={editingDrug?.inventory?.[0]?.quantity != null ? `Current: ${editingDrug.inventory[0].quantity}` : 'Enter quantity'}
+              className="mt-0.5"
+            />
+          </div>
+          <div>
             <Label className="text-xs">Cost Price ($)</Label>
             <Input type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} placeholder="0.00" className="mt-1" />
           </div>
@@ -729,18 +741,6 @@ function DrugEditModal({
           <div>
             <Label className="text-xs">Batch Number</Label>
             <Input value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g., BN-00123" className="mt-1" />
-          </div>
-          <div className="col-span-2 border-t pt-3 mt-1">
-            <Label className="text-xs font-medium text-foreground">Stock Quantity</Label>
-            <p className="text-[10px] text-muted-foreground mb-1">Set the current stock on hand. Leave blank to keep unchanged.</p>
-            <Input
-              type="number"
-              min="0"
-              value={form.stockQuantity}
-              onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
-              placeholder={editingDrug?.inventory?.[0]?.quantity != null ? `Current: ${editingDrug.inventory[0].quantity}` : 'Enter quantity'}
-              className="max-w-[200px]"
-            />
           </div>
         </div>
         <DialogFooter>
