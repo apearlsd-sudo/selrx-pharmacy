@@ -45,6 +45,9 @@ interface InventoryItem {
     unitOfMeasure: string
     expiryDate: string | null
     batchNumber: string | null
+    manufacturer?: string | null
+    manufacturerRef?: { id: string; name: string } | null
+    vendor?: { id: string; name: string } | null
   }
 }
 
@@ -690,22 +693,23 @@ export function InventoryView() {
             <TableHeader>
               <TableRow>
                 <TableHead className="cursor-pointer" onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
-                  <span className="flex items-center gap-1">Product <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1">Drug Name <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
-                <TableHead className="hidden md:table-cell">NDC</TableHead>
+                <TableHead className="hidden sm:table-cell">SKU</TableHead>
                 <TableHead className="cursor-pointer hidden sm:table-cell" onClick={() => { setSortBy('category'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
                   <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
+                <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
+                <TableHead className="hidden md:table-cell">Vendor</TableHead>
+                <TableHead className="hidden md:table-cell">Dosage Form</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => { setSortBy('stock'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
-                  <span className="flex items-center justify-end gap-1">In Stock <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center justify-end gap-1">Stock Qty <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
-                <TableHead className="hidden lg:table-cell text-right">Reorder Point</TableHead>
-                <TableHead className="text-right">Status</TableHead>
-                <TableHead className="hidden xl:table-cell">Manufacturer</TableHead>
-                <TableHead className="hidden xl:table-cell">Vendor</TableHead>
-                <TableHead className="hidden xl:table-cell">Dosage Form</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden lg:table-cell text-right">Reorder Lvl</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
+                <TableHead className="hidden md:table-cell">Expiry</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -713,14 +717,14 @@ export function InventoryView() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 13 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     No inventory items found
                   </TableCell>
                 </TableRow>
@@ -730,6 +734,7 @@ export function InventoryView() {
                   const reorder = Number(item.product.reorderPoint) || 10
                   const isOut = qty === 0
                   const isLow = qty > 0 && qty <= reorder
+                  const prodStatus = item.product.status
                   return (
                     <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
                       <TableCell>
@@ -740,26 +745,29 @@ export function InventoryView() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-xs font-mono">{item.product.ndc || '—'}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs font-mono">{item.product.ndc || '—'}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
                       </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.product.vendor?.name || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.product.dosageForm || '—'}</TableCell>
                       <TableCell className="text-right font-bold">{qty}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorder}</TableCell>
-                      <TableCell className="text-right">
-                        {isOut ? (
-                          <Badge className="bg-red-100 text-red-700 border-red-200">Out of Stock</Badge>
-                        ) : isLow ? (
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">Low Stock</Badge>
+                      <TableCell>
+                        {prodStatus === 'EXPIRED' ? (
+                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
+                        ) : prodStatus === 'DISCONTINUED' ? (
+                          <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[10px]">Discontinued</Badge>
                         ) : (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">In Stock</Badge>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">Active</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
-                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.vendor?.name || '—'}</TableCell>
-                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">{item.product.dosageForm || '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorder}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                        {item.product.expiryDate ? item.product.expiryDate.split('T')[0] : '—'}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />

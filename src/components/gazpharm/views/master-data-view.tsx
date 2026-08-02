@@ -1462,15 +1462,17 @@ function DrugSection() {
             <TableHeader>
               <TableRow>
                 <TableHead>Drug Name</TableHead>
-                <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
-                <TableHead className="hidden sm:table-cell">Dosage Form</TableHead>
-                <TableHead className="hidden md:table-cell">Vendor</TableHead>
-                <TableHead className="hidden lg:table-cell">SKU</TableHead>
+                <TableHead className="hidden sm:table-cell">SKU</TableHead>
                 <TableHead className="hidden sm:table-cell">Category</TableHead>
+                <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
+                <TableHead className="hidden md:table-cell">Vendor</TableHead>
+                <TableHead className="hidden sm:table-cell">Dosage Form</TableHead>
+                <TableHead className="text-right">Stock Qty</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden lg:table-cell text-right">Reorder Lvl</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="hidden lg:table-cell text-right">Stock</TableHead>
-                <TableHead className="hidden lg:table-cell">Expiry</TableHead>
+                <TableHead className="text-right">Retail</TableHead>
+                <TableHead className="hidden md:table-cell">Expiry</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -1478,64 +1480,77 @@ function DrugSection() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 13 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
                 </TableRow>
               ) : (
-                filtered.map((drug) => (
-                  <TableRow key={drug.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
-                          <Pill className="h-3.5 w-3.5 text-teal-600" />
+                filtered.map((drug) => {
+                  const stockQty = drug.inventory?.[0]?.quantity || 0
+                  const reorderLvl = drug.reorderPoint || 10
+                  const isExpired = drug.status === 'EXPIRED'
+                  const isDiscontinued = drug.status === 'DISCONTINUED'
+                  return (
+                    <TableRow key={drug.id} className={isExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : ''}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+                            <Pill className="h-3.5 w-3.5 text-teal-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{drug.name}</p>
+                            {drug.strength && <p className="text-[10px] text-muted-foreground">{drug.strength}</p>}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{drug.name}</p>
-                          {drug.strength && <p className="text-[10px] text-muted-foreground">{drug.strength}</p>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                      {drug.manufacturerRef?.name || drug.manufacturer || '—'}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      {drug.dosageForm ? (
-                        <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
-                      ) : '—'}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.vendor?.name || '—'}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground">
-                      {drug.costPrice != null ? formatCurrency(drug.costPrice) : '—'}
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-medium">
-                      {formatCurrency(drug.sellingPrice)}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="text-sm font-bold">{drug.inventory?.[0]?.quantity || 0}</span>
-                        <span className="text-[10px] text-muted-foreground">/ {drug.reorderPoint}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                      {drug.expiryDate ? drug.expiryDate.split('T')[0] : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs font-mono text-muted-foreground">{drug.ndc || '—'}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                        {drug.manufacturerRef?.name || drug.manufacturer || '—'}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{drug.vendor?.name || '—'}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {drug.dosageForm ? (
+                          <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={`text-sm font-bold ${stockQty === 0 ? 'text-red-600' : stockQty <= reorderLvl ? 'text-amber-600' : ''}`}>{stockQty}</span>
+                      </TableCell>
+                      <TableCell>
+                        {isExpired ? (
+                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
+                        ) : isDiscontinued ? (
+                          <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[10px]">Discontinued</Badge>
+                        ) : (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">Active</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{reorderLvl}</TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {drug.costPrice != null ? formatCurrency(drug.costPrice) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-medium">
+                        {formatCurrency(drug.sellingPrice)}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                        {drug.expiryDate ? drug.expiryDate.split('T')[0] : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
