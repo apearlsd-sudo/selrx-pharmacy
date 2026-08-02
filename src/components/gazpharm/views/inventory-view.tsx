@@ -119,6 +119,7 @@ export function InventoryView() {
 
   const addToast = useAppStore((s) => s.addToast)
   const currentUser = useAppStore((s) => s.user)
+  const dateFormat = useAppStore((s) => s.dateFormat)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
   const fetchInventory = useCallback(async (forceRefresh = false) => {
@@ -569,7 +570,7 @@ export function InventoryView() {
       const res = await fetch('/api/products/import', {
         method: 'POST',
         body: formData,
-        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-date-format': dateFormat },
       })
       const data = await res.json()
       setImportResult(data)

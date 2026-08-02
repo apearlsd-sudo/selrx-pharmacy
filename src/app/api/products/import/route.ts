@@ -81,10 +81,79 @@ function normalizeHeaders(headers: string[]): string[] {
   return headers.map((h) => h.trim().toLowerCase().replace(/\s*\*\s*$/, ''))
 }
 
+/**
+ * Parse a date string in the user's preferred format to YYYY-MM-DD.
+ * Supported formats: dd/mm/yyyy, mm/dd/yyyy, yyyy-mm-dd, dd Mon yyyy, Mon dd, yyyy
+ */
+function parseDateString(raw: string, dateFormat: string): string | null {
+  const s = raw.trim()
+  if (!s) return null
+
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+
+  // Try to let the JS engine parse it first (handles Excel date-like strings)
+  const fallback = new Date(s)
+
+  switch (dateFormat) {
+    case 'dd/mm/yyyy': {
+      // e.g. 31/12/2026
+      const m = s.match(/^(\d{1,2})\s*[/\-]\s*(\d{1,2})\s*[/\-]\s*(\d{4})$/)
+      if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+      break
+    }
+    case 'mm/dd/yyyy': {
+      // e.g. 12/31/2026
+      const m = s.match(/^(\d{1,2})\s*[/\-]\s*(\d{1,2})\s*[/\-]\s*(\d{4})$/)
+      if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+      break
+    }
+    case 'yyyy-mm-dd': {
+      // e.g. 2026-12-31
+      const m = s.match(/^(\d{4})\s*[/\-]\s*(\d{1,2})\s*[/\-]\s*(\d{1,2})$/)
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+      break
+    }
+    case 'dd Mon yyyy': {
+      // e.g. 31 Dec 2026
+      const d = new Date(s)
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear()
+        const mo = String(d.getMonth() + 1).padStart(2, '0')
+        const dy = String(d.getDate()).padStart(2, '0')
+        return `${y}-${mo}-${dy}`
+      }
+      break
+    }
+    case 'Mon dd, yyyy': {
+      // e.g. Dec 31, 2026
+      const d = new Date(s)
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear()
+        const mo = String(d.getMonth() + 1).padStart(2, '0')
+        const dy = String(d.getDate()).padStart(2, '0')
+        return `${y}-${mo}-${dy}`
+      }
+      break
+    }
+  }
+
+  // Fallback: if JS Date parsed it, use that
+  if (!isNaN(fallback.getTime())) {
+    const y = fallback.getFullYear()
+    const mo = String(fallback.getMonth() + 1).padStart(2, '0')
+    const dy = String(fallback.getDate()).padStart(2, '0')
+    return `${y}-${mo}-${dy}`
+  }
+
+  return null
+}
+
 function mapRowToProduct(
   row: Record<string, unknown>,
   normalizedHeaders: string[],
-  rawHeaders: string[]
+  rawHeaders: string[],
+  dateFormat: string
 ): Record<string, unknown> {
   const product: Record<string, unknown> = {}
   let initialQty: number | undefined
@@ -105,9 +174,10 @@ function mapRowToProduct(
         const d = String(rawVal.getDate()).padStart(2, '0')
         product[fieldName] = `${y}-${m}-${d}`
       } else {
-        const strVal = String(rawVal).trim()
-        if (strVal === '') continue
-        product[fieldName] = strVal
+        const parsed = parseDateString(String(rawVal), dateFormat)
+        if (parsed) {
+          product[fieldName] = parsed
+        }
       }
       continue
     }
@@ -167,6 +237,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Read user's date format preference
+    const dateFormat = request.headers.get('x-date-format') || 'dd/mm/yyyy'
+
     // Parse the file
     const buffer = Buffer.from(await file.arrayBuffer())
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
@@ -211,7 +284,7 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
-      const mapped = mapRowToProduct(row, normalizedHeaders, rawHeaders)
+      const mapped = mapRowToProduct(row, normalizedHeaders, rawHeaders, dateFormat)
       const errors: string[] = []
 
       if (!mapped.name || String(mapped.name).trim() === '') {

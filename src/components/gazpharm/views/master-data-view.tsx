@@ -1006,6 +1006,7 @@ function DrugSection() {
   const [importPreview, setImportPreview] = useState<{ name: string; rows: number; size: string } | null>(null)
 
   const currentUser = useAppStore((s) => s.user)
+  const dateFormat = useAppStore((s) => s.dateFormat)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
   const allDosageForms = [...customDosageForms]
@@ -1181,7 +1182,7 @@ function DrugSection() {
       const res = await fetch('/api/products/import', {
         method: 'POST',
         body: formData,
-        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-date-format': dateFormat },
       })
       const data = await res.json()
       setImportResult(data)
@@ -1210,7 +1211,7 @@ function DrugSection() {
     try {
       const res = await fetch(`/api/products/${deleteDrug.id}`, {
         method: 'DELETE',
-        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN' },
+        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-date-format': dateFormat },
       })
       if (!res.ok) {
         const err = await res.json()
