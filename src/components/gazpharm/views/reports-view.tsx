@@ -1948,6 +1948,40 @@ export function ReportsView() {
 
         {/* ── Shift Reports Tab ── */}
         <TabsContent value="shifts" className="space-y-4">
+          {/* Shift-specific filters */}
+          <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <Filter className="h-3.5 w-3.5" />
+              Shift Filters
+            </div>
+            <div className="flex-1 min-w-[130px]">
+              <Label className="text-[11px]">From</Label>
+              <Input type="date" value={shiftFilterFrom} onChange={(e) => setShiftFilterFrom(e.target.value)} className="h-8 text-xs" />
+            </div>
+            <div className="flex-1 min-w-[130px]">
+              <Label className="text-[11px]">To</Label>
+              <Input type="date" value={shiftFilterTo} onChange={(e) => setShiftFilterTo(e.target.value)} className="h-8 text-xs" />
+            </div>
+            {isSuperAdmin && shiftReport?.users && (
+              <div className="flex-1 min-w-[150px]">
+                <Label className="text-[11px]">User</Label>
+                <select
+                  value={shiftFilterUser}
+                  onChange={(e) => setShiftFilterUser(e.target.value)}
+                  className="w-full h-8 text-xs border rounded-md px-2 bg-white"
+                >
+                  <option value="">All Users</option>
+                  {shiftReport.users.map((u: { id: string; name: string }) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Button size="sm" variant="outline" onClick={fetchShiftReport} disabled={shiftLoading} className="h-8">
+              {shiftLoading ? 'Loading...' : 'Apply'}
+            </Button>
+          </div>
+
           {shiftLoading && !shiftReport && (
             <div className="flex items-center justify-center py-12">
               <div className="text-sm text-muted-foreground animate-pulse">Loading shift report...</div>
