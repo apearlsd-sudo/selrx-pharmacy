@@ -27,10 +27,10 @@ import { writeProductHistory } from '@/lib/product-history'
 // ---------- Helper: build WHERE conditions for expired products ----------
 
 function buildExpiredWhere(from: string, to: string) {
-  const conditions: string[] = ['p."expiryDate" IS NOT NULL', 'p."expiryDate" < date(\'now\')']
+  const conditions: string[] = ['p."expiryDate" IS NOT NULL', 'date(p."expiryDate") <= date(\'now\')']
   const args: any[] = []
-  if (from) { conditions.push('p."expiryDate" >= ?'); args.push(from) }
-  if (to) { conditions.push('p."expiryDate" <= ?'); args.push(to) }
+  if (from) { conditions.push('date(p."expiryDate") >= ?'); args.push(from) }
+  if (to) { conditions.push('date(p."expiryDate") <= ?'); args.push(to) }
   return { whereSQL: `WHERE ${conditions.join(' AND ')}`, args }
 }
 
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
           LEFT JOIN Inventory i ON i."productId" = p.id
           WHERE p.id IN (${placeholders})
             AND p."expiryDate" IS NOT NULL
-            AND p."expiryDate" < date('now')
+            AND date(p."expiryDate") <= date('now')
             AND COALESCE(i.quantity, 0) > 0`,
         args: productIds,
       })
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
           FROM "Product" p
           LEFT JOIN Inventory i ON i."productId" = p.id
           WHERE p."expiryDate" IS NOT NULL
-            AND p."expiryDate" < date('now')
+            AND date(p."expiryDate") <= date('now')
             AND COALESCE(i.quantity, 0) > 0`,
         args: [],
       })
