@@ -718,7 +718,7 @@ export function ReportsView() {
             <TabsTrigger value="product-activity">Product Activity</TabsTrigger>
             <TabsTrigger value="shifts">Shift Reports</TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
               <Label className="text-xs">From:</Label>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
