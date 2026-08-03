@@ -181,6 +181,13 @@ export interface RegionalSettingsState {
   regionalVersion: number
 }
 
+export interface ShiftState {
+  currentShiftId: string | null
+  shiftStartedAt: string | null
+  shiftActive: boolean
+  setShift: (shift: { id: string; startedAt: string } | null) => void
+}
+
 export interface UIState {
   isModalOpen: boolean
   modalContent: string | null
@@ -202,6 +209,7 @@ export type AppState = NavigationState &
   AuthState &
   POSState &
   InventoryUIState &
+  ShiftState &
   CompanyState &
   CurrencyState &
   ReceiptSettingsState &
@@ -332,6 +340,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   setStockAlerts: (alerts) => set({ stockAlerts: alerts }),
   inventoryVersion: 0,
   bumpInventoryVersion: () => set((s) => ({ inventoryVersion: s.inventoryVersion + 1 })),
+
+  // ---- Shift ----
+  currentShiftId: null,
+  shiftStartedAt: null,
+  shiftActive: false,
+  setShift: (shift) => {
+    if (shift) {
+      set({ currentShiftId: shift.id, shiftStartedAt: shift.startedAt, shiftActive: true })
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('selrx_shift', JSON.stringify({ id: shift.id, startedAt: shift.startedAt }))
+      }
+    } else {
+      set({ currentShiftId: null, shiftStartedAt: null, shiftActive: false })
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('selrx_shift')
+      }
+    }
+  },
 
   // ---- UI ----
   isModalOpen: false,

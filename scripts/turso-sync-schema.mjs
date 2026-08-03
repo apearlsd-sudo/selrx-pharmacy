@@ -214,11 +214,31 @@ async function main() {
     console.log('  ⏭️  All products with expiry dates already have batch records')
   }
 
+  // ── Shift table (per-user shift tracking) ──
+  console.log('📦 Syncing Shift table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "Shift" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "userName" TEXT,
+      "startedAt" TEXT NOT NULL,
+      "endedAt" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+      "totalSales" REAL NOT NULL DEFAULT 0,
+      "totalTransactions" INTEGER NOT NULL DEFAULT 0,
+      "totalItemsSold" INTEGER NOT NULL DEFAULT 0,
+      "cashAtStart" REAL,
+      "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TEXT NOT NULL
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "Shift_userId_idx" ON "Shift"("userId");`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "Shift_status_idx" ON "Shift"("status");`)
+
   console.log('✅ Turso schema sync complete!')
 }
 
 main().catch(e => {
   console.error('⚠️  Turso schema sync failed (non-fatal):', e.message)
-  // Don't exit with error — allow build to continue
   process.exit(0)
 })

@@ -27,6 +27,7 @@ import {
   Clock,
   AlertTriangle,
   PackageX,
+  Clock as ClockIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -61,6 +62,7 @@ import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import { OtherSettingsView } from '@/components/gazpharm/views/other-settings-view'
+import { ShiftReportDialog } from '@/components/gazpharm/shift-report-dialog'
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
 interface ErrorBoundaryProps { children: ReactNode; fallback?: ReactNode }
@@ -278,6 +280,12 @@ export default function Home() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
   const logout = useAppStore((s) => s.logout)
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [shiftReportOpen, setShiftReportOpen] = useState(false)
+  const [endShiftLoading, setEndShiftLoading] = useState(false)
+  const shiftActive = useAppStore((s) => s.shiftActive)
+  const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
+  const currentShiftId = useAppStore((s) => s.currentShiftId)
+  const setShift = useAppStore((s) => s.setShift)
   const hasPermission = useAppStore((s) => s.hasPermission)
   const toasts = useAppStore((s) => s.toasts)
   const addToast = useAppStore((s) => s.addToast)
@@ -394,6 +402,21 @@ export default function Home() {
           .then((data) => {
             if (data.valid && data.user) {
               store.setUser(data.user)
+              // Check for active shift
+              try {
+                const shiftData = localStorage.getItem('selrx_shift')
+                if (shiftData) {
+                  const parsed = JSON.parse(shiftData)
+                  if (parsed.id && parsed.startedAt) store.setShift(parsed)
+                }
+                // Verify with server
+                fetch('/api/shifts?action=active', {
+                  headers: { 'x-user-id': data.user.id },
+                }).then((r) => r.json()).then((r) => {
+                  if (!r.active) store.setShift(null)
+                  else store.setShift({ id: r.shift.id, startedAt: r.shift.startedAt })
+                }).catch(() => {})
+              } catch { /* silent */ }
               // Restore saved view, but redirect to POS if user lacks permission for it
               let targetView = savedView && savedView !== 'login' && savedView !== 'company-setup'
                 ? savedView as ViewName
@@ -628,6 +651,84 @@ export default function Home() {
             <TopbarClock />
             {/* Notification Bell */}
             <NotificationBell />
+            {shiftActive && shiftStartedAt && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+                    <ClockIcon className="h-3.5 w-3.5" />
+                    <span className="hidden md:inline">Active</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="end">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium">Shift in progress</p>
+                    <p className="text-[11px] text-muted-foreground">Started: {shiftStartedAt ? new Date(shiftStartedAt).toLocaleTimeString() : '—'}</p>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-[11px]"
+                        onClick={() => setShiftReportOpen(true)}
+                      >
+                        <TrendingUp className="h-3 w-3 mr-1" /> Report
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-[11px] bg-red-600 hover:bg-red-700"
+                        disabled={endShiftLoading}
+                        onClick={async () => {
+                          if (!currentShiftId || !user) return
+                          setEndShiftLoading(true)
+                          try {
+                            const res = await fetch('/api/shifts', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+                              body: JSON.stringify({ action: 'end', shiftId: currentShiftId }),
+                            })
+                            if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+                            const result = await res.json()
+                            setShift(null)
+                            addToast({ title: 'Shift Ended', description: `Sales: ${result.totalSales.toFixed(2)} | ${result.totalTransactions} transactions | ${result.totalItemsSold} items sold`, variant: 'success' })
+                            setShiftReportOpen(true)
+                          } catch (err: any) {
+                            addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+                          }
+                          setEndShiftLoading(false)
+                        }}
+                      >
+                        {endShiftLoading ? 'Ending...' : 'End Shift'}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {!shiftActive && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs border-gray-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
+                onClick={async () => {
+                  if (!user) return
+                  try {
+                    const res = await fetch('/api/shifts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+                      body: JSON.stringify({ action: 'start' }),
+                    })
+                    if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+                    const result = await res.json()
+                    setShift({ id: result.id, startedAt: result.startedAt })
+                    addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+                  } catch (err: any) {
+                    addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+                  }
+                }}
+              >
+                <ClockIcon className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Start Shift</span>
+              </Button>
+            )}
             <div className="hidden sm:flex items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mr-1">
                 <span className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -741,6 +842,9 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      {/* Shift Report Dialog */}
+      <ShiftReportDialog open={shiftReportOpen} onOpenChange={setShiftReportOpen} />
     </div>
   )
 }
