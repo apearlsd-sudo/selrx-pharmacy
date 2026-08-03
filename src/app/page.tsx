@@ -62,7 +62,7 @@ import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import { OtherSettingsView } from '@/components/gazpharm/views/other-settings-view'
-import { ShiftReportDialog } from '@/components/gazpharm/shift-report-dialog'
+
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
 interface ErrorBoundaryProps { children: ReactNode; fallback?: ReactNode }
@@ -280,7 +280,6 @@ export default function Home() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
   const logout = useAppStore((s) => s.logout)
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const [shiftReportOpen, setShiftReportOpen] = useState(false)
   const [endShiftLoading, setEndShiftLoading] = useState(false)
   const shiftActive = useAppStore((s) => s.shiftActive)
   const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
@@ -663,42 +662,31 @@ export default function Home() {
                   <div className="space-y-2">
                     <p className="text-xs font-medium">Shift in progress</p>
                     <p className="text-[11px] text-muted-foreground">Started: {shiftStartedAt ? new Date(shiftStartedAt).toLocaleTimeString() : '—'}</p>
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 h-7 text-[11px]"
-                        onClick={() => setShiftReportOpen(true)}
-                      >
-                        <TrendingUp className="h-3 w-3 mr-1" /> Report
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 h-7 text-[11px] bg-red-600 hover:bg-red-700"
-                        disabled={endShiftLoading}
-                        onClick={async () => {
-                          if (!currentShiftId || !user) return
-                          setEndShiftLoading(true)
-                          try {
-                            const res = await fetch('/api/shifts', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
-                              body: JSON.stringify({ action: 'end', shiftId: currentShiftId }),
-                            })
-                            if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
-                            const result = await res.json()
-                            setShift(null)
-                            addToast({ title: 'Shift Ended', description: `Sales: ${result.totalSales.toFixed(2)} | ${result.totalTransactions} transactions | ${result.totalItemsSold} items sold`, variant: 'success' })
-                            setShiftReportOpen(true)
-                          } catch (err: any) {
-                            addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-                          }
-                          setEndShiftLoading(false)
-                        }}
-                      >
-                        {endShiftLoading ? 'Ending...' : 'End Shift'}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full h-7 text-[11px] bg-red-600 hover:bg-red-700"
+                      disabled={endShiftLoading}
+                      onClick={async () => {
+                        if (!currentShiftId || !user) return
+                        setEndShiftLoading(true)
+                        try {
+                          const res = await fetch('/api/shifts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+                            body: JSON.stringify({ action: 'end', shiftId: currentShiftId }),
+                          })
+                          if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+                          const result = await res.json()
+                          setShift(null)
+                          addToast({ title: 'Shift Ended', description: `Sales: ${result.totalSales.toFixed(2)} | ${result.totalTransactions} transactions | ${result.totalItemsSold} items sold`, variant: 'success' })
+                        } catch (err: any) {
+                          addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+                        }
+                        setEndShiftLoading(false)
+                      }}
+                    >
+                      {endShiftLoading ? 'Ending...' : 'End Shift'}
+                    </Button>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -843,8 +831,7 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Shift Report Dialog */}
-      <ShiftReportDialog open={shiftReportOpen} onOpenChange={setShiftReportOpen} />
+
     </div>
   )
 }

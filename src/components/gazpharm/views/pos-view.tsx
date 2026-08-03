@@ -100,6 +100,7 @@ export function POSView() {
   const isProcessingPayment = useAppStore((s) => s.isProcessingPayment)
   const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
   const addToast = useAppStore((s) => s.addToast)
+  const shiftActive = useAppStore((s) => s.shiftActive)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
   const showReceiptModal = useAppStore((s) => s.showReceiptModal)
   const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
@@ -267,6 +268,11 @@ export function POSView() {
   }
 
   const handleProcessPayment = async () => {
+    if (!shiftActive) {
+      addToast({ title: 'No Active Shift', description: 'Please start your shift before making sales.', variant: 'destructive' })
+      return
+    }
+
     if (cart.length === 0) {
       addToast({ title: 'Empty Cart', description: 'Add items before processing', variant: 'destructive' })
       return
@@ -371,6 +377,17 @@ export function POSView() {
 
   return (
     <>
+      {!shiftActive && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800">No Active Shift</p>
+            <p className="text-xs text-amber-700">You must start a shift before processing sales. Click "Start Shift" in the top bar.</p>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Product Search & List */}
         <div className="lg:col-span-2 space-y-4">
@@ -823,7 +840,7 @@ export function POSView() {
                 <Button
                   className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-base font-semibold"
                   onClick={handleProcessPayment}
-                  disabled={cart.length === 0 || isProcessingPayment}
+                  disabled={cart.length === 0 || isProcessingPayment || !shiftActive}
                 >
                   {isProcessingPayment ? (
                     <>

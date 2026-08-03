@@ -329,6 +329,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Shift gate: require an active shift to create a transaction ──
+    if (isTurso()) {
+      const shiftCheck = await turso.execute({
+        sql: `SELECT id FROM "Shift" WHERE "userId" = ? AND status = 'ACTIVE' LIMIT 1`,
+        args: [userId],
+      })
+      if (shiftCheck.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'No active shift. Please start your shift before making sales.' },
+          { status: 403 },
+        )
+      }
+    }
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
     if (action === 'void') {

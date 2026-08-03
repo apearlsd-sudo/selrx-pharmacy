@@ -5,7 +5,7 @@ import {
   ShoppingCart, TrendingUp, CalendarDays, Download, FileText,
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
   Trash2, Clock, ChevronLeft, ChevronRight, Search, PackageX,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, DollarSign, Package, Filter, Printer,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,7 @@ import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { formatDate, formatDateTimeShort } from '@/lib/date-utils'
+import { format } from 'date-fns'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#0891b2', '#06b6d4']
 
@@ -112,6 +113,65 @@ export function ReportsView() {
   // Product delete state
   const [deleteProduct, setDeleteProduct] = useState<{ id: string; name: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Shift report state
+  const [shiftReport, setShiftReport] = useState<any>(null)
+  const [shiftLoading, setShiftLoading] = useState(false)
+  const [shiftFilterUser, setShiftFilterUser] = useState('')
+  const [shiftFilterFrom, setShiftFilterFrom] = useState(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString().split('T')[0]
+  })
+  const [shiftFilterTo, setShiftFilterTo] = useState(() => new Date().toISOString().split('T')[0])
+  const dateFormat = useAppStore((s) => s.dateFormat)
+
+  const fetchShiftReport = useCallback(async () => {
+    setShiftLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('from', new Date(shiftFilterFrom).toISOString())
+      params.set('to', new Date(shiftFilterTo + 'T23:59:59').toISOString())
+      if (shiftFilterUser) params.set('userId', shiftFilterUser)
+      const res = await fetch(`/api/shifts?${params}`, { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setShiftReport(data)
+      } else {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to load shift report')
+      }
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to load shift report', variant: 'destructive' })
+    }
+    setShiftLoading(false)
+  }, [shiftFilterFrom, shiftFilterTo, shiftFilterUser, addToast])
+
+  // Auto-fetch shift report when tab is activated
+  useEffect(() => {
+    if (activeTab === 'shifts' && !shiftReport) fetchShiftReport()
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refetch when filters change
+  useEffect(() => {
+    if (activeTab === 'shifts') fetchShiftReport()
+  }, [shiftFilterFrom, shiftFilterTo, shiftFilterUser]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleShiftExportCSV = useCallback(() => {
+    if (!shiftReport) return
+    const rows = [['Product', 'Qty Sold', 'Revenue'].join(',')]
+    for (const item of shiftReport.itemsSold) {
+      rows.push([`"${item.productName}"`, item.quantitySold, item.revenue.toFixed(2)].join(','))
+    }
+    rows.push([])
+    rows.push(['Total Sales', '', shiftReport.summary.totalSales.toFixed(2)].join(','))
+    rows.push(['Total Transactions', '', shiftReport.summary.totalTransactions].join(','))
+    rows.push(['Total Items Sold', '', shiftReport.summary.totalItemsSold].join(','))
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `shift-report-${shiftFilterFrom}.csv`; a.click()
+    URL.revokeObjectURL(url)
+    addToast({ title: 'Exported', description: 'Shift report exported as CSV', variant: 'success' })
+  }, [shiftReport, shiftFilterFrom, addToast])
 
   // Product list for delete functionality
   const [products, setProducts] = useState<any[]>([])
@@ -656,6 +716,7 @@ export function ReportsView() {
             <TabsTrigger value="stocktake">Stock Take</TabsTrigger>
             <TabsTrigger value="expired-goods">Expired Goods</TabsTrigger>
             <TabsTrigger value="product-activity">Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts">Shift Reports</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2">
@@ -1855,6 +1916,261 @@ export function ReportsView() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── Shift Reports Tab ── */}
+        <TabsContent value="shifts" className="space-y-4">
+          {/* Shift-specific filters */}
+          <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <Filter className="h-3.5 w-3.5" />
+              Shift Filters
+            </div>
+            <div className="flex-1 min-w-[130px]">
+              <Label className="text-[11px]">From</Label>
+              <Input type="date" value={shiftFilterFrom} onChange={(e) => setShiftFilterFrom(e.target.value)} className="h-8 text-xs" />
+            </div>
+            <div className="flex-1 min-w-[130px]">
+              <Label className="text-[11px]">To</Label>
+              <Input type="date" value={shiftFilterTo} onChange={(e) => setShiftFilterTo(e.target.value)} className="h-8 text-xs" />
+            </div>
+            {isSuperAdmin && shiftReport?.users && (
+              <div className="flex-1 min-w-[150px]">
+                <Label className="text-[11px]">User</Label>
+                <select
+                  value={shiftFilterUser}
+                  onChange={(e) => setShiftFilterUser(e.target.value)}
+                  className="w-full h-8 text-xs border rounded-md px-2 bg-white"
+                >
+                  <option value="">All Users</option>
+                  {shiftReport.users.map((u: { id: string; name: string }) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Button size="sm" variant="outline" onClick={fetchShiftReport} disabled={shiftLoading} className="h-8">
+              {shiftLoading ? 'Loading...' : 'Apply'}
+            </Button>
+          </div>
+
+          {shiftLoading && !shiftReport && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-sm text-muted-foreground animate-pulse">Loading shift report...</div>
+            </div>
+          )}
+
+          {shiftReport && !shiftLoading && (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card className="border-emerald-200">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 text-emerald-700 mb-1">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="text-[11px] font-medium">Total Sales</span>
+                    </div>
+                    <p className="text-lg font-bold text-emerald-800">{formatCurrency(shiftReport.summary.totalSales)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-200">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 text-blue-700 mb-1">
+                      <ShoppingCart className="h-4 w-4" />
+                      <span className="text-[11px] font-medium">Transactions</span>
+                    </div>
+                    <p className="text-lg font-bold text-blue-800">{shiftReport.summary.totalTransactions}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-200">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 text-amber-700 mb-1">
+                      <Package className="h-4 w-4" />
+                      <span className="text-[11px] font-medium">Items Sold</span>
+                    </div>
+                    <p className="text-lg font-bold text-amber-800">{shiftReport.summary.totalItemsSold}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-gray-200">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 text-gray-700 mb-1">
+                      <TrendingUp className="h-4 w-4" />
+                      <span className="text-[11px] font-medium">Products Sold</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-800">{shiftReport.summary.totalProductsSold}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {shiftReport.summary.totalDiscount > 0 && (
+                <div className="text-xs text-muted-foreground bg-muted rounded p-2">
+                  Total Discount Given: {formatCurrency(shiftReport.summary.totalDiscount)}
+                </div>
+              )}
+
+              {/* Sales by User (admin only) */}
+              {isSuperAdmin && shiftReport.salesByUser && shiftReport.salesByUser.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Sales by User</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">User</TableHead>
+                          <TableHead className="text-xs text-center">Transactions</TableHead>
+                          <TableHead className="text-xs text-right">Total Sales</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {shiftReport.salesByUser.map((u: any) => (
+                          <TableRow key={u.userId}>
+                            <TableCell className="text-sm font-medium">{u.userName}</TableCell>
+                            <TableCell className="text-sm text-center">{u.txnCount}</TableCell>
+                            <TableCell className="text-sm text-right font-mono">{formatCurrency(u.sales)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Individual Drug Quantities Sold */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">Individual Drug Quantities Sold</CardTitle>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={handleShiftExportCSV}>
+                        <Download className="h-3 w-3 mr-1" /> CSV
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => window.print()}>
+                        <Printer className="h-3 w-3 mr-1" /> Print
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {shiftReport.itemsSold.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">No items sold in this period</p>
+                  ) : (
+                    <ScrollArea className="max-h-[400px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs w-10">#</TableHead>
+                            <TableHead className="text-xs">Product Name</TableHead>
+                            <TableHead className="text-xs text-center">Qty Sold</TableHead>
+                            <TableHead className="text-xs text-right">Revenue</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {shiftReport.itemsSold.map((item: any, i: number) => (
+                            <TableRow key={item.productId}>
+                              <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                              <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                              <TableCell className="text-sm text-center font-mono">{item.quantitySold}</TableCell>
+                              <TableCell className="text-sm text-right font-mono">{formatCurrency(item.revenue)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Inventory Snapshot */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Current Inventory ({shiftReport.inventorySnapshot?.length || 0} items in stock)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(!shiftReport.inventorySnapshot || shiftReport.inventorySnapshot.length === 0) ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">No items currently in stock</p>
+                  ) : (
+                    <ScrollArea className="max-h-[350px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs w-10">#</TableHead>
+                            <TableHead className="text-xs">Product</TableHead>
+                            <TableHead className="text-xs">Category</TableHead>
+                            <TableHead className="text-xs text-center">In Stock</TableHead>
+                            <TableHead className="text-xs text-right">Price</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {shiftReport.inventorySnapshot.map((item: any, i: number) => (
+                            <TableRow key={item.productId}>
+                              <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                              <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{item.category || '—'}</TableCell>
+                              <TableCell className="text-sm text-center">
+                                <Badge variant={item.currentStock <= 10 ? 'destructive' : item.currentStock <= 30 ? 'secondary' : 'default'} className="font-mono text-xs">
+                                  {item.currentStock}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">{formatCurrency(item.sellingPrice)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Shift History */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Shift History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {shiftReport.shiftHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">No shift history found</p>
+                  ) : (
+                    <ScrollArea className="max-h-[300px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">User</TableHead>
+                            <TableHead className="text-xs">Started</TableHead>
+                            <TableHead className="text-xs">Ended</TableHead>
+                            <TableHead className="text-xs text-center">Status</TableHead>
+                            <TableHead className="text-xs text-center">Txns</TableHead>
+                            <TableHead className="text-xs text-right">Sales</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {shiftReport.shiftHistory.map((s: any) => (
+                            <TableRow key={s.id}>
+                              <TableCell className="text-sm font-medium">{s.userName}</TableCell>
+                              <TableCell className="text-xs">
+                                {s.startedAt ? format(new Date(s.startedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm') : '—'}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {s.endedAt ? format(new Date(s.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm') : '—'}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant={s.status === 'ACTIVE' ? 'default' : 'secondary'} className="text-[10px]">
+                                  {s.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-center font-mono">{s.totalTransactions}</TableCell>
+                              <TableCell className="text-xs text-right font-mono">{formatCurrency(s.totalSales)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
