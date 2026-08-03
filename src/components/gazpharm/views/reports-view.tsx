@@ -312,106 +312,6 @@ export function ReportsView() {
     addToast({ title: 'Exported', description: 'Expired goods report exported as CSV', variant: 'success' })
   }, [expiredGoods, addToast])
 
-  // CSV export for sales summary
-  const exportSalesSummaryCSV = useCallback(() => {
-    if (!salesStats?.topProducts?.length && !dailySales?.length) {
-      addToast({ title: 'No Data', description: 'No sales data to export', variant: 'destructive' })
-      return
-    }
-    const lines: string[] = ['Sales Summary Report']
-    lines.push(`Today's Sales,${(salesStats?.today?.sales || 0).toFixed(2)}`)
-    lines.push(`Transactions Today,${salesStats?.today?.count || 0}`)
-    lines.push(`This Week,${(salesStats?.thisWeek?.sales || 0).toFixed(2)}`)
-    lines.push(`This Month,${(salesStats?.thisMonth?.sales || 0).toFixed(2)}`)
-    lines.push('')
-    lines.push('Daily Sales Trend (Last 7 Days)')
-    lines.push('Date,Sales,Transactions')
-    dailySales.forEach((d: any) => lines.push(`${d.date},${d.sales?.toFixed(2) || '0'},${d.count || 0}`))
-    lines.push('')
-    lines.push('Top Selling Products')
-    lines.push('Product,Units Sold,Revenue')
-    ;(salesStats?.topProducts || []).forEach((p: any, i: number) => {
-      lines.push(`"${p.productName}",${p._sum?.quantity || 0},${(p._sum?.subtotal || 0).toFixed(2)}`)
-    })
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `sales-summary-report-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    addToast({ title: 'Exported', description: 'Sales summary exported as CSV', variant: 'success' })
-  }, [salesStats, dailySales, addToast])
-
-  // CSV export for inventory report
-  const exportInventoryCSV = useCallback(() => {
-    if (inventory.length === 0) {
-      addToast({ title: 'No Data', description: 'No inventory data to export', variant: 'destructive' })
-      return
-    }
-    const lines: string[] = ['Product,Category,Dosage Form,Stock Qty,Reorder Point,Cost Price,Selling Price,Status']
-    inventory.forEach((item: any) => {
-      const p = item.product || item
-      lines.push(`"${p.name || ''}","${(p.category || '').replace(/,/g, ' ')}","${p.dosageForm || ''}",${item.quantity ?? p.quantity ?? 0},${p.reorderPoint || 0},${(p.costPrice || 0).toFixed(2)},${(p.sellingPrice || 0).toFixed(2)},${p.status || 'ACTIVE'}`)
-    })
-    if (lowStockItems.length > 0) {
-      lines.push('')
-      lines.push('Low Stock Alerts')
-      lines.push('Product,Stock,Reorder Level')
-      lowStockItems.forEach((item: any) => {
-        lines.push(`"${item.product?.name || ''}",${item.quantity},${item.product?.reorderPoint || 0}`)
-      })
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `inventory-report-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    addToast({ title: 'Exported', description: 'Inventory report exported as CSV', variant: 'success' })
-  }, [inventory, lowStockItems, addToast])
-
-  // CSV export for prescriptions report
-  const exportPrescriptionsCSV = useCallback(() => {
-    if (prescriptions.length === 0) {
-      addToast({ title: 'No Data', description: 'No prescriptions to export', variant: 'destructive' })
-      return
-    }
-    const lines: string[] = ['Rx #,Patient,Doctor,Status,Priority,Items,Created At,Dispensed At']
-    prescriptions.forEach((rx: any) => {
-      lines.push(`${rx.rxNumber || ''},"${rx.patientName || ''}","${rx.doctorName || ''}",${rx.status || ''},${rx.priority || ''},${rx.items?.length || 0},${rx.createdAt ? formatDate(rx.createdAt) : ''},${rx.dispensedAt ? formatDate(rx.dispensedAt) : ''}`)
-    })
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `prescriptions-report-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    addToast({ title: 'Exported', description: 'Prescriptions report exported as CSV', variant: 'success' })
-  }, [prescriptions, addToast])
-
-  // CSV export for product activity log
-  const exportActivityCSV = useCallback(() => {
-    if (activityLog.length === 0) {
-      addToast({ title: 'No Data', description: 'No activity log to export', variant: 'destructive' })
-      return
-    }
-    const lines: string[] = ['Product,Action,Changed Fields,Changed By,Date']
-    activityLog.forEach((a: any) => {
-      lines.push(`"${a.productName || ''}",${a.action || ''},${a.changedFields || ''},"${a.changedByName || ''}",${a.createdAt ? formatDateTimeShort(a.createdAt) : ''}`)
-    })
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const el = document.createElement('a')
-    el.href = url
-    el.download = `product-activity-report-${new Date().toISOString().slice(0, 10)}.csv`
-    el.click()
-    URL.revokeObjectURL(url)
-    addToast({ title: 'Exported', description: 'Activity log exported as CSV', variant: 'success' })
-  }, [activityLog, addToast])
-
   // Toggle selection of expired goods
   const toggleExpiredSelection = useCallback((id: string) => {
     setSelectedExpiredIds((prev) => {
@@ -600,6 +500,106 @@ export function ReportsView() {
       return acc
     }, [])
   }, [prescriptions])
+
+  // CSV export for sales summary
+  const exportSalesSummaryCSV = useCallback(() => {
+    if (!salesStats?.topProducts?.length && !dailySales?.length) {
+      addToast({ title: 'No Data', description: 'No sales data to export', variant: 'destructive' })
+      return
+    }
+    const lines: string[] = ['Sales Summary Report']
+    lines.push(`Today's Sales,${(salesStats?.today?.sales || 0).toFixed(2)}`)
+    lines.push(`Transactions Today,${salesStats?.today?.count || 0}`)
+    lines.push(`This Week,${(salesStats?.thisWeek?.sales || 0).toFixed(2)}`)
+    lines.push(`This Month,${(salesStats?.thisMonth?.sales || 0).toFixed(2)}`)
+    lines.push('')
+    lines.push('Daily Sales Trend (Last 7 Days)')
+    lines.push('Date,Sales,Transactions')
+    dailySales.forEach((d: any) => lines.push(`${d.date},${d.sales?.toFixed(2) || '0'},${d.count || 0}`))
+    lines.push('')
+    lines.push('Top Selling Products')
+    lines.push('Product,Units Sold,Revenue')
+    ;(salesStats?.topProducts || []).forEach((p: any) => {
+      lines.push(`"${p.productName}",${p._sum?.quantity || 0},${(p._sum?.subtotal || 0).toFixed(2)}`)
+    })
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sales-summary-report-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast({ title: 'Exported', description: 'Sales summary exported as CSV', variant: 'success' })
+  }, [salesStats, dailySales, addToast])
+
+  // CSV export for inventory report
+  const exportInventoryCSV = useCallback(() => {
+    if (inventory.length === 0) {
+      addToast({ title: 'No Data', description: 'No inventory data to export', variant: 'destructive' })
+      return
+    }
+    const lines: string[] = ['Product,Category,Dosage Form,Stock Qty,Reorder Point,Cost Price,Selling Price,Status']
+    inventory.forEach((item: any) => {
+      const p = item.product || item
+      lines.push(`"${p.name || ''}","${(p.category || '').replace(/,/g, ' ')}","${p.dosageForm || ''}",${item.quantity ?? p.quantity ?? 0},${p.reorderPoint || 0},${(p.costPrice || 0).toFixed(2)},${(p.sellingPrice || 0).toFixed(2)},${p.status || 'ACTIVE'}`)
+    })
+    if (lowStockItems.length > 0) {
+      lines.push('')
+      lines.push('Low Stock Alerts')
+      lines.push('Product,Stock,Reorder Level')
+      lowStockItems.forEach((item: any) => {
+        lines.push(`"${item.product?.name || ''}",${item.quantity},${item.product?.reorderPoint || 0}`)
+      })
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `inventory-report-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast({ title: 'Exported', description: 'Inventory report exported as CSV', variant: 'success' })
+  }, [inventory, lowStockItems, addToast])
+
+  // CSV export for prescriptions report
+  const exportPrescriptionsCSV = useCallback(() => {
+    if (prescriptions.length === 0) {
+      addToast({ title: 'No Data', description: 'No prescriptions to export', variant: 'destructive' })
+      return
+    }
+    const lines: string[] = ['Rx #,Patient,Doctor,Status,Priority,Items,Created At,Dispensed At']
+    prescriptions.forEach((rx: any) => {
+      lines.push(`${rx.rxNumber || ''},"${rx.patientName || ''}","${rx.doctorName || ''}",${rx.status || ''},${rx.priority || ''},${rx.items?.length || 0},${rx.createdAt ? formatDate(rx.createdAt) : ''},${rx.dispensedAt ? formatDate(rx.dispensedAt) : ''}`)
+    })
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `prescriptions-report-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast({ title: 'Exported', description: 'Prescriptions report exported as CSV', variant: 'success' })
+  }, [prescriptions, addToast])
+
+  // CSV export for product activity log
+  const exportActivityCSV = useCallback(() => {
+    if (activityLog.length === 0) {
+      addToast({ title: 'No Data', description: 'No activity log to export', variant: 'destructive' })
+      return
+    }
+    const lines: string[] = ['Product,Action,Changed Fields,Changed By,Date']
+    activityLog.forEach((entry: any) => {
+      lines.push(`"${entry.productName || ''}",${entry.action || ''},${entry.changedFields || ''},"${entry.changedByName || ''}",${entry.createdAt ? formatDateTimeShort(entry.createdAt) : ''}`)
+    })
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `product-activity-report-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast({ title: 'Exported', description: 'Activity log exported as CSV', variant: 'success' })
+  }, [activityLog, addToast])
 
   // Per-user sales chart data — memoized
   const userSalesChartData = useMemo(() => {
