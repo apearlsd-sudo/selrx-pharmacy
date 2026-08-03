@@ -2124,7 +2124,7 @@ export function ReportsView() {
                   {(!shiftReport.inventorySnapshot || shiftReport.inventorySnapshot.length === 0) ? (
                     <p className="text-sm text-muted-foreground text-center py-6">No items currently in stock</p>
                   ) : (
-                    <ScrollArea className="max-h-[350px]">
+                    <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -2151,7 +2151,7 @@ export function ReportsView() {
                           ))}
                         </TableBody>
                       </Table>
-                    </ScrollArea>
+                    </div>
                   )}
                 </CardContent>
               </Card>
