@@ -59,7 +59,8 @@ async function analyseDayHandoffs(dayStart: string, dayEnd: string, dateStr: str
   // Get all ended shifts for the day, ordered chronologically
   const shiftsResult = await turso.execute({
     sql: `SELECT id, "userId", "userName", "startedAt", "endedAt",
-                 "totalSales", "totalTransactions", "totalItemsSold"
+                 "totalSales", "totalTransactions", "totalItemsSold",
+                 "cashAtStart", "cashAtEnd", "expectedCash", "cashDiscrepancy"
           FROM "Shift"
           WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
           ORDER BY "startedAt" ASC`,
@@ -142,7 +143,8 @@ async function analyseDayHandoffs(dayStart: string, dayEnd: string, dateStr: str
 async function analyseSingleHandoff(shiftId: string) {
   const target = await turso.execute({
     sql: `SELECT id, "userId", "userName", "startedAt", "endedAt",
-                 "totalSales", "totalTransactions", "totalItemsSold"
+                 "totalSales", "totalTransactions", "totalItemsSold",
+                 "cashAtStart", "cashAtEnd", "expectedCash", "cashDiscrepancy"
           FROM "Shift" WHERE id = ? AND status = 'ENDED'`,
     args: [shiftId],
   })
@@ -153,7 +155,8 @@ async function analyseSingleHandoff(shiftId: string) {
 
   const prev = await turso.execute({
     sql: `SELECT id, "userId", "userName", "startedAt", "endedAt",
-                 "totalSales", "totalTransactions", "totalItemsSold"
+                 "totalSales", "totalTransactions", "totalItemsSold",
+                 "cashAtStart", "cashAtEnd", "expectedCash", "cashDiscrepancy"
           FROM "Shift" WHERE status = 'ENDED' AND "endedAt" <= ?
           ORDER BY "endedAt" DESC LIMIT 1`,
     args: [currentShift.startedAt as string],
@@ -375,12 +378,32 @@ async function computeDiscrepancy(previousShift: Record<string, unknown>, curren
       userName: previousShift.userName, startedAt: previousShift.startedAt,
       endedAt: previousShift.endedAt, totalSales: previousShift.totalSales,
       totalTransactions: previousShift.totalTransactions,
+      cashAtStart: previousShift.cashAtStart ?? null,
+      cashAtEnd: previousShift.cashAtEnd ?? null,
+      expectedCash: previousShift.expectedCash ?? null,
+      cashDiscrepancy: previousShift.cashDiscrepancy ?? null,
     },
     currentShift: {
       id: currentShift.id, userId: currentShift.userId,
       userName: currentShift.userName, startedAt: currentShift.startedAt,
       endedAt: currentShift.endedAt, totalSales: currentShift.totalSales,
       totalTransactions: currentShift.totalTransactions,
+      cashAtStart: currentShift.cashAtStart ?? null,
+      cashAtEnd: currentShift.cashAtEnd ?? null,
+      expectedCash: currentShift.expectedCash ?? null,
+      cashDiscrepancy: currentShift.cashDiscrepancy ?? null,
+    },
+    cashHandoff: {
+      prevCashAtEnd: previousShift.cashAtEnd ?? null,
+      prevExpectedCash: previousShift.expectedCash ?? null,
+      prevCashDiscrepancy: previousShift.cashDiscrepancy ?? null,
+      curCashAtStart: currentShift.cashAtStart ?? null,
+      curCashAtEnd: currentShift.cashAtEnd ?? null,
+      curExpectedCash: currentShift.expectedCash ?? null,
+      curCashDiscrepancy: currentShift.cashDiscrepancy ?? null,
+      handoffCashGap: (previousShift.cashAtEnd != null && currentShift.cashAtStart != null)
+        ? previousShift.cashAtEnd - (currentShift.cashAtStart as number)
+        : null,
     },
     handoffSummary: {
       totalDiscrepancies: discrepancies.length,

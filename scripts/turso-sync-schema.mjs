@@ -234,6 +234,9 @@ async function main() {
   `)
   await run(turso, `CREATE INDEX IF NOT EXISTS "Shift_userId_idx" ON "Shift"("userId");`)
   await run(turso, `CREATE INDEX IF NOT EXISTS "Shift_status_idx" ON "Shift"("status");`)
+  await addColumn(turso, 'Shift', 'cashAtEnd', 'REAL')
+  await addColumn(turso, 'Shift', 'expectedCash', 'REAL')
+  await addColumn(turso, 'Shift', 'cashDiscrepancy', 'REAL')
 
   // ── ShiftInventory table (inventory snapshot at shift end) ──
   console.log('📦 Syncing ShiftInventory table...')

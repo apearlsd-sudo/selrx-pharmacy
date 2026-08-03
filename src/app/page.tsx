@@ -30,6 +30,7 @@ import {
   Clock as ClockIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
@@ -281,6 +282,8 @@ export default function Home() {
   const logout = useAppStore((s) => s.logout)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [endShiftLoading, setEndShiftLoading] = useState(false)
+  const [endShiftOpen, setEndShiftOpen] = useState(false)
+  const [endShiftCash, setEndShiftCash] = useState('')
   const shiftActive = useAppStore((s) => s.shiftActive)
   const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
   const currentShiftId = useAppStore((s) => s.currentShiftId)
@@ -665,27 +668,9 @@ export default function Home() {
                     <Button
                       size="sm"
                       className="w-full h-7 text-[11px] bg-red-600 hover:bg-red-700"
-                      disabled={endShiftLoading}
-                      onClick={async () => {
-                        if (!currentShiftId || !user) return
-                        setEndShiftLoading(true)
-                        try {
-                          const res = await fetch('/api/shifts', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
-                            body: JSON.stringify({ action: 'end', shiftId: currentShiftId }),
-                          })
-                          if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
-                          const result = await res.json()
-                          setShift(null)
-                          addToast({ title: 'Shift Ended', description: `Sales: ${result.totalSales.toFixed(2)} | ${result.totalTransactions} transactions | ${result.totalItemsSold} items sold`, variant: 'success' })
-                        } catch (err: any) {
-                          addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-                        }
-                        setEndShiftLoading(false)
-                      }}
+                      onClick={() => setEndShiftOpen(true)}
                     >
-                      {endShiftLoading ? 'Ending...' : 'End Shift'}
+                      End Shift
                     </Button>
                   </div>
                 </PopoverContent>
@@ -753,6 +738,67 @@ export default function Home() {
           </div>
         </footer>
       </main>
+
+      {/* End Shift Confirmation Dialog */}
+      <AlertDialog open={endShiftOpen} onOpenChange={(open) => { if (!open) { setEndShiftOpen(false); setEndShiftCash('') } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Shift</AlertDialogTitle>
+            <AlertDialogDescription>
+              Count the physical cash in the drawer and enter the amount below to reconcile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Physical Cash at Hand</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={endShiftCash}
+                onChange={(e) => setEndShiftCash(e.target.value)}
+                className="mt-1"
+                autoFocus
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Leave empty to skip cash reconciliation</p>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={endShiftLoading}
+              onClick={async () => {
+                if (!currentShiftId || !user) return
+                setEndShiftLoading(true)
+                try {
+                  const body: Record<string, unknown> = { action: 'end', shiftId: currentShiftId }
+                  if (endShiftCash !== '') body.cashAtEnd = parseFloat(endShiftCash)
+                  const res = await fetch('/api/shifts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+                    body: JSON.stringify(body),
+                  })
+                  if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+                  const result = await res.json()
+                  setShift(null)
+                  setEndShiftOpen(false)
+                  setEndShiftCash('')
+                  const cashMsg = result.cashDiscrepancy !== null && result.cashDiscrepancy !== undefined
+                    ? ` | Cash diff: ${result.cashDiscrepancy >= 0 ? '-' : '+'}${Math.abs(result.cashDiscrepancy).toFixed(2)}`
+                    : ''
+                  addToast({ title: 'Shift Ended', description: `Sales: ${result.totalSales.toFixed(2)} | ${result.totalTransactions} txns | ${result.totalItemsSold} items${cashMsg}`, variant: 'success' })
+                } catch (err: any) {
+                  addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+                }
+                setEndShiftLoading(false)
+              }}
+            >
+              {endShiftLoading ? 'Ending...' : 'End Shift'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>

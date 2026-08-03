@@ -2175,6 +2175,7 @@ export function ReportsView() {
                             <TableHead className="text-xs text-center">Status</TableHead>
                             <TableHead className="text-xs text-center">Txns</TableHead>
                             <TableHead className="text-xs text-right">Sales</TableHead>
+                            <TableHead className="text-xs text-right">Cash Diff</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -2198,6 +2199,9 @@ export function ReportsView() {
                               </TableCell>
                               <TableCell className="text-xs text-center font-mono">{s.totalTransactions}</TableCell>
                               <TableCell className="text-xs text-right font-mono">{formatCurrency(s.totalSales)}</TableCell>
+                              <TableCell className={`text-xs text-right font-mono font-medium ${s.cashDiscrepancy == null ? 'text-muted-foreground' : s.cashDiscrepancy > 0 ? 'text-red-600' : s.cashDiscrepancy < 0 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                                {s.cashDiscrepancy != null ? `${s.cashDiscrepancy > 0 ? '-' : '+'}${formatCurrency(Math.abs(s.cashDiscrepancy))}` : '—'}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -2320,6 +2324,57 @@ export function ReportsView() {
                               {comp.handoffSummary.overCount} over(s) — {formatCurrency(comp.handoffSummary.overCost)}
                             </Badge>
                           </div>
+
+                          {/* Cash Reconciliation */}
+                          {comp.cashHandoff && (comp.cashHandoff.prevCashDiscrepancy != null || comp.cashHandoff.curCashDiscrepancy != null || comp.cashHandoff.handoffCashGap != null) && (
+                            <div className="border rounded-lg p-3 mb-3 bg-muted/20 space-y-2">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cash Reconciliation</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                                {/* Previous user cash */}
+                                <div className="space-y-0.5">
+                                  <p className="font-medium text-muted-foreground">{comp.previousShift.userName} (ended)</p>
+                                  {comp.cashHandoff.prevExpectedCash != null && (
+                                    <p>Expected: <span className="font-mono">{formatCurrency(comp.cashHandoff.prevExpectedCash)}</span></p>
+                                  )}
+                                  {comp.cashHandoff.prevCashAtEnd != null && (
+                                    <p>Actual: <span className="font-mono">{formatCurrency(comp.cashHandoff.prevCashAtEnd)}</span></p>
+                                  )}
+                                  {comp.cashHandoff.prevCashDiscrepancy != null && (
+                                    <p className={comp.cashHandoff.prevCashDiscrepancy > 0 ? 'text-red-600 font-medium' : comp.cashHandoff.prevCashDiscrepancy < 0 ? 'text-blue-600 font-medium' : 'text-emerald-600 font-medium'}>
+                                      Diff: {comp.cashHandoff.prevCashDiscrepancy > 0 ? '-' : '+'}{formatCurrency(Math.abs(comp.cashHandoff.prevCashDiscrepancy))}
+                                    </p>
+                                  )}
+                                </div>
+                                {/* Current user cash */}
+                                <div className="space-y-0.5">
+                                  <p className="font-medium text-muted-foreground">{comp.currentShift.userName} (ended)</p>
+                                  {comp.cashHandoff.curExpectedCash != null && (
+                                    <p>Expected: <span className="font-mono">{formatCurrency(comp.cashHandoff.curExpectedCash)}</span></p>
+                                  )}
+                                  {comp.cashHandoff.curCashAtEnd != null && (
+                                    <p>Actual: <span className="font-mono">{formatCurrency(comp.cashHandoff.curCashAtEnd)}</span></p>
+                                  )}
+                                  {comp.cashHandoff.curCashDiscrepancy != null && (
+                                    <p className={comp.cashHandoff.curCashDiscrepancy > 0 ? 'text-red-600 font-medium' : comp.cashHandoff.curCashDiscrepancy < 0 ? 'text-blue-600 font-medium' : 'text-emerald-600 font-medium'}>
+                                      Diff: {comp.cashHandoff.curCashDiscrepancy > 0 ? '-' : '+'}{formatCurrency(Math.abs(comp.cashHandoff.curCashDiscrepancy))}
+                                    </p>
+                                  )}
+                                </div>
+                                {/* Handoff cash gap */}
+                                {comp.cashHandoff.handoffCashGap != null && (
+                                  <div className="space-y-0.5">
+                                    <p className="font-medium text-muted-foreground">Handoff Gap</p>
+                                    <p>Prev ended with: <span className="font-mono">{formatCurrency(comp.cashHandoff.prevCashAtEnd!)}</span></p>
+                                    <p>Cur started with: <span className="font-mono">{formatCurrency(comp.cashHandoff.curCashAtStart!)}</span></p>
+                                    <p className={comp.cashHandoff.handoffCashGap !== 0 ? 'text-red-600 font-medium' : 'text-emerald-600 font-medium'}>
+                                      Gap: {formatCurrency(Math.abs(comp.cashHandoff.handoffCashGap))}
+                                      {comp.cashHandoff.handoffCashGap !== 0 ? (comp.cashHandoff.handoffCashGap > 0 ? ' (excess)' : ' (shortage)') : ' (balanced)'}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Discrepancy table */}
                           {comp.discrepancies.length === 0 ? (

@@ -132,7 +132,8 @@ export async function GET(request: NextRequest) {
 
       const shiftListResult = await turso.execute({
         sql: `SELECT id, "userId", "userName", "startedAt", "endedAt", status,
-                       "totalSales", "totalTransactions", "totalItemsSold"
+                       "totalSales", "totalTransactions", "totalItemsSold",
+                       "cashAtStart", "cashAtEnd", "expectedCash", "cashDiscrepancy"
                 FROM "Shift" ${shiftClause} ORDER BY "startedAt" DESC LIMIT 50`,
         args: shiftArgs,
       })
@@ -142,6 +143,10 @@ export async function GET(request: NextRequest) {
         totalSales: (r.totalSales as number) || 0,
         totalTransactions: (r.totalTransactions as number) || 0,
         totalItemsSold: (r.totalItemsSold as number) || 0,
+        cashAtStart: (r.cashAtStart as number) || null,
+        cashAtEnd: (r.cashAtEnd as number) || null,
+        expectedCash: (r.expectedCash as number) || null,
+        cashDiscrepancy: (r.cashDiscrepancy as number) || null,
       }))
 
       // 6. Users list for filter (admin)
@@ -256,6 +261,8 @@ export async function POST(request: NextRequest) {
       const sid = shiftId || ''
       if (!sid) return NextResponse.json({ error: 'shiftId is required' }, { status: 400 })
 
+      const cashAtEnd = body.cashAtEnd !== undefined ? Number(body.cashAtEnd) : null
+
       const shiftResult = await turso.execute({
         sql: `SELECT id, "userId", "startedAt", "cashAtStart" FROM "Shift" WHERE id = ? AND status = 'ACTIVE'`,
         args: [sid],
@@ -265,6 +272,7 @@ export async function POST(request: NextRequest) {
       }
       const shift = shiftResult.rows[0]
       const startedAt = shift[2] as string
+      const cashAtStart = (shift[3] as number) || 0
 
       const statsResult = await turso.execute({
         sql: `SELECT COALESCE(SUM(t.total), 0) as totalSales, COUNT(t.id) as totalTransactions
@@ -284,11 +292,18 @@ export async function POST(request: NextRequest) {
       })
       const totalItemsSold = (toObjs(itemsStatsResult)[0]?.totalItems as number) || 0
 
+      // Cash reconciliation
+      const expectedCash = cashAtStart + totalSales
+      const cashDiscrepancy = cashAtEnd !== null ? expectedCash - cashAtEnd : null
+
       await turso.execute({
         sql: `UPDATE "Shift" SET status = 'ENDED', "endedAt" = ?,
-                "totalSales" = ?, "totalTransactions" = ?, "totalItemsSold" = ?, "updatedAt" = ?
+                "totalSales" = ?, "totalTransactions" = ?, "totalItemsSold" = ?,
+                "cashAtEnd" = ?, "expectedCash" = ?, "cashDiscrepancy" = ?,
+                "updatedAt" = ?
                 WHERE id = ?`,
-        args: [now, totalSales, totalTransactions, totalItemsSold, now, sid],
+        args: [now, totalSales, totalTransactions, totalItemsSold,
+               cashAtEnd, expectedCash, cashDiscrepancy, now, sid],
       })
 
       // ── Capture inventory snapshot at shift end ──
@@ -318,7 +333,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         id: sid, userId, userName, startedAt, endedAt: now,
         status: 'ENDED', totalSales, totalTransactions, totalItemsSold,
-        cashAtStart: shift[3],
+        cashAtStart, cashAtEnd, expectedCash, cashDiscrepancy,
       })
     }
 
