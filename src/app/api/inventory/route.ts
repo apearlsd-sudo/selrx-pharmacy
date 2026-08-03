@@ -278,6 +278,7 @@ export async function PUT(request: NextRequest) {
     const {
       productId, quantity, adjustment, reason,
       costPrice, sellingPrice, setQuantity, adjustmentType,
+      expiryDate,
     } = body
 
     if (!productId || !reason) {
@@ -324,8 +325,8 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      // Optionally update product prices
-      if (costPrice !== undefined || sellingPrice !== undefined) {
+      // Optionally update product prices and expiry date
+      if (costPrice !== undefined || sellingPrice !== undefined || expiryDate !== undefined) {
         const setClauses: string[] = []
         const setArgs: unknown[] = []
         if (costPrice !== undefined) {
@@ -336,11 +337,15 @@ export async function PUT(request: NextRequest) {
           setClauses.push('sellingPrice = ?')
           setArgs.push(sellingPrice)
         }
+        if (expiryDate !== undefined) {
+          setClauses.push('"expiryDate" = ?')
+          setArgs.push(expiryDate || null)
+        }
         setClauses.push('updatedAt = ?')
         setArgs.push(now)
         setArgs.push(productId)
         await turso.execute({
-          sql: `UPDATE Product SET ${setClauses.join(', ')} WHERE id = ?`,
+          sql: `UPDATE "Product" SET ${setClauses.join(', ')} WHERE id = ?`,
           args: setArgs,
         })
       }
@@ -364,6 +369,11 @@ export async function PUT(request: NextRequest) {
         changedFields.push('sellingPrice')
         previousValues.sellingPrice = '—'
         newValues.sellingPrice = sellingPrice
+      }
+      if (expiryDate !== undefined) {
+        changedFields.push('expiryDate')
+        previousValues.expiryDate = '—'
+        newValues.expiryDate = expiryDate || null
       }
 
       if (changedFields.length > 0) {
@@ -410,6 +420,7 @@ export async function PUT(request: NextRequest) {
     let productUpdate: Record<string, unknown> = {}
     if (costPrice !== undefined) productUpdate.costPrice = costPrice
     if (sellingPrice !== undefined) productUpdate.sellingPrice = sellingPrice
+    if (expiryDate !== undefined) productUpdate.expiryDate = expiryDate || null
 
     const updated = existing
       ? await db.inventory.update({

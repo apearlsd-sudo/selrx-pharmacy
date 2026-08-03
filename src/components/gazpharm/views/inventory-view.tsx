@@ -69,6 +69,7 @@ export function InventoryView() {
   const [adjustReason, setAdjustReason] = useState('')
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
+  const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
   const [stockCountDialog, setStockCountDialog] = useState(false)
   const [stockSearch, setStockSearch] = useState('')
   const [stockSearchResults, setStockSearchResults] = useState<{ id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number }[]>([])
@@ -192,7 +193,7 @@ export function InventoryView() {
   const totalValue = useMemo(() => items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0), [items])
 
   const handleAdjust = async () => {
-    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
+    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason) return
     try {
       const isSet = adjustType === 'SET'
       const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
@@ -209,6 +210,7 @@ export function InventoryView() {
       }
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
+      if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
 
       const res = await fetch('/api/inventory', {
         method: 'PUT',
@@ -225,6 +227,7 @@ export function InventoryView() {
       setAdjustReason('')
       setAdjustCostPrice('')
       setAdjustSellingPrice('')
+      setAdjustExpiryDate('')
       fetchInventory(true)
       bumpInventoryVersion()
     } catch (err: any) {
@@ -787,7 +790,7 @@ export function InventoryView() {
                         {formatDate(item.product.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustDialog(true) }}>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />
                           Adjust
                         </Button>
@@ -1213,6 +1216,9 @@ export function InventoryView() {
                   Current Stock: {Number(selectedItem.quantity) || 0} {selectedItem.product.unitOfMeasure}
                   &nbsp;·&nbsp; Cost: {selectedItem.product.costPrice != null ? formatCurrency(selectedItem.product.costPrice) : '—'}
                   &nbsp;·&nbsp; Price: {formatCurrency(selectedItem.product.sellingPrice)}
+                  {selectedItem.product.expiryDate && (
+                    <>&nbsp;·&nbsp; Expiry: {formatDate(selectedItem.product.expiryDate)}</>
+                  )}
                 </p>
               </div>
               <div className="space-y-3">
@@ -1244,6 +1250,10 @@ export function InventoryView() {
                   </div>
                 </div>
                 <div>
+                  <Label>Expiry Date</Label>
+                  <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} placeholder={selectedItem.product.expiryDate?.split('T')[0] || ''} className="mt-1" />
+                </div>
+                <div>
                   <Label>Reason (required)</Label>
                   <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
                 </div>
@@ -1252,7 +1262,7 @@ export function InventoryView() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
-            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason}>
+            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason}>
               Apply Changes
             </Button>
           </DialogFooter>
