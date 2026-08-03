@@ -24,16 +24,6 @@ import { writeProductHistory } from '@/lib/product-history'
  *   - Returns summary of what was processed
  */
 
-// ---------- Helper: build WHERE conditions for expired products ----------
-
-function buildExpiredWhere(from: string, to: string) {
-  const conditions: string[] = ['p."expiryDate" IS NOT NULL', 'date(p."expiryDate") <= date(\'now\')']
-  const args: any[] = []
-  if (from) { conditions.push('date(p."expiryDate") >= ?'); args.push(from) }
-  if (to) { conditions.push('date(p."expiryDate") <= ?'); args.push(to) }
-  return { whereSQL: `WHERE ${conditions.join(' AND ')}`, args }
-}
-
 // ---------- Helper: fetch sales data for a list of product IDs ----------
 
 async function fetchSalesMap(productIds: string[]): Promise<Record<string, { qtySold: number; salesRevenue: number }>> {

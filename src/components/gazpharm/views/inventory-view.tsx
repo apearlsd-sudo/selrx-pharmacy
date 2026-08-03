@@ -1292,132 +1292,425 @@ export function InventoryView() {
                 </p>
               </div>
 
-              {/* -- Batch / Lot Management -- */}
-              <div className="border rounded-lg p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">Stock Batches / Lots</p>
-                    <p className="text-xs text-muted-foreground">Each batch has its own expiry date. Sales auto-deplete the nearest-expiring batch first (FEFO).</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px]">{batches.length} batch{batches.length !== 1 ? 'es' : ''}</Badge>
-                </div>
-
-                {batchesLoading && <Skeleton className="h-16 w-full" />}
-                {!batchesLoading && batches.length > 0 && (
-                  <div className="border rounded-md overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Batch #</TableHead>
-                          <TableHead className="text-xs">Qty</TableHead>
-                          <TableHead className="text-xs">Expiry</TableHead>
-                          <TableHead className="text-xs">Cost</TableHead>
-                          <TableHead className="text-xs text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {batches.map((b: any) => {
-                          const daysLeft = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
-                          const isExpired = daysLeft !== null && daysLeft < 0
-                          const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
-                          return (
-                            <TableRow key={b.id} className={b.quantity === 0 ? 'opacity-40' : ''}>
-                              <TableCell className="text-xs font-mono">{b.batchNumber || '—'}</TableCell>
-                              <TableCell className={`text-xs font-bold ${b.quantity > 0 ? '' : 'text-muted-foreground'}`}>{b.quantity}</TableCell>
-                              <TableCell className="text-xs">
-                                {b.expiryDate ? formatDate(b.expiryDate) : '—'}
-                                {isExpired && <Badge className="ml-1 bg-red-100 text-red-700 text-[9px] px-1 py-0">Expired</Badge>}
-                                {isExpiringSoon && <Badge className="ml-1 bg-amber-100 text-amber-700 text-[9px] px-1 py-0">Expiring</Badge>}
-                              </TableCell>
-                              <TableCell className="text-xs">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</TableCell>
-                              <TableCell className="text-right">
-                                <Button size="sm" variant="ghost" className="h-6 text-xs text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteBatch(b.id)} disabled={savingBatch}>
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-                {!batchesLoading && batches.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-3">No batches yet. Receive stock below to create one.</p>
-                )}
-
-                {/* Receive new batch form */
-                <div className="border-t pt-3 mt-1">
-                  <p className="text-xs font-medium mb-2">Receive New Stock (creates a new batch)</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div>
-                      <Label className="text-[10px]">Batch #</Label>
-                      <Input className="h-8 text-xs" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} placeholder="Optional" />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Quantity *</Label>
-                      <Input type="number" min="1" className="h-8 text-xs" value={newBatchQty} onChange={(e) => setNewBatchQty(e.target.value)} placeholder="0" />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Expiry Date</Label>
-                      <Input type="date" className="h-8 text-xs" value={newBatchExpiry} onChange={(e) => setNewBatchExpiry(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Cost Price</Label>
-                      <Input type="number" step="0.01" min="0" className="h-8 text-xs" value={newBatchCost} onChange={(e) => setNewBatchCost(e.target.value)} placeholder="0.00" />
-                    </div>
-                  </div>
-                  <Button size="sm" className="mt-2 h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={handleReceiveBatch} disabled={savingBatch || !newBatchQty || Number(newBatchQty) <= 0}>
-                    <Plus className="h-3 w-3 mr-1" /> {savingBatch ? 'Receiving...' : 'Receive Stock'}
-                  </Button>
-                </div>
-              </div>
-
-              {/* -- Quick Adjust (existing) -- */}
-              <div>
-                <span>Quick Adjust (legacy - sets product-level values)</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-              </div>
-              <div className="px-3 pb-3 pt-1 space-y-3" style={{display:'none'}}>
-                  <div>
-                  <div>
-                    <Label>Adjustment Type</Label>
-                    <Select value={adjustType} onValueChange={setAdjustType}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ADD">Add Stock</SelectItem>
-                        <SelectItem value="REMOVE">Remove Stock</SelectItem>
-                        <SelectItem value="SET">Set Count</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Quantity</Label>
-                    <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="New total stock count" className="mt-1" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Cost Price ($)</Label>
-                      <Input type="number" step="0.01" min="0" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} placeholder={selectedItem.product.costPrice?.toFixed(2) || '0.00'} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>Selling Price ($)</Label>
-                      <Input type="number" step="0.01" min="0" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} placeholder={selectedItem.product.sellingPrice?.toFixed(2) || '0.00'} className="mt-1" />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Expiry Date</Label>
-                    <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} placeholder={selectedItem.product.expiryDate?.split('T')[0] || ''} className="mt-1" />
-                  </div>
-                  <div>
-                    <Label>Reason (required)</Label>
-                    <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
-                  </div>
-                  <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason}>
-                    Apply Legacy Adjust
-                  </Button>
+{/* batch section temporarily commented */}
+{/*                </div> */}
+{/*              </div> */}
+{/*            </div> */}
+{/*          )} */}
+{/*          <DialogFooter> */}
+{/*            <Button variant="outline" onClick={() => setAdjustDialog(false)}>Close</Button> */}
+{/*          </DialogFooter> */}
+{/*        </DialogContent> */}
+{/*      </Dialog> */}
+{/* */}
+{/*      {/* Stock Count Dialog — API search + physical count + price edit */} */}
+{/*      <Dialog open={stockCountDialog} onOpenChange={(open) => { */}
+{/*        if (!open) { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) } */}
+{/*        else setStockCountDialog(true) */}
+{/*      }}> */}
+{/*        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col"> */}
+{/*          <DialogHeader> */}
+{/*            <DialogTitle className="flex items-center gap-2"> */}
+{/*              <ClipboardCheck className="h-5 w-5 text-indigo-600" /> */}
+{/*              Periodic Stock Taking */}
+{/*            </DialogTitle> */}
+{/*            <DialogDescription>Search products, enter physical stock counts and optionally adjust cost & selling prices. All changes update the system immediately.</DialogDescription> */}
+{/*          </DialogHeader> */}
+{/* */}
+{/*          {/* Product Search — queries API with debounce */} */}
+{/*          <div className="relative"> */}
+{/*            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${stockSearching ? 'text-indigo-500 animate-pulse' : 'text-muted-foreground'}`} /> */}
+{/*            <Input */}
+{/*              placeholder="Search product by name or NDC to add..." */}
+{/*              value={stockSearch} */}
+{/*              onChange={(e) => setStockSearch(e.target.value)} */}
+{/*              className="pl-9 pr-20" */}
+{/*              autoFocus */}
+{/*            /> */}
+{/*            {stockSearch && ( */}
+{/*              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"> */}
+{/*                {stockSearching ? 'Searching...' : `${stockSearchResults.length} found`} */}
+{/*              </span> */}
+{/*            )} */}
+{/*            {stockSearchResults.length > 0 && ( */}
+{/*              <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto"> */}
+{/*                {stockSearchResults.map((product) => { */}
+{/*                  const alreadyAdded = stockEntries.find(e => e.productId === product.id) */}
+{/*                  return ( */}
+{/*                    <button */}
+{/*                      key={product.id} */}
+{/*                      className={`w-full text-left px-3 py-2.5 flex items-center justify-between text-sm border-b last:border-b-0 transition-colors ${alreadyAdded ? 'bg-muted/50 opacity-60 cursor-not-allowed' : 'hover:bg-indigo-50'}`} */}
+{/*                      disabled={!!alreadyAdded} */}
+{/*                      onClick={() => !alreadyAdded && addStockEntry(product)} */}
+{/*                    > */}
+{/*                      <div className="min-w-0 flex-1"> */}
+{/*                        <p className="font-medium truncate">{product.name}</p> */}
+{/*                        <p className="text-xs text-muted-foreground"> */}
+{/*                          NDC: {product.ndc || '—'} */}
+{/*                          {product.ndc && ' · '} */}
+{/*                          Current Stock: {product.currentQty} {product.unitOfMeasure} */}
+{/*                        </p> */}
+{/*                      </div> */}
+{/*                      <span className={`text-xs font-medium ml-3 shrink-0 ${alreadyAdded ? 'text-muted-foreground' : 'text-indigo-600'}`}> */}
+{/*                        {alreadyAdded ? '✓ Added' : '+ Add'} */}
+{/*                      </span> */}
+{/*                    </button> */}
+{/*                  ) */}
+{/*                })} */}
+{/*              </div> */}
+{/*            )} */}
+{/*          </div> */}
+{/* */}
+{/*          {/* Summary badges */} */}
+{/*          {stockEntries.length > 0 && ( */}
+{/*            <div className="flex items-center gap-2 flex-wrap"> */}
+{/*              <Badge variant="secondary" className="text-xs"> */}
+{/*                {stockEntries.length} product{stockEntries.length !== 1 ? 's' : ''} to count */}
+{/*              </Badge> */}
+{/*              <Badge variant="secondary" className="text-xs"> */}
+{/*                Diff: {stockEntries.reduce((s, e) => s + (parseInt(e.physicalQty || '0') - e.currentQty), 0) >= 0 ? '+' : ''}{stockEntries.reduce((s, e) => s + (parseInt(e.physicalQty || '0') - e.currentQty), 0)} */}
+{/*              </Badge> */}
+{/*              <Button size="sm" variant="ghost" className="text-xs text-red-500 hover:text-red-700 ml-auto" onClick={() => { setStockEntries([]) }}> */}
+{/*                Clear All */}
+{/*              </Button> */}
+{/*            </div> */}
+{/*          )} */}
+{/* */}
+{/*          {/* Stock Count Table */} */}
+{/*          <div className="border rounded-lg flex-1 min-h-0"> */}
+{/*            {stockEntries.length === 0 ? ( */}
+{/*              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"> */}
+{/*                <ClipboardCheck className="h-10 w-10 mb-3 opacity-30" /> */}
+{/*                <p className="text-sm font-medium">No products added yet</p> */}
+{/*                <p className="text-xs mt-1">Search and add products above to begin counting stock</p> */}
+{/*              </div> */}
+{/*            ) : ( */}
+{/*              <div className="overflow-auto max-h-[40vh]"> */}
+{/*                <table className="w-full text-sm"> */}
+{/*                  <thead className="bg-muted/60 sticky top-0"> */}
+{/*                    <tr> */}
+{/*                      <th className="text-left px-3 py-2 font-medium">Product</th> */}
+{/*                      <th className="text-center px-3 py-2 font-medium w-24">System Qty</th> */}
+{/*                      <th className="text-center px-3 py-2 font-medium w-28">Physical Count</th> */}
+{/*                      <th className="text-center px-3 py-2 font-medium w-16">Diff</th> */}
+{/*                      <th className="text-center px-3 py-2 font-medium w-28">Cost Price</th> */}
+{/*                      <th className="text-center px-3 py-2 font-medium w-28">Selling Price</th> */}
+{/*                      <th className="text-center px-3 py-2 font-medium w-10"></th> */}
+{/*                    </tr> */}
+{/*                  </thead> */}
+{/*                  <tbody className="divide-y"> */}
+{/*                    {stockEntries.map((entry) => { */}
+{/*                      const diff = parseInt(entry.physicalQty || '0') - entry.currentQty */}
+{/*                      return ( */}
+{/*                        <tr key={entry.productId} className="hover:bg-muted/30"> */}
+{/*                          <td className="px-3 py-2"> */}
+{/*                            <p className="font-medium truncate max-w-[200px]">{entry.name}</p> */}
+{/*                            <p className="text-xs text-gray-600">{entry.ndc || '—'}</p> */}
+{/*                          </td> */}
+{/*                          <td className="text-center px-3 py-2 font-mono"> */}
+{/*                            {entry.currentQty} <span className="text-xs text-muted-foreground">{entry.unit}</span> */}
+{/*                          </td> */}
+{/*                          <td className="text-center px-3 py-2"> */}
+{/*                            <Input */}
+{/*                              type="number" */}
+{/*                              min="0" */}
+{/*                              value={entry.physicalQty} */}
+{/*                              onChange={(e) => updateStockEntry(entry.productId, 'physicalQty', e.target.value)} */}
+{/*                              className="w-full text-center h-8 text-sm" */}
+{/*                              placeholder="0" */}
+{/*                            /> */}
+{/*                          </td> */}
+{/*                          <td className="text-center px-3 py-2"> */}
+{/*                            {diff !== 0 && ( */}
+{/*                              <Badge variant={diff > 0 ? 'default' : 'destructive'} className="text-xs px-1.5 py-0"> */}
+{/*                                {diff > 0 ? '+' : ''}{diff} */}
+{/*                              </Badge> */}
+{/*                            )} */}
+{/*                            {diff === 0 && <span className="text-xs text-muted-foreground">0</span>} */}
+{/*                          </td> */}
+{/*                          <td className="text-center px-3 py-2"> */}
+{/*                            <Input */}
+{/*                              type="number" */}
+{/*                              step="0.01" */}
+{/*                              min="0" */}
+{/*                              value={entry.costPrice} */}
+{/*                              onChange={(e) => updateStockEntry(entry.productId, 'costPrice', e.target.value)} */}
+{/*                              className="w-full text-center h-8 text-sm" */}
+{/*                              placeholder="0.00" */}
+{/*                            /> */}
+{/*                          </td> */}
+{/*                          <td className="text-center px-3 py-2"> */}
+{/*                            <Input */}
+{/*                              type="number" */}
+{/*                              step="0.01" */}
+{/*                              min="0" */}
+{/*                              value={entry.sellingPrice} */}
+{/*                              onChange={(e) => updateStockEntry(entry.productId, 'sellingPrice', e.target.value)} */}
+{/*                              className="w-full text-center h-8 text-sm" */}
+{/*                              placeholder="0.00" */}
+{/*                            /> */}
+{/*                          </td> */}
+{/*                          <td className="text-center px-3 py-2"> */}
+{/*                            <Button size="sm" variant="ghost" onClick={() => removeStockEntry(entry.productId)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"> */}
+{/*                              <X className="h-3.5 w-3.5" /> */}
+{/*                            </Button> */}
+{/*                          </td> */}
+{/*                        </tr> */}
+{/*                      ) */}
+{/*                    })} */}
+{/*                  </tbody> */}
+{/*                </table> */}
+{/*              </div> */}
+{/*            )} */}
+{/*          </div> */}
+{/* */}
+{/*          <DialogFooter className="mt-4"> */}
+{/*            <Button variant="outline" onClick={() => { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }}> */}
+{/*              Cancel */}
+{/*            </Button> */}
+{/*            <Button */}
+{/*              onClick={handleStockCountSave} */}
+{/*              className="bg-indigo-600 hover:bg-indigo-700" */}
+{/*              disabled={stockEntries.length === 0 || stockSaving} */}
+{/*            > */}
+{/*              {stockSaving ? ( */}
+{/*                <> */}
+{/*                  <span className="animate-spin mr-2">⟳</span> */}
+{/*                  Updating Stocks... */}
+{/*                </> */}
+{/*              ) : ( */}
+{/*                `Update ${stockEntries.length} Product${stockEntries.length !== 1 ? 's' : ''} Stock & Prices` */}
+{/*              )} */}
+{/*            </Button> */}
+{/*          </DialogFooter> */}
+{/*        </DialogContent> */}
+{/*      </Dialog> */}
+{/* */}
+{/*      {/* -- Import Products Dialog -------------------------------- */} */}
+{/*      <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}> */}
+{/*        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"> */}
+{/*          <DialogHeader> */}
+{/*            <DialogTitle className="flex items-center gap-2"> */}
+{/*              <FileSpreadsheet className="h-5 w-5 text-teal-600" /> */}
+{/*              Import Products from Excel */}
+{/*            </DialogTitle> */}
+{/*            <DialogDescription> */}
+{/*              Upload an Excel (.xlsx) or CSV file to bulk-import products. Download the template first to see the required format. */}
+{/*            </DialogDescription> */}
+{/*          </DialogHeader> */}
+{/* */}
+{/*          <div className="space-y-4"> */}
+{/*            {/* Template download */} */}
+{/*            <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg"> */}
+{/*              <FileSpreadsheet className="h-5 w-5 text-teal-600 shrink-0" /> */}
+{/*              <div className="flex-1"> */}
+{/*                <p className="text-sm font-medium text-teal-800">Download Import Template</p> */}
+{/*                <p className="text-xs text-teal-600">Contains columns guide, example data, and reference sheets for categories and dosage forms.</p> */}
+{/*              </div> */}
+{/*              <Button */}
+{/*                size="sm" */}
+{/*                variant="outline" */}
+{/*                className="border-teal-600 text-teal-700 hover:bg-teal-100" */}
+{/*                onClick={async () => { */}
+{/*                  try { */}
+{/*                    const res = await fetch(`/api/products/import?dateFormat=${encodeURIComponent(dateFormat)}`) */}
+{/*                    if (res.ok) { */}
+{/*                      const blob = await res.blob() */}
+{/*                      const url = URL.createObjectURL(blob) */}
+{/*                      const a = document.createElement('a') */}
+{/*                      a.href = url */}
+{/*                      a.download = 'product-import-template.xlsx' */}
+{/*                      a.click() */}
+{/*                      URL.revokeObjectURL(url) */}
+{/*                      addToast({ title: 'Template Downloaded', description: 'Fill in your product data and upload', variant: 'success' }) */}
+{/*                    } */}
+{/*                  } catch { */}
+{/*                    addToast({ title: 'Error', description: 'Failed to download template', variant: 'destructive' }) */}
+{/*                  } */}
+{/*                }} */}
+{/*              > */}
+{/*                <Download className="h-3.5 w-3.5 mr-1" /> */}
+{/*                .xlsx Template */}
+{/*              </Button> */}
+{/*            </div> */}
+{/* */}
+{/*            {/* File upload area */} */}
+{/*            {!importResult && ( */}
+{/*              <div className="space-y-3"> */}
+{/*                <div */}
+{/*                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${ */}
+{/*                    importFile */}
+{/*                      ? 'border-teal-500 bg-teal-50' */}
+{/*                      : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50' */}
+{/*                  }`} */}
+{/*                  onClick={() => document.getElementById('import-file-input')?.click()} */}
+{/*                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }} */}
+{/*                  onDrop={(e) => { */}
+{/*                    e.preventDefault(); e.stopPropagation() */}
+{/*                    const file = e.dataTransfer.files[0] */}
+{/*                    if (file) handleImportFileSelect(file) */}
+{/*                  }} */}
+{/*                > */}
+{/*                  <input */}
+{/*                    id="import-file-input" */}
+{/*                    type="file" */}
+{/*                    accept=".xlsx,.xls,.csv" */}
+{/*                    className="hidden" */}
+{/*                    onChange={(e) => { */}
+{/*                      const file = e.target.files?.[0] */}
+{/*                      if (file) handleImportFileSelect(file) */}
+{/*                    }} */}
+{/*                  /> */}
+{/*                  {importFile ? ( */}
+{/*                    <div className="space-y-2"> */}
+{/*                      <FileSpreadsheet className="h-10 w-10 text-teal-600 mx-auto" /> */}
+{/*                      <p className="text-sm font-medium text-teal-800">{importFile.name}</p> */}
+{/*                      {importPreview && ( */}
+{/*                        <p className="text-xs text-muted-foreground"> */}
+{/*                          {importPreview.rows} rows &middot; {importPreview.size} */}
+{/*                        </p> */}
+{/*                      )} */}
+{/*                      <p className="text-xs text-teal-600">Click or drag to replace</p> */}
+{/*                    </div> */}
+{/*                  ) : ( */}
+{/*                    <div className="space-y-2"> */}
+{/*                      <Upload className="h-10 w-10 text-gray-400 mx-auto" /> */}
+{/*                      <p className="text-sm font-medium text-gray-700"> */}
+{/*                        Drop your Excel/CSV file here, or click to browse */}
+{/*                      </p> */}
+{/*                      <p className="text-xs text-muted-foreground"> */}
+{/*                        Supports .xlsx, .xls, .csv &middot; Max 5 MB */}
+{/*                      </p> */}
+{/*                    </div> */}
+{/*                  )} */}
+{/*                </div> */}
+{/* */}
+{/*                {/* Column guide */} */}
+{/*                <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 rounded-lg"> */}
+{/*                  <p className="font-medium text-foreground">Template columns:</p> */}
+{/*                  <p><span className="text-red-500 font-bold">*</span> <strong>Drug Name</strong> — Product name (required)</p> */}
+{/*                  <p>SKU, Category, Manufacturer, Vendor, Dosage Form, Stock Qty, Status, Reorder Level, Cost, Retail, Expiry</p> */}
+{/*                </div> */}
+{/* */}
+{/*                {/* Import button */} */}
+{/*                <div className="flex justify-end gap-2"> */}
+{/*                  <Button variant="outline" onClick={() => { setImportDialog(false); setImportFile(null); setImportPreview(null) }}> */}
+{/*                    Cancel */}
+{/*                  </Button> */}
+{/*                  <Button */}
+{/*                    onClick={handleImport} */}
+{/*                    disabled={!importFile || importing} */}
+{/*                    className="bg-teal-600 hover:bg-teal-700" */}
+{/*                  > */}
+{/*                    {importing ? ( */}
+{/*                      <> */}
+{/*                        <span className="animate-spin mr-2">⟳</span> */}
+{/*                        Importing... */}
+{/*                      </> */}
+{/*                    ) : ( */}
+{/*                      <> */}
+{/*                        <Upload className="h-4 w-4 mr-2" /> */}
+{/*                        Import {importPreview ? `${importPreview.rows} Products` : 'Products'} */}
+{/*                      </> */}
+{/*                    )} */}
+{/*                  </Button> */}
+{/*                </div> */}
+{/*              </div> */}
+{/*            )} */}
+{/* */}
+{/*            {/* Import results */} */}
+{/*            {importResult && ( */}
+{/*              <div className="space-y-3"> */}
+{/*                {importResult.success ? ( */}
+{/*                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg"> */}
+{/*                    <div className="flex items-center gap-2 mb-2"> */}
+{/*                      <CheckCircle2 className="h-5 w-5 text-emerald-600" /> */}
+{/*                      <p className="font-medium text-emerald-800">Import Complete!</p> */}
+{/*                    </div> */}
+{/*                    <p className="text-sm text-emerald-700">{importResult.message}</p> */}
+{/*                    <div className="mt-2 grid grid-cols-3 gap-2 text-center"> */}
+{/*                      <div className="p-2 bg-white rounded"> */}
+{/*                        <p className="text-lg font-bold text-emerald-700">{importResult.created}</p> */}
+{/*                        <p className="text-xs text-muted-foreground">Created</p> */}
+{/*                      </div> */}
+{/*                      <div className="p-2 bg-white rounded"> */}
+{/*                        <p className="text-lg font-bold text-amber-600">{importResult.failed}</p> */}
+{/*                        <p className="text-xs text-muted-foreground">Failed</p> */}
+{/*                      </div> */}
+{/*                      <div className="p-2 bg-white rounded"> */}
+{/*                        <p className="text-lg font-bold text-gray-600">{importResult.skipped}</p> */}
+{/*                        <p className="text-xs text-muted-foreground">Skipped</p> */}
+{/*                      </div> */}
+{/*                    </div> */}
+{/*                  </div> */}
+{/*                ) : ( */}
+{/*                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg"> */}
+{/*                    <div className="flex items-center gap-2 mb-2"> */}
+{/*                      <AlertCircle className="h-5 w-5 text-red-600" /> */}
+{/*                      <p className="font-medium text-red-800">Import Failed</p> */}
+{/*                    </div> */}
+{/*                    <p className="text-sm text-red-700">{importResult.error || importResult.message}</p> */}
+{/*                  </div> */}
+{/*                )} */}
+{/* */}
+{/*                {/* Validation errors table */} */}
+{/*                {importResult.validationErrors && importResult.validationErrors.length > 0 && ( */}
+{/*                  <div className="space-y-2"> */}
+{/*                    <p className="text-sm font-medium"> */}
+{/*                      Validation Issues ({importResult.validationErrors.length} row{importResult.validationErrors.length !== 1 ? 's' : ''}) */}
+{/*                    </p> */}
+{/*                    <div className="max-h-48 overflow-y-auto border rounded-lg"> */}
+{/*                      <table className="w-full text-xs"> */}
+{/*                        <thead className="bg-gray-100 sticky top-0"> */}
+{/*                          <tr> */}
+{/*                            <th className="px-3 py-2 text-left font-medium">Row</th> */}
+{/*                            <th className="px-3 py-2 text-left font-medium">Product</th> */}
+{/*                            <th className="px-3 py-2 text-left font-medium">Error</th> */}
+{/*                          </tr> */}
+{/*                        </thead> */}
+{/*                        <tbody> */}
+{/*                          {importResult.validationErrors.map((err, i) => ( */}
+{/*                            <tr key={i} className="border-t"> */}
+{/*                              <td className="px-3 py-2">{err.row}</td> */}
+{/*                              <td className="px-3 py-2 font-medium">{err.name || '—'}</td> */}
+{/*                              <td className="px-3 py-2 text-red-600">{err.errors.join('; ')}</td> */}
+{/*                            </tr> */}
+{/*                          ))} */}
+{/*                        </tbody> */}
+{/*                      </table> */}
+{/*                    </div> */}
+{/*                  </div> */}
+{/*                )} */}
+{/* */}
+{/*                {/* Close button */} */}
+{/*                <div className="flex justify-end gap-2"> */}
+{/*                  <Button */}
+{/*                    variant="outline" */}
+{/*                    onClick={() => { setImportResult(null); setImportFile(null); setImportPreview(null) }} */}
+{/*                  > */}
+{/*                    Import Another File */}
+{/*                  </Button> */}
+{/*                  <Button */}
+{/*                    onClick={() => { */}
+{/*                      setImportDialog(false) */}
+{/*                      setImportResult(null) */}
+{/*                      setImportFile(null) */}
+{/*                      setImportPreview(null) */}
+{/*                      fetchInventory(true) */}
+{/*                    }} */}
+{/*                    className="bg-teal-600 hover:bg-teal-700" */}
+{/*                  > */}
+{/*                    Done */}
+{/*                  </Button> */}
+{/*                </div> */}
+{/*              </div> */}
+{/*            )} */}
+{/*          </div> */}
+{/*        </DialogContent> */}
+{/*      </Dialog> */}
+{/*    </div> */}
+{/*  ) */}
+{/*} */}
                 </div>
               </div>
             </div>
