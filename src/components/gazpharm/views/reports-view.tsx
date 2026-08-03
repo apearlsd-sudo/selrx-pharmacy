@@ -1952,7 +1952,7 @@ export function ReportsView() {
         </TabsContent>
 
         {/* ── Shift Reports Tab ── */}
-        <TabsContent value="shifts" className="space-y-4">
+        <TabsContent value="shifts" className="space-y-4 relative block w-full">
           {/* Shift-specific filters */}
           <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -2071,7 +2071,7 @@ export function ReportsView() {
               )}
 
               {/* Individual Drug Quantities Sold */}
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">Individual Drug Quantities Sold</CardTitle>
@@ -2116,7 +2116,7 @@ export function ReportsView() {
               </Card>
 
               {/* Inventory Snapshot */}
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Current Inventory ({shiftReport.inventorySnapshot?.length || 0} items in stock)</CardTitle>
                 </CardHeader>
@@ -2157,7 +2157,7 @@ export function ReportsView() {
               </Card>
 
               {/* Shift History */}
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Shift History</CardTitle>
                 </CardHeader>
@@ -2206,14 +2206,16 @@ export function ReportsView() {
                   )}
                 </CardContent>
               </Card>
+            </>
+          )}
 
-              {/* ── Discrepancy Analysis ── */}
-              <Card className={discrepancy?.hasData && discrepancy.summary.totalDiscrepancies > 0 ? 'border-amber-300' : ''}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm flex items-center gap-1.5">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      Shift Discrepancy Analysis
+          {/* ── Discrepancy Analysis (independent of shift report data) ── */}
+          <Card className={discrepancy?.hasData && discrepancy.summary.totalDiscrepancies > 0 ? 'border-amber-300 overflow-hidden' : 'overflow-hidden'}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  Shift Discrepancy Analysis
                       {discrepancy?.hasData && discrepancy.totalHandoffs > 1 && (
                         <Badge variant="outline" className="ml-2 text-[10px] font-normal">{discrepancy.totalHandoffs} handoff(s)</Badge>
                       )}
@@ -2366,8 +2368,6 @@ export function ReportsView() {
                   )}
                 </CardContent>
               </Card>
-            </>
-          )}
         </TabsContent>
       </Tabs>
 
