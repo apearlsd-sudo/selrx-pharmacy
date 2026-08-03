@@ -124,6 +124,10 @@ export function ReportsView() {
   const [shiftFilterTo, setShiftFilterTo] = useState(() => new Date().toISOString().split('T')[0])
   const dateFormat = useAppStore((s) => s.dateFormat)
 
+  // Discrepancy analysis state
+  const [discrepancy, setDiscrepancy] = useState<any>(null)
+  const [discLoading, setDiscLoading] = useState(false)
+
   const fetchShiftReport = useCallback(async () => {
     setShiftLoading(true)
     try {
@@ -154,6 +158,30 @@ export function ReportsView() {
   useEffect(() => {
     if (activeTab === 'shifts') fetchShiftReport()
   }, [shiftFilterFrom, shiftFilterTo, shiftFilterUser]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchDiscrepancy = useCallback(async (shiftId?: string) => {
+    setDiscLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (shiftId) params.set('shiftId', shiftId)
+      const res = await fetch(`/api/shifts/discrepancy?${params}`, { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setDiscrepancy(data)
+      } else {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to load discrepancy analysis')
+      }
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to load discrepancy', variant: 'destructive' })
+    }
+    setDiscLoading(false)
+  }, [addToast])
+
+  // Auto-fetch discrepancy when shift tab is active
+  useEffect(() => {
+    if (activeTab === 'shifts' && !discrepancy) fetchDiscrepancy()
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleShiftExportCSV = useCallback(() => {
     if (!shiftReport) return
@@ -1920,40 +1948,6 @@ export function ReportsView() {
 
         {/* ── Shift Reports Tab ── */}
         <TabsContent value="shifts" className="space-y-4">
-          {/* Shift-specific filters */}
-          <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
-            <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Filter className="h-3.5 w-3.5" />
-              Shift Filters
-            </div>
-            <div className="flex-1 min-w-[130px]">
-              <Label className="text-[11px]">From</Label>
-              <Input type="date" value={shiftFilterFrom} onChange={(e) => setShiftFilterFrom(e.target.value)} className="h-8 text-xs" />
-            </div>
-            <div className="flex-1 min-w-[130px]">
-              <Label className="text-[11px]">To</Label>
-              <Input type="date" value={shiftFilterTo} onChange={(e) => setShiftFilterTo(e.target.value)} className="h-8 text-xs" />
-            </div>
-            {isSuperAdmin && shiftReport?.users && (
-              <div className="flex-1 min-w-[150px]">
-                <Label className="text-[11px]">User</Label>
-                <select
-                  value={shiftFilterUser}
-                  onChange={(e) => setShiftFilterUser(e.target.value)}
-                  className="w-full h-8 text-xs border rounded-md px-2 bg-white"
-                >
-                  <option value="">All Users</option>
-                  {shiftReport.users.map((u: { id: string; name: string }) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <Button size="sm" variant="outline" onClick={fetchShiftReport} disabled={shiftLoading} className="h-8">
-              {shiftLoading ? 'Loading...' : 'Apply'}
-            </Button>
-          </div>
-
           {shiftLoading && !shiftReport && (
             <div className="flex items-center justify-center py-12">
               <div className="text-sm text-muted-foreground animate-pulse">Loading shift report...</div>
@@ -2145,8 +2139,12 @@ export function ReportsView() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {shiftReport.shiftHistory.map((s: any) => (
-                            <TableRow key={s.id}>
+                          {shiftReport.shiftHistory.filter((s: any) => s.status === 'ENDED').map((s: any) => (
+                            <TableRow
+                              key={s.id}
+                              className={`cursor-pointer hover:bg-muted/50 ${discrepancy?.currentShift?.id === s.id ? 'bg-amber-50' : ''}`}
+                              onClick={() => fetchDiscrepancy(s.id)}
+                            >
                               <TableCell className="text-sm font-medium">{s.userName}</TableCell>
                               <TableCell className="text-xs">
                                 {s.startedAt ? format(new Date(s.startedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm') : '—'}
@@ -2166,6 +2164,142 @@ export function ReportsView() {
                         </TableBody>
                       </Table>
                     </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ── Discrepancy Analysis ── */}
+              <Card className={discrepancy?.hasData && discrepancy.summary.totalDiscrepancies > 0 ? 'border-amber-300' : ''}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      Shift Discrepancy Analysis
+                    </CardTitle>
+                    <Button
+                      size="sm" variant="outline" className="h-7 text-[11px]"
+                      onClick={() => fetchDiscrepancy()}
+                      disabled={discLoading}
+                    >
+                      {discLoading ? 'Analyzing...' : 'Refresh'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {discLoading && !discrepancy && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-muted-foreground animate-pulse">Computing discrepancy analysis...</div>
+                    </div>
+                  )}
+
+                  {!discLoading && discrepancy && !discrepancy.hasData && (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-muted-foreground">{discrepancy.message}</p>
+                    </div>
+                  )}
+
+                  {discrepancy?.hasData && (
+                    <>
+                      {discrepancy.usingLiveInventory && (
+                        <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-3">
+                          Note: Using live inventory for the current shift (no snapshot was captured at shift end). Future shifts will have snapshots automatically.
+                        </div>
+                      )}
+
+                      {/* Shift comparison header */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                        <div className="rounded-lg border p-3 bg-muted/30">
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Previous Shift</p>
+                          <p className="text-sm font-semibold">{discrepancy.previousShift.userName}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {format(new Date(discrepancy.previousShift.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{formatCurrency(discrepancy.previousShift.totalSales)} in {discrepancy.previousShift.totalTransactions} txns</p>
+                        </div>
+                        <div className="rounded-lg border p-3 bg-muted/30">
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Current Shift</p>
+                          <p className="text-sm font-semibold">{discrepancy.currentShift.userName}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {format(new Date(discrepancy.currentShift.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{formatCurrency(discrepancy.currentShift.totalSales)} in {discrepancy.currentShift.totalTransactions} txns</p>
+                        </div>
+                      </div>
+
+                      {/* Summary cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="rounded-lg border p-2.5 text-center">
+                          <p className="text-[10px] text-muted-foreground">Discrepancies</p>
+                          <p className="text-base font-bold">{discrepancy.summary.totalDiscrepancies}</p>
+                        </div>
+                        <div className="rounded-lg border border-red-200 p-2.5 text-center">
+                          <p className="text-[10px] text-red-600">Shortages</p>
+                          <p className="text-base font-bold text-red-700">{discrepancy.summary.shortageCount}</p>
+                          <p className="text-[10px] text-red-500 font-mono">{formatCurrency(discrepancy.summary.totalShortageCost)}</p>
+                        </div>
+                        <div className="rounded-lg border border-blue-200 p-2.5 text-center">
+                          <p className="text-[10px] text-blue-600">Overs</p>
+                          <p className="text-base font-bold text-blue-700">{discrepancy.summary.overCount}</p>
+                          <p className="text-[10px] text-blue-500 font-mono">{formatCurrency(discrepancy.summary.totalOverCost)}</p>
+                        </div>
+                        <div className="rounded-lg border p-2.5 text-center">
+                          <p className="text-[10px] text-muted-foreground">Net Cost Impact</p>
+                          <p className={`text-base font-bold ${discrepancy.summary.netCost > 0 ? 'text-red-700' : discrepancy.summary.netCost < 0 ? 'text-blue-700' : 'text-emerald-700'}`}>
+                            {formatCurrency(Math.abs(discrepancy.summary.netCost))}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">{discrepancy.summary.netCost > 0 ? 'net loss' : discrepancy.summary.netCost < 0 ? 'net gain' : 'balanced'}</p>
+                        </div>
+                      </div>
+
+                      {/* Discrepancy table */}
+                      {discrepancy.discrepancies.length === 0 ? (
+                        <div className="text-center py-6">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
+                          <p className="text-sm font-medium text-emerald-700">No discrepancies found</p>
+                          <p className="text-xs text-muted-foreground">Inventory matches expected values between these two shifts.</p>
+                        </div>
+                      ) : (
+                        <ScrollArea className="max-h-[400px]">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs w-10">#</TableHead>
+                                <TableHead className="text-xs">Product</TableHead>
+                                <TableHead className="text-xs text-center">Prev Stock</TableHead>
+                                <TableHead className="text-xs text-center">Qty Sold</TableHead>
+                                <TableHead className="text-xs text-center">Expected</TableHead>
+                                <TableHead className="text-xs text-center">Actual</TableHead>
+                                <TableHead className="text-xs text-center">Diff</TableHead>
+                                <TableHead className="text-xs text-right">Cost Impact</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {discrepancy.discrepancies.map((d: any, i: number) => (
+                                <TableRow key={d.productId}>
+                                  <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                                  <TableCell className="text-sm font-medium">{d.productName}</TableCell>
+                                  <TableCell className="text-xs text-center font-mono">{d.previousStock}</TableCell>
+                                  <TableCell className="text-xs text-center font-mono">{d.qtySold}</TableCell>
+                                  <TableCell className="text-xs text-center font-mono">{d.expectedStock}</TableCell>
+                                  <TableCell className="text-xs text-center font-mono">{d.actualStock}</TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge
+                                      variant={d.discrepancy > 0 ? 'destructive' : 'secondary'}
+                                      className="text-[10px] font-mono"
+                                    >
+                                      {d.discrepancy > 0 ? `-${d.discrepancy}` : `+${Math.abs(d.discrepancy)}`}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className={`text-xs text-right font-mono font-medium ${d.discrepancy > 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                                    {formatCurrency(d.discrepancyCost)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </ScrollArea>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>

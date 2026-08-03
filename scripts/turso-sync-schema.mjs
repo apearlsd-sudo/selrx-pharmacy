@@ -235,6 +235,24 @@ async function main() {
   await run(turso, `CREATE INDEX IF NOT EXISTS "Shift_userId_idx" ON "Shift"("userId");`)
   await run(turso, `CREATE INDEX IF NOT EXISTS "Shift_status_idx" ON "Shift"("status");`)
 
+  // ── ShiftInventory table (inventory snapshot at shift end) ──
+  console.log('📦 Syncing ShiftInventory table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "ShiftInventory" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "shiftId" TEXT NOT NULL,
+      "productId" TEXT NOT NULL,
+      "productName" TEXT,
+      "quantity" INTEGER NOT NULL DEFAULT 0,
+      "sellingPrice" REAL,
+      "costPrice" REAL,
+      "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE CASCADE
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "ShiftInventory_shiftId_idx" ON "ShiftInventory"("shiftId");`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "ShiftInventory_productId_idx" ON "ShiftInventory"("productId");`)
+
   console.log('✅ Turso schema sync complete!')
 }
 

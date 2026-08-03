@@ -291,6 +291,30 @@ export async function POST(request: NextRequest) {
         args: [now, totalSales, totalTransactions, totalItemsSold, now, sid],
       })
 
+      // ── Capture inventory snapshot at shift end ──
+      const invSnapshotResult = await turso.execute({
+        sql: `SELECT i."productId", p.name as "productName", i.quantity,
+                     p."sellingPrice", p."costPrice"
+              FROM Inventory i JOIN "Product" p ON i."productId" = p.id
+              WHERE i.quantity > 0`,
+        args: [],
+      })
+      const invRows = toObjs(invSnapshotResult)
+      if (invRows.length > 0) {
+        const snapStmts = invRows.map((r) => ({
+          sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", "createdAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            generateId(), sid,
+            r.productId, r.productName,
+            (r.quantity as number) || 0,
+            r.sellingPrice, r.costPrice,
+            now,
+          ],
+        }))
+        await turso.batch(snapStmts)
+      }
+
       return NextResponse.json({
         id: sid, userId, userName, startedAt, endedAt: now,
         status: 'ENDED', totalSales, totalTransactions, totalItemsSold,
