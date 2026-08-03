@@ -229,16 +229,30 @@ export async function POST(
       // 3. Restore inventory for each item (read-modify-write: SELECT then UPDATE)
       const now = new Date().toISOString()
       for (const item of items) {
+        const pid = item.productId
+        const restoreQty = item.quantity as number
+
+        // Restore to the batch with nearest expiry (most likely the one it came from)
+        const batchResult = await turso.execute({
+          sql: `SELECT id FROM "Batch" WHERE "productId" = ? ORDER BY "expiryDate" ASC NULLS LAST LIMIT 1`,
+          args: [pid],
+        })
+        if (batchResult.rows.length > 0) {
+          await turso.execute({
+            sql: 'UPDATE "Batch" SET quantity = quantity + ?, "updatedAt" = ? WHERE id = ? AND "productId" = ?',
+            args: [restoreQty, now, batchResult.rows[0][0], pid],
+          })
+        }
+
+        // Update Inventory total
         const invResult = await turso.execute({
           sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
-          args: [item.productId],
+          args: [pid],
         })
         const currentQty = invResult.rows.length > 0 ? (invResult.rows[0][0] as number) : 0
-        const newQty = currentQty + (item.quantity as number)
-
         await turso.execute({
           sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
-          args: [newQty, now, now, item.productId],
+          args: [currentQty + restoreQty, now, now, pid],
         })
       }
 

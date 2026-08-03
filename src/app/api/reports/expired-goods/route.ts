@@ -74,74 +74,80 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get('to') || ''
 
     if (isTurso()) {
-      const { whereSQL, args } = buildExpiredWhere(from, to)
-
-      // Fetch expired products with inventory
-      const [productsResult, summaryResult] = await Promise.all([
+      // Fetch expired BATCHES with product info
+      // This correctly handles products with multiple lots of different expiry dates
+      const [batchesResult, summaryResult] = await Promise.all([
         turso.execute({
-          sql: `SELECT p.id, p.name, p.ndc, p.category, p."dosageForm",
-                   p."costPrice", p."sellingPrice", p."expiryDate",
-                   p."batchNumber", p.manufacturer, p.status as productStatus,
-                   COALESCE(i.quantity, 0) as stockQty,
-                   i."updatedAt" as inventoryUpdatedAt
-            FROM "Product" p
+          sql: `SELECT b.id as batchId, b."batchNumber", b."expiryDate",
+                   b.quantity as batchQty, b."costPrice" as batchCostPrice,
+                   p.id, p.name, p.ndc, p.category, p."dosageForm",
+                   p."sellingPrice", p.manufacturer, p.status as productStatus,
+                   COALESCE(i.quantity, 0) as totalStockQty
+            FROM "Batch" b
+            INNER JOIN "Product" p ON p.id = b."productId"
             LEFT JOIN Inventory i ON i."productId" = p.id
-            ${whereSQL}
-            ORDER BY p."expiryDate" DESC`,
-          args,
+            WHERE b."expiryDate" IS NOT NULL
+              AND date(b."expiryDate") <= date('now')
+              AND b.quantity > 0
+            ORDER BY b."expiryDate" ASC`,
+          args: [],
         }),
         turso.execute({
           sql: `SELECT
               COUNT(*) as totalItems,
-              SUM(CASE WHEN COALESCE(i.quantity, 0) > 0 THEN 1 ELSE 0 END) as unprocessedItems,
-              SUM(CASE WHEN COALESCE(i.quantity, 0) = 0 THEN 1 ELSE 0 END) as processedItems,
-              COALESCE(SUM(CASE WHEN COALESCE(i.quantity, 0) > 0 THEN i.quantity ELSE 0 END), 0) as totalStockQty,
-              COALESCE(SUM(p."costPrice" * CASE WHEN COALESCE(i.quantity, 0) > 0 THEN i.quantity ELSE 0 END), 0) as totalCostValue,
-              COALESCE(SUM(p."sellingPrice" * CASE WHEN COALESCE(i.quantity, 0) > 0 THEN i.quantity ELSE 0 END), 0) as totalRetailValue
-            FROM "Product" p
-            LEFT JOIN Inventory i ON i."productId" = p.id
-            ${whereSQL}`,
-          args,
+              SUM(b.quantity) as totalStockQty,
+              COALESCE(SUM(b.quantity * COALESCE(b."costPrice", p."costPrice", 0)), 0) as totalCostValue,
+              COALESCE(SUM(b.quantity * p."sellingPrice"), 0) as totalRetailValue
+            FROM "Batch" b
+            INNER JOIN "Product" p ON p.id = b."productId"
+            WHERE b."expiryDate" IS NOT NULL
+              AND date(b."expiryDate") <= date('now')
+              AND b.quantity > 0`,
+          args: [],
         }),
       ])
 
-      const products = productsResult.rows.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        ndc: row.ndc,
-        category: row.category,
-        dosageForm: row.dosageForm,
-        costPrice: Number(row.costPrice) || 0,
-        sellingPrice: Number(row.sellingPrice) || 0,
-        expiryDate: row.expiryDate,
-        batchNumber: row.batchNumber,
-        manufacturer: row.manufacturer,
-        productStatus: row.productStatus,
-        stockQty: Number(row.stockQty) || 0,
-        inventoryUpdatedAt: row.inventoryUpdatedAt,
-        processed: Number(row.stockQty) === 0,
-      }))
-
-      const summary = summaryResult.rows[0]
-
-      // Fetch sales data
-      const productIds = products.map((p) => p.id)
-      const salesMap = await fetchSalesMap(productIds)
-
-      // Merge sales data into products
-      const enriched = products.map((p) => {
-        const sales = salesMap[p.id] || { qtySold: 0, salesRevenue: 0 }
+      const products = batchesResult.rows.map((row: any) => {
+        const batchQty = Number(row.batchQty) || 0
+        const batchCost = Number(row.batchCostPrice) || Number(row.costPrice) || 0
+        const sellingPrice = Number(row.sellingPrice) || 0
         return {
-          ...p,
-          qtySold: sales.qtySold,
-          salesRevenue: sales.salesRevenue,
-          costValue: p.costPrice * p.stockQty,
-          retailValue: p.sellingPrice * p.stockQty,
-          lossValue: (p.sellingPrice - p.costPrice) * p.stockQty,
+          id: row.batchId,
+          productId: row.id,
+          name: row.name,
+          ndc: row.ndc,
+          category: row.category,
+          dosageForm: row.dosageForm,
+          costPrice: batchCost,
+          sellingPrice,
+          expiryDate: row.expiryDate,
+          batchNumber: row.batchNumber,
+          manufacturer: row.manufacturer,
+          productStatus: row.productStatus,
+          stockQty: batchQty,
+          totalStockQty: Number(row.totalStockQty) || 0,
+          inventoryUpdatedAt: null,
+          processed: false,
+          costValue: batchCost * batchQty,
+          retailValue: sellingPrice * batchQty,
+          lossValue: (sellingPrice - batchCost) * batchQty,
+          qtySold: 0,
+          salesRevenue: 0,
         }
       })
 
-      // Compute totals
+      const summary = summaryResult.rows[0]
+
+      // Fetch sales data for the products
+      const productIds = [...new Set(products.map((p) => p.productId))]
+      const salesMap = await fetchSalesMap(productIds)
+
+      // Merge sales data
+      const enriched = products.map((p) => {
+        const sales = salesMap[p.productId] || { qtySold: 0, salesRevenue: 0 }
+        return { ...p, qtySold: sales.qtySold, salesRevenue: sales.salesRevenue }
+      })
+
       const totalQtySold = enriched.reduce((s, p) => s + p.qtySold, 0)
       const totalSalesRevenue = enriched.reduce((s, p) => s + p.salesRevenue, 0)
       const totalCostOfSold = enriched.reduce((s, p) => s + (p.qtySold > 0 ? p.costPrice * p.qtySold : 0), 0)
@@ -150,8 +156,8 @@ export async function GET(request: NextRequest) {
         products: enriched,
         summary: {
           totalItems: Number(summary.totalItems) || 0,
-          unprocessedItems: Number(summary.unprocessedItems) || 0,
-          processedItems: Number(summary.processedItems) || 0,
+          unprocessedItems: Number(summary.totalItems) || 0,
+          processedItems: 0,
           totalStockQty: Number(summary.totalStockQty) || 0,
           totalCostValue: Number(summary.totalCostValue) || 0,
           totalRetailValue: Number(summary.totalRetailValue) || 0,
@@ -222,52 +228,49 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString()
 
-    // Build query to find expired products with stock > 0
-    let targetProducts: Array<{ id: string; name: string; previousQty: number; costPrice: number; sellingPrice: number }> = []
+    // Find expired batches with stock > 0
+    // productIds can now be batch IDs from the batch-based report
+    let targetBatches: Array<{ id: string; productId: string; name: string; batchNumber: string | null; qty: number; costPrice: number; sellingPrice: number }> = []
 
     if (productIds && productIds.length > 0) {
-      // Process specific products
+      // Process specific batches
       const placeholders = productIds.map(() => '?').join(', ')
       const result = await turso.execute({
-        sql: `SELECT p.id, p.name, p."costPrice", p."sellingPrice",
-                 COALESCE(i.quantity, 0) as qty
-          FROM "Product" p
-          LEFT JOIN Inventory i ON i."productId" = p.id
-          WHERE p.id IN (${placeholders})
-            AND p."expiryDate" IS NOT NULL
-            AND date(p."expiryDate") <= date('now')
-            AND COALESCE(i.quantity, 0) > 0`,
+        sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity,
+                 b."costPrice", p.name, p."sellingPrice"
+          FROM "Batch" b
+          INNER JOIN "Product" p ON p.id = b."productId"
+          WHERE b.id IN (${placeholders})
+            AND b."expiryDate" IS NOT NULL
+            AND date(b."expiryDate") <= date('now')
+            AND b.quantity > 0`,
         args: productIds,
       })
-      targetProducts = result.rows.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        previousQty: Number(row.qty) || 0,
-        costPrice: Number(row.costPrice) || 0,
-        sellingPrice: Number(row.sellingPrice) || 0,
+      targetBatches = result.rows.map((row: any) => ({
+        id: row.id, productId: row.productId, name: row.name,
+        batchNumber: row.batchNumber, qty: Number(row.quantity) || 0,
+        costPrice: Number(row.costPrice) || 0, sellingPrice: Number(row.sellingPrice) || 0,
       }))
     } else {
-      // Process ALL expired goods with stock > 0
+      // Process ALL expired batches with stock > 0
       const result = await turso.execute({
-        sql: `SELECT p.id, p.name, p."costPrice", p."sellingPrice",
-                 COALESCE(i.quantity, 0) as qty
-          FROM "Product" p
-          LEFT JOIN Inventory i ON i."productId" = p.id
-          WHERE p."expiryDate" IS NOT NULL
-            AND date(p."expiryDate") <= date('now')
-            AND COALESCE(i.quantity, 0) > 0`,
+        sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity,
+                 b."costPrice", p.name, p."sellingPrice"
+          FROM "Batch" b
+          INNER JOIN "Product" p ON p.id = b."productId"
+          WHERE b."expiryDate" IS NOT NULL
+            AND date(b."expiryDate") <= date('now')
+            AND b.quantity > 0`,
         args: [],
       })
-      targetProducts = result.rows.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        previousQty: Number(row.qty) || 0,
-        costPrice: Number(row.costPrice) || 0,
-        sellingPrice: Number(row.sellingPrice) || 0,
+      targetBatches = result.rows.map((row: any) => ({
+        id: row.id, productId: row.productId, name: row.name,
+        batchNumber: row.batchNumber, qty: Number(row.quantity) || 0,
+        costPrice: Number(row.costPrice) || 0, sellingPrice: Number(row.sellingPrice) || 0,
       }))
     }
 
-    if (targetProducts.length === 0) {
+    if (targetBatches.length === 0) {
       return NextResponse.json({
         message: 'No expired goods with stock to process',
         processedCount: 0,
@@ -277,52 +280,80 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Process each: set inventory qty to 0, update product status, log history
-    const processedItems: Array<{ id: string; name: string; previousQty: number; costValue: number; retailValue: number }> = []
+    // Process each expired batch: zero it out and recalculate inventory
+    const processedItems: Array<{ id: string; name: string; batchNumber: string | null; previousQty: number; costValue: number; retailValue: number }> = []
     let totalCostWrittenOff = 0
     let totalRetailWrittenOff = 0
+    const affectedProductIds = new Set<string>()
 
-    for (const item of targetProducts) {
-      // Update inventory quantity to 0
+    for (const batch of targetBatches) {
+      // Zero out the expired batch
       await turso.execute({
-        sql: `UPDATE Inventory SET quantity = 0, "updatedAt" = ? WHERE "productId" = ?`,
-        args: [now, item.id],
+        sql: 'UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?',
+        args: [now, batch.id],
       })
 
-      // Update product status to EXPIRED
-      await turso.execute({
-        sql: `UPDATE "Product" SET status = 'EXPIRED', "updatedAt" = ? WHERE id = ?`,
-        args: [now, item.id],
-      })
+      affectedProductIds.add(batch.productId)
 
-      // Log in product history
-      writeProductHistory({
-        productId: item.id,
-        action: 'EXPIRED',
-        changedFields: ['quantity', 'status'],
-        previousValues: { quantity: item.previousQty, status: 'ACTIVE' },
-        newValues: { quantity: 0, status: 'EXPIRED' },
-        userId,
-      })
-
-      const costValue = item.costPrice * item.previousQty
-      const retailValue = item.sellingPrice * item.previousQty
+      const costValue = batch.costPrice * batch.qty
+      const retailValue = batch.sellingPrice * batch.qty
       totalCostWrittenOff += costValue
       totalRetailWrittenOff += retailValue
 
       processedItems.push({
-        id: item.id,
-        name: item.name,
-        previousQty: item.previousQty,
+        id: batch.id,
+        name: batch.name,
+        batchNumber: batch.batchNumber,
+        previousQty: batch.qty,
         costValue,
         retailValue,
       })
+
+      // Log in product history
+      writeProductHistory({
+        productId: batch.productId,
+        action: 'EXPIRED',
+        changedFields: ['batchQuantity', 'status'],
+        previousValues: { batchQuantity: batch.qty, batchNumber: batch.batchNumber, status: 'ACTIVE' },
+        newValues: { batchQuantity: 0, status: 'EXPIRED' },
+        userId,
+      })
     }
 
-    console.log(`[Expired Goods] Processed ${processedItems.length} items, wrote off cost: ${totalCostWrittenOff}, retail: ${totalRetailWrittenOff}`)
+    // Recalculate Inventory totals for affected products
+    for (const pid of affectedProductIds) {
+      const sumResult = await turso.execute({
+        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
+        args: [pid],
+      })
+      const totalBatchQty = Number(sumResult.rows[0][0]) || 0
+      await turso.execute({
+        sql: 'UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?',
+        args: [totalBatchQty, now, pid],
+      })
+
+      // Update product expiryDate to nearest remaining batch expiry
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = (
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+              ), "updatedAt" = ?
+              WHERE id = ?`,
+        args: [pid, now, pid],
+      })
+
+      // Set product to EXPIRED only if ALL batches are empty
+      if (totalBatchQty === 0) {
+        await turso.execute({
+          sql: `UPDATE "Product" SET status = 'EXPIRED', "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,
+          args: [now, pid],
+        })
+      }
+    }
+
+    console.log(`[Expired Goods] Processed ${processedItems.length} batches, wrote off cost: ${totalCostWrittenOff}, retail: ${totalRetailWrittenOff}`)
 
     return NextResponse.json({
-      message: `Processed ${processedItems.length} expired item${processedItems.length === 1 ? '' : 's'} — stock removed, status set to EXPIRED`,
+      message: `Processed ${processedItems.length} expired batch${processedItems.length === 1 ? '' : 's'} — stock removed from batches`,
       processedCount: processedItems.length,
       totalCostWrittenOff,
       totalRetailWrittenOff,

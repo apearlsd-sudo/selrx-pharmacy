@@ -166,6 +166,54 @@ async function main() {
     console.log('  ⏭️  Skipping zero-quantity seed (set SEED_STOCK=true to enable)')
   }
 
+  // ── Batch table (per-receipt lot tracking with individual expiry dates) ──
+  console.log('📦 Syncing Batch table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "Batch" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "productId" TEXT NOT NULL,
+      "batchNumber" TEXT,
+      "expiryDate" TEXT,
+      "quantity" INTEGER NOT NULL DEFAULT 0,
+      "costPrice" REAL,
+      "receivedAt" TEXT NOT NULL,
+      "receivedBy" TEXT,
+      "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TEXT NOT NULL,
+      FOREIGN KEY ("productId") REFERENCES "Product"(id)
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "Batch_productId_idx" ON "Batch"("productId");`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "Batch_expiryDate_idx" ON "Batch"("expiryDate");`)
+
+  // Migrate existing single-expiry products into batches (one-time)
+  const { rows: unmigrated } = await turso.execute(`
+    SELECT p.id, p."expiryDate", p."batchNumber", p."costPrice",
+           COALESCE(i.quantity, 0) as qty, i.id as invId
+    FROM "Product" p
+    LEFT JOIN "Inventory" i ON i."productId" = p.id
+    LEFT JOIN "Batch" b ON b."productId" = p.id
+    WHERE p."expiryDate" IS NOT NULL
+      AND i.quantity > 0
+      AND b.id IS NULL
+  `)
+  if (unmigrated.length > 0) {
+    console.log(`  📝 Migrating ${unmigrated.length} products with expiry dates into batch records...`)
+    const batchStmts = unmigrated.map((row) => {
+      const batchId = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5')
+      const now = new Date().toISOString()
+      return {
+        sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "createdAt", "updatedAt")
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [batchId, row[0], row[2], row[1], row[4], row[3], now, now, now],
+      }
+    })
+    await turso.batch(batchStmts)
+    console.log(`  ✅ Batch records created for ${unmigrated.length} products`)
+  } else {
+    console.log('  ⏭️  All products with expiry dates already have batch records')
+  }
+
   console.log('✅ Turso schema sync complete!')
 }
 

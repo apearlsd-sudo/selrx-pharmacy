@@ -412,16 +412,42 @@ export async function POST(request: NextRequest) {
       }))
       await turso.batch(itemStmts)
 
-      // 5. Decrement inventory for all items (read-modify-write)
+      // 5. Decrement inventory for all items — FEFO (First Expired, First Out)
       for (const item of items) {
+        const itemQty = item.quantity as number
+        const pid = item.productId as string
+        const now2 = new Date().toISOString()
+
+        // Try FEFO: deduct from batches with earliest expiry first
+        const batchResult = await turso.execute({
+          sql: `SELECT id, quantity FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY "expiryDate" ASC NULLS LAST`,
+          args: [pid],
+        })
+
+        if (batchResult.rows.length > 0) {
+          let remaining = itemQty
+          for (const brow of batchResult.rows) {
+            if (remaining <= 0) break
+            const bId = brow[0] as string
+            const bQty = brow[1] as number
+            const deduct = Math.min(remaining, bQty)
+            await turso.execute({
+              sql: 'UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ? AND "productId" = ?',
+              args: [bQty - deduct, now2, bId, pid],
+            })
+            remaining -= deduct
+          }
+        }
+
+        // Update Inventory total (denormalized)
         const invResult = await turso.execute({
           sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
-          args: [item.productId as string],
+          args: [pid],
         })
         const currentQty = invResult.rows.length > 0 ? (invResult.rows[0][0] as number) : 0
         await turso.execute({
           sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
-          args: [currentQty - (item.quantity as number), now, now, item.productId as string],
+          args: [currentQty - itemQty, now2, now2, pid],
         })
       }
 

@@ -70,6 +70,13 @@ export function InventoryView() {
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
+  const [batches, setBatches] = useState<any[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
+  const [newBatchQty, setNewBatchQty] = useState('')
+  const [newBatchExpiry, setNewBatchExpiry] = useState('')
+  const [newBatchCost, setNewBatchCost] = useState('')
+  const [newBatchNumber, setNewBatchNumber] = useState('')
+  const [savingBatch, setSavingBatch] = useState(false)
   const [stockCountDialog, setStockCountDialog] = useState(false)
   const [stockSearch, setStockSearch] = useState('')
   const [stockSearchResults, setStockSearchResults] = useState<{ id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number }[]>([])
@@ -101,7 +108,7 @@ export function InventoryView() {
   const [dosageForms, setDosageForms] = useState<string[]>([])
   const [savingProduct, setSavingProduct] = useState(false)
 
-  // ── Import state ────────────────────────────────────────────────
+  // -- Import state ------------------------------------------------
   const [importDialog, setImportDialog] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
@@ -235,6 +242,69 @@ export function InventoryView() {
     }
   }
 
+  // -- Batch management ----------------------------------------─
+  const fetchBatches = useCallback(async (productId: string) => {
+    setBatchesLoading(true)
+    try {
+      const res = await fetch(`/api/inventory/batches?productId=${productId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setBatches(data.batches || [])
+      }
+    } catch { /* silent */ }
+    setBatchesLoading(false)
+  }, [])
+
+  const handleReceiveBatch = async () => {
+    if (!selectedItem || !newBatchQty || Number(newBatchQty) <= 0) return
+    setSavingBatch(true)
+    try {
+      const res = await fetch('/api/inventory/batches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+          'x-user-id': currentUser?.id || '',
+        },
+        body: JSON.stringify({
+          productId: selectedItem.productId,
+          quantity: Number(newBatchQty),
+          expiryDate: newBatchExpiry || null,
+          costPrice: newBatchCost ? parseFloat(newBatchCost) : null,
+          batchNumber: newBatchNumber || null,
+          reason: 'Received new stock (batch)',
+        }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to receive batch') }
+      addToast({ title: 'Stock Received', description: `Added ${newBatchQty} units${newBatchNumber ? ` (${newBatchNumber})` : ''}`, variant: 'success' })
+      setNewBatchQty(''); setNewBatchExpiry(''); setNewBatchCost(''); setNewBatchNumber('')
+      fetchBatches(selectedItem.productId)
+      fetchInventory(true)
+      bumpInventoryVersion()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to receive batch', variant: 'destructive' })
+    }
+    setSavingBatch(false)
+  }
+
+  const handleDeleteBatch = async (batchId: string) => {
+    setSavingBatch(true)
+    try {
+      const res = await fetch(`/api/inventory/batches/${batchId}`, {
+        method: 'DELETE',
+        headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to delete batch') }
+      addToast({ title: 'Batch Removed', description: 'Batch deleted, inventory recalculated', variant: 'success' })
+      if (selectedItem) fetchBatches(selectedItem.productId)
+      fetchInventory(true)
+      bumpInventoryVersion()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to delete batch', variant: 'destructive' })
+    }
+    setSavingBatch(false)
+  }
+
   const handleAddProduct = async () => {
     if (!productForm.name || !productForm.price) return
     setSavingProduct(true)
@@ -290,7 +360,7 @@ export function InventoryView() {
     }
   }
 
-  // ── Inline "add new" handlers for dropdowns ──
+  // -- Inline "add new" handlers for dropdowns --
   const handleAddManufacturer = async () => {
     if (!addMfgForm.name.trim()) return
     setAddMfgSaving(true)
@@ -403,7 +473,7 @@ export function InventoryView() {
     setAddDfOpen(false)
   }
 
-  // ── Stock Count: API-based product search + set physical quantities & prices ──
+  // -- Stock Count: API-based product search + set physical quantities & prices --
   const searchStockProducts = useCallback(async (query: string) => {
     if (query.length < 1) { setStockSearchResults([]); return }
     setStockSearching(true)
@@ -539,7 +609,7 @@ export function InventoryView() {
     }
   }
 
-  // ── Import file handler ──────────────────────────────────────────
+  // -- Import file handler ------------------------------------------
   const handleImportFileSelect = async (file: File) => {
     // Validate size (5 MB)
     if (file.size > 5 * 1024 * 1024) {
@@ -790,7 +860,7 @@ export function InventoryView() {
                         {formatDate(item.product.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); setAdjustDialog(true) }}>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); fetchBatches(item.productId); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />
                           Adjust
                         </Button>
@@ -1035,7 +1105,7 @@ export function InventoryView() {
 
 
 
-      {/* ── Add Manufacturer Modal ── */}
+      {/* -- Add Manufacturer Modal -- */}
       <Dialog open={addMfgOpen} onOpenChange={setAddMfgOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1092,7 +1162,7 @@ export function InventoryView() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Add Vendor Modal ── */}
+      {/* -- Add Vendor Modal -- */}
       <Dialog open={addVendorOpen} onOpenChange={setAddVendorOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1137,7 +1207,7 @@ export function InventoryView() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Add Category Modal ── */}
+      {/* -- Add Category Modal -- */}
       <Dialog open={addCatOpen} onOpenChange={setAddCatOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1166,7 +1236,7 @@ export function InventoryView() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Add Dosage Form Modal ── */}
+      {/* -- Add Dosage Form Modal -- */}
       <Dialog open={addDfOpen} onOpenChange={setAddDfOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1202,14 +1272,14 @@ export function InventoryView() {
         </DialogContent>
       </Dialog>
 
-      {/* Stock Adjustment Dialog */}
-      <Dialog open={adjustDialog} onOpenChange={setAdjustDialog}>
-        <DialogContent className="max-w-lg">
+      {/* Stock Adjustment Dialog with Batch Management */}
+      <Dialog open={adjustDialog} onOpenChange={(open) => { if (!open) { setAdjustDialog(false); setBatches([]) } else setAdjustDialog(true) }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Adjust Product</DialogTitle>
           </DialogHeader>
           {selectedItem && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div className="bg-muted rounded-lg p-3">
                 <p className="font-medium">{selectedItem.product.name}</p>
                 <p className="text-sm text-muted-foreground">
@@ -1221,50 +1291,139 @@ export function InventoryView() {
                   )}
                 </p>
               </div>
-              <div className="space-y-3">
-                <div>
-                  <Label>Adjustment Type</Label>
-                  <Select value={adjustType} onValueChange={setAdjustType}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ADD">Add Stock</SelectItem>
-                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
-                      <SelectItem value="SET">Set Count</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Quantity</Label>
-                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="New total stock count" className="mt-1" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+
+              {/* -- Batch / Lot Management -- */}
+              <div className="border rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label>Cost Price ($)</Label>
-                    <Input type="number" step="0.01" min="0" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} placeholder={selectedItem.product.costPrice?.toFixed(2) || '0.00'} className="mt-1" />
+                    <p className="text-sm font-semibold">Stock Batches / Lots</p>
+                    <p className="text-xs text-muted-foreground">Each batch has its own expiry date. Sales auto-deplete the nearest-expiring batch first (FEFO).</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{batches.length} batch{batches.length !== 1 ? 'es' : ''}</Badge>
+                </div>
+
+                {batchesLoading && <Skeleton className="h-16 w-full" />}
+                {!batchesLoading && batches.length > 0 && (
+                  <div className="border rounded-md overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Batch #</TableHead>
+                          <TableHead className="text-xs">Qty</TableHead>
+                          <TableHead className="text-xs">Expiry</TableHead>
+                          <TableHead className="text-xs">Cost</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {batches.map((b: any) => {
+                          const daysLeft = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
+                          const isExpired = daysLeft !== null && daysLeft < 0
+                          const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30
+                          return (
+                            <TableRow key={b.id} className={b.quantity === 0 ? 'opacity-40' : ''}>
+                              <TableCell className="text-xs font-mono">{b.batchNumber || '—'}</TableCell>
+                              <TableCell className={`text-xs font-bold ${b.quantity > 0 ? '' : 'text-muted-foreground'}`}>{b.quantity}</TableCell>
+                              <TableCell className="text-xs">
+                                {b.expiryDate ? formatDate(b.expiryDate) : '—'}
+                                {isExpired && <Badge className="ml-1 bg-red-100 text-red-700 text-[9px] px-1 py-0">Expired</Badge>}
+                                {isExpiringSoon && <Badge className="ml-1 bg-amber-100 text-amber-700 text-[9px] px-1 py-0">Expiring</Badge>}
+                              </TableCell>
+                              <TableCell className="text-xs">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" variant="ghost" className="h-6 text-xs text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteBatch(b.id)} disabled={savingBatch}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                {!batchesLoading && batches.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-3">No batches yet. Receive stock below to create one.</p>
+                )}
+
+                {/* Receive new batch form */
+                <div className="border-t pt-3 mt-1">
+                  <p className="text-xs font-medium mb-2">Receive New Stock (creates a new batch)</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <Label className="text-[10px]">Batch #</Label>
+                      <Input className="h-8 text-xs" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} placeholder="Optional" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Quantity *</Label>
+                      <Input type="number" min="1" className="h-8 text-xs" value={newBatchQty} onChange={(e) => setNewBatchQty(e.target.value)} placeholder="0" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Expiry Date</Label>
+                      <Input type="date" className="h-8 text-xs" value={newBatchExpiry} onChange={(e) => setNewBatchExpiry(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Cost Price</Label>
+                      <Input type="number" step="0.01" min="0" className="h-8 text-xs" value={newBatchCost} onChange={(e) => setNewBatchCost(e.target.value)} placeholder="0.00" />
+                    </div>
+                  </div>
+                  <Button size="sm" className="mt-2 h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={handleReceiveBatch} disabled={savingBatch || !newBatchQty || Number(newBatchQty) <= 0}>
+                    <Plus className="h-3 w-3 mr-1" /> {savingBatch ? 'Receiving...' : 'Receive Stock'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* -- Quick Adjust (existing) -- */}
+              <div>
+                <span>Quick Adjust (legacy - sets product-level values)</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div className="px-3 pb-3 pt-1 space-y-3" style={{display:'none'}}>
+                  <div>
+                  <div>
+                    <Label>Adjustment Type</Label>
+                    <Select value={adjustType} onValueChange={setAdjustType}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ADD">Add Stock</SelectItem>
+                        <SelectItem value="REMOVE">Remove Stock</SelectItem>
+                        <SelectItem value="SET">Set Count</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label>Selling Price ($)</Label>
-                    <Input type="number" step="0.01" min="0" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} placeholder={selectedItem.product.sellingPrice?.toFixed(2) || '0.00'} className="mt-1" />
+                    <Label>Quantity</Label>
+                    <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} min="0" placeholder="New total stock count" className="mt-1" />
                   </div>
-                </div>
-                <div>
-                  <Label>Expiry Date</Label>
-                  <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} placeholder={selectedItem.product.expiryDate?.split('T')[0] || ''} className="mt-1" />
-                </div>
-                <div>
-                  <Label>Reason (required)</Label>
-                  <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Cost Price ($)</Label>
+                      <Input type="number" step="0.01" min="0" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} placeholder={selectedItem.product.costPrice?.toFixed(2) || '0.00'} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label>Selling Price ($)</Label>
+                      <Input type="number" step="0.01" min="0" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} placeholder={selectedItem.product.sellingPrice?.toFixed(2) || '0.00'} className="mt-1" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Expiry Date</Label>
+                    <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} placeholder={selectedItem.product.expiryDate?.split('T')[0] || ''} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Reason (required)</Label>
+                    <Textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Reason for adjustment..." className="mt-1" rows={2} />
+                  </div>
+                  <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason}>
+                    Apply Legacy Adjust
+                  </Button>
                 </div>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdjustDialog(false)}>Cancel</Button>
-            <Button onClick={handleAdjust} className="bg-emerald-600 hover:bg-emerald-700" disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason}>
-              Apply Changes
-            </Button>
+            <Button variant="outline" onClick={() => setAdjustDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1452,7 +1611,7 @@ export function InventoryView() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Import Products Dialog ──────────────────────────────── */}
+      {/* -- Import Products Dialog -------------------------------- */}
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
