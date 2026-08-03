@@ -2285,6 +2285,12 @@ export function ReportsView() {
                             </div>
                           )}
 
+                          {comp.reconstructedPrevious && (
+                            <div className="text-[11px] text-blue-600 bg-blue-50 border border-blue-200 rounded p-2 mb-3">
+                              Prev Stock is approximated (no snapshot saved when that shift ended). It is reconstructed from current stock + sales since then. Future shifts will capture exact snapshots.
+                            </div>
+                          )}
+
                           {/* Shift comparison header */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                             <div className="rounded-lg border p-3 bg-muted/30">

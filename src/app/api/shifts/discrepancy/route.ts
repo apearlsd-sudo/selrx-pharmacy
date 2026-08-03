@@ -215,6 +215,49 @@ async function computeDiscrepancy(previousShift: Record<string, unknown>, curren
     }
   }
 
+  // 1b. If no snapshot for previous shift, reconstruct from live inventory + sales since shift ended
+  let reconstructedPrevious = false
+  if (Object.keys(prevInvMap).length === 0) {
+    reconstructedPrevious = true
+    const prevEndedAt = previousShift.endedAt as string
+
+    // Get current live inventory
+    const liveInv = await turso.execute({
+      sql: `SELECT i."productId", p.name as "productName", i.quantity,
+                   p."sellingPrice", p."costPrice"
+            FROM Inventory i JOIN "Product" p ON i."productId" = p.id
+            WHERE i.quantity > 0`,
+      args: [],
+    })
+
+    // Get ALL items sold (by any user) since the previous shift ended
+    const soldSinceResult = await turso.execute({
+      sql: `SELECT ti."productId", SUM(ti.quantity) as totalQty
+            FROM TransactionItem ti
+            JOIN "Transaction" t ON ti."transactionId" = t.id
+            WHERE t.status = 'COMPLETED' AND t."createdAt" > ?
+            GROUP BY ti."productId"`,
+      args: [prevEndedAt],
+    })
+    const soldSinceMap: Record<string, number> = {}
+    for (const r of toObjs(soldSinceResult)) {
+      soldSinceMap[r.productId as string] = (r.totalQty as number) || 0
+    }
+
+    // Reconstruct: liveInventory + soldSince = approximate stock at previous shift end
+    for (const r of toObjs(liveInv)) {
+      const pid = r.productId as string
+      const liveQty = (r.quantity as number) || 0
+      const soldSince = soldSinceMap[pid] || 0
+      prevInvMap[pid] = {
+        productName: (r.productName as string) || 'Unknown',
+        quantity: liveQty + soldSince,
+        sellingPrice: (r.sellingPrice as number) || 0,
+        costPrice: (r.costPrice as number) || 0,
+      }
+    }
+  }
+
   // 2. Current shift's inventory snapshot
   const curInvResult = await turso.execute({
     sql: `SELECT "productId", "productName", quantity, "sellingPrice", "costPrice"
@@ -326,6 +369,7 @@ async function computeDiscrepancy(previousShift: Record<string, unknown>, curren
 
   return {
     usingLiveInventory,
+    reconstructedPrevious,
     previousShift: {
       id: previousShift.id, userId: previousShift.userId,
       userName: previousShift.userName, startedAt: previousShift.startedAt,
