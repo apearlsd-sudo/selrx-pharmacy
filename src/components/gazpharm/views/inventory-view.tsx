@@ -64,7 +64,7 @@ export function InventoryView() {
   const [manufacturers, setManufacturers] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
   const [vendors, setVendors] = useState<{ id: string; name: string; _count?: { products: number } }[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
-  const [adjustType, setAdjustType] = useState('SET')
+  const [adjustType, setAdjustType] = useState('ADD')
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
@@ -200,7 +200,7 @@ export function InventoryView() {
   const totalValue = useMemo(() => items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0), [items])
 
   const handleAdjust = async () => {
-    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason) return
+    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
     try {
       const isSet = adjustType === 'SET'
       const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
@@ -217,7 +217,6 @@ export function InventoryView() {
       }
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
-      if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
 
       const res = await fetch('/api/inventory', {
         method: 'PUT',
@@ -228,7 +227,8 @@ export function InventoryView() {
         const err = await res.json()
         throw new Error(err.error || 'Failed to adjust')
       }
-      addToast({ title: 'Product Updated', description: `${selectedItem.product.name} adjusted successfully`, variant: 'success' })
+      const result = await res.json()
+      addToast({ title: 'Product Updated', description: result.message || `${selectedItem.product.name} adjusted successfully`, variant: 'success' })
       setAdjustDialog(false)
       setAdjustAmount('')
       setAdjustReason('')
@@ -1287,7 +1287,7 @@ export function InventoryView() {
                   &nbsp;·&nbsp; Cost: {selectedItem.product.costPrice != null ? formatCurrency(selectedItem.product.costPrice) : '—'}
                   &nbsp;·&nbsp; Price: {formatCurrency(selectedItem.product.sellingPrice)}
                   {selectedItem.product.expiryDate && (
-                    <>&nbsp;·&nbsp; Expiry: {formatDate(selectedItem.product.expiryDate)}</>
+                    <>&nbsp;·&nbsp; Nearest Expiry: {formatDate(selectedItem.product.expiryDate)}</>
                   )}
                 </p>
               </div>
@@ -1304,8 +1304,8 @@ export function InventoryView() {
                     <Select value={adjustType} onValueChange={setAdjustType}>
                       <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="SET">Set Quantity</SelectItem>
                         <SelectItem value="ADD">Add Stock</SelectItem>
+                        <SelectItem value="SET">Set Quantity</SelectItem>
                         <SelectItem value="REMOVE">Remove Stock</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1322,16 +1322,12 @@ export function InventoryView() {
                     <Label className="text-xs">Selling Price</Label>
                     <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
                   </div>
-                  <div>
-                    <Label className="text-xs">Expiry Date</Label>
-                    <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} className="h-8 text-sm mt-0.5" />
-                  </div>
-                  <div>
+                  <div className="col-span-2">
                     <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>
                     <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
                   </div>
                 </div>
-                <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason} className="w-full">
+                <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason} className="w-full">
                   Apply Adjustment
                 </Button>
               </div>
@@ -1343,7 +1339,7 @@ export function InventoryView() {
                   Stock Batches (Lots)
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Each batch has its own expiry date and cost. Sales automatically consume the earliest-expiring batch first (FEFO).
+                  Each batch has its own expiry date and cost. Use this section to add new stock with its specific expiry date. Sales automatically consume the earliest-expiring batch first (FEFO).
                 </p>
 
                 {/* Existing batches table */}

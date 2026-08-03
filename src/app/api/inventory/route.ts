@@ -208,6 +208,7 @@ export async function PUT(request: NextRequest) {
 
       if (isTurso()) {
         const now = new Date().toISOString()
+        const userId = request.headers.get('x-user-id') || ''
 
         for (const item of items) {
           // Read current inventory (read-modify-write)
@@ -228,6 +229,26 @@ export async function PUT(request: NextRequest) {
               args: [generateId(), item.productId, item.quantity, now, now, now],
             })
           }
+
+          // Create a Batch record for this received stock (batch-aware tracking)
+          const batchId = generateId()
+          await turso.execute({
+            sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+              batchId, item.productId, item.batchNumber || null, item.expiryDate || null,
+              item.quantity, item.costPrice || null, now, userId, now, now,
+            ],
+          })
+
+          // Re-sync Product.expiryDate from batch data
+          await turso.execute({
+            sql: `UPDATE "Product" SET "expiryDate" = (
+                    SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                  ), "updatedAt" = ?
+                  WHERE id = ?`,
+            args: [item.productId, now, item.productId],
+          })
         }
 
         // Fetch updated records with product details
@@ -287,6 +308,7 @@ export async function PUT(request: NextRequest) {
 
     if (isTurso()) {
       const now = new Date().toISOString()
+      const userId = request.headers.get('x-user-id') || ''
 
       // Read existing inventory
       const existing = await turso.execute({
@@ -312,7 +334,7 @@ export async function PUT(request: NextRequest) {
         )
       }
 
-      // Write (update or insert)
+      // Write (update or insert) inventory total
       if (existing.rows.length > 0) {
         await turso.execute({
           sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
@@ -325,8 +347,21 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      // Optionally update product prices and expiry date
-      if (costPrice !== undefined || sellingPrice !== undefined || expiryDate !== undefined) {
+      // If ADD with an expiry date, create a new Batch record so the stock
+      // carries its own expiry (batch-aware stock management)
+      let batchCreated = false
+      if (adjustmentType === 'ADD' && adjustment > 0 && expiryDate) {
+        const batchId = generateId()
+        await turso.execute({
+          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [batchId, productId, null, expiryDate, adjustment, costPrice || null, now, userId, now, now],
+        })
+        batchCreated = true
+      }
+
+      // Update product prices (but NOT expiryDate — that's managed by batches)
+      if (costPrice !== undefined || sellingPrice !== undefined) {
         const setClauses: string[] = []
         const setArgs: unknown[] = []
         if (costPrice !== undefined) {
@@ -337,10 +372,6 @@ export async function PUT(request: NextRequest) {
           setClauses.push('sellingPrice = ?')
           setArgs.push(sellingPrice)
         }
-        if (expiryDate !== undefined) {
-          setClauses.push('"expiryDate" = ?')
-          setArgs.push(expiryDate || null)
-        }
         setClauses.push('updatedAt = ?')
         setArgs.push(now)
         setArgs.push(productId)
@@ -350,8 +381,18 @@ export async function PUT(request: NextRequest) {
         })
       }
 
+      // If a batch was created, re-sync Product.expiryDate from batch data
+      if (batchCreated) {
+        await turso.execute({
+          sql: `UPDATE "Product" SET "expiryDate" = (
+                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                ), "updatedAt" = ?
+                WHERE id = ?`,
+          args: [productId, now, productId],
+        })
+      }
+
       // Record inventory adjustment in product history
-      const userId = request.headers.get('x-user-id') || ''
       const changedFields: string[] = []
       const previousValues: Record<string, unknown> = {}
       const newValues: Record<string, unknown> = {}
@@ -370,10 +411,10 @@ export async function PUT(request: NextRequest) {
         previousValues.sellingPrice = '—'
         newValues.sellingPrice = sellingPrice
       }
-      if (expiryDate !== undefined) {
-        changedFields.push('expiryDate')
-        previousValues.expiryDate = '—'
-        newValues.expiryDate = expiryDate || null
+      if (batchCreated) {
+        changedFields.push('batchReceived')
+        previousValues.batchReceived = null
+        newValues.batchReceived = { quantity: adjustment, expiryDate }
       }
 
       if (changedFields.length > 0) {
@@ -387,13 +428,16 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}`)
+      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}`)
 
       return NextResponse.json({
         success: true,
         newQuantity,
         productId,
-        message: `Stock set to ${newQuantity} (${reason})`,
+        batchCreated,
+        message: batchCreated
+          ? `Added ${adjustment} units as new batch with expiry ${expiryDate} (${reason})`
+          : `Stock set to ${newQuantity} (${reason})`,
       })
     }
 
@@ -420,7 +464,8 @@ export async function PUT(request: NextRequest) {
     let productUpdate: Record<string, unknown> = {}
     if (costPrice !== undefined) productUpdate.costPrice = costPrice
     if (sellingPrice !== undefined) productUpdate.sellingPrice = sellingPrice
-    if (expiryDate !== undefined) productUpdate.expiryDate = expiryDate || null
+    // Note: expiryDate is NOT updated on Product directly — it's managed by batches
+    // For ADD + expiryDate, the Turso path creates a Batch record instead
 
     const updated = existing
       ? await db.inventory.update({
@@ -474,11 +519,12 @@ export async function POST(request: NextRequest) {
 
     if (isTurso()) {
       const now = new Date().toISOString()
+      const userId = request.headers.get('x-user-id') || ''
 
       for (const item of items) {
         if (!item.productId || !item.quantity) continue
 
-        // Read-modify-write
+        // Read-modify-write inventory total
         const existing = await turso.execute({
           sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
           args: [item.productId],
@@ -496,6 +542,26 @@ export async function POST(request: NextRequest) {
             args: [generateId(), item.productId, item.quantity, now, now, now],
           })
         }
+
+        // Create a Batch record for this received stock (batch-aware tracking)
+        const batchId = generateId()
+        await turso.execute({
+          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            batchId, item.productId, item.batchNumber || null, item.expiryDate || null,
+            item.quantity, item.costPrice || null, now, userId, now, now,
+          ],
+        })
+
+        // Re-sync Product.expiryDate from batch data
+        await turso.execute({
+          sql: `UPDATE "Product" SET "expiryDate" = (
+                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                ), "updatedAt" = ?
+                WHERE id = ?`,
+          args: [item.productId, now, item.productId],
+        })
       }
 
       // Fetch updated records

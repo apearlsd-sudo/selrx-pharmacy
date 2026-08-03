@@ -38,18 +38,18 @@ export async function GET() {
       const offsetH = getTimezoneOffsetHours()
       const tzModifier = offsetH >= 0 ? `+${offsetH} hour` : `${offsetH} hour`
       const [expiringResult, lowStockResult] = await Promise.all([
-        // Products expiring within 14 days in configured timezone
+        // Individual batches expiring within 14 days (batch-aware notifications)
         turso.execute({
-          sql: `SELECT p.id, p.name, p.expiryDate, i.quantity,
-                       p.sellingPrice, p.category, p.batchNumber
-                FROM Product p
-                JOIN Inventory i ON p.id = i.productId
-                WHERE p.expiryDate IS NOT NULL
-                  AND p.expiryDate != ''
-                  AND i.quantity > 0
-                  AND date(p.expiryDate) >= date('now', '${tzModifier}')
-                  AND date(p.expiryDate) <= date('now', '${tzModifier}', '+14 days')
-                ORDER BY date(p.expiryDate) ASC`,
+          sql: `SELECT b.id as batchId, b."productId", b."batchNumber", b."expiryDate",
+                       b.quantity as batchQty, p.name, p.sellingPrice, p.category
+                FROM "Batch" b
+                JOIN "Product" p ON p.id = b."productId"
+                WHERE b."expiryDate" IS NOT NULL
+                  AND b."expiryDate" != ''
+                  AND b.quantity > 0
+                  AND date(b."expiryDate") >= date('now', '${tzModifier}')
+                  AND date(b."expiryDate") <= date('now', '${tzModifier}', '+14 days')
+                ORDER BY date(b."expiryDate") ASC`,
           args: [],
         }),
 
@@ -68,20 +68,21 @@ export async function GET() {
 
       const notifications: Notification[] = []
 
-      // Process expiry notifications using WAT-aware calculation
+      // Process expiry notifications using WAT-aware calculation (per-batch)
       for (const r of toObjs(expiringResult)) {
         const expDate = r.expiryDate as string
         const daysLeft = getDaysToExpiry(expDate) ?? 0
+        const batchLabel = (r.batchNumber as string) ? ` (${r.batchNumber})` : ''
 
         notifications.push({
-          id: `exp-${r.id}`,
+          id: `exp-${r.batchId}`,
           type: 'expiry',
           title: daysLeft <= 3 ? 'Urgent: Expiring Soon' : 'Expiring Soon',
-          message: `${r.name} expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
+          message: `${r.name}${batchLabel}: ${r.batchQty} units expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
           productName: r.name as string,
-          productId: r.id as string,
+          productId: r.productId as string,
           severity: daysLeft <= 3 ? 'danger' : 'warning',
-          meta: { daysLeft, expiryDate: expDate, quantity: r.quantity, category: r.category, batchNumber: r.batchNumber },
+          meta: { daysLeft, expiryDate: expDate, batchQty: r.batchQty, batchNumber: r.batchNumber, category: r.category },
         })
       }
 
