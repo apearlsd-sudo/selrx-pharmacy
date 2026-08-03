@@ -1424,8 +1424,6 @@ export function InventoryView() {
                 </div>
               </div>
 
-                </div>
-              </div>
             </div>
           )}
           <DialogFooter>
