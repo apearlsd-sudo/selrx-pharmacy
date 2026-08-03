@@ -161,9 +161,14 @@ export function ReportsView() {
 
   const fetchDiscrepancy = useCallback(async (shiftId?: string) => {
     setDiscLoading(true)
+    setDiscrepancy(null)
     try {
       const params = new URLSearchParams()
-      if (shiftId) params.set('shiftId', shiftId)
+      if (shiftId) {
+        params.set('shiftId', shiftId)
+      } else {
+        params.set('date', shiftFilterFrom)
+      }
       const res = await fetch(`/api/shifts/discrepancy?${params}`, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
@@ -176,12 +181,12 @@ export function ReportsView() {
       addToast({ title: 'Error', description: err.message || 'Failed to load discrepancy', variant: 'destructive' })
     }
     setDiscLoading(false)
-  }, [addToast])
+  }, [shiftFilterFrom, addToast])
 
-  // Auto-fetch discrepancy when shift tab is active
+  // Auto-fetch discrepancy when shift tab is active or date changes
   useEffect(() => {
-    if (activeTab === 'shifts' && !discrepancy) fetchDiscrepancy()
-  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeTab === 'shifts') fetchDiscrepancy()
+  }, [activeTab, shiftFilterFrom]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleShiftExportCSV = useCallback(() => {
     if (!shiftReport) return
@@ -2209,6 +2214,9 @@ export function ReportsView() {
                     <CardTitle className="text-sm flex items-center gap-1.5">
                       <AlertTriangle className="h-4 w-4 text-amber-500" />
                       Shift Discrepancy Analysis
+                      {discrepancy?.hasData && discrepancy.totalHandoffs > 1 && (
+                        <Badge variant="outline" className="ml-2 text-[10px] font-normal">{discrepancy.totalHandoffs} handoff(s)</Badge>
+                      )}
                     </CardTitle>
                     <Button
                       size="sm" variant="outline" className="h-7 text-[11px]"
@@ -2234,33 +2242,7 @@ export function ReportsView() {
 
                   {discrepancy?.hasData && (
                     <>
-                      {discrepancy.usingLiveInventory && (
-                        <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-3">
-                          Note: Using live inventory for the current shift (no snapshot was captured at shift end). Future shifts will have snapshots automatically.
-                        </div>
-                      )}
-
-                      {/* Shift comparison header */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                        <div className="rounded-lg border p-3 bg-muted/30">
-                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Previous Shift</p>
-                          <p className="text-sm font-semibold">{discrepancy.previousShift.userName}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {format(new Date(discrepancy.previousShift.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">{formatCurrency(discrepancy.previousShift.totalSales)} in {discrepancy.previousShift.totalTransactions} txns</p>
-                        </div>
-                        <div className="rounded-lg border p-3 bg-muted/30">
-                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Current Shift</p>
-                          <p className="text-sm font-semibold">{discrepancy.currentShift.userName}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {format(new Date(discrepancy.currentShift.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">{formatCurrency(discrepancy.currentShift.totalSales)} in {discrepancy.currentShift.totalTransactions} txns</p>
-                        </div>
-                      </div>
-
-                      {/* Summary cards */}
+                      {/* Aggregate summary cards */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                         <div className="rounded-lg border p-2.5 text-center">
                           <p className="text-[10px] text-muted-foreground">Discrepancies</p>
@@ -2285,54 +2267,101 @@ export function ReportsView() {
                         </div>
                       </div>
 
-                      {/* Discrepancy table */}
-                      {discrepancy.discrepancies.length === 0 ? (
-                        <div className="text-center py-6">
-                          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                          <p className="text-sm font-medium text-emerald-700">No discrepancies found</p>
-                          <p className="text-xs text-muted-foreground">Inventory matches expected values between these two shifts.</p>
+                      {/* Each handoff comparison */}
+                      {discrepancy.comparisons.map((comp: any, ci: number) => (
+                        <div key={ci} className="mb-4 last:mb-0">
+                          {discrepancy.comparisons.length > 1 && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Handoff {ci + 1}</span>
+                              <div className="flex-1 border-t" />
+                            </div>
+                          )}
+
+                          {comp.usingLiveInventory && (
+                            <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-3">
+                              Note: Using live inventory (no snapshot at shift end). Future shifts will have snapshots automatically.
+                            </div>
+                          )}
+
+                          {/* Shift comparison header */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                            <div className="rounded-lg border p-3 bg-muted/30">
+                              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Handed Over By</p>
+                              <p className="text-sm font-semibold">{comp.previousShift.userName}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {format(new Date(comp.previousShift.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">{formatCurrency(comp.previousShift.totalSales)} in {comp.previousShift.totalTransactions} txns</p>
+                            </div>
+                            <div className="rounded-lg border p-3 bg-muted/30">
+                              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Received By</p>
+                              <p className="text-sm font-semibold">{comp.currentShift.userName}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {format(new Date(comp.currentShift.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">{formatCurrency(comp.currentShift.totalSales)} in {comp.currentShift.totalTransactions} txns</p>
+                            </div>
+                          </div>
+
+                          {/* Per-handoff mini summary */}
+                          <div className="flex gap-2 mb-3">
+                            <Badge variant={comp.handoffSummary.shortageCount > 0 ? 'destructive' : 'secondary'} className="text-[10px]">
+                              {comp.handoffSummary.shortageCount} shortage(s) — {formatCurrency(comp.handoffSummary.shortageCost)}
+                            </Badge>
+                            <Badge variant={comp.handoffSummary.overCount > 0 ? 'default' : 'secondary'} className="text-[10px]">
+                              {comp.handoffSummary.overCount} over(s) — {formatCurrency(comp.handoffSummary.overCost)}
+                            </Badge>
+                          </div>
+
+                          {/* Discrepancy table */}
+                          {comp.discrepancies.length === 0 ? (
+                            <div className="text-center py-4">
+                              <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-1" />
+                              <p className="text-xs font-medium text-emerald-700">No discrepancies for this handoff</p>
+                            </div>
+                          ) : (
+                            <ScrollArea className="max-h-[300px]">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="text-xs w-10">#</TableHead>
+                                    <TableHead className="text-xs">Product</TableHead>
+                                    <TableHead className="text-xs text-center">Prev Stock</TableHead>
+                                    <TableHead className="text-xs text-center">Qty Sold</TableHead>
+                                    <TableHead className="text-xs text-center">Expected</TableHead>
+                                    <TableHead className="text-xs text-center">Actual</TableHead>
+                                    <TableHead className="text-xs text-center">Diff</TableHead>
+                                    <TableHead className="text-xs text-right">Cost Impact</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {comp.discrepancies.map((d: any, i: number) => (
+                                    <TableRow key={d.productId}>
+                                      <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                                      <TableCell className="text-sm font-medium">{d.productName}</TableCell>
+                                      <TableCell className="text-xs text-center font-mono">{d.previousStock}</TableCell>
+                                      <TableCell className="text-xs text-center font-mono">{d.qtySold}</TableCell>
+                                      <TableCell className="text-xs text-center font-mono">{d.expectedStock}</TableCell>
+                                      <TableCell className="text-xs text-center font-mono">{d.actualStock}</TableCell>
+                                      <TableCell className="text-center">
+                                        <Badge
+                                          variant={d.discrepancy > 0 ? 'destructive' : 'secondary'}
+                                          className="text-[10px] font-mono"
+                                        >
+                                          {d.discrepancy > 0 ? `-${d.discrepancy}` : `+${Math.abs(d.discrepancy)}`}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className={`text-xs text-right font-mono font-medium ${d.discrepancy > 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                                        {formatCurrency(d.discrepancyCost)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </ScrollArea>
+                          )}
                         </div>
-                      ) : (
-                        <ScrollArea className="max-h-[400px]">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="text-xs w-10">#</TableHead>
-                                <TableHead className="text-xs">Product</TableHead>
-                                <TableHead className="text-xs text-center">Prev Stock</TableHead>
-                                <TableHead className="text-xs text-center">Qty Sold</TableHead>
-                                <TableHead className="text-xs text-center">Expected</TableHead>
-                                <TableHead className="text-xs text-center">Actual</TableHead>
-                                <TableHead className="text-xs text-center">Diff</TableHead>
-                                <TableHead className="text-xs text-right">Cost Impact</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {discrepancy.discrepancies.map((d: any, i: number) => (
-                                <TableRow key={d.productId}>
-                                  <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
-                                  <TableCell className="text-sm font-medium">{d.productName}</TableCell>
-                                  <TableCell className="text-xs text-center font-mono">{d.previousStock}</TableCell>
-                                  <TableCell className="text-xs text-center font-mono">{d.qtySold}</TableCell>
-                                  <TableCell className="text-xs text-center font-mono">{d.expectedStock}</TableCell>
-                                  <TableCell className="text-xs text-center font-mono">{d.actualStock}</TableCell>
-                                  <TableCell className="text-center">
-                                    <Badge
-                                      variant={d.discrepancy > 0 ? 'destructive' : 'secondary'}
-                                      className="text-[10px] font-mono"
-                                    >
-                                      {d.discrepancy > 0 ? `-${d.discrepancy}` : `+${Math.abs(d.discrepancy)}`}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className={`text-xs text-right font-mono font-medium ${d.discrepancy > 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                                    {formatCurrency(d.discrepancyCost)}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </ScrollArea>
-                      )}
+                      ))}
                     </>
                   )}
                 </CardContent>
