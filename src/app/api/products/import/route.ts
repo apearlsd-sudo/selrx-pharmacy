@@ -461,6 +461,28 @@ async function importViaTurso(
         args: [inventoryId, productId, row.initialQty, now, now],
       })
 
+      // Create a Batch record if product has stock and/or expiry date
+      // This enables FEFO (First Expired, First Out) tracking per lot
+      if (row.initialQty > 0 || p.expiryDate) {
+        const batchId = generateId()
+        await turso.execute({
+          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            batchId,
+            productId,
+            p.batchNumber || null,
+            p.expiryDate || null,
+            row.initialQty || 0,
+            p.costPrice != null ? Number(p.costPrice) : null,
+            now,
+            request.headers.get('x-user-id') || '',
+            now,
+            now,
+          ],
+        })
+      }
+
       createdProducts.push({ id: productId, name: p.name as string, ndc: p.ndc as string | null })
       created++
     } catch (err: unknown) {
