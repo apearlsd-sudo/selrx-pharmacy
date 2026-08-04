@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
-  AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
+  AlertCircle, CheckCircle2, Factory, Edit2, Save, X, RefreshCw,
   Upload, FileSpreadsheet, Download, History, Clock, RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -568,6 +568,12 @@ function DrugEditModal({
   const addToast = useAppStore((s) => s.addToast)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
   const currentUser = useAppStore((s) => s.user)
+  const genBN = () => {
+    const d = new Date()
+    const date = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear().toString()
+    const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+    return `BN-${date}-${seq}`
+  }
 
   useEffect(() => {
     if (open && editingDrug) {
@@ -776,7 +782,12 @@ function DrugEditModal({
           </div>
           <div>
             <Label className="text-xs">Batch Number</Label>
-            <Input value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g., BN-00123" className="mt-1" />
+            <div className="flex gap-1 mt-1">
+              <Input value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="BN-DDMMYYYY-XXXX" className="flex-1" />
+              <Button type="button" variant="outline" size="sm" className="h-9 w-9 px-0 shrink-0" onClick={() => setForm({ ...form, batchNumber: genBN() })} title="Auto-generate batch number">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -1004,6 +1015,13 @@ function DrugSection() {
     stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', vendorId: '',
     sellingUnit: 'EA', itemsPerUnit: '1',
   })
+
+  const genBN = () => {
+    const d = new Date()
+    const date = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear().toString()
+    const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+    return `BN-${date}-${seq}`
+  }
 
   // Modal states for "+ Add new" in drug form
   const [mfgModalOpen, setMfgModalOpen] = useState(false)
@@ -1548,7 +1566,13 @@ function DrugSection() {
             {/* Batch Number */}
             <div>
               <Label className="text-xs">Batch Number</Label>
-              <Input placeholder="BN-DDMMYYYY-XXXX" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} className="mt-1" />
+              <div className="flex gap-1 mt-1">
+                <Input placeholder="BN-DDMMYYYY-XXXX" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} className="flex-1" />
+                <Button type="button" variant="outline" size="sm" className="h-9 w-9 px-0 shrink-0" onClick={() => setForm({ ...form, batchNumber: genBN() })} title="Auto-generate batch number">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Leave blank to auto-generate on first stock receipt</p>
             </div>
 
             {/* Barcode */}
