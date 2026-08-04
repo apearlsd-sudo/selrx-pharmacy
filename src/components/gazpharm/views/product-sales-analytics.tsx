@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react'
 import {
-  BarChart3, Search, Package, RefreshCw, Filter, X, ArrowUpDown, UserCircle,
+  BarChart3, Search, Package, RefreshCw, Filter, X, ArrowUpDown, UserCircle, CalendarDays,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
+import { getTodayWAT } from '@/lib/date-utils'
 
 interface AnalyticsRow {
   productId: string
@@ -50,6 +51,8 @@ export function ProductSalesAnalytics() {
   const [categories, setCategories] = useState<string[]>([])
   const [userFilter, setUserFilter] = useState('all')
   const [users, setUsers] = useState<UserOption[]>([])
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [sortField, setSortField] = useState<SortField>('totalQuantity')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [isPending, startTransition] = useTransition()
@@ -83,6 +86,8 @@ export function ProductSalesAnalytics() {
       const params = new URLSearchParams()
       if (categoryFilter && categoryFilter !== 'all') params.set('categoryId', categoryFilter)
       if (userFilter && userFilter !== 'all') params.set('userId', userFilter)
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate + 'T23:59:59')
       const res = await fetch(`/api/product-sales-analytics?${params}`, {
         headers: authHeaders(),
       })
@@ -99,7 +104,7 @@ export function ProductSalesAnalytics() {
     } finally {
       setLoading(false)
     }
-  }, [categoryFilter, userFilter])
+  }, [categoryFilter, userFilter, startDate, endDate])
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { fetchUsers() }, [fetchUsers])
@@ -150,6 +155,50 @@ export function ProductSalesAnalytics() {
       />
     )
   }
+
+  // Quick date presets
+  const setDatePreset = (preset: 'today' | 'week' | 'month' | 'quarter' | 'year' | '') => {
+    startTransition(() => {
+      if (!preset) { setStartDate(''); setEndDate(''); return }
+      const today = new Date(getTodayWAT() + 'T00:00:00')
+      const y = today.getFullYear()
+      const m = today.getMonth()
+      const d = today.getDate()
+      let from: Date
+      switch (preset) {
+        case 'today': from = new Date(y, m, d); break
+        case 'week': {
+          const dow = today.getDay() || 7 // Mon=1 … Sun=7
+          from = new Date(y, m, d - dow + 1)
+          break
+        }
+        case 'month': from = new Date(y, m, 1); break
+        case 'quarter': from = new Date(y, m - (m % 3), 1); break
+        case 'year': from = new Date(y, 0, 1); break
+      }
+      setStartDate(from.toISOString().split('T')[0])
+      setEndDate(today.toISOString().split('T')[0])
+    })
+  }
+
+  const activePreset = useMemo(() => {
+    if (!startDate && !endDate) return ''
+    const today = new Date(getTodayWAT() + 'T00:00:00')
+    const todayStr = today.toISOString().split('T')[0]
+    if (startDate === todayStr && endDate === todayStr) return 'today'
+    const dow = today.getDay() || 7
+    const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dow + 1).toISOString().split('T')[0]
+    if (startDate === weekStart && endDate === todayStr) return 'week'
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+    if (startDate === monthStart && endDate === todayStr) return 'month'
+    const qStart = new Date(today.getFullYear(), today.getMonth() - (today.getMonth() % 3), 1).toISOString().split('T')[0]
+    if (startDate === qStart && endDate === todayStr) return 'quarter'
+    const yearStart = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]
+    if (startDate === yearStart && endDate === todayStr) return 'year'
+    return 'custom'
+  }, [startDate, endDate])
+
+  const clearDates = () => startTransition(() => { setStartDate(''); setEndDate('') })
 
   const selectedUserName = userFilter !== 'all'
     ? users.find((u) => u.id === userFilter)?.name || ''
@@ -220,6 +269,47 @@ export function ProductSalesAnalytics() {
               </Select>
             </div>
           )}
+        </div>
+
+        {/* Date range filter */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Period:</span>
+            {([['today', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['quarter', 'Quarter'], ['year', 'This Year']] as const).map(([key, label]) => (
+              <Button
+                key={key}
+                variant={activePreset === key ? 'default' : 'outline'}
+                size="sm"
+                className={`h-7 text-[11px] px-2.5 ${activePreset === key ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                onClick={() => setDatePreset(key)}
+              >
+                {label}
+              </Button>
+            ))}
+            {(startDate || endDate) && (
+              <Button variant="ghost" size="sm" className="h-7 text-[11px] text-red-500 hover:text-red-600 px-2" onClick={clearDates}>
+                <X className="h-3 w-3 mr-0.5" />Clear
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => startTransition(() => setStartDate(e.target.value))}
+              className="h-8 w-[140px] text-xs"
+              max={endDate || undefined}
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => startTransition(() => setEndDate(e.target.value))}
+              className="h-8 w-[140px] text-xs"
+              min={startDate || undefined}
+            />
+          </div>
         </div>
 
         {/* Summary stats */}
@@ -327,6 +417,7 @@ export function ProductSalesAnalytics() {
             Showing {filtered.length} product{filtered.length !== 1 ? 's' : ''}
             {search ? ` matching "${search}"` : ''}
             {categoryFilter && categoryFilter !== 'all' ? ` in ${categoryFilter}` : ''}
+            {(startDate || endDate) ? ` · ${startDate || '…'} to ${endDate || '…'}` : ''}
             {selectedUserName ? ` · User: ${selectedUserName}` : ''}
             {sortField !== 'totalQuantity' && (
               <> · Sorted by {sortField === 'totalRevenue' ? 'revenue' : sortField === 'transactions' ? 'transactions' : sortField === 'productName' ? 'product name' : 'category'} ({sortDir === 'desc' ? 'high → low' : 'low → high'})</>
