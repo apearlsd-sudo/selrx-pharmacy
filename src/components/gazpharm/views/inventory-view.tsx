@@ -72,6 +72,9 @@ export function InventoryView() {
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
+  const [adjustSellingUnit, setAdjustSellingUnit] = useState('')
+  const [adjustItemsPerUnit, setAdjustItemsPerUnit] = useState('')
+  const [savingSellAs, setSavingSellAs] = useState(false)
   const [batches, setBatches] = useState<any[]>([])
   const [batchesLoading, setBatchesLoading] = useState(false)
   const [newBatchQty, setNewBatchQty] = useState('')
@@ -103,6 +106,7 @@ export function InventoryView() {
     name: '', sku: '', category: '', price: '', costPrice: '', stockQuantity: '',
     minStockLevel: '10', expiryDate: '', barcode: '',
     manufacturerId: '', vendorId: '', dosageForm: '',
+    sellingUnit: 'EA', itemsPerUnit: '1',
   })
   // Full-detail modal states for inline "add new"
   const [addMfgOpen, setAddMfgOpen] = useState(false)
@@ -209,6 +213,29 @@ export function InventoryView() {
   const lowStockCount = useMemo(() => items.filter((i) => { const q = Number(i.quantity) || 0; const r = Number(i.product.reorderPoint) || 10; return q > 0 && q <= r }).length, [items])
   const outOfStockCount = useMemo(() => items.filter((i) => (Number(i.quantity) || 0) === 0).length, [items])
   const totalValue = useMemo(() => items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0), [items])
+
+  const handleSaveSellAs = async () => {
+    if (!selectedItem) return
+    const su = adjustSellingUnit || selectedItem.product.sellingUnit || 'EA'
+    const ipu = adjustItemsPerUnit ? parseInt(adjustItemsPerUnit) : selectedItem.product.itemsPerUnit || 1
+    // Skip if unchanged
+    if (su === (selectedItem.product.sellingUnit || 'EA') && ipu === (selectedItem.product.itemsPerUnit || 1)) return
+    setSavingSellAs(true)
+    try {
+      const res = await fetch(`/api/products/${selectedItem.productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
+        body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
+      addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
+      fetchInventory(true)
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to update selling unit', variant: 'destructive' })
+    } finally {
+      setSavingSellAs(false)
+    }
+  }
 
   const handleAdjust = async () => {
     if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
@@ -340,6 +367,8 @@ export function InventoryView() {
           manufacturerId: productForm.manufacturerId || null,
           vendorId: productForm.vendorId || null,
           dosageForm: productForm.dosageForm || null,
+          sellingUnit: productForm.sellingUnit || 'EA',
+          itemsPerUnit: parseInt(productForm.itemsPerUnit) || 1,
         }),
       })
       if (!res.ok) {
@@ -364,7 +393,7 @@ export function InventoryView() {
 
       addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
       setAddProductDialog(false)
-      setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', manufacturerId: '', vendorId: '', dosageForm: '' })
+      setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', manufacturerId: '', vendorId: '', dosageForm: '', sellingUnit: 'EA', itemsPerUnit: '1' })
       fetchInventory()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
@@ -890,7 +919,7 @@ export function InventoryView() {
                         {formatDate(item.product.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); fetchBatches(item.productId); setAdjustDialog(true) }}>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); setAdjustSellingUnit(item.product.sellingUnit || 'EA'); setAdjustItemsPerUnit(String(item.product.itemsPerUnit || 1)); fetchBatches(item.productId); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />
                           Adjust
                         </Button>
@@ -1117,6 +1146,49 @@ export function InventoryView() {
                 onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
                 className="mt-1"
               />
+            </div>
+
+            {/* Sell As (Selling Unit) */}
+            <div>
+              <Label htmlFor="prod-selling-unit">Sell As</Label>
+              <Select value={productForm.sellingUnit} onValueChange={(v) => setProductForm({ ...productForm, sellingUnit: v })}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select unit..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EA">Each (individual unit)</SelectItem>
+                  <SelectItem value="STRIP">Strip</SelectItem>
+                  <SelectItem value="BOX">Box</SelectItem>
+                  <SelectItem value="PACK">Pack</SelectItem>
+                  <SelectItem value="CARD">Card (blister)</SelectItem>
+                  <SelectItem value="BOTTLE">Bottle</SelectItem>
+                  <SelectItem value="SACHET">Sachet</SelectItem>
+                  <SelectItem value="TUBE">Tube</SelectItem>
+                  <SelectItem value="VIAL">Vial</SelectItem>
+                  <SelectItem value="PIECE">Piece</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Items Per Unit */}
+            <div>
+              <Label htmlFor="prod-items-per-unit">Items Per {productForm.sellingUnit === 'EA' ? 'Unit' : productForm.sellingUnit.charAt(0) + productForm.sellingUnit.slice(1).toLowerCase()}</Label>
+              <Input
+                id="prod-items-per-unit"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="e.g., 10"
+                value={productForm.itemsPerUnit}
+                onChange={(e) => setProductForm({ ...productForm, itemsPerUnit: e.target.value })}
+                className="mt-1"
+                disabled={productForm.sellingUnit === 'EA'}
+              />
+              {productForm.sellingUnit !== 'EA' && productForm.itemsPerUnit && parseInt(productForm.itemsPerUnit) > 1 && productForm.price && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Unit price: {formatCurrency(parseFloat(productForm.price) / parseInt(productForm.itemsPerUnit))} per item
+                </p>
+              )}
             </div>
           </div>
 
@@ -1359,6 +1431,50 @@ export function InventoryView() {
                 </div>
                 <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason} className="w-full">
                   Apply Adjustment
+                </Button>
+              </div>
+
+              {/* ── Sell As (Unit Sales) ── */}
+              <div className="border rounded-lg p-3 space-y-3">
+                <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                  <PackagePlus className="h-3.5 w-3.5" />
+                  Sell As (Unit Sales)
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Set how this product is sold to customers. E.g., sell as a Strip of 10 tablets instead of individual tablets.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Selling Unit</Label>
+                    <Select value={adjustSellingUnit} onValueChange={setAdjustSellingUnit}>
+                      <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EA">Each (individual unit)</SelectItem>
+                        <SelectItem value="STRIP">Strip</SelectItem>
+                        <SelectItem value="BOX">Box</SelectItem>
+                        <SelectItem value="PACK">Pack</SelectItem>
+                        <SelectItem value="CARD">Card (blister)</SelectItem>
+                        <SelectItem value="BOTTLE">Bottle</SelectItem>
+                        <SelectItem value="SACHET">Sachet</SelectItem>
+                        <SelectItem value="TUBE">Tube</SelectItem>
+                        <SelectItem value="VIAL">Vial</SelectItem>
+                        <SelectItem value="PIECE">Piece</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Items Per {adjustSellingUnit === 'EA' ? 'Unit' : adjustSellingUnit.charAt(0) + adjustSellingUnit.slice(1).toLowerCase()}</Label>
+                    <Input type="number" min="1" step="1" placeholder="e.g., 10" value={adjustItemsPerUnit} onChange={(e) => setAdjustItemsPerUnit(e.target.value)} className="h-8 text-sm mt-0.5" disabled={adjustSellingUnit === 'EA'} />
+                  </div>
+                </div>
+                {adjustSellingUnit !== 'EA' && adjustItemsPerUnit && parseInt(adjustItemsPerUnit) > 1 && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                    Stock shows as: <span className="font-medium">{Math.floor((Number(selectedItem?.quantity) || 0) / parseInt(adjustItemsPerUnit))} {adjustSellingUnit.toLowerCase()}{Math.floor((Number(selectedItem?.quantity) || 0) / parseInt(adjustItemsPerUnit)) !== 1 ? 's' : ''}</span> of {adjustItemsPerUnit} items each
+                    &nbsp;·&nbsp; Unit price: <span className="font-medium">{formatCurrency(selectedItem!.product.sellingPrice / parseInt(adjustItemsPerUnit))}</span>
+                  </p>
+                )}
+                <Button size="sm" variant="outline" onClick={handleSaveSellAs} disabled={savingSellAs} className="w-full">
+                  {savingSellAs ? 'Saving...' : 'Update Sell As'}
                 </Button>
               </div>
 
