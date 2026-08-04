@@ -183,6 +183,18 @@ export function generateRxNumber(): string {
 }
 
 /**
+ * Batch number generator: BN-YYYYMMDD-XXXX format
+ */
+export function generateBatchNo(): string {
+  const d = new Date()
+  const date = d.getFullYear().toString() +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    String(d.getDate()).padStart(2, '0')
+  const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  return `BN-${date}-${seq}`
+}
+
+/**
  * Stock take reference generator: ST-YYYYMMDD-XXXX format
  */
 export function generateStockTakeRef(): string {

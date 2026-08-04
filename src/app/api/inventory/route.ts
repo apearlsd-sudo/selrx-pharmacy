@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 
 // ---------------------------------------------------------------------------
@@ -232,11 +232,12 @@ export async function PUT(request: NextRequest) {
 
           // Create a Batch record for this received stock (batch-aware tracking)
           const batchId = generateId()
+          const autoBN = item.batchNumber || generateBatchNo()
           await turso.execute({
             sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             args: [
-              batchId, item.productId, item.batchNumber || null, item.expiryDate || null,
+              batchId, item.productId, autoBN, item.expiryDate || null,
               item.quantity, item.costPrice || null, now, userId, now, now,
             ],
           })
@@ -352,10 +353,11 @@ export async function PUT(request: NextRequest) {
       let batchCreated = false
       if (adjustmentType === 'ADD' && adjustment > 0 && expiryDate) {
         const batchId = generateId()
+        const autoBN = generateBatchNo()
         await turso.execute({
           sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [batchId, productId, null, expiryDate, adjustment, costPrice || null, now, userId, now, now],
+          args: [batchId, productId, autoBN, expiryDate, adjustment, costPrice || null, now, userId, now, now],
         })
         batchCreated = true
       }
@@ -545,11 +547,12 @@ export async function POST(request: NextRequest) {
 
         // Create a Batch record for this received stock (batch-aware tracking)
         const batchId = generateId()
+        const autoBN2 = item.batchNumber || generateBatchNo()
         await turso.execute({
           sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
-            batchId, item.productId, item.batchNumber || null, item.expiryDate || null,
+            batchId, item.productId, autoBN2, item.expiryDate || null,
             item.quantity, item.costPrice || null, now, userId, now, now,
           ],
         })

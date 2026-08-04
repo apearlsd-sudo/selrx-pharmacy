@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
-  Upload, FileSpreadsheet, CheckCircle2, AlertCircle
+  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -75,7 +75,16 @@ export function InventoryView() {
   const [newBatchQty, setNewBatchQty] = useState('')
   const [newBatchExpiry, setNewBatchExpiry] = useState('')
   const [newBatchCost, setNewBatchCost] = useState('')
-  const [newBatchNumber, setNewBatchNumber] = useState('')
+  // Client-side batch number generator (matches server-side BN-YYYYMMDD-XXXX format)
+  const genBN = () => {
+    const d = new Date()
+    const date = d.getFullYear().toString() +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      String(d.getDate()).padStart(2, '0')
+    const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+    return `BN-${date}-${seq}`
+  }
+  const [newBatchNumber, setNewBatchNumber] = useState(genBN)
   const [savingBatch, setSavingBatch] = useState(false)
   const [stockCountDialog, setStockCountDialog] = useState(false)
   const [stockSearch, setStockSearch] = useState('')
@@ -276,8 +285,10 @@ export function InventoryView() {
         }),
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to receive batch') }
-      addToast({ title: 'Stock Received', description: `Added ${newBatchQty} units${newBatchNumber ? ` (${newBatchNumber})` : ''}`, variant: 'success' })
-      setNewBatchQty(''); setNewBatchExpiry(''); setNewBatchCost(''); setNewBatchNumber('')
+      const data = await res.json()
+      const usedBN = data.batchNumber || newBatchNumber
+      addToast({ title: 'Stock Received', description: `Added ${newBatchQty} units (${usedBN})`, variant: 'success' })
+      setNewBatchQty(''); setNewBatchExpiry(''); setNewBatchCost(''); setNewBatchNumber(genBN())
       fetchBatches(selectedItem.productId)
       fetchInventory(true)
       bumpInventoryVersion()
@@ -1407,7 +1418,12 @@ export function InventoryView() {
                     </div>
                     <div>
                       <Label className="text-[11px]">Batch Number</Label>
-                      <Input placeholder="e.g., BN-2026-001" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} className="h-7 text-xs mt-0.5" />
+                      <div className="flex gap-1 mt-0.5">
+                        <Input placeholder="BN-YYYYMMDD-XXXX" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} className="h-7 text-xs flex-1" />
+                        <Button type="button" variant="outline" size="sm" className="h-7 w-7 px-0 shrink-0" onClick={() => setNewBatchNumber(genBN())} title="Regenerate batch number">
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label className="text-[11px]">Expiry Date</Label>

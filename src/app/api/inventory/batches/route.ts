@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 
 /**
  * GET  /api/inventory/batches?productId=xxx  — list batches for a product
@@ -66,12 +66,13 @@ export async function POST(request: NextRequest) {
     if (isTurso()) {
       const now = new Date().toISOString()
       const batchId = generateId()
+      const autoBatchNumber = batchNumber || generateBatchNo()
 
       // Insert the batch
       await turso.execute({
         sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [batchId, productId, batchNumber || null, expiryDate || null, quantity, costPrice || null, now, receivedBy, now, now],
+        args: [batchId, productId, autoBatchNumber, expiryDate || null, quantity, costPrice || null, now, receivedBy, now, now],
       })
 
       // Update Inventory total quantity (additive)
@@ -107,13 +108,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         id: batchId,
         productId,
-        batchNumber: batchNumber || null,
+        batchNumber: autoBatchNumber,
         expiryDate: expiryDate || null,
         quantity,
         costPrice: costPrice || null,
         receivedAt: now,
         totalStock: newQty,
-        message: `Received ${quantity} units${batchNumber ? ` (batch: ${batchNumber})` : ''}`,
+        message: `Received ${quantity} units (batch: ${autoBatchNumber})`,
       }, { status: 201 })
     }
 

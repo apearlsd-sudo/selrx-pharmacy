@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 import * as XLSX from 'xlsx'
 
 // ── Excel column mapping (header name → field name) ──────────────────────
@@ -465,13 +465,14 @@ async function importViaTurso(
       // This enables FEFO (First Expired, First Out) tracking per lot
       if (row.initialQty > 0 || p.expiryDate) {
         const batchId = generateId()
+        const importBN = p.batchNumber || generateBatchNo()
         await turso.execute({
           sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             batchId,
             productId,
-            p.batchNumber || null,
+            importBN,
             p.expiryDate || null,
             row.initialQty || 0,
             p.costPrice != null ? Number(p.costPrice) : null,
