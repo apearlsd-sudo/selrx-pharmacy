@@ -75,12 +75,12 @@ export function InventoryView() {
   const [newBatchQty, setNewBatchQty] = useState('')
   const [newBatchExpiry, setNewBatchExpiry] = useState('')
   const [newBatchCost, setNewBatchCost] = useState('')
-  // Client-side batch number generator (matches server-side BN-YYYYMMDD-XXXX format)
+  // Client-side batch number generator (matches server-side BN-DDMMYYYY-XXXX format)
   const genBN = () => {
     const d = new Date()
-    const date = d.getFullYear().toString() +
+    const date = String(d.getDate()).padStart(2, '0') +
       String(d.getMonth() + 1).padStart(2, '0') +
-      String(d.getDate()).padStart(2, '0')
+      d.getFullYear().toString()
     const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
     return `BN-${date}-${seq}`
   }
@@ -1419,7 +1419,7 @@ export function InventoryView() {
                     <div>
                       <Label className="text-[11px]">Batch Number</Label>
                       <div className="flex gap-1 mt-0.5">
-                        <Input placeholder="BN-YYYYMMDD-XXXX" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} className="h-7 text-xs flex-1" />
+                        <Input placeholder="BN-DDMMYYYY-XXXX" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} className="h-7 text-xs flex-1" />
                         <Button type="button" variant="outline" size="sm" className="h-7 w-7 px-0 shrink-0" onClick={() => setNewBatchNumber(genBN())} title="Regenerate batch number">
                           <RefreshCw className="h-3 w-3" />
                         </Button>

@@ -183,13 +183,13 @@ export function generateRxNumber(): string {
 }
 
 /**
- * Batch number generator: BN-YYYYMMDD-XXXX format
+ * Batch number generator: BN-DDMMYYYY-XXXX format
  */
 export function generateBatchNo(): string {
   const d = new Date()
-  const date = d.getFullYear().toString() +
+  const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
-    String(d.getDate()).padStart(2, '0')
+    d.getFullYear().toString()
   const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
   return `BN-${date}-${seq}`
 }
