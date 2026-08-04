@@ -161,25 +161,35 @@ export function POSView() {
         const json = await res.json()
         if (json.product) {
           const product = json.product
-          addToCart(
-            {
-              id: product.id,
-              name: product.name,
-              ndc: product.ndc,
-              sellingPrice: product.sellingPrice,
-              requiresPrescription: product.requiresPrescription,
-              unitOfMeasure: product.unitOfMeasure,
-              strength: product.strength,
-              dosageForm: product.dosageForm,
-            },
-            1
-          )
-          addToast({
-            title: 'Product Added',
-            description: `${product.name} added to cart`,
-            variant: 'success',
-            duration: 2000,
-          })
+          const stock = json.stockLevel ?? product.inventory?.quantity ?? 0
+          if (stock === 0) {
+            addToast({
+              title: 'Out of Stock',
+              description: `${product.name} has no stock available`,
+              variant: 'destructive',
+              duration: 3000,
+            })
+          } else {
+            addToCart(
+              {
+                id: product.id,
+                name: product.name,
+                ndc: product.ndc,
+                sellingPrice: product.sellingPrice,
+                requiresPrescription: product.requiresPrescription,
+                unitOfMeasure: product.unitOfMeasure,
+                strength: product.strength,
+                dosageForm: product.dosageForm,
+              },
+              1
+            )
+            addToast({
+              title: 'Product Added',
+              description: `${product.name} added to cart`,
+              variant: 'success',
+              duration: 2000,
+            })
+          }
         } else {
           addToast({
             title: 'Not Found',
@@ -494,17 +504,26 @@ export function POSView() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {products
-                  .filter((p) => p.status === 'ACTIVE')
+                  .filter((p) => p.status !== 'DISCONTINUED')
                   .map((product) => {
                     const stock = product.inventory?.[0]?.quantity ?? 0
+                    const isOut = stock === 0
                     const inCart = cart.find((item: CartItem) => item.product.id === product.id)
                     return (
                       <Card
                         key={product.id}
-                        className={`group hover:shadow-md transition-all cursor-pointer ${
+                        className={`group hover:shadow-md transition-all ${
+                          isOut ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                        } ${
                           inCart ? 'ring-2 ring-emerald-500 bg-emerald-50/30' : ''
                         }`}
-                        onClick={() => handleAddToCart(product)}
+                        onClick={() => {
+                          if (isOut) {
+                            addToast({ title: 'Out of Stock', description: `${product.name} has no stock available`, variant: 'destructive', duration: 2000 })
+                            return
+                          }
+                          handleAddToCart(product)
+                        }}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-2">
@@ -524,10 +543,10 @@ export function POSView() {
                               </p>
                               <p
                                 className={`text-xs mt-0.5 ${
-                                  stock <= 5 ? 'text-red-500 font-medium' : 'text-muted-foreground'
+                                  isOut ? 'text-red-600 font-bold' : stock <= 5 ? 'text-red-500 font-medium' : 'text-muted-foreground'
                                 }`}
                               >
-                                Stock: {stock}
+                                {isOut ? 'Out of Stock' : `Stock: ${stock}`}
                               </p>
                             </div>
                           </div>
@@ -547,6 +566,11 @@ export function POSView() {
                                   Rx
                                 </Badge>
                               )}
+                              {isOut && (
+                                <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">
+                                  Out of Stock
+                                </Badge>
+                              )}
                               {inCart && (
                                 <Badge className="text-[10px] px-1.5 py-0 bg-emerald-600 text-white border-emerald-600">
                                   x{inCart.quantity}
@@ -555,10 +579,11 @@ export function POSView() {
                             </div>
                             <Button
                               size="sm"
-                              className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700"
+                              className={`h-7 w-7 p-0 ${isOut ? 'bg-gray-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                              disabled={isOut}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                handleAddToCart(product)
+                                if (!isOut) handleAddToCart(product)
                               }}
                             >
                               <Plus className="h-3.5 w-3.5" />

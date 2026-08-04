@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
               i."lastCounted" AS "inv_lastCounted", i."createdAt" AS "inv_createdAt", i."updatedAt" AS "inv_updatedAt"
             FROM "Product" p
             LEFT JOIN "Inventory" i ON p.id = i."productId"
-            WHERE (p.ndc = ? OR p."batchNumber" = ?) AND p.status = 'ACTIVE'
+            WHERE (p.ndc = ? OR p."batchNumber" = ?) AND p.status != 'DISCONTINUED'
             LIMIT 1
           `,
           args: [barcode, barcode],
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
               { ndc: barcode },
               { batchNumber: barcode },
             ],
-            status: 'ACTIVE',
+            NOT: { status: 'DISCONTINUED' },
           },
           include: {
             inventory: true,
@@ -344,7 +344,7 @@ export async function POST(request: NextRequest) {
               i."lastCounted" AS "inv_lastCounted", i."createdAt" AS "inv_createdAt", i."updatedAt" AS "inv_updatedAt"
             FROM "Product" p
             LEFT JOIN "Inventory" i ON p.id = i."productId"
-            WHERE (p.ndc = ? OR p."batchNumber" = ? OR p.name LIKE '%' || ? || '%') AND p.status = 'ACTIVE'
+            WHERE (p.ndc = ? OR p."batchNumber" = ? OR p.name LIKE '%' || ? || '%') AND p.status != 'DISCONTINUED'
             LIMIT 1
           `,
           args: [barcode, barcode, barcode],
@@ -385,7 +385,7 @@ export async function POST(request: NextRequest) {
               { batchNumber: barcode },
               { name: { contains: barcode } },
             ],
-            status: 'ACTIVE',
+            NOT: { status: 'DISCONTINUED' },
           },
           include: {
             inventory: true,
