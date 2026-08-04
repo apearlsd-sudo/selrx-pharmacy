@@ -403,13 +403,13 @@ export function POSView() {
   return (
     <>
       {!shiftActive && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+            <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-800">No Active Shift</p>
-            <p className="text-xs text-amber-700">You must start a shift before processing sales. Click "Start Shift" in the top bar.</p>
+            <p className="text-sm font-semibold text-amber-800">No Active Shift</p>
+            <p className="text-xs text-amber-600/80 mt-0.5">You must start a shift before processing sales. Click "Start Shift" in the top bar.</p>
           </div>
         </div>
       )}
@@ -417,16 +417,16 @@ export function POSView() {
         {/* Left Column - Product Search & List */}
         <div className="lg:col-span-2 space-y-4">
           {/* Search Bar */}
-          <Card className="gap-0">
+          <Card className="gap-0 shadow-sm">
             <CardContent className="p-0">
-              <div className="flex items-center gap-2 p-3">
+              <div className="flex items-center gap-2.5 p-3.5">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Search products by name, NDC, generic name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10"
+                    className="pl-9 h-10 bg-gray-50/50 border-gray-200/80 focus:bg-white"
                   />
                 </div>
                 <Button
@@ -471,14 +471,16 @@ export function POSView() {
                 </div>
               )}
               {/* Category Filters */}
-              <div className="flex items-center gap-1.5 px-3 pb-3 overflow-x-auto">
+              <div className="flex items-center gap-1.5 px-3.5 pb-3 overflow-x-auto">
                 {posCategories.map((cat) => (
                   <Button
                     key={cat.value}
                     variant={activeCategory === cat.value ? 'default' : 'outline'}
                     size="sm"
-                    className={`text-xs whitespace-nowrap h-7 ${
-                      activeCategory === cat.value ? 'bg-emerald-600 hover:bg-emerald-700' : ''
+                    className={`text-xs whitespace-nowrap h-7 rounded-lg transition-all duration-200 ${
+                      activeCategory === cat.value
+                        ? 'bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-200'
+                        : 'border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300'
                     }`}
                     onClick={() => setActiveCategory(cat.value)}
                   >
@@ -526,10 +528,10 @@ export function POSView() {
                     return (
                       <Card
                         key={product.id}
-                        className={`group hover:shadow-md transition-all ${
-                          isOut ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                        className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-gray-200/80 ${
+                          isOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                         } ${
-                          inCart ? 'ring-2 ring-emerald-500 bg-emerald-50/30' : ''
+                          inCart ? 'ring-2 ring-emerald-500 bg-emerald-50/40 border-emerald-200' : ''
                         }`}
                         onClick={() => {
                           if (isOut) {
@@ -542,17 +544,17 @@ export function POSView() {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm leading-tight truncate">
+                              <p className="font-semibold text-sm leading-tight truncate text-gray-800">
                                 {product.name}
                               </p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
+                              <p className="text-xs text-gray-400 mt-1">
                                 {[product.strength, product.dosageForm, product.unitOfMeasure]
                                   .filter(Boolean)
                                   .join(' · ') || product.category}
                               </p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="font-bold text-emerald-700 text-sm">
+                              <p className="font-bold text-emerald-600 text-sm">
                                 {formatCurrency(product.sellingPrice)}
                               </p>
                               {(product.sellingUnit && product.sellingUnit !== 'EA') && (
@@ -572,7 +574,7 @@ export function POSView() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center justify-between mt-3.5">
                             <div className="flex items-center gap-1.5">
                               <Badge
                                 variant="outline"
@@ -601,7 +603,7 @@ export function POSView() {
                             </div>
                             <Button
                               size="sm"
-                              className={`h-7 w-7 p-0 ${isOut ? 'bg-gray-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                              className={`h-7 w-7 p-0 rounded-lg shadow-sm ${isOut ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                               disabled={isOut}
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -623,13 +625,15 @@ export function POSView() {
         {/* Right Column - Cart & Checkout */}
         <div className="lg:col-span-1">
           <div className="lg:sticky lg:top-4 space-y-4">
-            <Card className="gap-0">
+            <Card className="gap-0 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5 text-emerald-600" />
-                    <CardTitle className="text-base">Cart</CardTitle>
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <ShoppingCart className="h-4.5 w-4.5 text-emerald-600" />
+                    </div>
+                    <CardTitle className="text-base font-semibold text-gray-800">Cart</CardTitle>
+                    <Badge variant="secondary" className="text-[10px] font-medium bg-gray-100 text-gray-500">
                       {cart.reduce((sum, item: CartItem) => sum + item.quantity, 0)} items
                     </Badge>
                   </div>
@@ -638,7 +642,7 @@ export function POSView() {
                       variant="ghost"
                       size="sm"
                       onClick={clearCart}
-                      className="text-xs text-muted-foreground hover:text-red-600"
+                      className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50"
                     >
                       Clear All
                     </Button>
@@ -651,21 +655,21 @@ export function POSView() {
               {/* Cart Items */}
               <div className="max-h-[260px] overflow-y-auto">
                 {cart.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground">
-                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Cart is empty</p>
-                    <p className="text-xs mt-1">Search and add products</p>
+                  <div className="p-8 text-center text-muted-foreground">
+                    <ShoppingCart className="h-10 w-10 mx-auto mb-3 text-gray-200" />
+                    <p className="text-sm font-medium text-gray-400">Cart is empty</p>
+                    <p className="text-xs mt-1 text-gray-300">Search and add products</p>
                   </div>
                 ) : (
                   <div className="p-3 space-y-2">
                     {cart.map((item: CartItem) => (
                       <div
                         key={item.product.id}
-                        className="flex items-center gap-2 rounded-lg border bg-card p-2.5"
+                        className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-card p-2.5 hover:border-gray-300 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.product.name}</p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-sm font-medium truncate text-gray-800">{item.product.name}</p>
+                          <p className="text-xs text-gray-400">
                             {formatCurrency(item.product.sellingPrice)}
                             {item.product.sellingUnit && item.product.sellingUnit !== 'EA'
                               ? ` / ${item.product.sellingUnit.toLowerCase()}`
@@ -717,19 +721,19 @@ export function POSView() {
               <Separator />
 
               {/* Cart Totals */}
-              <div className="p-4 space-y-2">
+              <div className="p-4 space-y-2.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                  <span className="text-gray-400">Subtotal</span>
+                  <span className="font-medium text-gray-700">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">{formatCurrency(tax)}</span>
+                  <span className="text-gray-400">Tax</span>
+                  <span className="font-medium text-gray-700">{formatCurrency(tax)}</span>
                 </div>
-                <Separator />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total</span>
-                  <span className="text-emerald-700">{formatCurrency(total)}</span>
+                <Separator className="bg-gray-100" />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-gray-600">Total</span>
+                  <span className="text-xl font-bold text-emerald-600">{formatCurrency(total)}</span>
                 </div>
               </div>
 
@@ -889,7 +893,7 @@ export function POSView() {
               {/* Action Buttons */}
               <div className="p-4 space-y-2">
                 <Button
-                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-base font-semibold"
+                  className="w-full h-12 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-base font-semibold shadow-lg shadow-emerald-200 transition-all duration-200"
                   onClick={handleProcessPayment}
                   disabled={cart.length === 0 || isProcessingPayment || !shiftActive}
                 >
@@ -909,17 +913,17 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs"
+                    className="text-xs border-gray-200/80 text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
                     onClick={handleVoidTransaction}
                     disabled={cart.length === 0}
                   >
                     <X className="h-3.5 w-3.5 mr-1" />
-                    Void Transaction
+                    Void
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs"
+                    className="text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300"
                     onClick={() => {
                       clearCart()
                       setAmountTendered('')
@@ -932,7 +936,7 @@ export function POSView() {
                 </div>
                 <Button
                   variant="outline"
-                  className="w-full h-10 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 text-sm font-medium"
+                  className="w-full h-10 border-amber-200/80 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 text-sm font-medium"
                   onClick={() => setReturnDialogOpen(true)}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />

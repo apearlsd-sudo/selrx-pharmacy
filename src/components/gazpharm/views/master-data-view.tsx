@@ -174,9 +174,9 @@ function CategoryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Category' : 'Add Category'}</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800">{isEditing ? 'Edit Category' : 'Add Category'}</DialogTitle>
           <DialogDescription>{isEditing ? 'Update category details' : 'Create a new drug category'}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -190,7 +190,7 @@ function CategoryModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!name.trim() || saving} className="bg-emerald-600 hover:bg-emerald-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
           </Button>
@@ -287,9 +287,9 @@ function VendorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800">{isEditing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
           <DialogDescription>{isEditing ? 'Update vendor details' : 'Register a new vendor / supplier'}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
@@ -319,7 +319,7 @@ function VendorModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!form.name.trim() || saving} className="bg-green-600 hover:bg-green-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
           </Button>
@@ -419,9 +419,9 @@ function ManufacturerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Manufacturer' : 'Add Manufacturer'}</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800">{isEditing ? 'Edit Manufacturer' : 'Add Manufacturer'}</DialogTitle>
           <DialogDescription>{isEditing ? 'Update manufacturer details' : 'Register a new drug manufacturer'}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
@@ -463,7 +463,7 @@ function ManufacturerModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!form.name.trim() || saving} className="bg-indigo-600 hover:bg-indigo-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
           </Button>
@@ -503,9 +503,9 @@ function DosageFormModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md rounded-xl">
         <DialogHeader>
-          <DialogTitle>Add Dosage Form</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800">Add Dosage Form</DialogTitle>
           <DialogDescription>Create a new dosage form type</DialogDescription>
         </DialogHeader>
         <div>
@@ -520,7 +520,7 @@ function DosageFormModal({
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => handleClose(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!name.trim()} className="bg-teal-600 hover:bg-teal-700">
             <><Save className="h-4 w-4 mr-2" /> Create</>
           </Button>
@@ -660,9 +660,9 @@ function DrugEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl rounded-xl">
         <DialogHeader>
-          <DialogTitle>Edit Drug / Product</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800">Edit Drug / Product</DialogTitle>
           <DialogDescription>Update product details and pricing</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
@@ -791,7 +791,7 @@ function DrugEditModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!form.name.trim() || !form.sellingPrice || saving} className="bg-teal-600 hover:bg-teal-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> Update Drug</>}
           </Button>
@@ -906,11 +906,11 @@ function CategorySection() {
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Tags className="h-4 w-4 text-emerald-600" />
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Tags className="h-4.5 w-4.5 text-emerald-600" /></div>
           Drug Categories ({categories.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
@@ -920,12 +920,12 @@ function CategorySection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
       </div>
 
       {/* Categories Table */}
-      <Card>
+      <Card className="card-hover">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -1340,13 +1340,13 @@ function DrugSection() {
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Drug Registration Form */}
-      <Card>
+      <Card className="card-hover shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Pill className="h-4 w-4 text-teal-600" />
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600" /></div>
               Register New Drug / Product
             </h3>
             <div className="flex items-center gap-2">
@@ -1597,12 +1597,12 @@ function DrugSection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search drugs by name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input placeholder="Search drugs by name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
       </div>
 
       {/* Drug Table */}
-      <Card>
+      <Card className="card-hover">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -1797,9 +1797,9 @@ function DrugSection() {
 
       {/* ── Product History Dialog ─────────────────────────────── */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[80vh]">
+        <DialogContent className="sm:max-w-xl max-h-[80vh] rounded-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800">
               <Clock className="h-4 w-4 text-teal-600" />
               Product History
             </DialogTitle>
@@ -1826,7 +1826,7 @@ function DrugSection() {
                   const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
                   const dateStr = h.createdAt ? formatDateTimeShort(h.createdAt) : ''
                   return (
-                    <div key={h.id} className="border rounded-lg p-3">
+                    <div key={h.id} className="border border-gray-200/80 rounded-xl p-3 transition-all duration-200">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className={`text-[10px] ${actionColor}`}>
@@ -1869,9 +1869,9 @@ function DrugSection() {
 
       {/* ── Import Products Dialog ──────────────────────────────── */}
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800">
               <FileSpreadsheet className="h-5 w-5 text-teal-600" />
               Import Products from Excel
             </DialogTitle>
@@ -1882,7 +1882,7 @@ function DrugSection() {
 
           <div className="space-y-4">
             {/* Template download */}
-            <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-xl transition-all duration-200">
               <FileSpreadsheet className="h-5 w-5 text-teal-600 shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-teal-800">Download Import Template</p>
@@ -1919,7 +1919,7 @@ function DrugSection() {
             {!importResult && (
               <div className="space-y-3">
                 <div
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 ${
                     importFile
                       ? 'border-teal-500 bg-teal-50'
                       : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50'
@@ -1967,7 +1967,7 @@ function DrugSection() {
                 </div>
 
                 {/* Column guide */}
-                <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 rounded-lg">
+                <div className="text-xs text-gray-400 space-y-1 p-3 bg-gray-50 rounded-xl">
                   <p className="font-medium text-foreground">Template columns:</p>
                   <p><span className="text-red-500 font-bold">*</span> <strong>Drug Name</strong> — Product name (required)</p>
                   <p>SKU, Category, Manufacturer, Vendor, Dosage Form, Stock Qty, Status, Reorder Level, Cost, Retail, Expiry</p>
@@ -2146,10 +2146,10 @@ function DosageFormSection() {
   const filtered = forms.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Pill className="h-4 w-4 text-cyan-600" />
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600" /></div>
           Dosage Forms ({forms.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-cyan-600 hover:bg-cyan-700">
@@ -2158,11 +2158,11 @@ function DosageFormSection() {
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search dosage forms..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input placeholder="Search dosage forms..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
       </div>
 
-      <Card>
+      <Card className="card-hover">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -2210,9 +2210,9 @@ function DosageFormSection() {
 
       {/* Add/Edit Dosage Form Dialog */}
       <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setNewName(''); setEditingForm(null) }; setModalOpen(o) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader>
-            <DialogTitle>{editingForm ? 'Edit Dosage Form' : 'Add Dosage Form'}</DialogTitle>
+            <DialogTitle className="font-semibold text-gray-800">{editingForm ? 'Edit Dosage Form' : 'Add Dosage Form'}</DialogTitle>
             <DialogDescription>{editingForm ? 'Rename the dosage form' : 'Create a new dosage form type (e.g., TABLET, CAPSULE, SYRUP)'}</DialogDescription>
           </DialogHeader>
           <div>
@@ -2228,7 +2228,7 @@ function DosageFormSection() {
             <p className="text-[10px] text-muted-foreground mt-1">Will be saved in uppercase (e.g., CHEWABLE TABLET)</p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
             <Button onClick={handleSave} disabled={!newName.trim() || saving} className="bg-cyan-600 hover:bg-cyan-700">
               <><Save className="h-4 w-4 mr-2" /> {editingForm ? 'Update' : 'Create'}</>
             </Button>
@@ -2298,11 +2298,11 @@ function VendorSection() {
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Truck className="h-4 w-4 text-green-600" />
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Truck className="h-4.5 w-4.5 text-emerald-600" /></div>
           Vendors / Suppliers ({vendors.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-green-600 hover:bg-green-700">
@@ -2312,12 +2312,12 @@ function VendorSection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
       </div>
 
       {/* Vendor Table */}
-      <Card>
+      <Card className="card-hover">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -2460,11 +2460,11 @@ function ManufacturerSection() {
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Factory className="h-4 w-4 text-indigo-600" />
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Factory className="h-4.5 w-4.5 text-emerald-600" /></div>
           Manufacturers ({manufacturers.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
@@ -2474,12 +2474,12 @@ function ManufacturerSection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search manufacturers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input placeholder="Search manufacturers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
       </div>
 
       {/* Manufacturers Table */}
-      <Card>
+      <Card className="card-hover">
         <CardContent className="p-0">
           <Table>
             <TableHeader>

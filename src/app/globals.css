@@ -112,6 +112,35 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ── Smooth scrolling & custom scrollbar ── */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar — webkit */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.8 0 0);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.7 0 0);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.8 0 0) transparent;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -119,4 +148,45 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ── Subtle dot pattern for page backgrounds ── */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle, oklch(0.88 0 0) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Gradient text utility ── */
+.text-gradient-emerald {
+  background: linear-gradient(135deg, #059669, #0d9488);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Card hover lift ── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* ── Glass morphism utility ── */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Shimmer loading animation ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.4) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
 }

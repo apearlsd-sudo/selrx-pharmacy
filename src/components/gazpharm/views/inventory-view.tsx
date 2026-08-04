@@ -718,66 +718,66 @@ export function InventoryView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <Package className="h-5 w-5 text-emerald-600" />
+            <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Package className="h-4.5 w-4.5 text-emerald-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{items.length}</p>
-              <p className="text-xs text-muted-foreground">Total Products</p>
+              <p className="text-xs text-gray-400">Total Products</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+            <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center">
+              <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-red-600">{lowStockCount}</p>
-              <p className="text-xs text-muted-foreground">Low Stock Alerts</p>
+              <p className="text-xs text-gray-400">Low Stock Alerts</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
+              <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-amber-600">{outOfStockCount}</p>
-              <p className="text-xs text-muted-foreground">Out of Stock</p>
+              <p className="text-xs text-gray-400">Out of Stock</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-teal-600" />
+            <div className="h-9 w-9 rounded-lg bg-teal-50 flex items-center justify-center">
+              <TrendingUp className="h-4.5 w-4.5 text-teal-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
-              <p className="text-xs text-muted-foreground">Inventory Value</p>
+              <p className="text-xs text-gray-400">Inventory Value</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters & Actions */}
-      <Card>
+      <Card className="shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search by product name or NDC..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white"
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -814,7 +814,7 @@ export function InventoryView() {
               <ClipboardCheck className="h-4 w-4 mr-2" />
               Stock Count
             </Button>
-            <Button onClick={() => setImportDialog(true)} variant="outline" className="border-teal-600 text-teal-700 hover:bg-teal-50">
+            <Button onClick={() => setImportDialog(true)} variant="outline" className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">
               <Upload className="h-4 w-4 mr-2" />
               Import
             </Button>
@@ -823,7 +823,7 @@ export function InventoryView() {
       </Card>
 
       {/* Inventory Table */}
-      <Card>
+      <Card className="card-hover">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -861,7 +861,7 @@ export function InventoryView() {
                 ))
               ) : filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-8 text-gray-400">
                     No inventory items found
                   </TableCell>
                 </TableRow>
@@ -878,7 +878,7 @@ export function InventoryView() {
                   const showExpired = daysToExpiry !== null && daysToExpiry <= 0
                   const isDiscontinued = item.product.status === 'DISCONTINUED'
                   return (
-                    <TableRow key={item.id} className={isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}>
+                    <TableRow key={item.id} className={`hover:bg-gray-50/50 transition-colors ${isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}`}>
                       <TableCell>
                         <div>
                           <p className="font-medium text-sm">{item.product.name}</p>
@@ -898,13 +898,13 @@ export function InventoryView() {
                         {item.product.sellingUnit && item.product.sellingUnit !== 'EA' ? (
                           <span>{item.product.sellingUnit} ({item.product.itemsPerUnit})</span>
                         ) : (
-                          <span className="text-muted-foreground">Each</span>
+                          <span className="text-gray-400">Each</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-bold">
                         {qty}
                         {item.product.sellingUnit && item.product.sellingUnit !== 'EA' && item.product.itemsPerUnit > 1 ? (
-                          <p className="text-[10px] text-muted-foreground font-normal">{Math.floor(qty / item.product.itemsPerUnit)} {item.product.sellingUnit.toLowerCase()}{Math.floor(qty / item.product.itemsPerUnit) !== 1 ? 's' : ''}</p>
+                          <p className="text-[10px] text-gray-400 font-normal">{Math.floor(qty / item.product.itemsPerUnit)} {item.product.sellingUnit.toLowerCase()}{Math.floor(qty / item.product.itemsPerUnit) !== 1 ? 's' : ''}</p>
                         ) : null}
                       </TableCell>
                       <TableCell>
@@ -946,10 +946,12 @@ export function InventoryView() {
 
       {/* Add Product Dialog */}
       <Dialog open={addProductDialog} onOpenChange={setAddProductDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <PackagePlus className="h-5 w-5 text-teal-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <PackagePlus className="h-4.5 w-4.5 text-emerald-600" />
+              </div>
               Add New Product
             </DialogTitle>
             <DialogDescription>Fill in the product details. Fields marked * are required.</DialogDescription>
@@ -1239,10 +1241,12 @@ export function InventoryView() {
 
       {/* -- Add Manufacturer Modal -- */}
       <Dialog open={addMfgOpen} onOpenChange={setAddMfgOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-teal-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <Plus className="h-4.5 w-4.5 text-emerald-600" />
+              </div>
               Add New Manufacturer
             </DialogTitle>
             <DialogDescription>Enter the full details for the new manufacturer.</DialogDescription>
@@ -1296,10 +1300,12 @@ export function InventoryView() {
 
       {/* -- Add Vendor Modal -- */}
       <Dialog open={addVendorOpen} onOpenChange={setAddVendorOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-teal-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <Plus className="h-4.5 w-4.5 text-emerald-600" />
+              </div>
               Add New Vendor
             </DialogTitle>
             <DialogDescription>Enter the full details for the new vendor.</DialogDescription>
@@ -1341,7 +1347,7 @@ export function InventoryView() {
 
       {/* -- Add Category Modal -- */}
       <Dialog open={addCatOpen} onOpenChange={setAddCatOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-teal-600" />
@@ -1370,7 +1376,7 @@ export function InventoryView() {
 
       {/* -- Add Dosage Form Modal -- */}
       <Dialog open={addDfOpen} onOpenChange={setAddDfOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-teal-600" />
@@ -1406,7 +1412,7 @@ export function InventoryView() {
 
       {/* Stock Adjustment Dialog with Batch Management */}
       <Dialog open={adjustDialog} onOpenChange={(open) => { if (!open) { setAdjustDialog(false); setBatches([]) } else setAdjustDialog(true) }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col rounded-xl">
           <DialogHeader>
             <DialogTitle>Adjust Product</DialogTitle>
           </DialogHeader>
@@ -1620,7 +1626,7 @@ export function InventoryView() {
         if (!open) { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }
         else setStockCountDialog(true)
       }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-indigo-600" />
@@ -1800,7 +1806,7 @@ export function InventoryView() {
 
       {/* -- Import Products Dialog -------------------------------- */}
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-teal-600" />

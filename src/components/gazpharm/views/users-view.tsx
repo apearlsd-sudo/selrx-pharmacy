@@ -212,7 +212,7 @@ function PermissionGrid({
         const isCollapsed = collapsedCats.has(cat.category)
 
         return (
-          <div key={cat.category} className="border rounded-lg">
+          <div key={cat.category} className="border border-gray-200/80 rounded-xl">
             <div
               className={`px-3 py-2 bg-gray-50/50 border-b flex items-center justify-between cursor-pointer hover:bg-gray-100/50 transition-colors ${disabled ? 'cursor-not-allowed' : ''}`}
               onClick={() => disabled ? null : setCollapsedCats(prev => {
@@ -287,10 +287,10 @@ function PermissionGrid({
 // ── Role Comparison Matrix ─────────────────────────────────────────────
 function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
   return (
-    <Card>
+    <Card className="card-hover transition-all duration-200">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+        <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><ShieldCheck className="h-4.5 w-4.5 text-emerald-600" /></div>
           Role Permission Matrix
         </CardTitle>
       </CardHeader>
@@ -326,7 +326,7 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
                     </TableCell>
                   </TableRow>
                   {cat.permissions.map((perm) => (
-                    <TableRow key={perm.key}>
+                    <TableRow key={perm.key} className="hover:bg-gray-50/50 transition-colors">
                       <TableCell className="font-medium text-xs sticky left-0 bg-white z-10">{perm.label}</TableCell>
                       {roles.filter(r => r.isActive).map((role) => {
                         const hasPerm = DEFAULT_ROLE_PERMISSIONS[role.name]?.includes(perm.key)
@@ -664,71 +664,71 @@ export function UsersView() {
   })), [users])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
               <UserCheck className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{users.length}</p>
-              <p className="text-xs text-muted-foreground">Total Users</p>
+              <p className="text-xs text-gray-400">Total Users</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-green-600">{users.filter((u) => u.active).length}</p>
-              <p className="text-xs text-muted-foreground">Active</p>
+              <p className="text-xs text-gray-400">Active</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
               <Ban className="h-5 w-5 text-gray-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-600">{users.filter((u) => !u.active).length}</p>
-              <p className="text-xs text-muted-foreground">Inactive</p>
+              <p className="text-xs text-gray-400">Inactive</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
               <Crown className="h-5 w-5 text-purple-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-purple-600">{roles.length}</p>
-              <p className="text-xs text-muted-foreground">Total Roles</p>
+              <p className="text-xs text-gray-400">Total Roles</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
               <Shield className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-blue-600">{ALL_PERMISSIONS.length}</p>
-              <p className="text-xs text-muted-foreground">Permissions</p>
+              <p className="text-xs text-gray-400">Permissions</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Privilege Tier Distribution */}
-      <Card>
+      <Card className="card-hover transition-all duration-200">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Crown className="h-4 w-4 text-purple-600" />
+          <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Crown className="h-4.5 w-4.5 text-emerald-600" /></div>
             Access Level Distribution
           </CardTitle>
         </CardHeader>
@@ -793,7 +793,7 @@ export function UsersView() {
       </div>
 
       {/* Search & Filters */}
-      <Card>
+      <Card className="shadow-sm">
         <CardContent className="p-3">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -802,7 +802,7 @@ export function UsersView() {
                 placeholder="Search by name, email, or role..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-9"
+                className="pl-10 h-9 bg-gray-50/50 border-gray-200/80 focus:bg-white"
               />
             </div>
             <div className="flex gap-2">
@@ -847,7 +847,7 @@ export function UsersView() {
       </Card>
 
       {/* Users Table */}
-      <Card>
+      <Card className="card-hover transition-all duration-200">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -887,7 +887,7 @@ export function UsersView() {
                   const isCustomPerms = parsePermissions(userItem.permissions).length > 0
                   const tier = meta?.tier
                   return (
-                    <TableRow key={userItem.id} className={!userItem.active ? 'opacity-50' : ''}>
+                    <TableRow key={userItem.id} className={`hover:bg-gray-50/50 transition-colors ${!userItem.active ? 'opacity-50' : ''}`}
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
@@ -979,7 +979,7 @@ export function UsersView() {
 
       {/* ── Create User Dialog ─────────────────────────────────────────── */}
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogContent className="max-w-3xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-emerald-600" />
@@ -1109,7 +1109,7 @@ export function UsersView() {
 
       {/* ── Edit User Dialog (Role + Permissions) ─────────────────────── */}
       <Dialog open={editDialog} onOpenChange={setEditDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogContent className="max-w-3xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCog className="h-5 w-5 text-teal-600" />
@@ -1223,7 +1223,7 @@ export function UsersView() {
 
       {/* ── User Detail Dialog ────────────────────────────────────────── */}
       <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="max-w-lg max-h-[90vh]">
+        <DialogContent className="max-w-lg max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-emerald-600" />
@@ -1343,7 +1343,7 @@ export function UsersView() {
 
       {/* ── Delete User Confirmation Dialog ────────────────────────────── */}
       <Dialog open={deleteDialog} onOpenChange={(open) => { if (!open || !deleting) setDeleteDialog(false) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <Trash2 className="h-5 w-5" />
@@ -1468,7 +1468,7 @@ export function UsersView() {
 
           {/* Create Role Dialog */}
           <Dialog open={createRoleDialog} onOpenChange={setCreateRoleDialog}>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5 text-emerald-600" />
@@ -1505,7 +1505,7 @@ export function UsersView() {
 
           {/* Edit Role Dialog */}
           <Dialog open={editRoleDialog} onOpenChange={setEditRoleDialog}>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Edit className="h-5 w-5 text-teal-600" />
@@ -1546,7 +1546,7 @@ export function UsersView() {
 
           {/* Delete Role Dialog */}
           <Dialog open={deleteRoleDialog} onOpenChange={setDeleteRoleDialog}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md rounded-xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-red-600">
                   <Trash2 className="h-5 w-5" />

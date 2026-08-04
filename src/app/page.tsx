@@ -466,12 +466,12 @@ export default function Home() {
   // Show loading screen while hydrating (prevents flash)
   if (!isHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center">
-            <Pill className="h-6 w-6 text-white" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-emerald-50/30">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-200">
+            <Pill className="h-7 w-7 text-white" />
           </div>
-          <div className="h-5 w-20 rounded-md bg-gray-200 animate-pulse" />
+          <div className="h-5 w-24 rounded-lg bg-gray-200/80 animate-pulse" />
         </div>
       </div>
     )
@@ -523,28 +523,28 @@ export default function Home() {
   const currentLabel = NAV_ITEMS.find((n) => n.name === currentView)?.label || 'Dashboard'
 
   return (
-    <div className="min-h-screen flex bg-gray-50/50">
+    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 via-white to-emerald-50/30">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r shadow-sm transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200/80 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center">
+        <div className="flex items-center gap-3 px-4 h-16 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-600 to-emerald-700">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
               <Pill className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-900 leading-tight">SelRx</h1>
-              <p className="text-[10px] text-muted-foreground leading-tight">Pharmacy POS System</p>
+              <h1 className="text-sm font-bold text-white leading-tight tracking-tight">SelRx</h1>
+              <p className="text-[10px] text-emerald-100 leading-tight font-medium">Pharmacy POS System</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto lg:hidden h-7 w-7"
+            className="ml-auto lg:hidden h-7 w-7 text-white/80 hover:text-white hover:bg-white/10"
             onClick={toggleSidebar}
           >
             <X className="h-4 w-4" />
@@ -553,27 +553,27 @@ export default function Home() {
 
         {/* Nav Items */}
         <ScrollArea className="flex-1 h-[calc(100vh-10rem)]">
-          <div className="p-3 space-y-1">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
+          <div className="p-3 space-y-0.5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 py-2">
               Main
             </p>
             {visibleNavItems.slice(0, 2).map((item) => (
               <button
                 key={item.name}
-                className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                   currentView === item.name
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <item.icon className={`h-4 w-4 ${currentView === item.name ? 'text-emerald-600' : ''}`} />
+                <item.icon className={`h-[18px] w-[18px] ${currentView === item.name ? 'text-emerald-600' : ''}`} />
                 {item.label}
                 {item.badge && (
-                  <span className="ml-auto text-[10px] bg-emerald-600 text-white rounded-full px-1.5 py-0.5">
+                  <span className="ml-auto text-[9px] font-bold bg-emerald-600 text-white rounded-full px-1.5 py-0.5 shadow-sm shadow-emerald-200">
                     {item.badge}
                   </span>
                 )}
@@ -582,8 +582,8 @@ export default function Home() {
 
             {visibleNavItems.length > 2 && (
               <>
-                <Separator className="my-2" />
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
+                <Separator className="my-2.5 bg-gray-100" />
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 py-2">
                   Management
                 </p>
               </>
@@ -591,17 +591,17 @@ export default function Home() {
             {visibleNavItems.slice(2).map((item) => (
               <button
                 key={item.name}
-                className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                   currentView === item.name
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <item.icon className={`h-4 w-4 ${currentView === item.name ? 'text-emerald-600' : ''}`} />
+                <item.icon className={`h-[18px] w-[18px] ${currentView === item.name ? 'text-emerald-600' : ''}`} />
                 {item.label}
               </button>
             ))}
@@ -609,19 +609,19 @@ export default function Home() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t p-3">
-          <div className="flex items-center gap-2.5 rounded-lg px-3 py-2">
-            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
-              <User className="h-4 w-4 text-emerald-600" />
+        <div className="border-t border-gray-100 p-3">
+          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-gray-50/50">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+              <User className="h-4 w-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{user?.name || 'User'}</p>
-              <p className="text-[10px] text-muted-foreground uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
+              <p className="text-xs font-semibold truncate text-gray-800">{user?.name || 'User'}</p>
+              <p className="text-[10px] text-emerald-600 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-red-600"
+              className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
               onClick={() => setLogoutOpen(true)}
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -633,7 +633,7 @@ export default function Home() {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/20 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={toggleSidebar}
         />
       )}
@@ -641,17 +641,19 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 h-14 bg-white border-b flex items-center gap-3 px-4 lg:px-6">
+        <header className="sticky top-0 z-20 h-14 glass border-b border-gray-200/60 flex items-center gap-3 px-4 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-9 w-9"
+            className="lg:hidden h-9 w-9 hover:bg-gray-100"
             onClick={toggleSidebar}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
-          <h1 className="text-lg font-bold text-gray-900">{company?.name || 'SelRx'}</h1>
+          <div>
+            <h1 className="text-base font-bold text-gray-900 leading-tight">{company?.name || 'SelRx'}</h1>
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
             {/* Live Clock */}
@@ -707,24 +709,24 @@ export default function Home() {
                 <span className="hidden md:inline">Start Shift</span>
               </Button>
             )}
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mr-1">
-                <span className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <User className="h-3.5 w-3.5 text-emerald-600" />
+            <div className="hidden sm:flex items-center gap-3">
+              <Separator orientation="vertical" className="h-6 bg-gray-200" />
+              <div className="flex items-center gap-2">
+                <span className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+                  <User className="h-4 w-4 text-white" />
                 </span>
                 <div className="flex flex-col leading-none">
-                  <span className="font-medium text-gray-700 text-xs">{user?.name}</span>
+                  <span className="font-semibold text-gray-800 text-xs">{user?.name}</span>
                   <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
                 </div>
               </div>
               <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-xs border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50"
                 onClick={() => setLogoutOpen(true)}
               >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Logout</span>
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -736,10 +738,17 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="border-t bg-white px-4 lg:px-6 py-3">
+        <footer className="border-t border-gray-100 bg-white/80 backdrop-blur-sm px-4 lg:px-6 py-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>SelRx Pharmacy Management System v1.0</span>
-            <span>Powered by Next.js</span>
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-5 rounded bg-emerald-600 flex items-center justify-center">
+                <Pill className="h-3 w-3 text-white" />
+              </div>
+              <span className="font-medium text-gray-500">SelRx</span>
+              <span className="text-gray-300">·</span>
+              <span>Pharmacy Management System</span>
+            </div>
+            <span className="text-gray-400">v1.0</span>
           </div>
         </footer>
       </main>

@@ -113,14 +113,14 @@ function StatusBadge({ status }: { status: string }) {
 
 function StatSkeleton() {
   return (
-    <Card className="gap-4">
+    <Card className="gap-4 overflow-hidden card-hover">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-10 w-10 rounded-xl" />
         </div>
-        <Skeleton className="mt-2 h-8 w-20" />
-        <Skeleton className="mt-1 h-3 w-32" />
+        <Skeleton className="mt-3 h-8 w-20" />
+        <Skeleton className="mt-1.5 h-3 w-32" />
       </CardContent>
     </Card>
   )
@@ -250,16 +250,16 @@ export function DashboardView() {
       {/* Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="gap-4">
+          <Card key={stat.title} className="gap-4 card-hover overflow-hidden">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                <div className={`rounded-full p-2 ${stat.bgClass}`}>
+                <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                <div className={`rounded-xl p-2.5 ${stat.bgClass} shadow-sm`}>
                   <stat.icon className="h-5 w-5" />
                 </div>
               </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight">{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
+              <p className="mt-3 text-2xl font-bold tracking-tight text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{stat.subtitle}</p>
             </CardContent>
           </Card>
         ))}
@@ -268,11 +268,14 @@ export function DashboardView() {
       {/* Chart + Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Trend Chart */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
-              <CardTitle className="text-base">Sales Trend (Last 7 Days)</CardTitle>
+        <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
+              </div>
+              <CardTitle className="text-base font-semibold text-gray-800">Sales Trend</CardTitle>
+              <span className="text-xs text-gray-400 ml-auto">Last 7 days</span>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
@@ -315,11 +318,13 @@ export function DashboardView() {
         </Card>
 
         {/* Recent Transactions */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-emerald-600" />
-              <CardTitle className="text-base">Recent Transactions</CardTitle>
+        <Card className="card-hover">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <ShoppingCart className="h-4.5 w-4.5 text-emerald-600" />
+              </div>
+              <CardTitle className="text-base font-semibold text-gray-800">Recent Transactions</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
@@ -380,11 +385,14 @@ export function DashboardView() {
       </div>
 
       {/* Top Products */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-emerald-600" />
-            <CardTitle className="text-base">Top Selling Products This Month</CardTitle>
+      <Card className="card-hover">
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Package className="h-4.5 w-4.5 text-emerald-600" />
+            </div>
+            <CardTitle className="text-base font-semibold text-gray-800">Top Selling Products</CardTitle>
+            <span className="text-xs text-gray-400 ml-auto">This month</span>
           </div>
         </CardHeader>
         <CardContent>
@@ -397,27 +405,27 @@ export function DashboardView() {
               {data.topProducts.map((product, index) => (
                 <div
                   key={product.productId}
-                  className="rounded-lg border bg-card p-4 hover:shadow-sm transition-shadow"
+                  className="rounded-xl border border-gray-200/80 bg-card p-4 hover:shadow-md hover:border-emerald-200 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between">
-                    <span className="text-xs font-bold text-emerald-600">
-                      #{index + 1}
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 h-6 w-6 rounded-lg flex items-center justify-center">
+                      {index + 1}
                     </span>
-                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <Package className="h-4 w-4 text-gray-300" />
                   </div>
-                  <p className="mt-1 text-sm font-medium leading-tight line-clamp-2">
+                  <p className="mt-2 text-sm font-medium leading-tight line-clamp-2 text-gray-800">
                     {product.productName}
                   </p>
-                  <div className="mt-3 space-y-1">
-                    <p className="text-xs text-muted-foreground">
-                      Qty sold:{' '}
-                      <span className="font-medium text-foreground">
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-xs text-gray-400">
+                      Qty sold{' '}
+                      <span className="font-semibold text-gray-700">
                         {product._sum.quantity ?? 0}
                       </span>
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Revenue:{' '}
-                      <span className="font-medium text-emerald-600">
+                    <p className="text-xs text-gray-400">
+                      Revenue{' '}
+                      <span className="font-semibold text-emerald-600">
                         {formatCurrency(product._sum.subtotal ?? 0)}
                       </span>
                     </p>

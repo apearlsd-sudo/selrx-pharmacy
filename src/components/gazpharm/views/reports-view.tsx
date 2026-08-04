@@ -777,75 +777,75 @@ export function ReportsView() {
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
               <Label className="text-xs">From:</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs" />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white" />
               <Label className="text-xs">To:</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs" />
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white" />
             </div>
           </div>
         </div>
 
         {/* Sales Summary Tab */}
-        <TabsContent value="sales" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+        <TabsContent value="sales" className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.today?.sales || 0)}
                   </div>
-                  <p className="text-xs text-muted-foreground">Today&apos;s Sales</p>
+                  <p className="text-xs text-gray-400">Today&apos;s Sales</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <ShoppingCart className="h-5 w-5 text-teal-600" />
+                <div className="h-8 w-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <ShoppingCart className="h-4.5 w-4.5 text-teal-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {loading ? <Skeleton className="h-8 w-12" /> : salesStats?.today?.count || 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">Transactions Today</p>
+                  <p className="text-xs text-gray-400">Transactions Today</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-green-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisWeek?.sales || 0)}
                   </div>
-                  <p className="text-xs text-muted-foreground">This Week</p>
+                  <p className="text-xs text-gray-400">This Week</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <CalendarDays className="h-5 w-5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <CalendarDays className="h-4.5 w-4.5 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisMonth?.sales || 0)}
                   </div>
-                  <p className="text-xs text-muted-foreground">This Month</p>
+                  <p className="text-xs text-gray-400">This Month</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Daily Sales Trend */}
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Daily Sales Trend (Last 7 Days)</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Daily Sales Trend (Last 7 Days)</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? <Skeleton className="h-64 w-full" /> : (
@@ -854,7 +854,7 @@ export function ReportsView() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                       <Bar dataKey="sales" fill="#059669" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -863,9 +863,9 @@ export function ReportsView() {
             </Card>
 
             {/* Sales by Category (Pie) */}
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Sales by Product</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Sales by Product</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? <Skeleton className="h-64 w-full" /> : (
@@ -876,7 +876,7 @@ export function ReportsView() {
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -885,9 +885,9 @@ export function ReportsView() {
           </div>
 
           {/* Top Products Table */}
-          <Card>
+          <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Top Selling Products</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-800">Top Selling Products</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -924,14 +924,14 @@ export function ReportsView() {
           </Card>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportSalesSummaryCSV} disabled={loading}>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportSalesSummaryCSV} disabled={loading}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
         </TabsContent>
 
         {/* ========== Per-User Sales Analytics Tab ========== */}
-        <TabsContent value="user-sales" className="space-y-4">
+        <TabsContent value="user-sales" className="space-y-6">
           {/* Header with user filter for SUPER_ADMIN */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -953,23 +953,23 @@ export function ReportsView() {
                 </>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={exportUserSalesCSV} disabled={userSalesData.length === 0}>
+            <Button variant="outline" size="sm" className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportUserSalesCSV} disabled={userSalesData.length === 0}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
 
           {/* Summary KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {userSalesLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesSummary?.totalSales || 0)}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-400">
                     {isSuperAdmin
                       ? (selectedUserId === 'all' ? 'Total Sales (All Users)' : 'User Total Sales')
                       : 'My Total Sales'}
@@ -977,42 +977,42 @@ export function ReportsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <ShoppingCart className="h-5 w-5 text-teal-600" />
+                <div className="h-8 w-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                  <ShoppingCart className="h-4.5 w-4.5 text-teal-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {userSalesLoading ? <Skeleton className="h-8 w-12" /> : salesSummary?.totalTransactions || 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">Total Transactions</p>
+                  <p className="text-xs text-gray-400">Total Transactions</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-sky-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-sky-600" />
+                <div className="h-8 w-8 rounded-lg bg-sky-100 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-sky-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {userSalesLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesSummary?.averageTransaction || 0)}
                   </div>
-                  <p className="text-xs text-muted-foreground">Avg Transaction</p>
+                  <p className="text-xs text-gray-400">Avg Transaction</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-amber-600" />
+                <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <Users className="h-4.5 w-4.5 text-amber-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-gray-900">
                     {userSalesLoading ? <Skeleton className="h-8 w-12" /> : userSalesData.length}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-400">
                     {isSuperAdmin ? 'Active Users' : 'Data Source'}
                   </p>
                 </div>
@@ -1021,12 +1021,12 @@ export function ReportsView() {
           </div>
 
           {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sales by User Bar Chart (SUPER_ADMIN only, when viewing all) */}
             {isSuperAdmin && selectedUserId === 'all' && userSalesChartData.length > 0 && (
-              <Card>
+              <Card className="card-hover transition-all duration-200">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Sales by User</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800">Sales by User</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {userSalesLoading ? <Skeleton className="h-64 w-full" /> : (
@@ -1035,7 +1035,7 @@ export function ReportsView() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
-                        <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                        <Tooltip formatter={(value: any) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                         <Bar dataKey="sales" radius={[0, 4, 4, 0]}>
                           {userSalesChartData.map((entry: any, index: number) => (
                             <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1049,9 +1049,9 @@ export function ReportsView() {
             )}
 
             {/* Daily Sales Trend Line Chart */}
-            <Card className={!(isSuperAdmin && selectedUserId === 'all' && userSalesChartData.length > 0) ? 'lg:col-span-2' : ''}>
+            <Card className={`${!(isSuperAdmin && selectedUserId === 'all' && userSalesChartData.length > 0) ? 'lg:col-span-2' : ''} card-hover transition-all duration-200`}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Daily Sales Trend</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Daily Sales Trend</CardTitle>
               </CardHeader>
               <CardContent>
                 {userSalesLoading ? <Skeleton className="h-64 w-full" /> : userDailyChartData.length > 0 ? (
@@ -1060,7 +1060,7 @@ export function ReportsView() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
                       <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                      <Tooltip formatter={(value: any, name: any) => name === 'sales' ? formatCurrency(value) : value} />
+                      <Tooltip formatter={(value: any, name: any) => name === 'sales' ? formatCurrency(value) : value} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                       <Legend />
                       <Line type="monotone" dataKey="sales" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} />
                       <Line type="monotone" dataKey="count" stroke="#0891b2" strokeWidth={2} dot={{ r: 3 }} />
@@ -1076,10 +1076,10 @@ export function ReportsView() {
           </div>
 
           {/* Per-User Sales Breakdown Table (SUPER_ADMIN: all users; others: own row) */}
-          <Card>
+          <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Users className="h-4 w-4" />
+              <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Users className="h-4.5 w-4.5 text-emerald-600" /></div>
                 {isSuperAdmin ? 'Sales Breakdown by User' : 'My Sales Performance'}
               </CardTitle>
             </CardHeader>
@@ -1166,47 +1166,47 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Inventory Tab */}
-        <TabsContent value="inventory" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
+        <TabsContent value="inventory" className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{inventory.length}</p>
-                  <p className="text-xs text-muted-foreground">Total SKUs</p>
+                  <p className="text-2xl font-bold text-gray-900">{inventory.length}</p>
+                  <p className="text-xs text-gray-400">Total SKUs</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
                   <Badge className="bg-red-600 text-white">{lowStockItems.length}</Badge>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-red-600">{lowStockItems.length}</p>
-                  <p className="text-xs text-muted-foreground">Low Stock Alerts</p>
+                  <p className="text-xs text-gray-400">Low Stock Alerts</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
                   <Badge className="bg-amber-600 text-white">{expiringSoon.length}</Badge>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-amber-600">{expiringSoon.length}</p>
-                  <p className="text-xs text-muted-foreground">Expiring (30 days)</p>
+                  <p className="text-xs text-gray-400">Expiring (30 days)</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Stock by Category</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Stock by Category</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={280}>
@@ -1216,14 +1216,14 @@ export function ReportsView() {
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Low Stock Items</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Low Stock Items</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -1252,14 +1252,14 @@ export function ReportsView() {
           </div>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportInventoryCSV} disabled={inventory.length === 0}>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportInventoryCSV} disabled={inventory.length === 0}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
         </TabsContent>
 
         {/* Expired Goods Tab */}
-        <TabsContent value="expired-goods" className="space-y-4">
+        <TabsContent value="expired-goods" className="space-y-6">
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div />
@@ -1385,7 +1385,7 @@ export function ReportsView() {
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">Expired Products Detail</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800">Expired Products Detail</CardTitle>
                     {(expiredSummary?.unprocessedItems || 0) > 0 && (
                       <div className="flex items-center gap-2">
                         <Checkbox
@@ -1498,47 +1498,47 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Prescriptions Tab */}
-        <TabsContent value="prescriptions" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
+        <TabsContent value="prescriptions" className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <span className="text-lg font-bold text-emerald-600">{prescriptions.length}</span>
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <span className="text-sm font-bold text-emerald-600">{prescriptions.length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{prescriptions.length}</p>
-                  <p className="text-xs text-muted-foreground">Total Prescriptions</p>
+                  <p className="text-2xl font-bold text-gray-900">{prescriptions.length}</p>
+                  <p className="text-xs text-gray-400">Total Prescriptions</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <span className="text-lg font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
+                <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+                  <span className="text-sm font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
-                  <p className="text-xs text-muted-foreground">Dispensed</p>
+                  <p className="text-2xl font-bold text-gray-900">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
+                  <p className="text-xs text-gray-400">Dispensed</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <span className="text-lg font-bold text-amber-600">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
+                <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <span className="text-sm font-bold text-amber-600">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
-                  <p className="text-xs text-muted-foreground">Urgent/STAT</p>
+                  <p className="text-2xl font-bold text-gray-900">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
+                  <p className="text-xs text-gray-400">Urgent/STAT</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Prescriptions by Status</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Prescriptions by Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={280}>
@@ -1546,7 +1546,7 @@ export function ReportsView() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="status" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                       {rxByStatus.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1556,9 +1556,9 @@ export function ReportsView() {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Recent Prescriptions</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Recent Prescriptions</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -1586,14 +1586,14 @@ export function ReportsView() {
           </div>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportPrescriptionsCSV} disabled={prescriptions.length === 0}>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportPrescriptionsCSV} disabled={prescriptions.length === 0}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
         </TabsContent>
 
         {/* Stock Take Reports Tab */}
-        <TabsContent value="stocktake" className="space-y-4">
+        <TabsContent value="stocktake" className="space-y-6">
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -1612,7 +1612,7 @@ export function ReportsView() {
             <>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Completed Stock Takes</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800">Completed Stock Takes</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -1660,39 +1660,39 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Product Activity Tab */}
-        <TabsContent value="product-activity" className="space-y-4">
+        <TabsContent value="product-activity" className="space-y-6">
           {/* KPI summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <span className="text-lg font-bold text-emerald-600">+</span>
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <span className="text-sm font-bold text-emerald-600">+</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{products.length}</p>
-                  <p className="text-xs text-muted-foreground">Active Products</p>
+                  <p className="text-2xl font-bold text-gray-900">{products.length}</p>
+                  <p className="text-xs text-gray-400">Active Products</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-blue-600" />
+                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Clock className="h-4.5 w-4.5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
-                  <p className="text-xs text-muted-foreground">Edits (this page)</p>
+                  <p className="text-2xl font-bold text-gray-900">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
+                  <p className="text-xs text-gray-400">Edits (this page)</p>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                  <Trash2 className="h-5 w-5 text-red-500" />
+                <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
+                  <Trash2 className="h-4.5 w-4.5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
-                  <p className="text-xs text-muted-foreground">Deleted (this page)</p>
+                  <p className="text-2xl font-bold text-gray-900">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
+                  <p className="text-xs text-gray-400">Deleted (this page)</p>
                 </div>
               </CardContent>
             </Card>
@@ -1707,7 +1707,7 @@ export function ReportsView() {
                 value={activitySearch}
                 onChange={(e) => setActivitySearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchActivityLog(1, activityFilter, activitySearch)}
-                className="pl-9 h-8 text-xs"
+                className="pl-9 h-8 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white"
               />
             </div>
             <Select value={activityFilter} onValueChange={(v) => setActivityFilter(v)}>
@@ -1749,10 +1749,10 @@ export function ReportsView() {
           )}
 
           {/* Activity log table */}
-          <Card>
+          <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-semibold">Product Activity Log</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800">Product Activity Log</CardTitle>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
@@ -1942,10 +1942,10 @@ export function ReportsView() {
           </Card>
 
           {/* Delete Product Section */}
-          <Card>
+          <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Trash2 className="h-4 w-4 text-red-500" />
+              <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center"><Trash2 className="h-4.5 w-4.5 text-red-500" /></div>
                 Discontinue Product
               </CardTitle>
             </CardHeader>
@@ -1958,7 +1958,7 @@ export function ReportsView() {
                     placeholder="Search products to discontinue..."
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    className="pl-9 h-8 text-xs"
+                    className="pl-9 h-8 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white"
                   />
                 </div>
               </div>
@@ -1993,7 +1993,7 @@ export function ReportsView() {
         </TabsContent>
 
         {/* ── Shift Reports Tab ── */}
-        <TabsContent value="shifts" className="space-y-4 relative block w-full">
+        <TabsContent value="shifts" className="space-y-6 relative block w-full">
           {/* Shift-specific filters */}
           <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -2086,7 +2086,7 @@ export function ReportsView() {
               {isSuperAdmin && shiftReport.salesByUser && shiftReport.salesByUser.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Sales by User</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800">Sales by User</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -2115,7 +2115,7 @@ export function ReportsView() {
               <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">Individual Drug Quantities Sold</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800">Individual Drug Quantities Sold</CardTitle>
                     <div className="flex gap-1.5">
                       <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={handleShiftExportCSV}>
                         <Download className="h-3 w-3 mr-1" /> CSV
@@ -2159,7 +2159,7 @@ export function ReportsView() {
               {/* Inventory Snapshot */}
               <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Current Inventory ({shiftReport.inventorySnapshot?.length || 0} items in stock)</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800">Current Inventory ({shiftReport.inventorySnapshot?.length || 0} items in stock)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {(!shiftReport.inventorySnapshot || shiftReport.inventorySnapshot.length === 0) ? (
@@ -2200,7 +2200,7 @@ export function ReportsView() {
               {/* Shift History */}
               <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Shift History</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800">Shift History</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {shiftReport.shiftHistory.length === 0 ? (
@@ -2258,7 +2258,7 @@ export function ReportsView() {
           <Card className={discrepancy?.hasData && discrepancy.summary.totalDiscrepancies > 0 ? 'border-amber-300 overflow-hidden' : 'overflow-hidden'}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-1.5">
+                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   Shift Discrepancy Analysis
                       {discrepancy?.hasData && discrepancy.totalHandoffs > 1 && (
@@ -2475,7 +2475,7 @@ export function ReportsView() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteProduct} onOpenChange={(open) => { if (!open) setDeleteProduct(null) }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Discontinue Product</AlertDialogTitle>
             <AlertDialogDescription>
