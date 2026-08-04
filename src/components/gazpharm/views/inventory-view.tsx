@@ -191,8 +191,17 @@ export function InventoryView() {
     }
   }, [])
 
+  const fetchDosageForms = useCallback(async () => {
+    try {
+      const res = await fetch('/api/products/dosage-forms')
+      if (res.ok) setDosageForms(await res.json())
+    } catch {
+      // silent
+    }
+  }, [])
+
   // Separate stable fetches from search-dependent inventory fetch
-  useEffect(() => { fetchCategories(); fetchManufacturers(); fetchVendors() }, [fetchCategories, fetchManufacturers, fetchVendors])
+  useEffect(() => { fetchCategories(); fetchManufacturers(); fetchVendors(); fetchDosageForms() }, [fetchCategories, fetchManufacturers, fetchVendors, fetchDosageForms])
   useEffect(() => { fetchInventory() }, [fetchInventory])
 
   const filteredItems = useMemo(() => {
@@ -395,6 +404,7 @@ export function InventoryView() {
       setAddProductDialog(false)
       setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', manufacturerId: '', vendorId: '', dosageForm: '', sellingUnit: 'EA', itemsPerUnit: '1' })
       fetchInventory()
+      fetchDosageForms()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to add product', variant: 'destructive' })
     } finally {
@@ -509,7 +519,7 @@ export function InventoryView() {
     } else {
       setDosageForms((prev) => [...prev, upper])
       setProductForm((prev) => ({ ...prev, dosageForm: upper }))
-      addToast({ title: 'Dosage Form Added', description: upper, variant: 'success' })
+      addToast({ title: 'Dosage Form Added', description: `${upper} will persist once a product is saved with it`, variant: 'success' })
     }
     setAddDfName('')
     setAddDfOpen(false)
