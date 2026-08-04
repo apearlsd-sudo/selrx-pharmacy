@@ -104,7 +104,7 @@ export function InventoryView() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [productForm, setProductForm] = useState({
     name: '', sku: '', category: '', price: '', costPrice: '', stockQuantity: '',
-    minStockLevel: '10', expiryDate: '', barcode: '',
+    minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '',
     manufacturerId: '', vendorId: '', dosageForm: '',
     sellingUnit: 'EA', itemsPerUnit: '1',
   })
@@ -372,7 +372,7 @@ export function InventoryView() {
           costPrice: productForm.costPrice ? parseFloat(productForm.costPrice) : parseFloat(productForm.price) * 0.7,
           reorderPoint: parseInt(productForm.minStockLevel) || 10,
           expiryDate: productForm.expiryDate || null,
-          batchNumber: productForm.barcode || null,
+          batchNumber: productForm.batchNumber || null,
           manufacturerId: productForm.manufacturerId || null,
           vendorId: productForm.vendorId || null,
           dosageForm: productForm.dosageForm || null,
@@ -402,7 +402,7 @@ export function InventoryView() {
 
       addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
       setAddProductDialog(false)
-      setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', manufacturerId: '', vendorId: '', dosageForm: '', sellingUnit: 'EA', itemsPerUnit: '1' })
+      setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', manufacturerId: '', vendorId: '', dosageForm: '', sellingUnit: 'EA', itemsPerUnit: '1' })
       fetchInventory()
       fetchDosageForms()
     } catch (err: any) {
@@ -1158,6 +1158,24 @@ export function InventoryView() {
               />
             </div>
 
+            {/* Batch Number */}
+            <div>
+              <Label htmlFor="prod-batchno">Batch Number</Label>
+              <div className="flex gap-1 mt-1">
+                <Input
+                  id="prod-batchno"
+                  placeholder="BN-DDMMYYYY-XXXX"
+                  value={productForm.batchNumber}
+                  onChange={(e) => setProductForm({ ...productForm, batchNumber: e.target.value })}
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" size="sm" className="h-9 w-9 px-0 shrink-0" onClick={() => setProductForm({ ...productForm, batchNumber: genBN() })} title="Auto-generate batch number">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Leave blank to auto-generate on first stock receipt</p>
+            </div>
+
             {/* Sell As (Selling Unit) */}
             <div>
               <Label htmlFor="prod-selling-unit">Sell As</Label>
@@ -1166,23 +1184,25 @@ export function InventoryView() {
                   <SelectValue placeholder="Select unit..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EA">Each (individual unit)</SelectItem>
-                  <SelectItem value="STRIP">Strip</SelectItem>
-                  <SelectItem value="BOX">Box</SelectItem>
-                  <SelectItem value="PACK">Pack</SelectItem>
-                  <SelectItem value="CARD">Card (blister)</SelectItem>
-                  <SelectItem value="BOTTLE">Bottle</SelectItem>
-                  <SelectItem value="SACHET">Sachet</SelectItem>
-                  <SelectItem value="TUBE">Tube</SelectItem>
-                  <SelectItem value="VIAL">Vial</SelectItem>
-                  <SelectItem value="PIECE">Piece</SelectItem>
+                  <SelectItem value="EA">Each / Piece</SelectItem>
+                  <SelectItem value="Tablet">Tablet</SelectItem>
+                  <SelectItem value="Capsule">Capsule</SelectItem>
+                  <SelectItem value="Sachet">Sachet</SelectItem>
+                  <SelectItem value="Vial">Vial</SelectItem>
+                  <SelectItem value="Ampoule">Ampoule</SelectItem>
+                  <SelectItem value="Bottle">Bottle</SelectItem>
+                  <SelectItem value="Strip">Strip</SelectItem>
+                  <SelectItem value="Blister">Blister Pack</SelectItem>
+                  <SelectItem value="Tube">Tube</SelectItem>
+                  <SelectItem value="Pack">Pack</SelectItem>
+                  <SelectItem value="Box">Box</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Items Per Unit */}
             <div>
-              <Label htmlFor="prod-items-per-unit">Items Per {productForm.sellingUnit === 'EA' ? 'Unit' : productForm.sellingUnit.charAt(0) + productForm.sellingUnit.slice(1).toLowerCase()}</Label>
+              <Label htmlFor="prod-items-per-unit">Items Per {productForm.sellingUnit === 'EA' ? 'Unit' : productForm.sellingUnit}</Label>
               <Input
                 id="prod-items-per-unit"
                 type="number"
@@ -1459,21 +1479,23 @@ export function InventoryView() {
                     <Select value={adjustSellingUnit} onValueChange={setAdjustSellingUnit}>
                       <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="EA">Each (individual unit)</SelectItem>
-                        <SelectItem value="STRIP">Strip</SelectItem>
-                        <SelectItem value="BOX">Box</SelectItem>
-                        <SelectItem value="PACK">Pack</SelectItem>
-                        <SelectItem value="CARD">Card (blister)</SelectItem>
-                        <SelectItem value="BOTTLE">Bottle</SelectItem>
-                        <SelectItem value="SACHET">Sachet</SelectItem>
-                        <SelectItem value="TUBE">Tube</SelectItem>
-                        <SelectItem value="VIAL">Vial</SelectItem>
-                        <SelectItem value="PIECE">Piece</SelectItem>
+                        <SelectItem value="EA">Each / Piece</SelectItem>
+                        <SelectItem value="Tablet">Tablet</SelectItem>
+                        <SelectItem value="Capsule">Capsule</SelectItem>
+                        <SelectItem value="Sachet">Sachet</SelectItem>
+                        <SelectItem value="Vial">Vial</SelectItem>
+                        <SelectItem value="Ampoule">Ampoule</SelectItem>
+                        <SelectItem value="Bottle">Bottle</SelectItem>
+                        <SelectItem value="Strip">Strip</SelectItem>
+                        <SelectItem value="Blister">Blister Pack</SelectItem>
+                        <SelectItem value="Tube">Tube</SelectItem>
+                        <SelectItem value="Pack">Pack</SelectItem>
+                        <SelectItem value="Box">Box</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Items Per {adjustSellingUnit === 'EA' ? 'Unit' : adjustSellingUnit.charAt(0) + adjustSellingUnit.slice(1).toLowerCase()}</Label>
+                    <Label className="text-xs">Items Per {adjustSellingUnit === 'EA' ? 'Unit' : adjustSellingUnit}</Label>
                     <Input type="number" min="1" step="1" placeholder="e.g., 10" value={adjustItemsPerUnit} onChange={(e) => setAdjustItemsPerUnit(e.target.value)} className="h-8 text-sm mt-0.5" disabled={adjustSellingUnit === 'EA'} />
                   </div>
                 </div>
