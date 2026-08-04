@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit2, Save, X,
-  Upload, FileSpreadsheet, Download, History, Clock,
+  Upload, FileSpreadsheet, Download, History, Clock, RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1243,6 +1243,24 @@ function DrugSection() {
     }
   }
 
+  const handleReactivateDrug = async (drug: DrugProduct) => {
+    try {
+      const res = await fetch(`/api/products/${drug.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
+        body: JSON.stringify({ status: 'ACTIVE' }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to reactivate product')
+      }
+      addToast({ title: 'Product Reactivated', description: `"${drug.name}" is now active`, variant: 'success' })
+      fetchData()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    }
+  }
+
   // History handler
   const handleOpenHistory = async (drug: DrugProduct) => {
     setHistoryDrug(drug)
@@ -1588,9 +1606,20 @@ function DrugSection() {
                         {formatDate(drug.expiryDate)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {isDiscontinued ? (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => handleReactivateDrug(drug)} title="Reactivate">
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteDrug(drug)} title="Discontinue">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }} title="Edit">
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
