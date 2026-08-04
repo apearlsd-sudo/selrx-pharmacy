@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatDateTime } from '@/lib/format-date'
@@ -360,25 +362,31 @@ export function StockTakeSection() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border p-3 text-center">
-              <p className="text-lg font-bold">{itemCount}</p>
-              <p className="text-[11px] text-muted-foreground">Products</p>
-            </div>
-            <div className="rounded-lg border p-3 text-center">
-              <p className="text-lg font-bold text-amber-600">{variances.length}</p>
-              <p className="text-[11px] text-muted-foreground">Variances</p>
-            </div>
-            <div className="rounded-lg border p-3 text-center">
-              <p className="text-lg font-bold">{Object.keys(countedItems).length}</p>
-              <p className="text-[11px] text-muted-foreground">Counted</p>
-            </div>
+          <div className="grid grid-cols-3 gap-3 stagger-children">
+            <Card className="card-hover">
+              <CardContent className="p-3 text-center">
+                <p className="text-lg font-bold">{itemCount}</p>
+                <p className="text-[11px] text-muted-foreground">Products</p>
+              </CardContent>
+            </Card>
+            <Card className="card-hover">
+              <CardContent className="p-3 text-center">
+                <p className="text-lg font-bold text-amber-600">{variances.length}</p>
+                <p className="text-[11px] text-muted-foreground">Variances</p>
+              </CardContent>
+            </Card>
+            <Card className="card-hover">
+              <CardContent className="p-3 text-center">
+                <p className="text-lg font-bold">{Object.keys(countedItems).length}</p>
+                <p className="text-[11px] text-muted-foreground">Counted</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Show items if completed or has saved items */}
           {selectedTake.status === 'COMPLETED' && selectedTake.items && selectedTake.items.length > 0 ? (
             <div className="border rounded-lg overflow-hidden">
-              <Table>
+              <Table className="table-header-standard">
                 <TableHeader>
                   <TableRow className="bg-gray-50/50">
                     <TableHead className="text-xs">Product</TableHead>
@@ -437,7 +445,7 @@ export function StockTakeSection() {
                     </div>
                   </div>
                   <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-                    <Table>
+                    <Table className="table-header-standard">
                       <TableHeader className="sticky top-0">
                         <TableRow className="bg-gray-50">
                           <TableHead className="text-xs">Product</TableHead>
@@ -449,8 +457,8 @@ export function StockTakeSection() {
                       <TableBody>
                         {filteredInventory.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">
-                              No products match your search
+                            <TableCell colSpan={4} className="p-0">
+                              <EmptyState icon={Search} title="No products found" description="No products match your search" />
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -488,12 +496,12 @@ export function StockTakeSection() {
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground mb-3">Load current inventory to begin counting</p>
-                  <Button onClick={handleStartCounting}>
-                    <Play className="h-4 w-4 mr-1.5" /> Load Inventory
-                  </Button>
-                </div>
+                <EmptyState
+                  icon={Play}
+                  title="Ready to count inventory"
+                  description="Load current inventory to begin counting"
+                  action={{ label: 'Load Inventory', onClick: handleStartCounting }}
+                />
               )}
             </>
           ) : null}
@@ -513,13 +521,12 @@ export function StockTakeSection() {
 
   // ── List View ──
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-            <CardTitle className="text-base">Periodic Stock Taking</CardTitle>
-          </div>
+    <div className="animate-fade-in">
+      <PageHeader
+        icon={ClipboardCheck}
+        title="Periodic Stock Taking"
+        description="Conduct regular stock counts and variance analysis"
+        action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={fetchStockTakes} disabled={loading}>
               <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
@@ -529,8 +536,9 @@ export function StockTakeSection() {
               <Plus className="h-3.5 w-3.5 mr-1.5" /> New Stock Take
             </Button>
           </div>
-        </div>
-      </CardHeader>
+        }
+      />
+    <Card>
       <CardContent>
         {loading ? (
           <div className="space-y-3">
@@ -539,11 +547,12 @@ export function StockTakeSection() {
             ))}
           </div>
         ) : stockTakes.length === 0 ? (
-          <div className="text-center py-12">
-            <ClipboardCheck className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-            <p className="text-sm font-medium text-gray-500">No stock takes yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Create a new stock take to begin counting inventory</p>
-          </div>
+          <EmptyState
+            icon={ClipboardCheck}
+            title="No stock takes yet"
+            description="Create a new stock take to begin counting inventory"
+            action={{ label: 'New Stock Take', onClick: () => setView('new') }}
+          />
         ) : (
           <div className="space-y-3">
             {stockTakes.map((st) => (
@@ -622,5 +631,6 @@ export function StockTakeSection() {
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   )
 }

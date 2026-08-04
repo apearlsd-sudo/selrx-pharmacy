@@ -53,6 +53,8 @@ import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTimeShort, formatDateShort } from '@/lib/date-utils'
 import { authHeaders } from '@/lib/auth-headers'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488']
 
@@ -266,25 +268,25 @@ export function GoodsReturnView() {
   const displayReturns = activeTab === 'pending' ? pendingReturns : returns
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Goods Return</h1>
-          <p className="text-sm text-muted-foreground mt-1">Process product returns, restock inventory, and manage return tickets</p>
-        </div>
-        <Button
-          onClick={() => setNewReturnOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Return
-        </Button>
-      </div>
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        icon={RotateCcw}
+        title="Goods Return"
+        description="Process and track product returns"
+        action={
+          <Button
+            onClick={() => setNewReturnOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Return
+          </Button>
+        }
+      />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-none shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+        <Card className="border-none shadow-sm card-hover">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -298,7 +300,7 @@ export function GoodsReturnView() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm card-hover">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -312,7 +314,7 @@ export function GoodsReturnView() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm card-hover">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -326,7 +328,7 @@ export function GoodsReturnView() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm card-hover">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -723,10 +725,12 @@ function ReturnTable({
   if (returns.length === 0) {
     return (
       <Card className="border-none shadow-sm">
-        <CardContent className="p-12 text-center">
-          <RotateCcw className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">No returns found</p>
-          <p className="text-xs text-muted-foreground mt-1">Returns will appear here once they are processed</p>
+        <CardContent className="p-0">
+          <EmptyState
+            icon={RotateCcw}
+            title="No returns found"
+            description="Returns will appear here once they are processed"
+          />
         </CardContent>
       </Card>
     )
@@ -735,7 +739,7 @@ function ReturnTable({
   return (
     <Card className="border-none shadow-sm">
       <CardContent className="p-0">
-        <Table>
+        <Table className="table-header-standard">
           <TableHeader>
             <TableRow className="bg-gray-50/80">
               <TableHead className="text-xs font-semibold">Return #</TableHead>

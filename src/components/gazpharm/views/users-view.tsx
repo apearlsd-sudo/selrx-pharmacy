@@ -43,6 +43,8 @@ import {
 } from '@/lib/permissions'
 import type { PrivilegeTier } from '@/lib/permissions'
 import { formatDateTime, formatDate } from '@/lib/date-utils'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 // ── Icon map for permission categories ─────────────────────────────────
 const CATEGORY_ICONS: Record<string, any> = {
@@ -664,9 +666,10 @@ export function UsersView() {
   })), [users])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader icon={UserCog} title="User Management" description="Manage staff accounts, roles, and permissions" />
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -774,12 +777,8 @@ export function UsersView() {
       {/* Users Tab */}
       {activeTab === 'users' && (
       <>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">User Management</h2>
-          <p className="text-sm text-muted-foreground">Manage staff accounts, roles, and permissions</p>
-        </div>
+      {/* Add User Button */}
+      <div className="flex justify-end">
         {(currentUser?.role === 'SUPER_ADMIN') && (
           <Button onClick={() => {
             setForm({ name: '', email: '', password: '', role: 'CLERK', phone: '', licenseNumber: '', department: '', shift: '', hireDate: '' })
@@ -849,7 +848,7 @@ export function UsersView() {
       {/* Users Table */}
       <Card className="card-hover transition-all duration-200">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -873,8 +872,8 @@ export function UsersView() {
                 ))
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
-                    <p className="text-muted-foreground">No users found matching your filters</p>
+                  <TableCell colSpan={8} className="p-0">
+                    <EmptyState icon={UserCog} title="No users found" description="Add a new user to get started" />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -887,7 +886,7 @@ export function UsersView() {
                   const isCustomPerms = parsePermissions(userItem.permissions).length > 0
                   const tier = meta?.tier
                   return (
-                    <TableRow key={userItem.id} className={`hover:bg-gray-50/50 transition-colors ${!userItem.active ? 'opacity-50' : ''}`}
+                    <TableRow key={userItem.id} className={`hover:bg-gray-50/50 transition-colors ${!userItem.active ? 'opacity-50' : ''}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">

@@ -5,7 +5,7 @@ import {
   ShoppingCart, TrendingUp, CalendarDays, Download, FileText,
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
   Trash2, Clock, ChevronLeft, ChevronRight, Search, PackageX,
-  AlertTriangle, CheckCircle2, DollarSign, Package, Filter, Printer,
+  AlertTriangle, CheckCircle2, DollarSign, Package, Filter, Printer, BarChart3,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,8 @@ import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { formatDate, formatDateTimeShort } from '@/lib/date-utils'
 import { format } from 'date-fns'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#0891b2', '#06b6d4']
 
@@ -760,7 +762,9 @@ export function ReportsView() {
   }, [userSalesData, addToast])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader icon={BarChart3} title="Reports" description="Sales analytics, shift reports, and product activity" />
+
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -786,7 +790,7 @@ export function ReportsView() {
 
         {/* Sales Summary Tab */}
         <TabsContent value="sales" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -890,7 +894,7 @@ export function ReportsView() {
               <CardTitle className="text-sm font-semibold text-gray-800">Top Selling Products</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-header-standard">
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
@@ -959,7 +963,7 @@ export function ReportsView() {
           </div>
 
           {/* Summary KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -1067,9 +1071,7 @@ export function ReportsView() {
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No sales data available for the selected period
-                  </div>
+                  <div className="h-64 flex items-center justify-center"><EmptyState icon={TrendingUp} title="No sales data available" description="Select a different date range to see sales trends" /></div>
                 )}
               </CardContent>
             </Card>
@@ -1084,7 +1086,7 @@ export function ReportsView() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-header-standard">
                 <TableHeader>
                   <TableRow>
                     {isSuperAdmin && selectedUserId === 'all' && <TableHead>#</TableHead>}
@@ -1111,9 +1113,7 @@ export function ReportsView() {
                     ))
                   ) : userSalesData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                        No sales data found for the selected period
-                      </TableCell>
+                      <TableCell colSpan={8} className="p-0"><EmptyState icon={Users} title="No sales data found" description="No transactions match the selected period" /></TableCell>
                     </TableRow>
                   ) : (
                     userSalesData.map((u, i) => {
@@ -1167,7 +1167,7 @@ export function ReportsView() {
 
         {/* Inventory Tab */}
         <TabsContent value="inventory" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -1226,7 +1226,7 @@ export function ReportsView() {
                 <CardTitle className="text-sm font-semibold text-gray-800">Low Stock Items</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
@@ -1243,7 +1243,7 @@ export function ReportsView() {
                       </TableRow>
                     ))}
                     {lowStockItems.length === 0 && (
-                      <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No low stock items</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={3} className="p-0"><EmptyState icon={Package} title="No low stock items" description="All products are above their reorder levels" /></TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -1318,13 +1318,7 @@ export function ReportsView() {
               ))}
             </div>
           ) : expiredGoods.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <PackageX className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm font-medium text-gray-500">No expired goods found</p>
-                <p className="text-xs text-muted-foreground mt-1">Products past their expiry date will appear here</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={PackageX} title="No expired goods found" description="Products past their expiry date will appear here" />
           ) : (
             <>
               {/* KPI cards */}
@@ -1399,7 +1393,7 @@ export function ReportsView() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <Table>
+                    <Table className="table-header-standard">
                       <TableHeader>
                         <TableRow>
                           {(expiredSummary?.unprocessedItems || 0) > 0 && <TableHead className="w-8"></TableHead>}
@@ -1499,7 +1493,7 @@ export function ReportsView() {
 
         {/* Prescriptions Tab */}
         <TabsContent value="prescriptions" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -1561,7 +1555,7 @@ export function ReportsView() {
                 <CardTitle className="text-sm font-semibold text-gray-800">Recent Prescriptions</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Rx #</TableHead>
@@ -1601,13 +1595,7 @@ export function ReportsView() {
               ))}
             </div>
           ) : completedStockTakes.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm font-medium text-gray-500">No completed stock takes</p>
-                <p className="text-xs text-muted-foreground mt-1">Complete a stock take to generate reports showing expired goods and stock variance</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={FileText} title="No completed stock takes" description="Complete a stock take to generate reports showing expired goods and stock variance" />
           ) : (
             <>
               <Card>
@@ -1615,7 +1603,7 @@ export function ReportsView() {
                   <CardTitle className="text-sm font-semibold text-gray-800">Completed Stock Takes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
+                  <Table className="table-header-standard">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Reference</TableHead>
@@ -1662,7 +1650,7 @@ export function ReportsView() {
         {/* Product Activity Tab */}
         <TabsContent value="product-activity" className="space-y-6">
           {/* KPI summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -1780,7 +1768,7 @@ export function ReportsView() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-header-standard">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-9">
@@ -1809,11 +1797,7 @@ export function ReportsView() {
                     ))
                   ) : activityLog.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
-                        <Clock className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                        <p className="text-sm text-muted-foreground">No activity recorded yet</p>
-                        <p className="text-xs text-muted-foreground mt-1">Product changes (add, edit, delete) will appear here</p>
-                      </TableCell>
+                      <TableCell colSpan={8} className="p-0"><EmptyState icon={Clock} title="No activity recorded yet" description="Product changes (add, edit, delete) will appear here" /></TableCell>
                     </TableRow>
                   ) : (
                     activityLog.map((h: any) => {
@@ -1984,7 +1968,7 @@ export function ReportsView() {
                       </div>
                     ))}
                   {products.filter((p: any) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">No products found</div>
+                    <div className="py-4"><EmptyState icon={Search} title="No products found" description="Try a different search term" /></div>
                   )}
                 </div>
               )}
@@ -2037,7 +2021,7 @@ export function ReportsView() {
           {shiftReport && !shiftLoading && (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger-children">
                 <Card className="border-emerald-200">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 text-emerald-700 mb-1">
@@ -2089,7 +2073,7 @@ export function ReportsView() {
                     <CardTitle className="text-sm font-semibold text-gray-800">Sales by User</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
+                    <Table className="table-header-standard">
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs">User</TableHead>
@@ -2128,10 +2112,10 @@ export function ReportsView() {
                 </CardHeader>
                 <CardContent>
                   {shiftReport.itemsSold.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">No items sold in this period</p>
+                    <EmptyState icon={Package} title="No items sold" description="No sales were recorded in this period" />
                   ) : (
                     <ScrollArea className="max-h-[400px]">
-                      <Table>
+                      <Table className="table-header-standard">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs w-10">#</TableHead>
@@ -2163,10 +2147,10 @@ export function ReportsView() {
                 </CardHeader>
                 <CardContent>
                   {(!shiftReport.inventorySnapshot || shiftReport.inventorySnapshot.length === 0) ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">No items currently in stock</p>
+                    <EmptyState icon={Package} title="No items in stock" description="The inventory is currently empty" />
                   ) : (
                     <div className="overflow-x-auto">
-                      <Table>
+                      <Table className="table-header-standard">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs w-10">#</TableHead>
@@ -2204,10 +2188,10 @@ export function ReportsView() {
                 </CardHeader>
                 <CardContent>
                   {shiftReport.shiftHistory.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">No shift history found</p>
+                    <EmptyState icon={Clock} title="No shift history found" description="No completed shifts in this period" />
                   ) : (
                     <ScrollArea className="max-h-[300px]">
-                      <Table>
+                      <Table className="table-header-standard">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs">User</TableHead>
@@ -2419,13 +2403,10 @@ export function ReportsView() {
 
                           {/* Discrepancy table */}
                           {comp.discrepancies.length === 0 ? (
-                            <div className="text-center py-4">
-                              <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-1" />
-                              <p className="text-xs font-medium text-emerald-700">No discrepancies for this handoff</p>
-                            </div>
+                            <EmptyState icon={CheckCircle2} title="No discrepancies" description="All products match expected quantities" />
                           ) : (
                             <ScrollArea className="max-h-[300px]">
-                              <Table>
+                              <Table className="table-header-standard">
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead className="text-xs w-10">#</TableHead>

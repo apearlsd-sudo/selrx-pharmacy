@@ -22,6 +22,8 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
 import { formatDate, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
@@ -718,9 +720,11 @@ export function InventoryView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader icon={Package} title="Inventory" description="Manage your pharmacy product stock and batches" />
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -825,7 +829,7 @@ export function InventoryView() {
       {/* Inventory Table */}
       <Card className="card-hover">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead className="cursor-pointer" onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
@@ -861,8 +865,12 @@ export function InventoryView() {
                 ))
               ) : filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-8 text-gray-400">
-                    No inventory items found
+                  <TableCell colSpan={14}>
+                    <EmptyState
+                      icon={searchQuery || categoryFilter !== 'ALL' || stockFilter !== 'ALL' ? Search : Package}
+                      title={searchQuery || categoryFilter !== 'ALL' || stockFilter !== 'ALL' ? 'No matching items' : 'No inventory items'}
+                      description={searchQuery || categoryFilter !== 'ALL' || stockFilter !== 'ALL' ? 'Try adjusting your search or filters' : 'Add your first product to get started'}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -1578,7 +1586,7 @@ export function InventoryView() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground text-center py-3">No batches recorded for this product yet.</p>
+                  <EmptyState icon={Package} title="No batches" description="No batches recorded for this product yet." />
                 )}
 
                 {/* Receive new batch form */}
@@ -1697,11 +1705,7 @@ export function InventoryView() {
           {/* Stock Count Table */}
           <div className="border rounded-lg flex-1 min-h-0">
             {stockEntries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <ClipboardCheck className="h-10 w-10 mb-3 opacity-30" />
-                <p className="text-sm font-medium">No products added yet</p>
-                <p className="text-xs mt-1">Search and add products above to begin counting stock</p>
-              </div>
+              <EmptyState icon={ClipboardCheck} title="No products added yet" description="Search and add products above to begin counting stock" />
             ) : (
               <div className="overflow-auto max-h-[40vh]">
                 <table className="w-full text-sm">

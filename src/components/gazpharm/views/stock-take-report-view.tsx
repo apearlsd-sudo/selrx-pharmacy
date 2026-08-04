@@ -14,6 +14,8 @@ import { Separator } from '@/components/ui/separator'
 import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
@@ -301,30 +303,26 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
   )
 
   return (
-    <div className="space-y-4 print:space-y-2">
+    <div className="space-y-4 print:space-y-2 animate-fade-in">
       {/* ── Report Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => useAppStore.getState().setCurrentView('stock-take')} className="print:hidden">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-          <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-            <FileText className="h-5 w-5 text-emerald-600" />
+      <PageHeader
+        icon={ClipboardCheck}
+        title="Stock Take Report"
+        description={`${report.stockTakeRef} · Generated ${report.completedAt ? formatDateTime(report.completedAt) : formatDateTime(report.generatedAt)}`}
+        action={
+          <div className="flex items-center gap-2 print:hidden">
+            <Button variant="ghost" size="sm" onClick={() => useAppStore.getState().setCurrentView('stock-take')}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="h-3.5 w-3.5 mr-1" /> Print
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+            </Button>
           </div>
-          <div>
-            <h1 className="text-lg font-bold">Stock Take Report</h1>
-            <p className="text-xs text-muted-foreground">{report.stockTakeRef} · Generated {report.completedAt ? formatDateTime(report.completedAt) : formatDateTime(report.generatedAt)}</p>
-          </div>
-        </div>
-        <div className="flex gap-2 print:hidden">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="h-3.5 w-3.5 mr-1" /> Print
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
-            <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Meta Info Bar ── */}
       <Card className="print:border-none print:shadow-none">
@@ -340,42 +338,72 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
       </Card>
 
       {/* ── Key Metrics Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 print:grid-cols-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 print:grid-cols-3 stagger-children">
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              </div>
+            </div>
             <p className="text-2xl font-bold">{report.totalItemsChecked}</p>
             <p className="text-[11px] text-muted-foreground">Items Checked</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <BarChart3 className="h-4 w-4 text-emerald-600" />
+              </div>
+            </div>
             <p className="text-2xl font-bold text-emerald-600">{accuracyRate}%</p>
             <p className="text-[11px] text-muted-foreground">Accuracy Rate</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <PackageX className="h-4 w-4 text-red-600" />
+              </div>
+            </div>
             <p className="text-lg font-bold text-red-600">{report.expiredGoods.count}</p>
             <p className="text-[11px] text-muted-foreground">Expired Goods</p>
             <p className="text-[10px] text-red-500 font-medium">{formatCurrency(report.expiredGoods.totalCost)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                <Clock className="h-4 w-4 text-orange-600" />
+              </div>
+            </div>
             <p className="text-lg font-bold text-orange-600">{report.nearExpiryGoods.count}</p>
             <p className="text-[11px] text-muted-foreground">Near Expiry</p>
             <p className="text-[10px] text-orange-500 font-medium">{formatCurrency(report.nearExpiryGoods.totalCost)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                <TrendingDown className="h-4 w-4 text-orange-600" />
+              </div>
+            </div>
             <p className="text-lg font-bold text-orange-600">{report.stockVariance.shortageCount}</p>
             <p className="text-[11px] text-muted-foreground">Shortages</p>
             <p className="text-[10px] text-orange-500 font-medium">{formatCurrency(report.stockVariance.shortageTotalCost)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                <RotateCcw className="h-4 w-4 text-blue-600" />
+              </div>
+            </div>
             <p className="text-lg font-bold text-blue-600">{report.reorderAlerts.count}</p>
             <p className="text-[11px] text-muted-foreground">Reorder Alerts</p>
             <p className="text-[10px] text-blue-500 font-medium">{formatCurrency(report.reorderAlerts.totalReorderCost)}</p>
@@ -430,7 +458,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
           <CardContent className="pt-0 px-0">
             {report.expiredGoods.items.length > 0 ? (
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow className="bg-red-50/50">
                       <TableHead className="text-xs">#</TableHead>
@@ -482,10 +510,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                 </Table>
               </div>
             ) : (
-              <div className="py-8 text-center border-t">
-                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
-                <p className="text-sm text-muted-foreground">No expired goods found — all products are within their expiry period</p>
-              </div>
+              <EmptyState icon={CheckCircle2} title="No expired goods" description="All products are within their expiry period" />
             )}
           </CardContent>
         )}
@@ -506,7 +531,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
           <CardContent className="pt-0 px-0">
             {report.nearExpiryGoods.items.length > 0 ? (
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow className="bg-orange-50/50">
                       <TableHead className="text-xs">#</TableHead>
@@ -563,10 +588,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                 </Table>
               </div>
             ) : (
-              <div className="py-8 text-center border-t">
-                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
-                <p className="text-sm text-muted-foreground">No products expiring within 90 days</p>
-              </div>
+              <EmptyState icon={CheckCircle2} title="No near-expiry products" description="No products expiring within 90 days" />
             )}
           </CardContent>
         )}
@@ -587,7 +609,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
           <CardContent className="pt-0 px-0">
             {report.stockVariance.items.length > 0 ? (
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow className="bg-amber-50/50">
                       <TableHead className="text-xs">#</TableHead>
@@ -641,10 +663,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                 </Table>
               </div>
             ) : (
-              <div className="py-8 text-center border-t">
-                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
-                <p className="text-sm text-muted-foreground">No variances found — all counted quantities match system quantities exactly</p>
-              </div>
+              <EmptyState icon={CheckCircle2} title="No variances found" description="All counted quantities match system quantities exactly" />
             )}
           </CardContent>
         )}
@@ -665,7 +684,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
           <CardContent className="pt-0 px-0">
             {report.reorderAlerts.items.length > 0 ? (
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow className="bg-blue-50/50">
                       <TableHead className="text-xs">#</TableHead>
@@ -710,10 +729,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                 </Table>
               </div>
             ) : (
-              <div className="py-8 text-center border-t">
-                <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
-                <p className="text-sm text-muted-foreground">All products are above their reorder points — no restocking needed</p>
-              </div>
+              <EmptyState icon={CheckCircle2} title="No reorder alerts" description="All products are above their reorder points — no restocking needed" />
             )}
           </CardContent>
         )}

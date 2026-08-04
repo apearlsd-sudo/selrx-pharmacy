@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react'
 import {
-  BarChart3, Search, Package, RefreshCw, Filter, X, ArrowUpDown, UserCircle, CalendarDays,
+  Search, Package, RefreshCw, X, ArrowUpDown, UserCircle, CalendarDays, TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -20,6 +20,8 @@ import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { getTodayWAT } from '@/lib/date-utils'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 interface AnalyticsRow {
   productId: string
@@ -205,12 +207,13 @@ export function ProductSalesAnalytics() {
     : ''
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        icon={TrendingUp}
+        title="Product Sales Analytics"
+        description="Analyze product performance and sales trends"
+        action={
           <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-emerald-600" />
-            <CardTitle className="text-base">Product Sales Analytics</CardTitle>
             {selectedUserName && (
               <Badge variant="secondary" className="text-xs">
                 <UserCircle className="h-3 w-3 mr-1" />
@@ -218,14 +221,13 @@ export function ProductSalesAnalytics() {
                 <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setUserFilter('all')} />
               </Badge>
             )}
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        }
+      />
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -313,24 +315,30 @@ export function ProductSalesAnalytics() {
         </div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border p-3 text-center">
-            <p className="text-lg font-bold text-emerald-600">{totalQty.toLocaleString()}</p>
-            <p className="text-[11px] text-muted-foreground">Total Units Sold</p>
-          </div>
-          <div className="rounded-lg border p-3 text-center">
-            <p className="text-lg font-bold text-emerald-600">{totalTx.toLocaleString()}</p>
-            <p className="text-[11px] text-muted-foreground">Total Transactions</p>
-          </div>
-          <div className="rounded-lg border p-3 text-center">
-            <p className="text-lg font-bold text-emerald-600">{formatCurrency(totalRev)}</p>
-            <p className="text-[11px] text-muted-foreground">Total Revenue</p>
-          </div>
+        <div className="grid grid-cols-3 gap-3 stagger-children">
+          <Card className="card-hover">
+            <CardContent className="p-4 text-center">
+              <p className="text-lg font-bold text-emerald-600">{totalQty.toLocaleString()}</p>
+              <p className="text-[11px] text-muted-foreground">Total Units Sold</p>
+            </CardContent>
+          </Card>
+          <Card className="card-hover">
+            <CardContent className="p-4 text-center">
+              <p className="text-lg font-bold text-emerald-600">{totalTx.toLocaleString()}</p>
+              <p className="text-[11px] text-muted-foreground">Total Transactions</p>
+            </CardContent>
+          </Card>
+          <Card className="card-hover">
+            <CardContent className="p-4 text-center">
+              <p className="text-lg font-bold text-emerald-600">{formatCurrency(totalRev)}</p>
+              <p className="text-[11px] text-muted-foreground">Total Revenue</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Table */}
         <div className="border rounded-lg overflow-hidden">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow className="bg-gray-50/50">
                 <TableHead className="text-xs w-8">#</TableHead>
@@ -380,8 +388,12 @@ export function ProductSalesAnalytics() {
                 ))
               ) : sorted.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
-                    {search ? 'No products match your search' : 'No sales data available yet'}
+                  <TableCell colSpan={6}>
+                    <EmptyState
+                      icon={Package}
+                      title={search ? 'No matching products' : 'No sales data yet'}
+                      description={search ? `No products match "${search}". Try a different search term.` : 'Sales data will appear here once transactions are recorded.'}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -424,7 +436,6 @@ export function ProductSalesAnalytics() {
             )}
           </p>
         )}
-      </CardContent>
-    </Card>
+    </div>
   )
 }

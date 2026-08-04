@@ -15,7 +15,10 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  MonitorSmartphone,
 } from 'lucide-react'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -118,7 +121,7 @@ function DeviceCard({
   const statusColor = getStatusColor(device.status)
 
   return (
-    <Card className="relative overflow-hidden transition-shadow hover:shadow-md">
+    <Card className="card-hover relative overflow-hidden transition-shadow hover:shadow-md">
       <div className="absolute top-0 left-0 h-1 w-full bg-emerald-600" />
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
@@ -323,23 +326,24 @@ export function HardwareView() {
   const deviceKeys: DeviceKey[] = ['receiptPrinter', 'barcodeScanner', 'cashDrawer', 'labelPrinter', 'scale']
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Hardware Management</h1>
-          <p className="text-sm text-muted-foreground">Monitor and configure POS peripherals</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchHardwareStatus}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Status
-        </Button>
-      </div>
+      <PageHeader
+        icon={MonitorSmartphone}
+        title="Hardware"
+        description="Configure printers, scanners, and connected devices"
+        actions={
+          <Button variant="outline" size="sm" onClick={fetchHardwareStatus}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh Status
+          </Button>
+        }
+      />
 
       {/* Device Status Cards */}
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Device Status</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="stagger-children grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {loading && !hardwareStatus
             ? Array.from({ length: 5 }).map((_, i) => <DeviceCardSkeleton key={i} />)
             : hardwareStatus && deviceKeys.map((key) => (
@@ -382,8 +386,8 @@ export function HardwareView() {
               </Select>
             </CardHeader>
             <CardContent>
-              <div className="max-h-96 overflow-y-auto rounded-md border">
-                <Table>
+              <Card className="max-h-96 overflow-y-auto">
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-40">Timestamp</TableHead>
@@ -396,8 +400,12 @@ export function HardwareView() {
                   <TableBody>
                     {paginatedLogs.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          No hardware log entries found.
+                        <TableCell colSpan={5} className="p-0">
+                          <EmptyState
+                            title="No log entries"
+                            description="Hardware activity logs will appear here once devices are used."
+                            icon={AlertTriangle}
+                          />
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -427,7 +435,7 @@ export function HardwareView() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+              </Card>
               {totalLogPages > 1 && (
                 <div className="mt-4 flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">

@@ -18,6 +18,8 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useAppStore } from '@/store/app-store'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 interface Customer {
   id: string
@@ -113,10 +115,11 @@ export function CustomersView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader icon={Users} title="Customers" description="Manage your customer records and information" />
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
+        <Card className="card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
               <Users className="h-5 w-5 text-emerald-600" />
@@ -127,7 +130,7 @@ export function CustomersView() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
               <Shield className="h-5 w-5 text-blue-600" />
@@ -138,7 +141,7 @@ export function CustomersView() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
               <Shield className="h-5 w-5 text-red-600" />
@@ -161,7 +164,7 @@ export function CustomersView() {
                 placeholder="Search by name, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-gray-50/50"
               />
             </div>
             <Button onClick={openCreateDialog} className="bg-emerald-600 hover:bg-emerald-700">
@@ -175,7 +178,7 @@ export function CustomersView() {
       {/* Customers Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -196,8 +199,8 @@ export function CustomersView() {
                 ))
               ) : customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No customers found
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState icon={Users} title="No customers found" description="Try adjusting your search or add a new customer" />
                   </TableCell>
                 </TableRow>
               ) : (

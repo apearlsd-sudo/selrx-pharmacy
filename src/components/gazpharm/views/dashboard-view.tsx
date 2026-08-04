@@ -9,7 +9,10 @@ import {
   TrendingUp,
   Package,
   ShoppingCart,
+  LayoutDashboard,
 } from 'lucide-react'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -246,9 +249,11 @@ export function DashboardView() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader icon={LayoutDashboard} title="Dashboard" description="Overview of your pharmacy performance" />
+
       {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         {stats.map((stat) => (
           <Card key={stat.title} className="gap-4 card-hover overflow-hidden">
             <CardContent className="p-6">
@@ -343,11 +348,9 @@ export function DashboardView() {
                 </TableHeader>
                 <TableBody>
                   {data.recentTransactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        No transactions yet today
-                      </TableCell>
-                    </TableRow>
+                    <tr><td colSpan={7} className="p-0">
+                      <EmptyState icon={ShoppingCart} title="No transactions today" description="Transactions will appear here as sales are made throughout the day." />
+                    </td></tr>
                   ) : (
                     data.recentTransactions.map((txn) => (
                       <TableRow key={txn.id}>
@@ -397,9 +400,7 @@ export function DashboardView() {
         </CardHeader>
         <CardContent>
           {data.topProducts.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-4 text-center">
-              No sales data available for this month
-            </p>
+            <EmptyState icon={TrendingUp} title="No sales data yet" description="Top selling products will appear here once you have sales." />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {data.topProducts.map((product, index) => (

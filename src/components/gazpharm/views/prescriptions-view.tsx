@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileText, Search, Plus, AlertTriangle, CheckCircle, Clock,
-  XCircle, ChevronRight, Eye, Ban, Play, Printer
+  XCircle, ChevronRight, Eye, Ban, Play, Printer, ClipboardList
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/select'
 import { useAppStore } from '@/store/app-store'
 import { formatDate, formatDateTime } from '@/lib/date-utils'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 interface Prescription {
   id: string
@@ -157,10 +159,12 @@ export function PrescriptionsView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader icon={ClipboardList} title="Prescriptions" description="Track and manage prescription orders" />
+
       {/* Status Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-amber-200 bg-amber-50/50">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
+        <Card className="border-amber-200 bg-amber-50/50 card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
               <Clock className="h-5 w-5 text-amber-600" />
@@ -171,7 +175,7 @@ export function PrescriptionsView() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-sky-200 bg-sky-50/50">
+        <Card className="border-sky-200 bg-sky-50/50 card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-sky-100 flex items-center justify-center">
               <Play className="h-5 w-5 text-sky-600" />
@@ -182,7 +186,7 @@ export function PrescriptionsView() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200 bg-emerald-50/50">
+        <Card className="border-emerald-200 bg-emerald-50/50 card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
               <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -205,7 +209,7 @@ export function PrescriptionsView() {
                 placeholder="Search by Rx #, patient, or medication..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-gray-50/50"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -232,7 +236,7 @@ export function PrescriptionsView() {
       {/* Prescriptions Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Rx #</TableHead>
@@ -257,8 +261,8 @@ export function PrescriptionsView() {
                 ))
               ) : prescriptions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    No prescriptions found
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState icon={ClipboardList} title="No prescriptions found" description="Create a new prescription or adjust your filters" />
                   </TableCell>
                 </TableRow>
               ) : (

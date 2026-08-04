@@ -14,7 +14,10 @@ import {
   Eye,
   ArrowUpDown,
   Loader2,
+  History,
 } from 'lucide-react'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -108,6 +111,7 @@ export function SalesHistoryView() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailTxn, setDetailTxn] = useState<any>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [activePreset, setActivePreset] = useState<string>(isSuperAdmin ? 'all' : 'today')
 
   const fetchSalesHistory = useCallback(async () => {
     setLoading(true)
@@ -182,6 +186,7 @@ export function SalesHistoryView() {
 
   // Set today as date range preset
   const setPresetRange = (preset: string) => {
+    setActivePreset(preset)
     const todayStr = getTodayWAT()
     const toWAT = (d: Date) => {
       const tz = useAppStore.getState().timezone
@@ -300,29 +305,25 @@ export function SalesHistoryView() {
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">Sales History</h2>
-          <p className="text-sm text-muted-foreground">Track and analyze sales performance across all users</p>
-        </div>
-        {isSuperAdmin && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportCSV}
-          disabled={exporting || loading}
-        >
-          {exporting ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <Download className="h-3.5 w-3.5 mr-1.5" />
-          )}
-          {exporting ? 'Exporting...' : 'Export CSV'}
-        </Button>
-        )}
-      </div>
+      <PageHeader icon={History} title="Sales History" description="View and analyze past transactions" action={
+        isSuperAdmin ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={exporting || loading}
+          >
+            {exporting ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </Button>
+        ) : undefined
+      } />
 
       {/* Filters Bar */}
       <Card className="shadow-sm">
@@ -364,9 +365,13 @@ export function SalesHistoryView() {
                   ].map((preset) => (
                     <Button
                       key={preset.val}
-                      variant="outline"
+                      variant={activePreset === preset.val ? 'secondary' : 'outline'}
                       size="sm"
-                      className="h-7 text-[11px] px-2.5"
+                      className={`h-7 text-[11px] px-2.5 ${
+                        activePreset === preset.val
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm'
+                          : ''
+                      }`}
                       onClick={() => setPresetRange(preset.val)}
                     >
                       {preset.label}
@@ -402,8 +407,7 @@ export function SalesHistoryView() {
         </CardContent>
       </Card>
 
-      {/* Summary Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
@@ -501,9 +505,7 @@ export function SalesHistoryView() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No sales data available
-                  </div>
+                  <EmptyState icon={History} title="No sales data available" />
                 )}
               </CardContent>
             </Card>
@@ -540,9 +542,7 @@ export function SalesHistoryView() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No data available
-                  </div>
+                  <EmptyState icon={History} title="No data available" description="Sales distribution will appear here" />
                 )}
               </CardContent>
             </Card>
@@ -579,9 +579,7 @@ export function SalesHistoryView() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                  No trend data available
-                </div>
+                <EmptyState icon={History} title="No trend data available" description="Daily sales trends will appear here" />
               )}
             </CardContent>
           </Card>
@@ -661,8 +659,8 @@ export function SalesHistoryView() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
-                        No sales data available for the selected period
+                      <TableCell colSpan={7} className="p-0">
+                        <EmptyState icon={History} title="No sales data" description="No sales data available for the selected period" />
                       </TableCell>
                     </TableRow>
                   )}
@@ -710,9 +708,7 @@ export function SalesHistoryView() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No data available
-                  </div>
+                  <EmptyState icon={History} title="No data available" description="User sales distribution will appear here" />
                 )}
               </CardContent>
             </Card>
@@ -775,9 +771,7 @@ export function SalesHistoryView() {
                       )
                     })
                   ) : (
-                    <div className="p-8 text-center text-muted-foreground text-sm">
-                      No user sales data available
-                    </div>
+                    <EmptyState icon={History} title="No user data" description="No user sales data available" />
                   )}
                 </div>
               </CardContent>
@@ -801,7 +795,7 @@ export function SalesHistoryView() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-header-standard">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Transaction #</TableHead>
@@ -883,8 +877,8 @@ export function SalesHistoryView() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground text-sm">
-                          No transactions found for the selected filters
+                        <TableCell colSpan={11} className="p-0">
+                          <EmptyState icon={History} title="No transactions found" description="No transactions found for the selected filters" />
                         </TableCell>
                       </TableRow>
                     )}
@@ -979,9 +973,7 @@ export function SalesHistoryView() {
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No trend data available
-                  </div>
+                  <EmptyState icon={History} title="No trend data available" description="Revenue trends will appear here" />
                 )}
               </CardContent>
             </Card>
@@ -1008,9 +1000,7 @@ export function SalesHistoryView() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                    No trend data available
-                  </div>
+                  <EmptyState icon={History} title="No trend data available" description="Transaction volume will appear here" />
                 )}
               </CardContent>
             </Card>
@@ -1044,9 +1034,7 @@ export function SalesHistoryView() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
-                  No data available
-                </div>
+                <EmptyState icon={History} title="No data available" description="User comparison will appear here" />
               )}
             </CardContent>
           </Card>

@@ -79,17 +79,24 @@ class ViewErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState
   render() {
     if (this.state.hasError) {
       return this.props.fallback || (
-        <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8">
-          <p className="text-red-500 font-medium">Something went wrong loading this page.</p>
-          <p className="text-sm text-muted-foreground max-w-md text-center">
-            {this.state.error?.message || 'An unexpected error occurred.'}
-          </p>
-          <button
-            className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+        <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8 animate-fade-in">
+          <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+            <AlertTriangle className="h-7 w-7 text-red-500" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-semibold text-gray-900">Something went wrong</p>
+            <p className="text-sm text-muted-foreground max-w-md">
+              {this.state.error?.message || 'An unexpected error occurred.'}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
             onClick={() => this.setState({ hasError: false, error: null })}
           >
             Try Again
-          </button>
+          </Button>
         </div>
       )
     }
@@ -554,8 +561,8 @@ export default function Home() {
         {/* Nav Items */}
         <ScrollArea className="flex-1 h-[calc(100vh-10rem)]">
           <div className="p-3 space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 py-2">
-              Main
+            <p className="text-[10px] font-semibold text-emerald-600/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
+              <span className="h-1 w-1 rounded-full bg-emerald-400" />Main
             </p>
             {visibleNavItems.slice(0, 2).map((item) => (
               <button
@@ -583,8 +590,8 @@ export default function Home() {
             {visibleNavItems.length > 2 && (
               <>
                 <Separator className="my-2.5 bg-gray-100" />
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 py-2">
-                  Management
+                <p className="text-[10px] font-semibold text-emerald-600/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
+                  <span className="h-1 w-1 rounded-full bg-emerald-400" />Management
                 </p>
               </>
             )}
@@ -651,8 +658,10 @@ export default function Home() {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <div>
-            <h1 className="text-base font-bold text-gray-900 leading-tight">{company?.name || 'SelRx'}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-bold text-gray-900 leading-tight">{company?.name || 'SelRx'}</h1>
+            <Separator orientation="vertical" className="h-4 bg-gray-200" />
+            <span className="text-xs text-muted-foreground font-medium">{currentLabel}</span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -733,22 +742,26 @@ export default function Home() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 p-4 lg:p-6">
+        <div key={currentView} className="flex-1 p-4 lg:p-6 animate-fade-in">
           {renderView()}
         </div>
 
         {/* Footer */}
         <footer className="border-t border-gray-100 bg-white/80 backdrop-blur-sm px-4 lg:px-6 py-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 rounded bg-emerald-600 flex items-center justify-center">
-                <Pill className="h-3 w-3 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-6 w-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-sm">
+                <Pill className="h-3.5 w-3.5 text-white" />
               </div>
-              <span className="font-medium text-gray-500">SelRx</span>
-              <span className="text-gray-300">·</span>
-              <span>Pharmacy Management System</span>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-semibold text-gray-700">SelRx</span>
+                <span className="text-gray-300">·</span>
+                <span className="text-muted-foreground">Pharmacy Management System</span>
+              </div>
             </div>
-            <span className="text-gray-400">v1.0</span>
+            <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground border-gray-200 h-5 px-2">
+              v1.0
+            </Badge>
           </div>
         </footer>
       </main>

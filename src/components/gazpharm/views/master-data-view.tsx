@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit2, Save, X, RefreshCw,
-  Upload, FileSpreadsheet, Download, History, Clock, RotateCcw,
+  Upload, FileSpreadsheet, Download, History, Clock, RotateCcw, Database,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,8 @@ import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { formatDate, formatDateTimeShort, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -807,7 +809,9 @@ export function MasterDataView() {
   const [activeSection, setActiveSection] = useState<SectionKey>('drug')
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader icon={Database} title="Drug Catalog" description="Manage medications, categories, suppliers, and dosage forms" />
+
       {/* Section Selector Buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
         {SECTIONS.map((sec) => {
@@ -927,7 +931,7 @@ function CategorySection() {
       {/* Categories Table */}
       <Card className="card-hover">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Category Name</TableHead>
@@ -947,7 +951,7 @@ function CategorySection() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No categories found</TableCell>
+                  <TableCell colSpan={4} className="p-0"><EmptyState icon={Tags} title="No categories found" description="Create your first drug category to get started" /></TableCell>
                 </TableRow>
               ) : (
                 filtered.map((cat) => {
@@ -1604,7 +1608,7 @@ function DrugSection() {
       {/* Drug Table */}
       <Card className="card-hover">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Drug Name</TableHead>
@@ -1634,7 +1638,7 @@ function DrugSection() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+                  <TableCell colSpan={14} className="p-0"><EmptyState icon={Pill} title="No drugs found" description="Add your first medication to the catalog" /></TableCell>
                 </TableRow>
               ) : (
                 (() => {
@@ -1811,10 +1815,7 @@ function DrugSection() {
             {historyLoading ? (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">Loading...</div>
             ) : historyData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <History className="h-8 w-8 text-gray-300 mb-2" />
-                <p className="text-sm text-muted-foreground">No history recorded yet</p>
-              </div>
+              <EmptyState icon={History} title="No history recorded yet" description="Product change history will appear here" />
             ) : (
               <div className="space-y-3">
                 {historyData.map((h: any) => {
@@ -2164,7 +2165,7 @@ function DosageFormSection() {
 
       <Card className="card-hover">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>#</TableHead>
@@ -2175,9 +2176,7 @@ function DosageFormSection() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                    {forms.length === 0 ? 'No dosage forms yet. Add your first one.' : 'No matches found'}
-                  </TableCell>
+                  <TableCell colSpan={3} className="p-0"><EmptyState icon={Pill} title={forms.length === 0 ? 'No dosage forms yet' : 'No matches found'} description={forms.length === 0 ? 'Add your first dosage form to get started' : 'Try a different search term'} /></TableCell>
                 </TableRow>
               ) : (
                 filtered.map((f, i) => (
@@ -2319,7 +2318,7 @@ function VendorSection() {
       {/* Vendor Table */}
       <Card className="card-hover">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Vendor Name</TableHead>
@@ -2341,7 +2340,7 @@ function VendorSection() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No vendors found</TableCell>
+                  <TableCell colSpan={6} className="p-0"><EmptyState icon={Truck} title="No vendors found" description="Register your first supplier or distributor" /></TableCell>
                 </TableRow>
               ) : (
                 filtered.map((vendor) => {
@@ -2481,7 +2480,7 @@ function ManufacturerSection() {
       {/* Manufacturers Table */}
       <Card className="card-hover">
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Manufacturer</TableHead>
@@ -2504,7 +2503,7 @@ function ManufacturerSection() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No manufacturers found</TableCell>
+                  <TableCell colSpan={7} className="p-0"><EmptyState icon={Factory} title="No manufacturers found" description="Register your first drug manufacturer" /></TableCell>
                 </TableRow>
               ) : (
                 filtered.map((mfg) => {
