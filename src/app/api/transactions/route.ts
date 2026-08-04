@@ -227,7 +227,7 @@ export async function GET(request: NextRequest) {
         const idPlaceholders = txnIds.map(() => '?').join(', ')
         const itemsResult = await turso.execute({
           sql: `SELECT id, transactionId, productId, productName, quantity, unitPrice, subtotal,
-                       requiresRx, dispensedQty, createdAt
+                       requiresRx, dispensedQty, sellingUnit, itemsPerUnit, createdAt
                 FROM TransactionItem
                 WHERE transactionId IN (${idPlaceholders})`,
           args: txnIds,
@@ -248,6 +248,8 @@ export async function GET(request: NextRequest) {
             subtotal: item.subtotal,
             requiresRx: bool(item.requiresRx),
             dispensedQty: item.dispensedQty,
+            sellingUnit: (item.sellingUnit as string) || 'EA',
+            itemsPerUnit: Number(item.itemsPerUnit) || 1,
             createdAt: item.createdAt,
           })
         }
@@ -415,15 +417,17 @@ export async function POST(request: NextRequest) {
         ],
       })
 
-      // 4. Insert TransactionItems
+      // 4. Insert TransactionItems (with sellingUnit/itemsPerUnit for receipt display)
       const itemStmts = items.map((item: Record<string, unknown>) => ({
         sql: `INSERT INTO TransactionItem
-              (id, transactionId, productId, productName, quantity, unitPrice, subtotal, requiresRx, dispensedQty, createdAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              (id, transactionId, productId, productName, quantity, unitPrice, subtotal, requiresRx, dispensedQty, sellingUnit, itemsPerUnit, createdAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           generateId(), transactionId, item.productId, item.productName,
           item.quantity, item.unitPrice, item.subtotal,
-          item.requiresRx ? 1 : 0, item.quantity, now,
+          item.requiresRx ? 1 : 0, item.quantity,
+          item.sellingUnit || 'EA', item.itemsPerUnit || 1,
+          now,
         ],
       }))
       await turso.batch(itemStmts)
@@ -487,7 +491,7 @@ export async function POST(request: NextRequest) {
 
       const itemsResult = await turso.execute({
         sql: `SELECT id, transactionId, productId, productName, quantity, unitPrice, subtotal,
-                       requiresRx, dispensedQty, createdAt
+                       requiresRx, dispensedQty, sellingUnit, itemsPerUnit, createdAt
                 FROM TransactionItem WHERE transactionId = ?`,
         args: [transactionId],
       })
@@ -515,6 +519,8 @@ export async function POST(request: NextRequest) {
           id: i.id, transactionId: i.transactionId, productId: i.productId,
           productName: i.productName, quantity: i.quantity, unitPrice: i.unitPrice,
           subtotal: i.subtotal, requiresRx: bool(i.requiresRx), dispensedQty: i.dispensedQty,
+          sellingUnit: (i.sellingUnit as string) || 'EA',
+          itemsPerUnit: Number(i.itemsPerUnit) || 1,
           createdAt: i.createdAt,
         })),
       }

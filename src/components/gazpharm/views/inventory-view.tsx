@@ -44,6 +44,8 @@ interface InventoryItem {
     dosageForm: string | null
     strength: string | null
     unitOfMeasure: string
+    sellingUnit: string
+    itemsPerUnit: number
     expiryDate: string | null
     batchNumber: string | null
     manufacturer?: string | null
@@ -852,7 +854,12 @@ export function InventoryView() {
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.vendor?.name || '—'}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.dosageForm || '—'}</TableCell>
-                      <TableCell className="text-right font-bold">{qty}</TableCell>
+                      <TableCell className="text-right font-bold">
+                        {qty}
+                        {item.product.sellingUnit && item.product.sellingUnit !== 'EA' && item.product.itemsPerUnit > 1 ? (
+                          <p className="text-[10px] text-muted-foreground font-normal">{Math.floor(qty / item.product.itemsPerUnit)} {item.product.sellingUnit.toLowerCase()}{Math.floor(qty / item.product.itemsPerUnit) !== 1 ? 's' : ''}</p>
+                        ) : null}
+                      </TableCell>
                       <TableCell>
                         {isDiscontinued ? (
                           <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">Discontinued</Badge>

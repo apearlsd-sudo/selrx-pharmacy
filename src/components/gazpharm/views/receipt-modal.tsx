@@ -49,6 +49,8 @@ interface ReceiptModalProps {
       unitPrice: number
       subtotal: number
       requiresRx: boolean
+      sellingUnit?: string
+      itemsPerUnit?: number
     }[]
   }
   onClose: () => void
@@ -175,7 +177,8 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                     <div className="flex-1 min-w-0">
                       <p className="truncate pr-2">{item.productName}</p>
                       <p className="text-gray-400">
-                        {item.quantity} x {formatCurrency(item.unitPrice)}
+                        {item.quantity}{item.sellingUnit && item.sellingUnit !== 'EA' ? ` ${item.sellingUnit.toLowerCase()}${item.quantity !== 1 ? 's' : ''}` : ''} x {formatCurrency(item.unitPrice)}
+                        {item.itemsPerUnit && item.itemsPerUnit > 1 ? ` (${item.quantity * item.itemsPerUnit} pcs)` : ''}
                       </p>
                     </div>
                     <span className="font-medium shrink-0">

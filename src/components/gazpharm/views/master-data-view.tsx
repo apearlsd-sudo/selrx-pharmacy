@@ -562,6 +562,7 @@ function DrugEditModal({
   const [form, setForm] = useState({
     name: '', ndc: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
     vendorId: '', reorderPoint: '', expiryDate: '', batchNumber: '', stockQuantity: '',
+    sellingUnit: 'EA', itemsPerUnit: '1',
   })
   const [saving, setSaving] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
@@ -583,6 +584,8 @@ function DrugEditModal({
         expiryDate: editingDrug.expiryDate ? editingDrug.expiryDate.split('T')[0] : '',
         batchNumber: editingDrug.batchNumber || '',
         stockQuantity: editingDrug.inventory?.[0]?.quantity != null ? String(editingDrug.inventory[0].quantity) : '',
+        sellingUnit: editingDrug.sellingUnit || 'EA',
+        itemsPerUnit: String(editingDrug.itemsPerUnit || 1),
       })
       setSaving(false)
     }
@@ -603,6 +606,8 @@ function DrugEditModal({
           manufacturerId: form.manufacturerId || null,
           costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
           sellingPrice: parseFloat(form.sellingPrice),
+          sellingUnit: form.sellingUnit || 'EA',
+          itemsPerUnit: parseInt(form.itemsPerUnit) || 1,
           vendorId: form.vendorId || null,
           reorderPoint: parseInt(form.reorderPoint) || 10,
           expiryDate: form.expiryDate || null,
@@ -734,6 +739,33 @@ function DrugEditModal({
             <Label className="text-xs">Selling Price ($) <span className="text-red-500">*</span></Label>
             <Input type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} placeholder="0.00" className="mt-1" />
           </div>
+          <div>
+            <Label className="text-xs">Sell As</Label>
+            <Select value={form.sellingUnit} onValueChange={(v) => setForm({ ...form, sellingUnit: v })}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EA">Each / Piece</SelectItem>
+                <SelectItem value="Tablet">Tablet</SelectItem>
+                <SelectItem value="Capsule">Capsule</SelectItem>
+                <SelectItem value="Sachet">Sachet</SelectItem>
+                <SelectItem value="Vial">Vial</SelectItem>
+                <SelectItem value="Ampoule">Ampoule</SelectItem>
+                <SelectItem value="Bottle">Bottle</SelectItem>
+                <SelectItem value="Strip">Strip</SelectItem>
+                <SelectItem value="Blister">Blister Pack</SelectItem>
+                <SelectItem value="Tube">Tube</SelectItem>
+                <SelectItem value="Pack">Pack</SelectItem>
+                <SelectItem value="Box">Box</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {form.sellingUnit !== 'EA' && (
+            <div>
+              <Label className="text-xs">Items Per {form.sellingUnit}</Label>
+              <Input type="number" min="1" placeholder="e.g., 10" value={form.itemsPerUnit} onChange={(e) => setForm({ ...form, itemsPerUnit: e.target.value })} className="mt-1" />
+              <p className="text-[10px] text-muted-foreground mt-1">Individual units (tablets/capsules) per {form.sellingUnit.toLowerCase()}</p>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Min Stock Level</Label>
             <Input type="number" min="0" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} placeholder="10" className="mt-1" />
@@ -1113,6 +1145,7 @@ function DrugSection() {
       setForm({
         name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
         stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', vendorId: '',
+        sellingUnit: 'EA', itemsPerUnit: '1',
       })
       fetchData()
     } catch (err: any) {
@@ -1561,6 +1594,7 @@ function DrugSection() {
                 <TableHead className="hidden lg:table-cell text-right">Reorder Lvl</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Retail</TableHead>
+                <TableHead className="hidden lg:table-cell">Sell As</TableHead>
                 <TableHead className="hidden md:table-cell">Expiry</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -1569,14 +1603,14 @@ function DrugSection() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 13 }).map((_, j) => (
+                    {Array.from({ length: 14 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
+                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">No drugs found</TableCell>
                 </TableRow>
               ) : (
                 (() => {
@@ -1638,6 +1672,12 @@ function DrugSection() {
                       </TableCell>
                       <TableCell className="text-right text-sm font-medium">
                         {formatCurrency(drug.sellingPrice)}
+                        {drug.sellingUnit && drug.sellingUnit !== 'EA' && (
+                          <p className="text-[10px] text-muted-foreground font-normal">/ {drug.sellingUnit.toLowerCase()}{drug.itemsPerUnit > 1 ? ` (${drug.itemsPerUnit} pcs)` : ''}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                        {drug.sellingUnit === 'EA' || !drug.sellingUnit ? 'Each' : `${drug.itemsPerUnit || 1}x ${drug.sellingUnit.toLowerCase()}`}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                         {formatDate(drug.expiryDate)}
