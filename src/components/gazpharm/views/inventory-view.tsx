@@ -799,6 +799,7 @@ export function InventoryView() {
                 <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
                 <TableHead className="hidden md:table-cell">Vendor</TableHead>
                 <TableHead className="hidden md:table-cell">Dosage Form</TableHead>
+                <TableHead className="hidden md:table-cell">Sell As</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => { setSortBy('stock'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
                   <span className="flex items-center justify-end gap-1">Stock Qty <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
@@ -814,14 +815,14 @@ export function InventoryView() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 13 }).map((_, j) => (
+                    {Array.from({ length: 14 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                     No inventory items found
                   </TableCell>
                 </TableRow>
@@ -854,6 +855,13 @@ export function InventoryView() {
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.vendor?.name || '—'}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.dosageForm || '—'}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-gray-600">
+                        {item.product.sellingUnit && item.product.sellingUnit !== 'EA' ? (
+                          <span>{item.product.sellingUnit} ({item.product.itemsPerUnit})</span>
+                        ) : (
+                          <span className="text-muted-foreground">Each</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-bold">
                         {qty}
                         {item.product.sellingUnit && item.product.sellingUnit !== 'EA' && item.product.itemsPerUnit > 1 ? (
