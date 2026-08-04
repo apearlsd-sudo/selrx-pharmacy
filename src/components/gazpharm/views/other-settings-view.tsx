@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Settings,
   Coins,
@@ -11,6 +11,14 @@ import {
   Globe,
   CalendarDays,
   Clock,
+  Database,
+  Download,
+  Upload,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  ShieldCheck,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +31,8 @@ import {
 } from '@/components/ui/select'
 import { useAppStore, type DateFormatOption, type TimeFormatOption } from '@/store/app-store'
 import { CURRENCIES, type CurrencyCode } from '@/lib/currency'
+import { authHeaders } from '@/lib/auth-headers'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 
 // ── Timezone data ─────────────────────────────────────────────────────
 
@@ -85,8 +95,39 @@ const TIME_FORMATS: { value: TimeFormatOption; label: string; example: string }[
   { value: '12h', label: '12-hour (AM/PM)', example: '2:30 PM' },
 ]
 
+// ── Backup types ───────────────────────────────────────────────────
+
+interface BackupMeta {
+  version: string
+  exportedAt: string
+  database: string
+  tableCount: number
+  totalRows: number
+}
+
+interface RestoreResult {
+  success: boolean
+  summary: { totalInserted: number; totalUpdated: number; totalErrors: number; tablesProcessed: number }
+  details: Record<string, { inserted: number; updated: number; skipped: number; errors: string[] }>
+}
+
+type RestorePhase = 'idle' | 'confirming' | 'uploading' | 'processing' | 'done' | 'error'
+
 export function OtherSettingsView() {
   const currency = useAppStore((s) => s.currency)
+
+  // ── Backup state ──
+  const [exporting, setExporting] = useState(false)
+  const [lastBackup, setLastBackup] = useState<string | null>(null)
+  const [lastBackupRows, setLastBackupRows] = useState(0)
+
+  // ── Restore state ──
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [restorePhase, setRestorePhase] = useState<RestorePhase>('idle')
+  const [restoreProgress, setRestoreProgress] = useState('')
+  const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [restoreError, setRestoreError] = useState('')
   const setCurrency = useAppStore((s) => s.setCurrency)
   const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
   const setAutoPrintReceipt = useAppStore((s) => s.setAutoPrintReceipt)
@@ -132,6 +173,120 @@ export function OtherSettingsView() {
   void regionalVersion
 
   const currentTZ = WEST_AFRICAN_TZS.find(t => t.value === timezone) || OTHER_AFRICAN_TZS.find(t => t.value === timezone)
+
+  // ── Backup handlers ──
+
+  const handleBackup = useCallback(async () => {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/backup', { headers: authHeaders() })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Backup failed' }))
+        throw new Error(err.error || `HTTP ${res.status}`)
+      }
+      const json = await res.json()
+      const meta = json.meta as BackupMeta
+
+      // Trigger download
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      a.href = url
+      a.download = `selrx-backup-${ts}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+
+      setLastBackup(meta.exportedAt)
+      setLastBackupRows(meta.totalRows)
+      addToast({
+        title: 'Backup Complete',
+        description: `Exported ${meta.totalRows} rows across ${meta.tableCount} tables`,
+        variant: 'success',
+      })
+    } catch (err: any) {
+      addToast({ title: 'Backup Failed', description: err.message || 'Unknown error', variant: 'error' })
+    } finally {
+      setExporting(false)
+    }
+  }, [addToast])
+
+  // ── Restore handlers ──
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      setRestorePhase('confirming')
+      setRestoreResult(null)
+      setRestoreError('')
+    }
+    // Reset input so same file can be re-selected
+    e.target.value = ''
+  }
+
+  const handleRestoreCancel = () => {
+    setRestorePhase('idle')
+    setSelectedFile(null)
+    setRestoreResult(null)
+    setRestoreError('')
+    setRestoreProgress('')
+  }
+
+  const handleRestoreConfirm = useCallback(async () => {
+    if (!selectedFile) return
+
+    setRestorePhase('uploading')
+    setRestoreProgress('Reading backup file...')
+
+    try {
+      const text = await selectedFile.text()
+      setRestoreProgress('Parsing backup data...')
+      const json = JSON.parse(text)
+
+      if (!json.data || typeof json.data !== 'object') {
+        throw new Error('Invalid backup file: missing data object')
+      }
+
+      const tablesWithData = Object.entries(json.data)
+        .filter(([, rows]) => Array.isArray(rows) && rows.length > 0)
+        .map(([name, rows]) => `${name} (${(rows as any[]).length})`)
+
+      setRestorePhase('processing')
+      setRestoreProgress(`Restoring ${tablesWithData.length} tables...`)
+
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ data: json.data, options: { mode: 'upsert' } }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Restore failed' }))
+        throw new Error(err.error || `HTTP ${res.status}`)
+      }
+
+      const result = res.json() as Promise<RestoreResult>
+      const resolved = await result
+
+      setRestoreResult(resolved)
+      setRestorePhase('done')
+      setRestoreProgress('')
+
+      addToast({
+        title: 'Restore Complete',
+        description: `Processed ${resolved.summary.tablesProcessed} tables: ${resolved.summary.totalInserted} inserted, ${resolved.summary.totalErrors} errors`,
+        variant: resolved.summary.totalErrors > 0 ? 'warning' : 'success',
+      })
+    } catch (err: any) {
+      setRestorePhase('error')
+      setRestoreError(err.message || 'Unknown error')
+      setRestoreProgress('')
+      addToast({ title: 'Restore Failed', description: err.message || 'Unknown error', variant: 'error' })
+    }
+  }, [selectedFile, addToast])
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -389,6 +544,239 @@ export function OtherSettingsView() {
               <p className="mt-0.5 text-blue-600">
                 To use auto-print, configure your receipt printer in the Hardware settings page.
                 Make sure the printer is connected and drivers are installed.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Data Backup & Restore ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Database className="h-4 w-4 text-violet-500" />
+            Data Backup & Restore
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Export your entire database as a JSON file, or restore from a previous backup.
+            Requires Super Admin privileges.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* ── Backup Section ── */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
+                <Download className="h-4 w-4 text-violet-600" />
+              </div>
+              <div className="flex-1">
+                <Label className="text-sm font-medium">Create Backup</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Download a complete snapshot of all your data including products, inventory, transactions, customers, and settings.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700"
+                disabled={exporting}
+                onClick={handleBackup}
+              >
+                {exporting ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Exporting...</>
+                ) : (
+                  <><Download className="h-3.5 w-3.5" /> Download Backup</>
+                )}
+              </Button>
+            </div>
+
+            {lastBackup && (
+              <div className="ml-11 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2.5 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <div className="text-xs text-emerald-700">
+                  <span className="font-medium">Last backup:</span>{' '}
+                  {new Date(lastBackup).toLocaleString()}
+                  <span className="text-emerald-600 ml-1.5">({lastBackupRows.toLocaleString()} rows)</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* ── Restore Section ── */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-lg bg-orange-50 flex items-center justify-center shrink-0 mt-0.5">
+                <Upload className="h-4 w-4 text-orange-600" />
+              </div>
+              <div className="flex-1">
+                <Label className="text-sm font-medium">Restore from Backup</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Upload a previously downloaded backup file. Existing data will be updated; new records will be inserted.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
+                disabled={restorePhase === 'uploading' || restorePhase === 'processing'}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {restorePhase === 'uploading' || restorePhase === 'processing' ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing...</>
+                ) : (
+                  <><Upload className="h-3.5 w-3.5" /> Upload File</>
+                )}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+
+            {/* Confirm dialog when file is selected */}
+            {restorePhase === 'confirming' && selectedFile && (
+              <div className="ml-11 rounded-lg border border-orange-200 bg-orange-50/50 p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                  <div className="text-xs text-orange-800">
+                    <p className="font-semibold">Confirm Restore</p>
+                    <p className="mt-0.5 text-orange-700">
+                      File: <span className="font-medium">{selectedFile.name}</span>{' '}
+                      ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </p>
+                    <p className="mt-1 text-orange-600">
+                      This will update existing records and add new ones from the backup.
+                      Existing data not in the backup will not be deleted.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRestoreCancel}>
+                    Cancel
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" className="h-7 text-xs bg-orange-600 hover:bg-orange-700">
+                        <ShieldCheck className="h-3 w-3 mr-1" /> Restore Data
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-orange-500" />
+                          Confirm Data Restore
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-2">
+                          <p>
+                            You are about to restore data from <span className="font-semibold">{selectedFile.name}</span>.
+                            This action will update existing records and insert new ones.
+                          </p>
+                          <p className="font-medium text-foreground">
+                            Make sure you have a recent backup before proceeding.
+                          </p>
+                          <div className="rounded-md bg-orange-50 border border-orange-200 p-2 text-orange-800">
+                            <p className="text-xs font-medium">What happens during restore:</p>
+                            <ul className="text-xs mt-1 list-disc list-inside space-y-0.5">
+                              <li>Existing records with matching IDs are updated</li>
+                              <li>New records are inserted</li>
+                              <li>Records not in the backup are left unchanged</li>
+                            </ul>
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={handleRestoreCancel}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-orange-600 hover:bg-orange-700"
+                          onClick={handleRestoreConfirm}
+                        >
+                          Yes, Restore Now
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            )}
+
+            {/* Processing state */}
+            {(restorePhase === 'uploading' || restorePhase === 'processing') && restoreProgress && (
+              <div className="ml-11 rounded-lg border border-blue-200 bg-blue-50/50 p-3 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 text-blue-500 animate-spin shrink-0" />
+                <p className="text-xs text-blue-700 font-medium">{restoreProgress}</p>
+              </div>
+            )}
+
+            {/* Success state */}
+            {restorePhase === 'done' && restoreResult && (
+              <div className="ml-11 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <p className="text-xs font-semibold text-emerald-700">Restore Successful</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div className="rounded bg-white/80 border p-2 text-center">
+                    <p className="text-lg font-bold text-emerald-700">{restoreResult.summary.tablesProcessed}</p>
+                    <p className="text-[10px] text-muted-foreground">Tables</p>
+                  </div>
+                  <div className="rounded bg-white/80 border p-2 text-center">
+                    <p className="text-lg font-bold text-blue-700">{restoreResult.summary.totalInserted}</p>
+                    <p className="text-[10px] text-muted-foreground">Inserted</p>
+                  </div>
+                  <div className="rounded bg-white/80 border p-2 text-center">
+                    <p className="text-lg font-bold text-red-600">{restoreResult.summary.totalErrors}</p>
+                    <p className="text-[10px] text-muted-foreground">Errors</p>
+                  </div>
+                </div>
+                {/* Per-table details */}
+                {Object.entries(restoreResult.details).some(([, r]) => r.errors.length > 0) && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wider">Tables with errors:</p>
+                    {Object.entries(restoreResult.details)
+                      .filter(([, r]) => r.errors.length > 0)
+                      .map(([table, r]) => (
+                        <div key={table} className="rounded bg-red-50 border border-red-100 p-1.5 text-[10px]">
+                          <span className="font-medium text-red-700">{table}:</span>{' '}
+                          <span className="text-red-600">{r.errors.length} error(s) — {r.errors[0]}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+                <Button size="sm" variant="outline" className="h-7 text-xs mt-2" onClick={handleRestoreCancel}>
+                  Dismiss
+                </Button>
+              </div>
+            )}
+
+            {/* Error state */}
+            {restorePhase === 'error' && restoreError && (
+              <div className="ml-11 rounded-lg border border-red-200 bg-red-50/50 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <p className="text-xs font-semibold text-red-700">Restore Failed</p>
+                </div>
+                <p className="text-xs text-red-600 ml-6">{restoreError}</p>
+                <Button size="sm" variant="outline" className="h-7 text-xs ml-6" onClick={handleRestoreCancel}>
+                  Dismiss
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Info box */}
+          <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-3 flex items-start gap-2">
+            <Info className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+            <div className="text-xs text-violet-700">
+              <p className="font-medium">Backup Recommendations</p>
+              <p className="mt-0.5 text-violet-600">
+                Create regular backups before making major changes (bulk imports, stock takes, pricing updates).
+                Store backup files securely. The backup includes all data except user passwords for security.
               </p>
             </div>
           </div>
