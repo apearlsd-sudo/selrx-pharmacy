@@ -854,14 +854,18 @@ export function InventoryView() {
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.dosageForm || '—'}</TableCell>
                       <TableCell className="text-right font-bold">{qty}</TableCell>
                       <TableCell>
-                        {showExpired ? (
-                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
-                        ) : isDiscontinued ? (
+                        {isDiscontinued ? (
                           <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">Discontinued</Badge>
+                        ) : isOut ? (
+                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
+                        ) : showExpired ? (
+                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
+                        ) : isLow ? (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">Low Stock</Badge>
                         ) : nearExpiry && daysToExpiry !== null ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">{daysToExpiry} day{daysToExpiry !== 1 ? 's' : ''} to expiry</Badge>
                         ) : (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">Active</Badge>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">In Stock</Badge>
                         )}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-gray-600">{reorder}</TableCell>
