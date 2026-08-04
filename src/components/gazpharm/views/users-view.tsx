@@ -58,6 +58,8 @@ const CATEGORY_ICONS: Record<string, any> = {
   'Reports': BarChart3,
   'Settings': Settings,
   'Audit & Compliance': ClipboardList,
+  'Goods Returns': RotateCcw,
+  'Shift Management': CalendarDays,
 }
 
 // Flat list of all permissions

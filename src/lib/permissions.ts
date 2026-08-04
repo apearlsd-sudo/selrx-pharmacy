@@ -17,6 +17,8 @@ export const ALL_PERMISSION_KEYS = [
   'inventory:adjust-stock',
   'inventory:expiry-management',
   'inventory:receive-supply',
+  'inventory:batches',
+  'inventory:sell-as',
   // Drug Catalog (Master Data)
   'master-data:view',
   'master-data:manage',
@@ -53,6 +55,13 @@ export const ALL_PERMISSION_KEYS = [
   'settings:company',
   'settings:receipt',
   'settings:backup',
+  // Goods Returns
+  'returns:view',
+  'returns:process',
+  // Shift Management
+  'shifts:view',
+  'shifts:manage',
+  'shifts:reconcile',
   // Audit
   'audit:view',
   'audit:export',
@@ -88,6 +97,8 @@ export const PERMISSION_CATEGORIES = [
       { key: 'inventory:adjust-stock', label: 'Adjust Stock', description: 'Manually adjust stock quantities' },
       { key: 'inventory:expiry-management', label: 'Expiry Management', description: 'Manage drug expiry tracking and alerts' },
       { key: 'inventory:receive-supply', label: 'Receive Supply', description: 'Process incoming stock from suppliers' },
+      { key: 'inventory:batches', label: 'Manage Batches', description: 'Create and manage stock batches / lot numbers' },
+      { key: 'inventory:sell-as', label: 'Sell As (Sub-units)', description: 'Set selling unit and items-per-unit (strip, box, etc.)' },
     ],
   },
   {
@@ -159,6 +170,21 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
+    category: 'Goods Returns',
+    permissions: [
+      { key: 'returns:view', label: 'View Returns', description: 'Access goods return history and records' },
+      { key: 'returns:process', label: 'Process Returns', description: 'Create and process goods return requests' },
+    ],
+  },
+  {
+    category: 'Shift Management',
+    permissions: [
+      { key: 'shifts:view', label: 'View Shifts', description: 'View shift records and summaries' },
+      { key: 'shifts:manage', label: 'Manage Shifts', description: 'Open, close, and handover shifts' },
+      { key: 'shifts:reconcile', label: 'Shift Reconciliation', description: 'Reconcile shift cash and inventory variances' },
+    ],
+  },
+  {
     category: 'Audit & Compliance',
     permissions: [
       { key: 'audit:view', label: 'View Audit Log', description: 'View system audit trail and activity logs' },
@@ -185,7 +211,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
   PHARMACIST: [
     'dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'pos:apply-discount',
-    'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'inventory:adjust-stock', 'inventory:expiry-management',
+    'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'inventory:adjust-stock', 'inventory:expiry-management', 'inventory:batches', 'inventory:sell-as',
+    'returns:view', 'returns:process',
+    'shifts:view',
     'prescriptions:view', 'prescriptions:process', 'prescriptions:verify', 'prescriptions:override-alerts',
     'customers:view', 'customers:manage', 'customers:insurance',
     'master-data:view', 'master-data:manage', 'master-data:categories', 'master-data:manufacturers',
@@ -196,7 +224,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
   PHARMACY_TECHNICIAN: [
     'dashboard', 'pos:sell', 'pos:history',
-    'inventory:view', 'inventory:manage', 'inventory:stocktake', 'inventory:receive-supply',
+    'inventory:view', 'inventory:manage', 'inventory:stocktake', 'inventory:receive-supply', 'inventory:batches',
+    'returns:view',
+    'shifts:view',
     'prescriptions:view', 'prescriptions:process',
     'customers:view', 'customers:manage',
     'master-data:view',
@@ -205,7 +235,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
   DISPENSER: [
     'dashboard', 'pos:sell', 'pos:history',
-    'inventory:view', 'inventory:stocktake', 'inventory:expiry-management',
+    'inventory:view', 'inventory:stocktake', 'inventory:expiry-management', 'inventory:batches',
+    'returns:view',
+    'shifts:view',
     'prescriptions:view', 'prescriptions:process',
     'customers:view', 'customers:manage',
     'master-data:view',
@@ -214,6 +246,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   CASHIER: [
     'dashboard', 'pos:sell', 'pos:refund', 'pos:history',
     'inventory:view',
+    'returns:view',
+    'shifts:view',
     'customers:view', 'customers:manage',
   ],
 
@@ -224,7 +258,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
   STORE_MANAGER: [
     'dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'pos:apply-discount', 'pos:void-transaction',
-    'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'inventory:adjust-stock', 'inventory:expiry-management', 'inventory:receive-supply',
+    'inventory:view', 'inventory:manage', 'inventory:analytics', 'inventory:stocktake', 'inventory:adjust-stock', 'inventory:expiry-management', 'inventory:receive-supply', 'inventory:batches', 'inventory:sell-as',
+    'returns:view', 'returns:process',
+    'shifts:view', 'shifts:manage', 'shifts:reconcile',
     'prescriptions:view',
     'customers:view', 'customers:manage', 'customers:insurance',
     'users:view',
@@ -237,7 +273,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
   SHIFT_SUPERVISOR: [
     'dashboard', 'pos:sell', 'pos:refund', 'pos:history', 'pos:apply-discount',
-    'inventory:view', 'inventory:manage', 'inventory:stocktake', 'inventory:adjust-stock', 'inventory:receive-supply',
+    'inventory:view', 'inventory:manage', 'inventory:stocktake', 'inventory:adjust-stock', 'inventory:receive-supply', 'inventory:batches',
+    'returns:view', 'returns:process',
+    'shifts:view', 'shifts:manage', 'shifts:reconcile',
     'prescriptions:view', 'prescriptions:process',
     'customers:view', 'customers:manage',
     'users:view',
@@ -251,6 +289,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'dashboard',
     'pos:history',
     'inventory:view', 'inventory:analytics',
+    'returns:view',
+    'shifts:view', 'shifts:reconcile',
     'customers:view',
     'financial:view', 'financial:reports', 'financial:reconcile',
     'reports:view', 'reports:export',
@@ -260,13 +300,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
   RECEPTIONIST: [
     'dashboard',
+    'returns:view',
+    'shifts:view',
     'customers:view', 'customers:manage', 'customers:insurance',
     'prescriptions:view',
   ],
 
   LAB_TECHNICIAN: [
     'dashboard',
-    'inventory:view', 'inventory:manage', 'inventory:stocktake', 'inventory:expiry-management',
+    'inventory:view', 'inventory:manage', 'inventory:stocktake', 'inventory:expiry-management', 'inventory:batches',
+    'shifts:view',
     'master-data:view', 'master-data:manage',
     'reports:view',
   ],
@@ -274,6 +317,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   SECURITY_OFFICER: [
     'dashboard',
     'pos:history',
+    'shifts:view',
     'users:view', 'users:view-logs',
     'audit:view', 'audit:export',
     'reports:view',
