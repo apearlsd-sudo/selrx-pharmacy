@@ -967,7 +967,7 @@ function DrugSection() {
 
   const [form, setForm] = useState({
     name: '', sku: '', category: '', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
-    stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
+    stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', vendorId: '',
   })
 
   // Modal states for "+ Add new" in drug form
@@ -1068,7 +1068,7 @@ function DrugSection() {
           sellingPrice: parseFloat(form.sellingPrice),
           reorderPoint: parseInt(form.minStockLevel) || 10,
           expiryDate: form.expiryDate || null,
-          batchNumber: form.barcode || null,
+          batchNumber: form.batchNumber || null,
           vendorId: form.vendorId || null,
         }),
       })
@@ -1078,20 +1078,36 @@ function DrugSection() {
       }
       const newProduct = await res.json()
 
-      // Set initial stock
+      // Set initial stock — use batch endpoint when expiry or batch number is provided
       const qty = parseInt(form.stockQuantity) || 0
       if (qty > 0) {
-        await fetch('/api/inventory', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: newProduct.id, adjustment: qty, reason: 'Initial stock on creation' }),
-        })
+        if (form.expiryDate || form.batchNumber) {
+          // Use batch receive endpoint for proper batch/lot tracking
+          await fetch('/api/inventory/batches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-user-role': 'SUPER_ADMIN' },
+            body: JSON.stringify({
+              productId: newProduct.id,
+              quantity: qty,
+              expiryDate: form.expiryDate || null,
+              batchNumber: form.batchNumber || null,
+              costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
+              reason: 'Initial stock on creation',
+            }),
+          })
+        } else {
+          await fetch('/api/inventory', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: newProduct.id, adjustment: qty, reason: 'Initial stock on creation' }),
+          })
+        }
       }
 
       addToast({ title: 'Drug Added', description: `"${form.name}" registered in inventory`, variant: 'success' })
       setForm({
         name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
-        stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', vendorId: '',
+        stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', vendorId: '',
       })
       fetchData()
     } catch (err: any) {
@@ -1439,6 +1455,12 @@ function DrugSection() {
             <div>
               <Label className="text-xs">Expiry Date</Label>
               <Input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="mt-1" />
+            </div>
+
+            {/* Batch Number */}
+            <div>
+              <Label className="text-xs">Batch Number</Label>
+              <Input placeholder="BN-DDMMYYYY-XXXX" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} className="mt-1" />
             </div>
 
             {/* Barcode */}
