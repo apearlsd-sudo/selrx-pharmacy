@@ -626,7 +626,7 @@ export async function GET(request: NextRequest) {
 
     const headers = [
       'Drug Name', 'SKU', 'Category', 'Manufacturer', 'Vendor',
-      'Dosage Form', 'Stock Qty', 'Status', 'Reorder Level',
+      'Dosage Form', 'Batch Number', 'Stock Qty', 'Status', 'Reorder Level',
       'Cost', 'Retail', 'Expiry', 'Actions',
     ]
 
@@ -635,6 +635,7 @@ export async function GET(request: NextRequest) {
         'Drug Name': 'Amoxicillin 500mg Capsules', SKU: '12345-6789-01',
         Category: 'PRESCRIPTION', Manufacturer: 'PharmaCorp Inc.',
         Vendor: 'MedSupply Distributors', 'Dosage Form': 'CAPSULE',
+        'Batch Number': 'BN-01012026-0001',
         'Stock Qty': 150, Status: 'ACTIVE', 'Reorder Level': 20,
         Cost: 8.50, Retail: 12.99, Expiry: fmtDate('2026-12-31'), Actions: '',
       },
@@ -642,6 +643,7 @@ export async function GET(request: NextRequest) {
         'Drug Name': 'Ibuprofen 200mg Tablets', SKU: '23456-7890-02',
         Category: 'OTC', Manufacturer: 'GenericLab Ltd.',
         Vendor: 'MedSupply Distributors', 'Dosage Form': 'TABLET',
+        'Batch Number': 'BN-15032026-0002',
         'Stock Qty': 300, Status: 'ACTIVE', 'Reorder Level': 50,
         Cost: 2.50, Retail: 5.99, Expiry: fmtDate('2027-06-30'), Actions: '',
       },
@@ -649,6 +651,7 @@ export async function GET(request: NextRequest) {
         'Drug Name': 'Metformin 500mg Tablets', SKU: '34567-8901-03',
         Category: 'PRESCRIPTION', Manufacturer: '',
         Vendor: '', 'Dosage Form': 'TABLET',
+        'Batch Number': '',
         'Stock Qty': 0, Status: 'ACTIVE', 'Reorder Level': 30,
         Cost: 4.25, Retail: 9.50, Expiry: '', Actions: '',
       },
@@ -657,7 +660,7 @@ export async function GET(request: NextRequest) {
     const worksheet = XLSX.utils.json_to_sheet(exampleRows, { header: headers })
     worksheet['!cols'] = [
       { wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 22 },
-      { wch: 24 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+      { wch: 24 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
       { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
       { wch: 12 },
     ]
