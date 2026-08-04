@@ -363,6 +363,11 @@ export default function Home() {
           const rs = JSON.parse(receiptData)
           if (typeof rs.autoPrintReceipt === 'boolean') store.setAutoPrintReceipt(rs.autoPrintReceipt)
           if (typeof rs.showReceiptModal === 'boolean') store.setShowReceiptModal(rs.showReceiptModal)
+          if (rs.fontFamily && ['mono', 'sans', 'serif'].includes(rs.fontFamily)) store.setFontFamily(rs.fontFamily)
+          if (rs.fontSize && ['small', 'medium', 'large'].includes(rs.fontSize)) store.setFontSize(rs.fontSize)
+          if (typeof rs.boldHeader === 'boolean') store.setBoldHeader(rs.boldHeader)
+          if (typeof rs.boldItems === 'boolean') store.setBoldItems(rs.boldItems)
+          if (typeof rs.boldTotals === 'boolean') store.setBoldTotals(rs.boldTotals)
         }
       } catch { /* corrupted receipt settings — ignore */ }
 

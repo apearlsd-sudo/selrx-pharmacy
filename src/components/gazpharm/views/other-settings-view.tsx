@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   XCircle,
   ShieldCheck,
+  Type,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { useAppStore, type DateFormatOption, type TimeFormatOption } from '@/store/app-store'
+import { useAppStore, type DateFormatOption, type TimeFormatOption, type ReceiptFontFamily, type ReceiptFontSize } from '@/store/app-store'
 import { CURRENCIES, type CurrencyCode } from '@/lib/currency'
 import { authHeaders } from '@/lib/auth-headers'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
@@ -95,6 +96,30 @@ const TIME_FORMATS: { value: TimeFormatOption; label: string; example: string }[
   { value: '12h', label: '12-hour (AM/PM)', example: '2:30 PM' },
 ]
 
+const FONT_FAMILIES: { value: ReceiptFontFamily; label: string; cssClass: string; sample: string }[] = [
+  { value: 'mono',  label: 'Monospaced',  cssClass: 'font-mono',  sample: 'Courier New, monospace' },
+  { value: 'sans',  label: 'Sans Serif',   cssClass: 'font-sans',  sample: 'Inter, Helvetica, Arial' },
+  { value: 'serif', label: 'Serif',        cssClass: 'font-serif', sample: 'Georgia, Times New Roman' },
+]
+
+const FONT_SIZES: { value: ReceiptFontSize; label: string; sizeClass: string }[] = [
+  { value: 'small',  label: 'Small  (10px)',  sizeClass: 'text-[10px]' },
+  { value: 'medium', label: 'Medium (12px)', sizeClass: 'text-xs' },
+  { value: 'large',  label: 'Large  (14px)',  sizeClass: 'text-sm' },
+]
+
+function getFontCSS(ff: ReceiptFontFamily): string {
+  if (ff === 'sans') return "font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif"
+  if (ff === 'serif') return "font-family: Georgia, 'Times New Roman', Times, serif"
+  return "font-family: 'Courier New', Courier, monospace"
+}
+
+function getBaseSize(fs: ReceiptFontSize): string {
+  if (fs === 'large') return '14px'
+  if (fs === 'medium') return '12px'
+  return '10px'
+}
+
 // ── Backup types ───────────────────────────────────────────────────
 
 interface BackupMeta {
@@ -135,6 +160,18 @@ export function OtherSettingsView() {
   const setShowReceiptModal = useAppStore((s) => s.setShowReceiptModal)
   const addToast = useAppStore((s) => s.addToast)
   const company = useAppStore((s) => s.company)
+
+  // Receipt print style
+  const fontFamily = useAppStore((s) => s.fontFamily)
+  const setFontFamily = useAppStore((s) => s.setFontFamily)
+  const fontSize = useAppStore((s) => s.fontSize)
+  const setFontSize = useAppStore((s) => s.setFontSize)
+  const boldHeader = useAppStore((s) => s.boldHeader)
+  const setBoldHeader = useAppStore((s) => s.setBoldHeader)
+  const boldItems = useAppStore((s) => s.boldItems)
+  const setBoldItems = useAppStore((s) => s.setBoldItems)
+  const boldTotals = useAppStore((s) => s.boldTotals)
+  const setBoldTotals = useAppStore((s) => s.setBoldTotals)
 
   // Regional settings (hydrated at app level from localStorage)
   const timezone = useAppStore((s) => s.timezone)
@@ -479,10 +516,11 @@ export function OtherSettingsView() {
             Sales Receipt Settings
           </CardTitle>
           <CardDescription className="text-xs">
-            Configure how receipts are handled after completing a sale
+            Configure receipt printing behavior, text style, and font appearance
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Auto-print toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
@@ -510,6 +548,7 @@ export function OtherSettingsView() {
 
           <Separator />
 
+          {/* Show popup toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
@@ -536,6 +575,146 @@ export function OtherSettingsView() {
           </div>
 
           <Separator />
+
+          {/* ── Print Text & Font Style ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5">
+              <Type className="h-4 w-4 text-blue-500" />
+              <p className="text-xs font-semibold text-foreground">Print Text & Font Style</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Font Family */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Font Family</Label>
+                <Select value={fontFamily} onValueChange={(val) => {
+                  setFontFamily(val as ReceiptFontFamily)
+                  addToast({ title: 'Font Updated', description: `Receipt font set to ${FONT_FAMILIES.find(f => f.value === val)?.label || val}`, variant: 'success' })
+                }}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONT_FAMILIES.map((f) => (
+                      <SelectItem key={f.value} value={f.value} className="text-xs">
+                        <span className={f.cssClass}>{f.label}</span>
+                        <span className="ml-2 text-muted-foreground text-[10px]">{f.sample}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Font Size */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Font Size</Label>
+                <Select value={fontSize} onValueChange={(val) => {
+                  setFontSize(val as ReceiptFontSize)
+                  addToast({ title: 'Size Updated', description: `Receipt font size set to ${FONT_SIZES.find(f => f.value === val)?.label || val}`, variant: 'success' })
+                }}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONT_SIZES.map((f) => (
+                      <SelectItem key={f.value} value={f.value} className="text-xs">
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Bold toggles */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label className="text-xs font-medium">Bold Pharmacy Header</Label>
+                  <p className="text-[10px] text-muted-foreground">Make the store name and tagline bold</p>
+                </div>
+                <Switch
+                  checked={boldHeader}
+                  onCheckedChange={(checked) => {
+                    setBoldHeader(checked)
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label className="text-xs font-medium">Bold Item Names</Label>
+                  <p className="text-[10px] text-muted-foreground">Make product names on the receipt bold</p>
+                </div>
+                <Switch
+                  checked={boldItems}
+                  onCheckedChange={(checked) => {
+                    setBoldItems(checked)
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label className="text-xs font-medium">Bold Totals</Label>
+                  <p className="text-[10px] text-muted-foreground">Make the total and payment amounts bold</p>
+                </div>
+                <Switch
+                  checked={boldTotals}
+                  onCheckedChange={(checked) => {
+                    setBoldTotals(checked)
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Live receipt preview */}
+            <Separator />
+            <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2">
+              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                Receipt Preview
+              </p>
+              <div
+                className="bg-white border-2 border-dashed border-gray-200 rounded-lg p-4 space-y-3"
+                style={{
+                  fontFamily: fontFamily === 'sans'
+                    ? "'Inter', 'Helvetica Neue', Arial, sans-serif"
+                    : fontFamily === 'serif'
+                      ? "Georgia, 'Times New Roman', Times, serif"
+                      : "'Courier New', Courier, monospace",
+                  fontSize: getBaseSize(fontSize),
+                  lineHeight: '1.6',
+                }}
+              >
+                {/* Header preview */}
+                <div className="text-center space-y-0.5">
+                  <p className={boldHeader ? 'font-bold tracking-wide' : 'tracking-wide'} style={{ fontSize: fontSize === 'large' ? '16px' : fontSize === 'medium' ? '13px' : '11px' }}>
+                    {company?.name || 'SelRx Pharmacy'}
+                  </p>
+                  <p className="text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px', fontStyle: 'italic' }}>
+                    {company?.tagline || 'Your health, our priority'}
+                  </p>
+                </div>
+                <div className="border-t border-dashed border-gray-300" />
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Paracetamol 500mg</span>
+                  <span className={boldItems ? 'font-bold' : ''}>2 x GHS 5.00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Amoxicillin 250mg</span>
+                  <span className={boldItems ? 'font-bold' : ''}>1 x GHS 12.50</span>
+                </div>
+                <div className="border-t border-dashed border-gray-300" />
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Total:</span>
+                  <span className={boldTotals ? 'font-bold' : ''}>GHS 22.50</span>
+                </div>
+                <div className="border-t border-dashed border-gray-300" />
+                <p className="text-center text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>
+                  Thank you for choosing us!
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 flex items-start gap-2">
             <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
