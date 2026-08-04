@@ -481,23 +481,50 @@ export async function DELETE(
       // Soft delete: set status to DISCONTINUED
       const now = new Date().toISOString()
 
-      // Capture product name before deleting for history
-      const nameResult = await turso.execute({
+      // Capture product name and current stock before deleting for history
+      const preResult = await turso.execute({
         sql: `SELECT name FROM "Product" WHERE id = ?`,
         args: [id],
       })
-      const productName = (nameResult.rows[0]?.name as string) || ''
+      const productName = (preResult.rows[0]?.name as string) || ''
 
+      // Zero out all Batch quantities for this product
+      await turso.execute({
+        sql: `UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE "productId" = ? AND quantity > 0`,
+        args: [now, id],
+      })
+
+      // Zero out Inventory for this product
+      const invCheck = await turso.execute({
+        sql: `SELECT quantity FROM Inventory WHERE "productId" = ?`,
+        args: [id],
+      })
+      const prevStock = invCheck.rows.length > 0 ? Number(invCheck.rows[0][0]) : 0
+
+      if (invCheck.rows.length > 0) {
+        await turso.execute({
+          sql: `UPDATE Inventory SET quantity = 0, "lastCounted" = ?, "updatedAt" = ? WHERE "productId" = ?`,
+          args: [now, now, id],
+        })
+      }
+
+      // Soft delete: set status to DISCONTINUED
       await turso.execute({
         sql: `UPDATE "Product" SET status = 'DISCONTINUED', "updatedAt" = ? WHERE id = ?`,
         args: [now, id],
       })
 
+      // Clear product-level expiry date (batches are zeroed)
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = NULL WHERE id = ?`,
+        args: [id],
+      })
+
       // Record deletion in product history (fire-and-forget)
       writeProductHistory({
         productId: id, action: 'DELETED',
-        previousValues: { name: productName, status: 'ACTIVE' },
-        newValues: { name: productName, status: 'DISCONTINUED' },
+        previousValues: { name: productName, status: 'ACTIVE', stock: prevStock },
+        newValues: { name: productName, status: 'DISCONTINUED', stock: 0 },
         userId: request.headers.get('x-user-id') || '',
       })
 
@@ -537,12 +564,15 @@ export async function DELETE(
         updatedAt: row.updatedAt as string,
       }
 
-      return NextResponse.json({ message: 'Product discontinued successfully', product })
+      return NextResponse.json({ message: `Product discontinued. Inventory and batches zeroed (${prevStock} units adjusted).`, product })
     } else {
       // Prisma fallback for local dev
       const { db } = await import('@/lib/db')
 
-      const existing = await db.product.findUnique({ where: { id } })
+      const existing = await db.product.findUnique({
+        where: { id },
+        include: { inventory: true },
+      })
       if (!existing) {
         return NextResponse.json(
           { error: 'Product not found' },
@@ -550,19 +580,29 @@ export async function DELETE(
         )
       }
 
+      const prevStock = existing.inventory?.quantity || 0
+
+      // Zero out inventory
+      if (existing.inventory) {
+        await db.inventory.update({
+          where: { productId: id },
+          data: { quantity: 0 },
+        })
+      }
+
       const product = await db.product.update({
         where: { id },
-        data: { status: 'DISCONTINUED' },
+        data: { status: 'DISCONTINUED', expiryDate: null },
       })
 
       writeProductHistory({
         productId: id, action: 'DELETED',
-        previousValues: { name: existing.name, status: existing.status },
-        newValues: { name: product.name, status: 'DISCONTINUED' },
+        previousValues: { name: existing.name, status: existing.status, stock: prevStock },
+        newValues: { name: product.name, status: 'DISCONTINUED', stock: 0 },
         userId: request.headers.get('x-user-id') || '',
       })
 
-      return NextResponse.json({ message: 'Product discontinued successfully', product })
+      return NextResponse.json({ message: `Product discontinued. Inventory zeroed (${prevStock} units adjusted).`, product })
     }
   } catch (error) {
     console.error('Error deleting product:', error)

@@ -1233,7 +1233,8 @@ function DrugSection() {
         const err = await res.json()
         throw new Error(err.error || 'Failed to delete product')
       }
-      addToast({ title: 'Product Discontinued', description: `"${deleteDrug.name}" has been discontinued`, variant: 'success' })
+      const data = await res.json()
+      addToast({ title: 'Product Discontinued', description: data.message || `"${deleteDrug.name}" has been discontinued`, variant: 'success' })
       fetchData()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })
@@ -1678,7 +1679,7 @@ function DrugSection() {
           <AlertDialogHeader>
             <AlertDialogTitle>Discontinue Product</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to discontinue <strong>{deleteDrug?.name}</strong>? This will mark the product as discontinued. It will no longer appear in active listings but existing transaction records are preserved.
+              Are you sure you want to discontinue <strong>{deleteDrug?.name}</strong>? This will mark the product as discontinued and <strong>zero out all inventory and batch quantities</strong>. The product will no longer appear in active listings but existing transaction records are preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
