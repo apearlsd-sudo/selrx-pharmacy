@@ -16,7 +16,7 @@ export async function GET(
         sql: `
           SELECT
             p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
-            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure",
+            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
             p."batchNumber", p."expiryDate", p."controlledSubstance", p."deaSchedule",
@@ -55,6 +55,8 @@ export async function GET(
         dosageForm: row.dosageForm as string | null,
         strength: row.strength as string | null,
         unitOfMeasure: row.unitOfMeasure as string,
+        sellingUnit: (row.sellingUnit as string) || 'EA',
+        itemsPerUnit: Number(row.itemsPerUnit) || 1,
         requiresPrescription: Number(row.requiresPrescription) === 1,
         status: row.status as string,
         sellingPrice: Number(row.sellingPrice),
@@ -205,6 +207,14 @@ export async function PUT(
         updateFields.push(`"unitOfMeasure" = ?`)
         updateArgs.push(body.unitOfMeasure)
       }
+      if (body.sellingUnit !== undefined) {
+        updateFields.push(`"sellingUnit" = ?`)
+        updateArgs.push(body.sellingUnit)
+      }
+      if (body.itemsPerUnit !== undefined) {
+        updateFields.push(`"itemsPerUnit" = ?`)
+        updateArgs.push(body.itemsPerUnit)
+      }
       if (body.requiresPrescription !== undefined) {
         updateFields.push(`"requiresPrescription" = ?`)
         updateArgs.push(body.requiresPrescription ? 1 : 0)
@@ -277,10 +287,11 @@ export async function PUT(
         const fieldMap: Record<number, string> = {
           0: 'ndc', 1: 'name', 2: 'genericName', 3: 'manufacturer',
           4: 'manufacturerId', 5: 'vendorId', 6: 'category', 7: 'description',
-          8: 'dosageForm', 9: 'strength', 10: 'unitOfMeasure', 11: 'requiresPrescription',
-          12: 'status', 13: 'sellingPrice', 14: 'costPrice', 15: 'reorderPoint',
-          16: 'reorderQty', 17: 'maxStock', 18: 'storageLocation', 19: 'batchNumber',
-          20: 'expiryDate', 21: 'controlledSubstance', 22: 'deaSchedule',
+          8: 'dosageForm', 9: 'strength', 10: 'unitOfMeasure', 11: 'sellingUnit',
+          12: 'itemsPerUnit', 13: 'requiresPrescription',
+          14: 'status', 15: 'sellingPrice', 16: 'costPrice', 17: 'reorderPoint',
+          18: 'reorderQty', 19: 'maxStock', 20: 'storageLocation', 21: 'batchNumber',
+          22: 'expiryDate', 23: 'controlledSubstance', 24: 'deaSchedule',
         }
         const changedFieldNames = updateFields
           .filter((f) => f !== '"updatedAt" = ?')
@@ -314,7 +325,7 @@ export async function PUT(
         sql: `
           SELECT
             p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
-            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure",
+            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
             p."batchNumber", p."expiryDate", p."controlledSubstance", p."deaSchedule",
@@ -346,6 +357,8 @@ export async function PUT(
         dosageForm: row.dosageForm as string | null,
         strength: row.strength as string | null,
         unitOfMeasure: row.unitOfMeasure as string,
+        sellingUnit: (row.sellingUnit as string) || 'EA',
+        itemsPerUnit: Number(row.itemsPerUnit) || 1,
         requiresPrescription: Number(row.requiresPrescription) === 1,
         status: row.status as string,
         sellingPrice: Number(row.sellingPrice),
@@ -411,6 +424,8 @@ export async function PUT(
           dosageForm: body.dosageForm !== undefined ? body.dosageForm : undefined,
           strength: body.strength !== undefined ? body.strength : undefined,
           unitOfMeasure: body.unitOfMeasure !== undefined ? body.unitOfMeasure : undefined,
+          sellingUnit: body.sellingUnit !== undefined ? body.sellingUnit : undefined,
+          itemsPerUnit: body.itemsPerUnit !== undefined ? body.itemsPerUnit : undefined,
           requiresPrescription: body.requiresPrescription !== undefined ? body.requiresPrescription : undefined,
           status: body.status !== undefined ? body.status : undefined,
           sellingPrice: body.sellingPrice !== undefined ? body.sellingPrice : undefined,
@@ -548,6 +563,8 @@ export async function DELETE(
         dosageForm: row.dosageForm as string | null,
         strength: row.strength as string | null,
         unitOfMeasure: row.unitOfMeasure as string,
+        sellingUnit: (row.sellingUnit as string) || 'EA',
+        itemsPerUnit: Number(row.itemsPerUnit) || 1,
         requiresPrescription: Number(row.requiresPrescription) === 1,
         status: row.status as string,
         sellingPrice: Number(row.sellingPrice),

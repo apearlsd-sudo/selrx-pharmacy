@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         sql: `
           SELECT
             p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
-            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure",
+            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
             p."batchNumber", p."expiryDate", p."controlledSubstance", p."deaSchedule",
@@ -84,6 +84,8 @@ export async function GET(request: NextRequest) {
         dosageForm: row.dosageForm as string | null,
         strength: row.strength as string | null,
         unitOfMeasure: row.unitOfMeasure as string,
+        sellingUnit: (row.sellingUnit as string) || 'EA',
+        itemsPerUnit: Number(row.itemsPerUnit) || 1,
         requiresPrescription: Number(row.requiresPrescription) === 1,
         status: row.status as string,
         sellingPrice: Number(row.sellingPrice),
@@ -213,11 +215,12 @@ export async function POST(request: NextRequest) {
           INSERT INTO "Product" (
             id, ndc, name, "genericName", manufacturer, "manufacturerId", "vendorId",
             category, description, "dosageForm", strength, "unitOfMeasure",
+            "sellingUnit", "itemsPerUnit",
             "requiresPrescription", status, "sellingPrice", "costPrice",
             "reorderPoint", "reorderQty", "maxStock", "storageLocation",
             "batchNumber", "expiryDate", "controlledSubstance", "deaSchedule",
             "createdAt", "updatedAt"
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         args: [
           id,
@@ -232,6 +235,8 @@ export async function POST(request: NextRequest) {
           body.dosageForm || null,
           body.strength || null,
           body.unitOfMeasure || 'EA',
+          body.sellingUnit || 'EA',
+          body.itemsPerUnit || 1,
           body.requiresPrescription ? 1 : 0,
           body.status || 'ACTIVE',
           body.sellingPrice,
@@ -264,7 +269,7 @@ export async function POST(request: NextRequest) {
         sql: `
           SELECT
             p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
-            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure",
+            p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
             p."batchNumber", p."expiryDate", p."controlledSubstance", p."deaSchedule",
@@ -296,6 +301,8 @@ export async function POST(request: NextRequest) {
         dosageForm: row.dosageForm as string | null,
         strength: row.strength as string | null,
         unitOfMeasure: row.unitOfMeasure as string,
+        sellingUnit: (row.sellingUnit as string) || 'EA',
+        itemsPerUnit: Number(row.itemsPerUnit) || 1,
         requiresPrescription: Number(row.requiresPrescription) === 1,
         status: row.status as string,
         sellingPrice: Number(row.sellingPrice),
@@ -361,6 +368,8 @@ export async function POST(request: NextRequest) {
           dosageForm: body.dosageForm,
           strength: body.strength,
           unitOfMeasure: body.unitOfMeasure || 'EA',
+          sellingUnit: body.sellingUnit || 'EA',
+          itemsPerUnit: body.itemsPerUnit || 1,
           requiresPrescription: body.requiresPrescription || false,
           status: body.status || 'ACTIVE',
           sellingPrice: body.sellingPrice,

@@ -39,6 +39,8 @@ interface Product {
   strength?: string | null
   dosageForm?: string | null
   unitOfMeasure: string
+  sellingUnit: string
+  itemsPerUnit: number
   sellingPrice: number
   requiresPrescription: boolean
   category: string
@@ -107,6 +109,12 @@ export function POSView() {
   const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0)
+  // Items that deduct more than 1 base unit per selling unit need stock check multiplied
+  const cartStockMap = new Map<string, number>()
+  for (const item of cart) {
+    const current = cartStockMap.get(item.product.id) || 0
+    cartStockMap.set(item.product.id, current + item.quantity * item.product.itemsPerUnit)
+  }
   const tax = 0
   const total = subtotal + tax
 
@@ -178,6 +186,8 @@ export function POSView() {
                 sellingPrice: product.sellingPrice,
                 requiresPrescription: product.requiresPrescription,
                 unitOfMeasure: product.unitOfMeasure,
+                sellingUnit: product.sellingUnit || 'EA',
+                itemsPerUnit: product.itemsPerUnit || 1,
                 strength: product.strength,
                 dosageForm: product.dosageForm,
               },
@@ -265,6 +275,8 @@ export function POSView() {
         sellingPrice: product.sellingPrice,
         requiresPrescription: product.requiresPrescription,
         unitOfMeasure: product.unitOfMeasure,
+        sellingUnit: product.sellingUnit || 'EA',
+        itemsPerUnit: product.itemsPerUnit || 1,
         strength: product.strength,
         dosageForm: product.dosageForm,
       },
@@ -312,6 +324,7 @@ export function POSView() {
           unitPrice: item.product.sellingPrice,
           subtotal: item.product.sellingPrice * item.quantity,
           requiresRx: item.product.requiresPrescription,
+          itemsPerUnit: item.product.itemsPerUnit,
         })),
         paymentMethod,
         subtotal,
@@ -541,12 +554,20 @@ export function POSView() {
                               <p className="font-bold text-emerald-700 text-sm">
                                 {formatCurrency(product.sellingPrice)}
                               </p>
+                              {(product.sellingUnit && product.sellingUnit !== 'EA') && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  per {product.sellingUnit.toLowerCase()}
+                                  {product.itemsPerUnit > 1 ? ` (${product.itemsPerUnit} ${product.unitOfMeasure.toLowerCase()}${product.itemsPerUnit > 1 ? 's' : ''})` : ''}
+                                </p>
+                              )}
                               <p
                                 className={`text-xs mt-0.5 ${
                                   isOut ? 'text-red-600 font-bold' : stock <= 5 ? 'text-red-500 font-medium' : 'text-muted-foreground'
                                 }`}
                               >
-                                {isOut ? 'Out of Stock' : `Stock: ${stock}`}
+                                {isOut ? 'Out of Stock' : product.itemsPerUnit > 1
+                                  ? `${Math.floor(stock / product.itemsPerUnit)} ${product.sellingUnit.toLowerCase()}${Math.floor(stock / product.itemsPerUnit) !== 1 ? 's' : ''} (${stock} pcs)`
+                                  : `Stock: ${stock}`}
                               </p>
                             </div>
                           </div>
@@ -644,7 +665,10 @@ export function POSView() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product.name}</p>
                           <p className="text-xs text-gray-600">
-                            {formatCurrency(item.product.sellingPrice)} / {item.product.unitOfMeasure}
+                            {formatCurrency(item.product.sellingPrice)}
+                            {item.product.sellingUnit && item.product.sellingUnit !== 'EA'
+                              ? ` / ${item.product.sellingUnit.toLowerCase()}`
+                              : ` / ${item.product.unitOfMeasure}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

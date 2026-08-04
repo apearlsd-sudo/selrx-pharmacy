@@ -47,6 +47,8 @@ export interface CartItem {
     sellingPrice: number
     requiresPrescription: boolean
     unitOfMeasure: string
+    sellingUnit: string
+    itemsPerUnit: number
     strength?: string
     dosageForm?: string
   }

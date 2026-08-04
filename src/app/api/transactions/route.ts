@@ -371,21 +371,23 @@ export async function POST(request: NextRequest) {
     if (isTurso()) {
       // 1. Check inventory for all items (read-modify-write pre-check)
       for (const item of items) {
+        const effectiveQty = (item.quantity as number) * ((item.itemsPerUnit as number) || 1)
         const invResult = await turso.execute({
           sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
           args: [item.productId],
         })
         const availableQty = invResult.rows.length > 0 ? (invResult.rows[0][0] as number) : 0
-        if (availableQty < item.quantity) {
+        if (availableQty < effectiveQty) {
           // Fetch product name for error message
           const prodResult = await turso.execute({
             sql: 'SELECT name FROM Product WHERE id = ?',
             args: [item.productId],
           })
           const prodName = prodResult.rows.length > 0 ? (prodResult.rows[0][0] as string) : 'product'
+          const unitLabel = item.itemsPerUnit && item.itemsPerUnit > 1 ? ` (needs ${effectiveQty} units for ${item.quantity} selling units)` : ''
           return NextResponse.json(
             {
-              error: `Insufficient stock for ${prodName} (available: ${availableQty}, requested: ${item.quantity})`,
+              error: `Insufficient stock for ${prodName} (available: ${availableQty}, requested: ${effectiveQty}${unitLabel})`,
             },
             { status: 400 },
           )
@@ -428,7 +430,7 @@ export async function POST(request: NextRequest) {
 
       // 5. Decrement inventory for all items — FEFO (First Expired, First Out)
       for (const item of items) {
-        const itemQty = item.quantity as number
+        const itemQty = (item.quantity as number) * ((item.itemsPerUnit as number) || 1)
         const pid = item.productId as string
         const now2 = new Date().toISOString()
 
@@ -525,12 +527,13 @@ export async function POST(request: NextRequest) {
 
     // Check inventory for all items and deduct
     for (const item of items) {
+      const effectiveQty = (item.quantity as number) * ((item.itemsPerUnit as number) || 1)
       const inventory = await db.inventory.findUnique({ where: { productId: item.productId } })
-      if (!inventory || inventory.quantity < item.quantity) {
+      if (!inventory || inventory.quantity < effectiveQty) {
         const product = await db.product.findUnique({ where: { id: item.productId } })
         return NextResponse.json(
           {
-            error: `Insufficient stock for ${product?.name || 'product'} (available: ${inventory?.quantity || 0}, requested: ${item.quantity})`,
+            error: `Insufficient stock for ${product?.name || 'product'} (available: ${inventory?.quantity || 0}, requested: ${effectiveQty})`,
           },
           { status: 400 },
         )
@@ -573,11 +576,12 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Deduct inventory for all items
+    // Deduct inventory for all items (multiply by itemsPerUnit for strip/blister sales)
     for (const item of items) {
+      const effectiveQty = (item.quantity as number) * ((item.itemsPerUnit as number) || 1)
       await db.inventory.update({
         where: { productId: item.productId as string },
-        data: { quantity: { decrement: item.quantity as number }, lastCounted: new Date() },
+        data: { quantity: { decrement: effectiveQty }, lastCounted: new Date() },
       })
     }
 

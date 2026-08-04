@@ -81,6 +81,8 @@ interface DrugProduct {
   dosageForm: string | null
   strength: string | null
   unitOfMeasure: string
+  sellingUnit: string
+  itemsPerUnit: number
   vendor?: { id: string; name: string } | null
   manufacturerRef?: { id: string; name: string } | null
   inventory?: { quantity: number }[]
@@ -968,6 +970,7 @@ function DrugSection() {
   const [form, setForm] = useState({
     name: '', sku: '', category: '', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
     stockQuantity: '0', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', vendorId: '',
+    sellingUnit: 'EA', itemsPerUnit: '1',
   })
 
   // Modal states for "+ Add new" in drug form
@@ -1066,6 +1069,8 @@ function DrugSection() {
           manufacturerId: form.manufacturerId || null,
           costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
           sellingPrice: parseFloat(form.sellingPrice),
+          sellingUnit: form.sellingUnit || 'EA',
+          itemsPerUnit: parseInt(form.itemsPerUnit) || 1,
           reorderPoint: parseInt(form.minStockLevel) || 10,
           expiryDate: form.expiryDate || null,
           batchNumber: form.batchNumber || null,
@@ -1431,6 +1436,37 @@ function DrugSection() {
               <Label className="text-xs">Selling Price ($) <span className="text-red-500">*</span></Label>
               <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} className="mt-1" />
             </div>
+
+            {/* Selling Unit */}
+            <div>
+              <Label className="text-xs">Sell As</Label>
+              <Select value={form.sellingUnit} onValueChange={(v) => setForm({ ...form, sellingUnit: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EA">Each / Piece</SelectItem>
+                  <SelectItem value="Tablet">Tablet</SelectItem>
+                  <SelectItem value="Capsule">Capsule</SelectItem>
+                  <SelectItem value="Sachet">Sachet</SelectItem>
+                  <SelectItem value="Vial">Vial</SelectItem>
+                  <SelectItem value="Ampoule">Ampoule</SelectItem>
+                  <SelectItem value="Bottle">Bottle</SelectItem>
+                  <SelectItem value="Strip">Strip</SelectItem>
+                  <SelectItem value="Blister">Blister Pack</SelectItem>
+                  <SelectItem value="Tube">Tube</SelectItem>
+                  <SelectItem value="Pack">Pack</SelectItem>
+                  <SelectItem value="Box">Box</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Items Per Unit */}
+            {form.sellingUnit !== 'EA' && (
+              <div>
+                <Label className="text-xs">Items Per {form.sellingUnit}</Label>
+                <Input type="number" min="1" placeholder="e.g., 10" value={form.itemsPerUnit} onChange={(e) => setForm({ ...form, itemsPerUnit: e.target.value })} className="mt-1" />
+                <p className="text-[10px] text-muted-foreground mt-1">Number of individual units (tablets/capsules) in each {form.sellingUnit.toLowerCase()}</p>
+              </div>
+            )}
 
             {/* Vendor Dropdown */}
             <div>

@@ -97,6 +97,8 @@ model Product {
   dosageForm        String?         // Tablet, Capsule, Liquid, Cream, etc.
   strength          String?         // 500mg, 10ml, etc.
   unitOfMeasure     String          @default("EA") // EA, BOX, PACK
+  sellingUnit        String          @default("EA") // Tablet, Capsule, Strip, Blister, Sachet, Vial, Ampoule, Bottle, EA
+  itemsPerUnit       Int             @default(1) // e.g. 10 tablets per strip
   requiresPrescription Boolean      @default(false)
   status            ProductStatus   @default(ACTIVE)
   sellingPrice      Float
