@@ -109,6 +109,7 @@ async function main() {
   await addColumn(turso, 'Product', 'vendorId', 'TEXT')
   await addColumn(turso, 'Product', 'manufacturer', 'TEXT')
   await addColumn(turso, 'Product', 'dosageForm', 'TEXT')
+  await addColumn(turso, 'Product', 'expiredAt', 'TEXT')
 
   // ── Inventory: ensure records exist for all products ───────────
   console.log('📦 Syncing Inventory records...')

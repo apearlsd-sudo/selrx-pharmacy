@@ -97,6 +97,7 @@ export function ReportsView() {
   const [expiredSummary, setExpiredSummary] = useState<any>(null)
   const [expiredLoading, setExpiredLoading] = useState(false)
   const [processingExpired, setProcessingExpired] = useState(false)
+  const [deletingExpired, setDeletingExpired] = useState(false)
   const [selectedExpiredIds, setSelectedExpiredIds] = useState<Set<string>>(new Set())
 
   // Product activity log state
@@ -465,6 +466,28 @@ export function ReportsView() {
       addToast({ title: 'Error', description: err.message || 'Failed to process expired goods', variant: 'destructive' })
     } finally {
       setProcessingExpired(false)
+    }
+  }, [user, addToast, bumpInventoryVersion, fetchExpiredGoods])
+
+  // Delete expired goods records (discontinue products)
+  const deleteExpiredGoods = useCallback(async (options: { batchIds?: string[]; productIds?: string[]; all?: boolean }) => {
+    setDeletingExpired(true)
+    try {
+      const res = await fetch('/api/reports/expired-goods', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id || '', 'x-user-role': user?.role || '' },
+        body: JSON.stringify(options),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+      const data = await res.json()
+      addToast({ title: 'Deleted', description: data.message, variant: 'success' })
+      setSelectedExpiredIds(new Set())
+      bumpInventoryVersion()
+      fetchExpiredGoods()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeletingExpired(false)
     }
   }, [user, addToast, bumpInventoryVersion, fetchExpiredGoods])
 
@@ -1244,6 +1267,15 @@ export function ReportsView() {
               <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportExpiredCSV} disabled={expiredGoods.length === 0}>
                 <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
               </Button>
+              {(expiredSummary?.processedItems || 0) > 0 && (
+                <Button
+                  variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-600 hover:bg-gray-100"
+                  disabled={deletingExpired}
+                  onClick={() => deleteExpiredGoods({ all: true })}
+                >
+                  {deletingExpired ? 'Deleting...' : 'Delete All Records'}
+                </Button>
+              )}
               {(expiredSummary?.unprocessedItems || 0) > 0 && (
                 <Button
                   size="sm"
@@ -1256,7 +1288,7 @@ export function ReportsView() {
                   ) : selectedExpiredIds.size > 0 ? (
                     <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Remove Selected ({selectedExpiredIds.size})</>
                   ) : (
-                    <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Remove All Expired from Inventory</>
+                    <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Zero Expired Stock</>
                   )}
                 </Button>
               )}
@@ -1273,7 +1305,7 @@ export function ReportsView() {
               <span className="text-red-700 font-medium">{selectedExpiredIds.size} item{selectedExpiredIds.size === 1 ? '' : 's'} selected</span>
               <span className="text-red-500">— cost to write off: {formatCurrency(expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id)).reduce((s: number, p: any) => s + p.costValue, 0))}</span>
               <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto" disabled={processingExpired} onClick={() => processExpiredGoods(Array.from(selectedExpiredIds))}>
-                {processingExpired ? 'Processing...' : 'Remove Selected'}
+                {processingExpired ? 'Processing...' : 'Zero Stock'}
               </Button>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedExpiredIds(new Set())}>Cancel</Button>
             </div>
@@ -1425,9 +1457,18 @@ export function ReportsView() {
                             </TableCell>
                             <TableCell className="text-center">
                               {p.processed ? (
-                                <Badge className="bg-gray-100 text-gray-600 text-[10px] gap-1">
-                                  <CheckCircle2 className="h-3 w-3" /> Removed
-                                </Badge>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Badge className="bg-gray-100 text-gray-600 text-[10px] gap-1">
+                                    <CheckCircle2 className="h-3 w-3" /> Removed
+                                  </Badge>
+                                  <Button
+                                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                                    disabled={deletingExpired}
+                                    onClick={() => deleteExpiredGoods({ productIds: [p.processed ? p.id : p.productId] })}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               ) : p.stockQty > 0 ? (
                                 <Badge className="bg-red-100 text-red-700 text-[10px] gap-1">
                                   <AlertTriangle className="h-3 w-3" /> In Stock

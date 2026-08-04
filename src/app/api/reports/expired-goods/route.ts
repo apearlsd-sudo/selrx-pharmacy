@@ -4,32 +4,24 @@ import { writeProductHistory } from '@/lib/product-history'
 
 /**
  * GET /api/reports/expired-goods
- * Query params:
- *   from — expiry date lower bound (YYYY-MM-DD)
- *   to   — expiry date upper bound (YYYY-MM-DD)
  *
- * Returns expired products with:
- *   - whether they still have stock (not yet processed) or already processed (qty zeroed)
- *   - cost value, retail value, loss value
- *   - total quantity sold before expiry (from completed transactions)
- *   - total sales revenue from those sales
+ * Returns ALL expired goods — both unprocessed (stock > 0) and already
+ * processed (stock zeroed, kept for record until user deletes them).
  *
  * POST /api/reports/expired-goods
- * Body: { productIds?: string[] }  (if empty, processes ALL expired goods with stock > 0)
+ * Body: { productIds?: string[] }
+ * Zeroes inventory for expired goods & sets expiredAt on Product.
  *
- * Actions:
- *   - Sets inventory quantity to 0 for expired products still in stock
- *   - Logs each as EXPIRED in ProductHistory
- *   - Marks product status as 'EXPIRED'
- *   - Returns summary of what was processed
+ * DELETE /api/reports/expired-goods
+ * Body: { batchIds?: string[], all?: boolean }
+ * Permanently discontinues expired products (individual or bulk).
  */
 
-// ---------- Helper: fetch sales data for a list of product IDs ----------
+// ---------- Helper ----------
 
 async function fetchSalesMap(productIds: string[]): Promise<Record<string, { qtySold: number; salesRevenue: number }>> {
   const salesMap: Record<string, { qtySold: number; salesRevenue: number }> = {}
   if (productIds.length === 0) return salesMap
-
   const chunkSize = 50
   for (let i = 0; i < productIds.length; i += chunkSize) {
     const chunk = productIds.slice(i, i + chunkSize)
@@ -57,21 +49,17 @@ async function fetchSalesMap(productIds: string[]): Promise<Record<string, { qty
 
 // ===================== GET =====================
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url)
-    const from = searchParams.get('from') || ''
-    const to = searchParams.get('to') || ''
-
     if (isTurso()) {
-      // Fetch expired BATCHES with product info
-      // This correctly handles products with multiple lots of different expiry dates
-      const [batchesResult, summaryResult] = await Promise.all([
+      // Unprocessed: expired batches still with stock > 0
+      const [unprocessedResult, processedResult] = await Promise.all([
         turso.execute({
           sql: `SELECT b.id as batchId, b."batchNumber", b."expiryDate",
                    b.quantity as batchQty, b."costPrice" as batchCostPrice,
                    p.id, p.name, p.ndc, p.category, p."dosageForm",
-                   p."sellingPrice", p.manufacturer, p.status as productStatus,
+                   p."sellingPrice", p."costPrice" as productCostPrice, p.manufacturer,
+                   p.status as productStatus, p."expiredAt",
                    COALESCE(i.quantity, 0) as totalStockQty
             FROM "Batch" b
             INNER JOIN "Product" p ON p.id = b."productId"
@@ -82,109 +70,128 @@ export async function GET(request: NextRequest) {
             ORDER BY b."expiryDate" ASC`,
           args: [],
         }),
+        // Processed: products marked EXPIRED (stock already zeroed)
         turso.execute({
-          sql: `SELECT
-              COUNT(*) as totalItems,
-              SUM(b.quantity) as totalStockQty,
-              COALESCE(SUM(b.quantity * COALESCE(b."costPrice", p."costPrice", 0)), 0) as totalCostValue,
-              COALESCE(SUM(b.quantity * p."sellingPrice"), 0) as totalRetailValue
-            FROM "Batch" b
-            INNER JOIN "Product" p ON p.id = b."productId"
-            WHERE b."expiryDate" IS NOT NULL
-              AND date(b."expiryDate") <= date('now')
-              AND b.quantity > 0`,
+          sql: `SELECT p.id, p.name, p.ndc, p.category, p."dosageForm",
+                   p."sellingPrice", p."costPrice", p.manufacturer,
+                   p.status as productStatus, p."expiredAt",
+                   p."batchNumber", p."expiryDate",
+                   0 as batchQty, 0 as totalStockQty,
+                   NULL as batchId, NULL as batchCostPrice
+            FROM "Product" p
+            WHERE p.status = 'EXPIRED'
+              AND p."expiryDate" IS NOT NULL
+            ORDER BY p."expiredAt" DESC`,
           args: [],
         }),
       ])
 
-      const products = batchesResult.rows.map((row: any) => {
-        const batchQty = Number(row.batchQty) || 0
-        const batchCost = Number(row.batchCostPrice) || Number(row.costPrice) || 0
-        const sellingPrice = Number(row.sellingPrice) || 0
-        return {
-          id: row.batchId,
-          productId: row.id,
-          name: row.name,
-          ndc: row.ndc,
-          category: row.category,
-          dosageForm: row.dosageForm,
-          costPrice: batchCost,
-          sellingPrice,
-          expiryDate: row.expiryDate,
-          batchNumber: row.batchNumber,
-          manufacturer: row.manufacturer,
-          productStatus: row.productStatus,
-          stockQty: batchQty,
-          totalStockQty: Number(row.totalStockQty) || 0,
-          inventoryUpdatedAt: null,
-          processed: false,
-          costValue: batchCost * batchQty,
-          retailValue: sellingPrice * batchQty,
-          lossValue: (sellingPrice - batchCost) * batchQty,
-          qtySold: 0,
-          salesRevenue: 0,
-        }
-      })
+      const allProducts = [
+        ...unprocessedResult.rows.map((row: any) => {
+          const batchQty = Number(row.batchQty) || 0
+          const batchCost = Number(row.batchCostPrice) || Number(row.productCostPrice) || 0
+          const sellingPrice = Number(row.sellingPrice) || 0
+          return {
+            id: row.batchId,
+            productId: row.id,
+            name: row.name,
+            ndc: row.ndc,
+            category: row.category,
+            dosageForm: row.dosageForm,
+            costPrice: batchCost,
+            sellingPrice,
+            expiryDate: row.expiryDate,
+            batchNumber: row.batchNumber,
+            manufacturer: row.manufacturer,
+            productStatus: row.productStatus,
+            expiredAt: row.expiredAt,
+            stockQty: batchQty,
+            totalStockQty: Number(row.totalStockQty) || 0,
+            processed: false,
+            costValue: batchCost * batchQty,
+            retailValue: sellingPrice * batchQty,
+            lossValue: (sellingPrice - batchCost) * batchQty,
+            qtySold: 0,
+            salesRevenue: 0,
+          }
+        }),
+        ...processedResult.rows.map((row: any) => {
+          const costPrice = Number(row.costPrice) || 0
+          const sellingPrice = Number(row.sellingPrice) || 0
+          return {
+            id: row.id,  // product ID for processed items
+            productId: row.id,
+            name: row.name,
+            ndc: row.ndc,
+            category: row.category,
+            dosageForm: row.dosageForm,
+            costPrice,
+            sellingPrice,
+            expiryDate: row.expiryDate,
+            batchNumber: row.batchNumber,
+            manufacturer: row.manufacturer,
+            productStatus: row.productStatus,
+            expiredAt: row.expiredAt,
+            stockQty: 0,
+            totalStockQty: 0,
+            processed: true,
+            costValue: 0,
+            retailValue: 0,
+            lossValue: 0,
+            qtySold: 0,
+            salesRevenue: 0,
+          }
+        }),
+      ]
 
-      const summary = summaryResult.rows[0]
-
-      // Fetch sales data for the products
-      const productIds = [...new Set(products.map((p) => p.productId))]
+      // Fetch sales data
+      const productIds = [...new Set(allProducts.map((p) => p.productId))]
       const salesMap = await fetchSalesMap(productIds)
 
-      // Merge sales data
-      const enriched = products.map((p) => {
+      const enriched = allProducts.map((p) => {
         const sales = salesMap[p.productId] || { qtySold: 0, salesRevenue: 0 }
         return { ...p, qtySold: sales.qtySold, salesRevenue: sales.salesRevenue }
       })
 
-      const totalQtySold = enriched.reduce((s, p) => s + p.qtySold, 0)
-      const totalSalesRevenue = enriched.reduce((s, p) => s + p.salesRevenue, 0)
-      const totalCostOfSold = enriched.reduce((s, p) => s + (p.qtySold > 0 ? p.costPrice * p.qtySold : 0), 0)
+      const unprocessed = enriched.filter((p) => !p.processed)
+      const processed = enriched.filter((p) => p.processed)
 
       return NextResponse.json({
         products: enriched,
         summary: {
-          totalItems: Number(summary.totalItems) || 0,
-          unprocessedItems: Number(summary.totalItems) || 0,
-          processedItems: 0,
-          totalStockQty: Number(summary.totalStockQty) || 0,
-          totalCostValue: Number(summary.totalCostValue) || 0,
-          totalRetailValue: Number(summary.totalRetailValue) || 0,
-          totalLossValue: (Number(summary.totalRetailValue) || 0) - (Number(summary.totalCostValue) || 0),
-          totalQtySold,
-          totalSalesRevenue,
-          totalCostOfSold,
-          totalProfitFromSold: totalSalesRevenue - totalCostOfSold,
+          totalItems: enriched.length,
+          unprocessedItems: unprocessed.length,
+          processedItems: processed.length,
+          totalStockQty: unprocessed.reduce((s, p) => s + p.stockQty, 0),
+          totalCostValue: unprocessed.reduce((s, p) => s + p.costValue, 0),
+          totalRetailValue: unprocessed.reduce((s, p) => s + p.retailValue, 0),
+          totalLossValue: unprocessed.reduce((s, p) => s + p.lossValue, 0),
+          totalQtySold: enriched.reduce((s, p) => s + p.qtySold, 0),
+          totalSalesRevenue: enriched.reduce((s, p) => s + p.salesRevenue, 0),
         },
       })
     }
 
     // Prisma fallback
     const { db } = await import('@/lib/db')
-    const where: any = { expiryDate: { lt: new Date() } }
-    if (from) where.expiryDate = { ...where.expiryDate, gte: new Date(from) }
-    if (to) where.expiryDate = { ...where.expiryDate, lte: new Date(to + 'T23:59:59') }
-
     const expiredProducts = await db.product.findMany({
-      where,
+      where: { expiryDate: { lt: new Date() } },
       include: { inventory: true },
       orderBy: { expiryDate: 'desc' },
     })
-
     const products = expiredProducts.map((p: any) => ({
       id: p.id, name: p.name, ndc: p.ndc, category: p.category,
       dosageForm: p.dosageForm, costPrice: p.costPrice || 0,
       sellingPrice: p.sellingPrice || 0, expiryDate: p.expiryDate,
       batchNumber: p.batchNumber, manufacturer: p.manufacturer,
-      productStatus: p.status,
+      productStatus: p.status, expiredAt: null,
       stockQty: p.inventory?.quantity || 0,
       processed: (p.inventory?.quantity || 0) === 0,
-      qtySold: 0, salesRevenue: 0, costValue: (p.costPrice || 0) * (p.inventory?.quantity || 0),
+      qtySold: 0, salesRevenue: 0,
+      costValue: (p.costPrice || 0) * (p.inventory?.quantity || 0),
       retailValue: (p.sellingPrice || 0) * (p.inventory?.quantity || 0),
       lossValue: ((p.sellingPrice || 0) - (p.costPrice || 0)) * (p.inventory?.quantity || 0),
     }))
-
     return NextResponse.json({
       products,
       summary: {
@@ -195,7 +202,7 @@ export async function GET(request: NextRequest) {
         totalCostValue: products.reduce((s: number, p: any) => s + p.costValue, 0),
         totalRetailValue: products.reduce((s: number, p: any) => s + p.retailValue, 0),
         totalLossValue: products.reduce((s: number, p: any) => s + p.lossValue, 0),
-        totalQtySold: 0, totalSalesRevenue: 0, totalCostOfSold: 0, totalProfitFromSold: 0,
+        totalQtySold: 0, totalSalesRevenue: 0,
       },
     })
   } catch (error) {
@@ -204,7 +211,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ===================== POST — Process (remove) expired goods from inventory =====================
+// ===================== POST — Process expired goods =====================
 
 export async function POST(request: NextRequest) {
   try {
@@ -213,17 +220,14 @@ export async function POST(request: NextRequest) {
     const { productIds } = body as { productIds?: string[] }
 
     if (!isTurso()) {
-      return NextResponse.json({ error: 'Expired goods processing requires Turso database' }, { status: 400 })
+      return NextResponse.json({ error: 'Requires cloud database' }, { status: 400 })
     }
 
     const now = new Date().toISOString()
 
-    // Find expired batches with stock > 0
-    // productIds can now be batch IDs from the batch-based report
     let targetBatches: Array<{ id: string; productId: string; name: string; batchNumber: string | null; qty: number; costPrice: number; sellingPrice: number }> = []
 
     if (productIds && productIds.length > 0) {
-      // Process specific batches
       const placeholders = productIds.map(() => '?').join(', ')
       const result = await turso.execute({
         sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity,
@@ -242,7 +246,6 @@ export async function POST(request: NextRequest) {
         costPrice: Number(row.costPrice) || 0, sellingPrice: Number(row.sellingPrice) || 0,
       }))
     } else {
-      // Process ALL expired batches with stock > 0
       const result = await turso.execute({
         sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity,
                  b."costPrice", p.name, p."sellingPrice"
@@ -263,26 +266,20 @@ export async function POST(request: NextRequest) {
     if (targetBatches.length === 0) {
       return NextResponse.json({
         message: 'No expired goods with stock to process',
-        processedCount: 0,
-        totalCostWrittenOff: 0,
-        totalRetailWrittenOff: 0,
-        items: [],
+        processedCount: 0, totalCostWrittenOff: 0, totalRetailWrittenOff: 0, items: [],
       })
     }
 
-    // Process each expired batch: zero it out and recalculate inventory
     const processedItems: Array<{ id: string; name: string; batchNumber: string | null; previousQty: number; costValue: number; retailValue: number }> = []
     let totalCostWrittenOff = 0
     let totalRetailWrittenOff = 0
     const affectedProductIds = new Set<string>()
 
     for (const batch of targetBatches) {
-      // Zero out the expired batch
       await turso.execute({
         sql: 'UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?',
         args: [now, batch.id],
       })
-
       affectedProductIds.add(batch.productId)
 
       const costValue = batch.costPrice * batch.qty
@@ -291,18 +288,12 @@ export async function POST(request: NextRequest) {
       totalRetailWrittenOff += retailValue
 
       processedItems.push({
-        id: batch.id,
-        name: batch.name,
-        batchNumber: batch.batchNumber,
-        previousQty: batch.qty,
-        costValue,
-        retailValue,
+        id: batch.id, name: batch.name, batchNumber: batch.batchNumber,
+        previousQty: batch.qty, costValue, retailValue,
       })
 
-      // Log in product history
       writeProductHistory({
-        productId: batch.productId,
-        action: 'EXPIRED',
+        productId: batch.productId, action: 'EXPIRED',
         changedFields: ['batchQuantity', 'status'],
         previousValues: { batchQuantity: batch.qty, batchNumber: batch.batchNumber, status: 'ACTIVE' },
         newValues: { batchQuantity: 0, status: 'EXPIRED' },
@@ -310,7 +301,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Recalculate Inventory totals for affected products
     for (const pid of affectedProductIds) {
       const sumResult = await turso.execute({
         sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
@@ -322,36 +312,84 @@ export async function POST(request: NextRequest) {
         args: [totalBatchQty, now, pid],
       })
 
-      // Update product expiryDate to nearest remaining batch expiry
-      await turso.execute({
-        sql: `UPDATE "Product" SET "expiryDate" = (
-                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
-              ), "updatedAt" = ?
-              WHERE id = ?`,
-        args: [pid, now, pid],
-      })
-
-      // Set product to EXPIRED only if ALL batches are empty
+      // Set expiredAt on product when we expire it
       if (totalBatchQty === 0) {
         await turso.execute({
-          sql: `UPDATE "Product" SET status = 'EXPIRED', "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,
-          args: [now, pid],
+          sql: `UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,
+          args: [now, now, pid],
         })
       }
     }
 
-    console.log(`[Expired Goods] Processed ${processedItems.length} batches, wrote off cost: ${totalCostWrittenOff}, retail: ${totalRetailWrittenOff}`)
-
     return NextResponse.json({
-      message: `Processed ${processedItems.length} expired batch${processedItems.length === 1 ? '' : 's'} — stock removed from batches`,
+      message: `Processed ${processedItems.length} expired batch${processedItems.length === 1 ? '' : 's'}`,
       processedCount: processedItems.length,
-      totalCostWrittenOff,
-      totalRetailWrittenOff,
+      totalCostWrittenOff, totalRetailWrittenOff,
       totalLoss: totalRetailWrittenOff - totalCostWrittenOff,
       items: processedItems,
     })
   } catch (error) {
     console.error('Error processing expired goods:', error)
     return NextResponse.json({ error: 'Failed to process expired goods' }, { status: 500 })
+  }
+}
+
+// ===================== DELETE — Discontinue expired products =====================
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const { batchIds, productIds, all } = body as { batchIds?: string[]; productIds?: string[]; all?: boolean }
+
+    if (!isTurso()) {
+      return NextResponse.json({ error: 'Requires cloud database' }, { status: 400 })
+    }
+
+    const now = new Date().toISOString()
+
+    if (all) {
+      // Discontinue ALL expired products
+      const result = await turso.execute({
+        sql: `UPDATE "Product" SET status = 'DISCONTINUED', "updatedAt" = ? WHERE status = 'EXPIRED'`,
+        args: [now],
+      })
+      return NextResponse.json({
+        discontinued: result.rowsAffected,
+        message: `${result.rowsAffected} expired product(s) permanently discontinued.`,
+      })
+    }
+
+    // Discontinue specific items by product ID or batch ID
+    let idsToDiscontinue: string[] = []
+
+    if (productIds && productIds.length > 0) {
+      idsToDiscontinue = productIds
+    } else if (batchIds && batchIds.length > 0) {
+      // Convert batch IDs to product IDs
+      const placeholders = batchIds.map(() => '?').join(', ')
+      const result = await turso.execute({
+        sql: `SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${placeholders})`,
+        args: batchIds,
+      })
+      idsToDiscontinue = result.rows.map((r) => r[0] as string)
+    }
+
+    if (idsToDiscontinue.length === 0) {
+      return NextResponse.json({ error: 'No items specified for deletion' }, { status: 400 })
+    }
+
+    const placeholders = idsToDiscontinue.map(() => '?').join(', ')
+    await turso.execute({
+      sql: `UPDATE "Product" SET status = 'DISCONTINUED', "updatedAt" = ? WHERE id IN (${placeholders})`,
+      args: [now, ...idsToDiscontinue],
+    })
+
+    return NextResponse.json({
+      discontinued: idsToDiscontinue.length,
+      message: `${idsToDiscontinue.length} expired product(s) discontinued.`,
+    })
+  } catch (error) {
+    console.error('Error deleting expired products:', error)
+    return NextResponse.json({ error: 'Failed to delete expired products' }, { status: 500 })
   }
 }
