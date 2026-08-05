@@ -258,3 +258,162 @@ html {
   color: oklch(0.45 0 0);
 }
 
+/* ──────────────────────────────────────────────
+   21st.dev-inspired Gradient Backgrounds
+   ────────────────────────────────────────────── */
+
+/* Aurora: slowly morphing gradient mesh (login / showcase screens) */
+@keyframes aurora-shift {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  25% { transform: translate(10%, -15%) scale(1.15); }
+  50% { transform: translate(-5%, 10%) scale(0.95); }
+  75% { transform: translate(-15%, -5%) scale(1.1); }
+}
+
+.bg-aurora {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #022c22 0%, #064e3b 25%, #0f766e 50%, #115e59 75%, #022c22 100%);
+  background-size: 400% 400%;
+  animation: aurora-shift 20s ease-in-out infinite;
+}
+
+.bg-aurora::before,
+.bg-aurora::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.bg-aurora::before {
+  width: 60vw;
+  height: 60vw;
+  top: -20%;
+  right: -15%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, transparent 70%);
+  animation: aurora-shift 15s ease-in-out infinite reverse;
+}
+
+.bg-aurora::after {
+  width: 50vw;
+  height: 50vw;
+  bottom: -15%;
+  left: -10%;
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.35) 0%, transparent 70%);
+  animation: aurora-shift 18s ease-in-out infinite 3s;
+}
+
+/* Floating orbs for aurora scenes */
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+@keyframes float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+@keyframes float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 30px) scale(1.15); }
+  66% { transform: translate(35px, -15px) scale(0.95); }
+}
+@keyframes float-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(15px, 25px) scale(1.05); }
+  66% { transform: translate(-30px, -35px) scale(1.1); }
+}
+
+.aurora-orb-1 {
+  width: 300px; height: 300px;
+  top: 10%; left: 5%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.3) 0%, transparent 70%);
+  animation: float-1 12s ease-in-out infinite;
+}
+.aurora-orb-2 {
+  width: 250px; height: 250px;
+  top: 50%; right: 10%;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.25) 0%, transparent 70%);
+  animation: float-2 14s ease-in-out infinite 2s;
+}
+.aurora-orb-3 {
+  width: 200px; height: 200px;
+  bottom: 15%; left: 40%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%);
+  animation: float-3 16s ease-in-out infinite 4s;
+}
+
+/* Mesh gradient (lighter, for loading/transition screens) */
+@keyframes mesh-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.bg-mesh-light {
+  background:
+    radial-gradient(at 20% 30%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 20%, rgba(20, 184, 166, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(52, 211, 153, 0.06) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, rgba(5, 150, 105, 0.05) 0px, transparent 50%),
+    linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #f0fdfa 50%, #f5f3ff 75%, #faf5ff 100%);
+  background-size: 200% 200%, 200% 200%, 200% 200%, 200% 200%, 400% 400%;
+  animation: mesh-move 25s ease infinite;
+}
+
+/* Subtle grid overlay (adds depth to light backgrounds) */
+.bg-grid-subtle {
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Vignette overlay for depth */
+.bg-vignette::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.15) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Noise texture overlay */
+.bg-noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Spotlight / glow effect for cards */
+.glow-card {
+  position: relative;
+  overflow: hidden;
+}
+.glow-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.glow-card:hover::before {
+  opacity: 1;
+}
+

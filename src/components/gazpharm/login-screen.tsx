@@ -67,13 +67,11 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-800 p-4">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-emerald-600/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-teal-600/20 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-aurora bg-vignette p-4">
+      {/* 21st.dev-inspired aurora orbs */}
+      <div className="aurora-orb aurora-orb-1" />
+      <div className="aurora-orb aurora-orb-2" />
+      <div className="aurora-orb aurora-orb-3" />
 
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -88,19 +86,19 @@ export function LoginScreen() {
           transition={{ delay: 0.2, duration: 0.4 }}
           className="mb-8 text-center"
         >
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm ring-1 ring-white/20">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-lg shadow-emerald-500/10">
             <Pill className="h-10 w-10 text-emerald-300" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
             SelRx
           </h1>
-          <p className="mt-1 text-emerald-200/80 text-sm">
+          <p className="mt-1.5 text-emerald-200/70 text-sm font-medium">
             Pharmacy Management System
           </p>
         </motion.div>
 
         {/* Login Card */}
-        <Card className="border-white/10 bg-white shadow-2xl backdrop-blur-sm">
+        <Card className="border-white/15 bg-white/95 shadow-2xl shadow-black/20 backdrop-blur-xl">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-xl text-gray-900">
               Sign in to your account

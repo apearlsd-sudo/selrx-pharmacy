@@ -238,13 +238,12 @@ export function CompanySetupView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-800 relative overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-emerald-600/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-teal-600/20 blur-3xl" />
-        <div className="absolute top-1/3 left-1/3 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 h-48 w-48 rounded-full bg-teal-400/10 blur-3xl" />
+    <div className="min-h-screen bg-aurora bg-vignette relative overflow-hidden">
+      {/* 21st.dev-inspired aurora orbs */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="aurora-orb aurora-orb-1" />
+        <div className="aurora-orb aurora-orb-2" />
+        <div className="aurora-orb aurora-orb-3" />
       </div>
 
       <div className="relative z-10 min-h-screen flex flex-col">

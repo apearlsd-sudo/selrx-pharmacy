@@ -473,12 +473,15 @@ export default function Home() {
   // Show loading screen while hydrating (prevents flash)
   if (!isHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-emerald-50/30">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-200">
-            <Pill className="h-7 w-7 text-white" />
+      <div className="min-h-screen flex items-center justify-center bg-mesh-light bg-grid-subtle relative">
+        <div className="flex flex-col items-center gap-5 animate-fade-in">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-300/30">
+            <Pill className="h-8 w-8 text-white" />
           </div>
-          <div className="h-5 w-24 rounded-lg bg-gray-200/80 animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-5 w-28 rounded-lg bg-emerald-100/80 animate-pulse" />
+            <div className="h-3 w-20 rounded-md bg-emerald-50/60 animate-pulse" />
+          </div>
         </div>
       </div>
     )
@@ -530,7 +533,7 @@ export default function Home() {
   const currentLabel = NAV_ITEMS.find((n) => n.name === currentView)?.label || 'Dashboard'
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 via-white to-emerald-50/30">
+    <div className="min-h-screen flex bg-mesh-light bg-grid-subtle relative">
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200/80 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
@@ -538,7 +541,8 @@ export default function Home() {
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-600 to-emerald-700">
+        <div className="flex items-center gap-3 px-4 h-16 border-b border-emerald-400/20 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
               <Pill className="h-5 w-5 text-white" />
