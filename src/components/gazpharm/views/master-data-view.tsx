@@ -30,7 +30,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
-import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { generateBarcode } from '@/lib/barcode'
 import { formatDate, formatDateTimeShort, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
@@ -557,35 +556,13 @@ function DrugEditModal({
   open,
   onOpenChange,
   editingDrug,
-  categories,
-  vendors,
-  manufacturers,
-  dosageForms,
   onSaved,
-  onOpenAddManufacturer,
-  onOpenAddVendor,
-  onOpenAddCategory,
-  onOpenAddDosageForm,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingDrug: DrugProduct | null
-  categories: Category[]
-  vendors: Vendor[]
-  manufacturers: Manufacturer[]
-  dosageForms: string[]
   onSaved: () => void
-  onOpenAddManufacturer: () => void
-  onOpenAddVendor: () => void
-  onOpenAddCategory: () => void
-  onOpenAddDosageForm: () => void
 }) {
-  const [form, setForm] = useState({
-    name: '', ndc: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
-    vendorId: '', reorderPoint: '',
-    sellingUnit: 'EA', itemsPerUnit: '1',
-  })
-  const [saving, setSaving] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
   const currentUser = useAppStore((s) => s.user)
@@ -615,17 +592,6 @@ function DrugEditModal({
   const [editBatchSavingSellAs, setEditBatchSavingSellAs] = useState(false)
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<any>(null)
   const [deletingBatch, setDeletingBatch] = useState(false)
-  // Batch lookup state (search by batch number or expiry across all products)
-
-  // ── Quick Stock Adjustment state ──
-  const [adjustType, setAdjustType] = useState('ADD')
-  const [adjustAmount, setAdjustAmount] = useState('')
-  const [adjustCostPrice, setAdjustCostPrice] = useState('')
-  const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
-  const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
-  const [adjustBatchNumber, setAdjustBatchNumber] = useState('')
-  const [adjustReason, setAdjustReason] = useState('')
-  const [adjusting, setAdjusting] = useState(false)
 
   const genBN = () => {
     const d = new Date()
@@ -648,90 +614,11 @@ function DrugEditModal({
 
   useEffect(() => {
     if (open && editingDrug) {
-      setForm({
-        name: editingDrug.name || '',
-        ndc: editingDrug.ndc || '',
-        category: editingDrug.category || '',
-        dosageForm: editingDrug.dosageForm || '',
-        manufacturerId: editingDrug.manufacturerId || '',
-        costPrice: editingDrug.costPrice != null ? String(editingDrug.costPrice) : '',
-        sellingPrice: editingDrug.sellingPrice != null ? String(editingDrug.sellingPrice) : '',
-        vendorId: editingDrug.vendor?.id || '',
-        reorderPoint: String(editingDrug.reorderPoint || 10),
-        sellingUnit: editingDrug.sellingUnit || 'EA',
-        itemsPerUnit: String(editingDrug.itemsPerUnit || 1),
-      })
-      setSaving(false)
-      setAdjustType('ADD'); setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustReason('')
-      setNewBatchQty(''); setNewBatchNumber(''); setNewBatchExpiry(''); setNewBatchCost('')
+      setNewBatchQty(''); setNewBatchNumber(genBN()); setNewBatchExpiry(''); setNewBatchCost('')
       fetchBatches(editingDrug.id)
     }
     if (!open) { setBatches([]) }
   }, [open, editingDrug, fetchBatches])
-
-  // ── Save product details ──
-  const handleSaveDetails = async () => {
-    if (!form.name.trim() || !form.sellingPrice) return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/products/${editingDrug?.id}`, {
-        method: 'PUT',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          ndc: form.ndc.trim() || null,
-          barcode: form.barcode || null,
-          category: form.category,
-          dosageForm: form.dosageForm || null,
-          manufacturerId: form.manufacturerId || null,
-          costPrice: form.costPrice ? parseFloat(form.costPrice) : null,
-          sellingPrice: parseFloat(form.sellingPrice),
-          sellingUnit: form.sellingUnit || 'EA',
-          itemsPerUnit: parseInt(form.itemsPerUnit) || 1,
-          vendorId: form.vendorId || null,
-          reorderPoint: parseInt(form.reorderPoint) || 10,
-          expiryDate: null,
-          batchNumber: null,
-        }),
-      })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update product') }
-      bumpInventoryVersion()
-      addToast({ title: 'Drug Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
-      onSaved()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    } finally { setSaving(false) }
-  }
-
-  // ── Quick Stock Adjustment ──
-  const handleAdjust = async () => {
-    if (!editingDrug || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason) return
-    setAdjusting(true)
-    try {
-      const isSet = adjustType === 'SET'
-      const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
-      const body: Record<string, any> = { productId: editingDrug.id, reason: adjustReason }
-      // Only send quantity fields when user actually entered an amount
-      if (adjustAmount) {
-        body.adjustmentType = adjustType
-        if (isSet) { body.setQuantity = adj; body.adjustment = 0 } else { body.adjustment = adj }
-      }
-      if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
-      if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
-      if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
-      if (adjustBatchNumber.trim()) body.batchNumber = adjustBatchNumber.trim()
-      const res = await fetch('/api/inventory', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '', 'x-user-id': currentUser?.id || '' }, body: JSON.stringify(body) })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Adjustment failed') }
-      addToast({ title: 'Stock Adjusted', description: `Adjustment applied to ${editingDrug.name}`, variant: 'success' })
-      setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustExpiryDate(''); setAdjustBatchNumber(''); setAdjustReason('')
-      fetchBatches(editingDrug.id)
-      bumpInventoryVersion()
-      onSaved()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    } finally { setAdjusting(false) }
-  }
-
 
   // ── Receive New Batch ──
   const handleReceiveBatch = async () => {
@@ -863,8 +750,6 @@ function DrugEditModal({
         body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
-      // Optimistically update the form so the modal reflects the change
-      setForm(prev => ({ ...prev, sellingUnit: su, itemsPerUnit: String(ipu) }))
       addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
       bumpInventoryVersion()
       onSaved()
@@ -897,8 +782,6 @@ function DrugEditModal({
     setDeletingBatch(false)
   }
 
-  const currentStock = editingDrug?.inventory?.[0]?.quantity ?? 0
-
   return (
     <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) { setBatches([]) }; onOpenChange(o) }}>
@@ -912,86 +795,10 @@ function DrugEditModal({
             <div className="bg-muted rounded-lg p-3">
               <p className="font-medium">{editingDrug.name}</p>
               <p className="text-sm text-muted-foreground">
-                Current Stock: {currentStock} {editingDrug.unitOfMeasure}
+                Current Stock: {editingDrug.inventory?.[0]?.quantity ?? 0} {editingDrug.unitOfMeasure}
                 &nbsp;·&nbsp; Cost: {editingDrug.costPrice != null ? formatCurrency(editingDrug.costPrice) : '—'}
                 &nbsp;·&nbsp; Price: {formatCurrency(editingDrug.sellingPrice)}
               </p>
-            </div>
-
-            {/* ── Product Details ── */}
-            <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Edit2 className="h-3.5 w-3.5" />
-                Product Details
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <Label className="text-xs">Product Name <span className="text-red-500">*</span></Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Paracetamol 500mg" className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">SKU / NDC</Label>
-                  <Input value={form.ndc} onChange={(e) => setForm({ ...form, ndc: e.target.value })} placeholder="SKU-00123" className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Category</Label>
-                  <Select value={form.category} onValueChange={(v) => { if (v === '__new__') { onOpenAddCategory() } else { setForm({ ...form, category: v }) } }}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (<SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>))}
-                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new category</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Manufacturer</Label>
-                  <Select value={form.manufacturerId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddManufacturer() } else { setForm({ ...form, manufacturerId: v === '_none' ? '' : v }) } }}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="Optional" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">None</SelectItem>
-                      {manufacturers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
-                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Dosage Form</Label>
-                  <Select value={form.dosageForm || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddDosageForm() } else { setForm({ ...form, dosageForm: v === '_none' ? '' : v }) } }}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">None</SelectItem>
-                      {dosageForms.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}
-                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Vendor / Supplier</Label>
-                  <Select value={form.vendorId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddVendor() } else { setForm({ ...form, vendorId: v === '_none' ? '' : v }) } }}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="Optional" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">None</SelectItem>
-                      {vendors.map((v) => (<SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>))}
-                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Cost Price</Label>
-                  <Input type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} placeholder="0.00" className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Selling Price <span className="text-red-500">*</span></Label>
-                  <Input type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} placeholder="0.00" className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Min Stock Level</Label>
-                  <Input type="number" min="0" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} placeholder="10" className="h-8 text-sm mt-0.5" />
-                </div>
-              </div>
-              <Button size="sm" onClick={handleSaveDetails} disabled={!form.name.trim() || !form.sellingPrice || saving} className="w-full">
-                {saving ? 'Saving...' : 'Save Product Details'}
-              </Button>
             </div>
 
             {/* ── Batch / Lot Management ── */}
@@ -1221,7 +1028,7 @@ function DrugEditModal({
               </div>
               {editBatchSellingUnit !== 'EA' && editBatchItemsPerUnit && parseInt(editBatchItemsPerUnit) > 1 && editingDrug && (
                 <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-                  Stock shows as: <span className="font-medium">{Math.floor(currentStock / parseInt(editBatchItemsPerUnit))} {editBatchSellingUnit.toLowerCase()}{Math.floor(currentStock / parseInt(editBatchItemsPerUnit)) !== 1 ? 's' : ''}</span> of {editBatchItemsPerUnit} items each
+                  Stock shows as: <span className="font-medium">{Math.floor((editingDrug?.inventory?.[0]?.quantity ?? 0) / parseInt(editBatchItemsPerUnit))} {editBatchSellingUnit.toLowerCase()}{Math.floor((editingDrug?.inventory?.[0]?.quantity ?? 0) / parseInt(editBatchItemsPerUnit)) !== 1 ? 's' : ''}</span> of {editBatchItemsPerUnit} items each
                   &nbsp;·&nbsp; Unit price: <span className="font-medium">{formatCurrency(editingDrug.sellingPrice / parseInt(editBatchItemsPerUnit))}</span>
                 </p>
               )}
@@ -2245,20 +2052,12 @@ function DrugSection() {
         onSaved={handleDosageFormCreated}
       />
 
-      {/* Drug Edit Modal */}
+      {/* Drug Stock Adjustment Modal */}
       <DrugEditModal
         open={drugEditOpen}
         onOpenChange={setDrugEditOpen}
         editingDrug={editingDrug}
-        categories={categories}
-        vendors={vendors}
-        manufacturers={manufacturers}
-        dosageForms={dosageFormsList}
         onSaved={fetchData}
-        onOpenAddManufacturer={() => setMfgModalOpen(true)}
-        onOpenAddVendor={() => setVendorModalOpen(true)}
-        onOpenAddCategory={() => setCatModalOpen(true)}
-        onOpenAddDosageForm={() => setDosageFormModalOpen(true)}
       />
 
       {/* ── Delete Confirmation Dialog ─────────────────────── */}
