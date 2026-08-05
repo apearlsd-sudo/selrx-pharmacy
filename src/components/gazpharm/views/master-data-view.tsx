@@ -613,10 +613,6 @@ function DrugEditModal({
   const [editBatchItemsPerUnit, setEditBatchItemsPerUnit] = useState('')
   const [editBatchSavingSellAs, setEditBatchSavingSellAs] = useState(false)
   // Batch lookup state (search by batch number or expiry across all products)
-  const [batchLookupQuery, setBatchLookupQuery] = useState('')
-  const [batchLookupResults, setBatchLookupResults] = useState<any[]>([])
-  const [batchLookupSearching, setBatchLookupSearching] = useState(false)
-  const [batchLookupDebounce, setBatchLookupDebounce] = useState<NodeJS.Timeout | null>(null)
 
   // ── Quick Stock Adjustment state ──
   const [adjustType, setAdjustType] = useState('ADD')
@@ -627,9 +623,6 @@ function DrugEditModal({
   const [adjustBatchNumber, setAdjustBatchNumber] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
   const [adjusting, setAdjusting] = useState(false)
-
-  // ── Sell As state ──
-  const [savingSellAs, setSavingSellAs] = useState(false)
 
   const genBN = () => {
     const d = new Date()
@@ -735,29 +728,6 @@ function DrugEditModal({
     } finally { setAdjusting(false) }
   }
 
-  // ── Save Sell As ──
-  const handleSaveSellAs = async () => {
-    if (!editingDrug) return
-    const su = form.sellingUnit || 'EA'
-    const ipu = form.itemsPerUnit ? parseInt(form.itemsPerUnit) : editingDrug.itemsPerUnit || 1
-    if (su === (editingDrug.sellingUnit || 'EA') && ipu === (editingDrug.itemsPerUnit || 1)) return
-    setSavingSellAs(true)
-    try {
-      const res = await fetch(`/api/products/${editingDrug.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
-        body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
-      })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
-      // Optimistically update form to reflect the new values in the modal
-      setForm(prev => ({ ...prev, sellingUnit: su, itemsPerUnit: String(ipu) }))
-      addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
-      bumpInventoryVersion()
-      onSaved()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    } finally { setSavingSellAs(false) }
-  }
 
   // ── Receive New Batch ──
   const handleReceiveBatch = async () => {
@@ -865,12 +835,9 @@ function DrugEditModal({
       if (editingDrug && editingBatch?.productId === editingDrug.id) fetchBatches(editingDrug.id)
       bumpInventoryVersion()
       onSaved()
-      // Refresh lookup results if there's an active search
-      if (batchLookupQuery.trim()) handleBatchLookup(batchLookupQuery)
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })
     }
-    setSavingBatch(false)
   }
 
   // -- Save Sell As from Edit Batch modal --
@@ -921,29 +888,10 @@ function DrugEditModal({
     setSavingBatch(false)
   }
 
-  // -- Batch lookup (search across all products by batch# or expiry) --
-  const handleBatchLookup = (query: string) => {
-    setBatchLookupQuery(query)
-    if (batchLookupDebounce) clearTimeout(batchLookupDebounce)
-    if (!query.trim()) { setBatchLookupResults([]); setBatchLookupSearching(false); return }
-    setBatchLookupSearching(true)
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/inventory/batches?action=search&q=${encodeURIComponent(query.trim())}`)
-        if (res.ok) {
-          const data = await res.json()
-          setBatchLookupResults(data.batches || [])
-        }
-      } catch { /* silent */ }
-      setBatchLookupSearching(false)
-    }, 400)
-    setBatchLookupDebounce(timer)
-  }
-
   const currentStock = editingDrug?.inventory?.[0]?.quantity ?? 0
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { setBatches([]); setBatchLookupQuery(''); setBatchLookupResults([]) }; onOpenChange(o) }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setBatches([]) }; onOpenChange(o) }}>
       <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
         <DialogHeader>
           <DialogTitle>Adjust Product</DialogTitle>
@@ -1033,133 +981,6 @@ function DrugEditModal({
               </div>
               <Button size="sm" onClick={handleSaveDetails} disabled={!form.name.trim() || !form.sellingPrice || saving} className="w-full">
                 {saving ? 'Saving...' : 'Save Product Details'}
-              </Button>
-            </div>
-
-            {/* ── Batch Lookup (by batch number or expiry date) ── */}
-            <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Search className="h-3.5 w-3.5" />
-                Batch Lookup
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Find a specific batch across all products by entering its batch number or expiry date (YYYY-MM-DD). Click edit to adjust that batch directly.
-              </p>
-              <div className="relative">
-                <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${batchLookupSearching ? 'text-indigo-500 animate-pulse' : 'text-muted-foreground'}`} />
-                <Input
-                  placeholder="Enter batch number or expiry date..."
-                  value={batchLookupQuery}
-                  onChange={(e) => handleBatchLookup(e.target.value)}
-                  className="h-8 text-sm pl-8 pr-16"
-                />
-                {batchLookupQuery && (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    {batchLookupSearching ? 'Searching...' : `${batchLookupResults.length} found`}
-                  </span>
-                )}
-              </div>
-              {batchLookupResults.length > 0 && (
-                <div className="border rounded max-h-36 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/60 sticky top-0">
-                      <tr>
-                        <th className="px-2 py-1 text-left font-medium">Product</th>
-                        <th className="px-2 py-1 text-left font-medium">Batch #</th>
-                        <th className="px-2 py-1 text-center font-medium">Qty</th>
-                        <th className="px-2 py-1 text-left font-medium">Expiry</th>
-                        <th className="px-2 py-1 text-right font-medium">Cost</th>
-                        <th className="px-2 py-1 text-center font-medium w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {batchLookupResults.map((b: any) => {
-                        const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
-                        return (
-                          <tr key={b.id} className="hover:bg-muted/30">
-                            <td className="px-2 py-1.5">
-                              <p className="font-medium truncate max-w-[120px]">{b.productName}</p>
-                            </td>
-                            <td className="px-2 py-1.5 font-mono">{b.batchNumber || '—'}</td>
-                            <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
-                            <td className="px-2 py-1.5">
-                              {b.expiryDate ? (
-                                <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
-                                  {formatDate(b.expiryDate)}
-                                  {days !== null && days <= 90 && (
-                                    <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
-                                      {days <= 0 ? 'Expired' : `${days}d`}
-                                    </Badge>
-                                  )}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
-                            <td className="px-2 py-1.5 text-center">
-                              <button
-                                onClick={() => handleEditBatch(b)}
-                                disabled={savingBatch}
-                                className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
-                                title="Edit batch"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {batchLookupQuery && !batchLookupSearching && batchLookupResults.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2">No batches found matching "{batchLookupQuery}"</p>
-              )}
-            </div>
-
-            {/* ── Sell As (Unit Sales) ── */}
-            <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <PackagePlus className="h-3.5 w-3.5" />
-                Sell As (Unit Sales)
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Set how this product is sold to customers. E.g., sell as a Strip of 10 tablets instead of individual tablets.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Selling Unit</Label>
-                  <Select value={form.sellingUnit} onValueChange={(v) => setForm({ ...form, sellingUnit: v })}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EA">Each / Piece</SelectItem>
-                      <SelectItem value="Tablet">Tablet</SelectItem>
-                      <SelectItem value="Capsule">Capsule</SelectItem>
-                      <SelectItem value="Sachet">Sachet</SelectItem>
-                      <SelectItem value="Vial">Vial</SelectItem>
-                      <SelectItem value="Ampoule">Ampoule</SelectItem>
-                      <SelectItem value="Bottle">Bottle</SelectItem>
-                      <SelectItem value="Strip">Strip</SelectItem>
-                      <SelectItem value="Blister">Blister Pack</SelectItem>
-                      <SelectItem value="Tube">Tube</SelectItem>
-                      <SelectItem value="Pack">Pack</SelectItem>
-                      <SelectItem value="Box">Box</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Items Per {form.sellingUnit === 'EA' ? 'Unit' : form.sellingUnit}</Label>
-                  <Input type="number" min="1" step="1" placeholder="e.g., 10" value={form.itemsPerUnit} onChange={(e) => setForm({ ...form, itemsPerUnit: e.target.value })} className="h-8 text-sm mt-0.5" disabled={form.sellingUnit === 'EA'} />
-                </div>
-              </div>
-              {form.sellingUnit !== 'EA' && form.itemsPerUnit && parseInt(form.itemsPerUnit) > 1 && (
-                <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-                  Stock shows as: <span className="font-medium">{Math.floor(currentStock / parseInt(form.itemsPerUnit))} {form.sellingUnit.toLowerCase()}{Math.floor(currentStock / parseInt(form.itemsPerUnit)) !== 1 ? 's' : ''}</span> of {form.itemsPerUnit} items each
-                  &nbsp;·&nbsp; Unit price: <span className="font-medium">{formatCurrency(editingDrug.sellingPrice / parseInt(form.itemsPerUnit))}</span>
-                </p>
-              )}
-              <Button size="sm" variant="outline" onClick={handleSaveSellAs} disabled={savingSellAs} className="w-full">
-                {savingSellAs ? 'Saving...' : 'Update Sell As'}
               </Button>
             </div>
 

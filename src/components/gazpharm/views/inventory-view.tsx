@@ -75,9 +75,6 @@ export function InventoryView() {
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
   const [adjustBatchNumber, setAdjustBatchNumber] = useState('')
-  const [adjustSellingUnit, setAdjustSellingUnit] = useState('')
-  const [adjustItemsPerUnit, setAdjustItemsPerUnit] = useState('')
-  const [savingSellAs, setSavingSellAs] = useState(false)
   const [batches, setBatches] = useState<any[]>([])
   const [batchesLoading, setBatchesLoading] = useState(false)
   const [newBatchQty, setNewBatchQty] = useState('')
@@ -259,38 +256,6 @@ export function InventoryView() {
   const outOfStockCount = useMemo(() => items.filter((i) => (Number(i.quantity) || 0) === 0).length, [items])
   const totalValue = useMemo(() => items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (i.product.costPrice || i.product.sellingPrice), 0), [items])
 
-  const handleSaveSellAs = async () => {
-    if (!selectedItem) return
-    const su = adjustSellingUnit || selectedItem.product.sellingUnit || 'EA'
-    const ipu = adjustItemsPerUnit ? parseInt(adjustItemsPerUnit) : selectedItem.product.itemsPerUnit || 1
-    // Skip if unchanged
-    if (su === (selectedItem.product.sellingUnit || 'EA') && ipu === (selectedItem.product.itemsPerUnit || 1)) return
-    setSavingSellAs(true)
-    try {
-      const res = await fetch(`/api/products/${selectedItem.productId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
-        body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
-      })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
-      // Optimistically update the local item so the modal reflects the change immediately
-      setItems(prev => prev.map(it =>
-        it.productId === selectedItem.productId
-          ? { ...it, product: { ...it.product, sellingUnit: su, itemsPerUnit: ipu } }
-          : it
-      ))
-      setSelectedItem(prev => prev ? { ...prev, product: { ...prev.product, sellingUnit: su, itemsPerUnit: ipu } } : null)
-      setAdjustSellingUnit('')
-      setAdjustItemsPerUnit('')
-      addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
-      fetchInventory(true)
-      bumpInventoryVersion()
-    } catch (err: any) {
-      addToast({ title: 'Error', description: err.message || 'Failed to update selling unit', variant: 'destructive' })
-    } finally {
-      setSavingSellAs(false)
-    }
-  }
 
   const handleAdjust = async () => {
     if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason) return
@@ -411,8 +376,8 @@ export function InventoryView() {
     setEditBatchAdjAmount('')
     setEditBatchSellingPrice('')
     setEditBatchReason('')
-    // Initialize sell-as from the product
-    const prod = selectedItem?.product
+    // Initialize sell-as from the matching product or defaults
+    const prod = selectedItem?.productId === b.productId ? selectedItem.product : null
     setEditBatchSellingUnit(prod?.sellingUnit || 'EA')
     setEditBatchItemsPerUnit(String(prod?.itemsPerUnit || 1))
     setEditBatchSavingSellAs(false)
@@ -997,6 +962,23 @@ export function InventoryView() {
                 className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white"
               />
             </div>
+            <div className="relative sm:w-56">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${batchLookupSearching ? 'text-indigo-500 animate-pulse' : 'text-indigo-400'}`} />
+              <Input
+                placeholder="Batch # or expiry (YYYY-MM-DD)"
+                value={batchLookupQuery}
+                onChange={(e) => handleBatchLookup(e.target.value)}
+                className={`pl-9 pr-8 ${batchLookupQuery ? 'bg-indigo-50/50 border-indigo-300/80 focus:bg-indigo-50' : 'bg-gray-50/50 border-gray-200/80 focus:bg-white'}`}
+              />
+              {batchLookupQuery && (
+                <button
+                  onClick={() => { setBatchLookupQuery(''); setBatchLookupResults([]) }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-full sm:w-40">
                 <Filter className="h-4 w-4 mr-2" />
@@ -1038,6 +1020,83 @@ export function InventoryView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Inline Batch Lookup */}
+      {batchLookupQuery && (
+        <Card className="shadow-sm border-indigo-200/60 bg-indigo-50/30">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-indigo-600" />
+                <span className="text-sm font-semibold text-indigo-700">Batch Lookup</span>
+                {batchLookupSearching ? (
+                  <span className="text-xs text-muted-foreground animate-pulse">Searching...</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">{batchLookupResults.length} found</span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setBatchLookupQuery(''); setBatchLookupResults([]) }}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {batchLookupResults.length > 0 ? (
+              <div className="border rounded max-h-48 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/60 sticky top-0">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left font-medium">Product</th>
+                      <th className="px-2 py-1.5 text-left font-medium">Batch #</th>
+                      <th className="px-2 py-1.5 text-center font-medium">Qty</th>
+                      <th className="px-2 py-1.5 text-left font-medium">Expiry</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Cost</th>
+                      <th className="px-2 py-1.5 text-center font-medium w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {batchLookupResults.map((b: any) => {
+                      const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
+                      return (
+                        <tr key={b.id} className="hover:bg-muted/30">
+                          <td className="px-2 py-1.5">
+                            <p className="font-medium truncate max-w-[160px]">{b.productName}</p>
+                          </td>
+                          <td className="px-2 py-1.5 font-mono">{b.batchNumber || '—'}</td>
+                          <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
+                          <td className="px-2 py-1.5">
+                            {b.expiryDate ? (
+                              <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                                {formatDate(b.expiryDate)}
+                                {days !== null && days <= 90 && (
+                                  <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
+                                    {days <= 0 ? 'Expired' : `${days}d`}
+                                  </Badge>
+                                )}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button
+                              onClick={() => handleEditBatch(b)}
+                              disabled={savingBatch}
+                              className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
+                              title="Edit batch"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : !batchLookupSearching && (
+              <p className="text-xs text-muted-foreground text-center py-3">No batches found matching "{batchLookupQuery}"</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Inventory Table */}
       <Card className="card-hover">
@@ -1158,7 +1217,7 @@ export function InventoryView() {
                         {formatDate(activeExpiry)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); setAdjustSellingUnit(item.product.sellingUnit || 'EA'); setAdjustItemsPerUnit(String(item.product.itemsPerUnit || 1)); fetchBatches(item.productId); setAdjustDialog(true) }}>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); fetchBatches(item.productId); setAdjustDialog(true) }}>
                           <Edit className="h-3.5 w-3.5 mr-1" />
                           Adjust
                         </Button>
@@ -1640,7 +1699,7 @@ export function InventoryView() {
       </Dialog>
 
       {/* Stock Adjustment Dialog with Batch Management */}
-      <Dialog open={adjustDialog} onOpenChange={(open) => { if (!open) { setAdjustDialog(false); setBatches([]); setBatchLookupQuery(''); setBatchLookupResults([]) } else setAdjustDialog(true) }}>
+      <Dialog open={adjustDialog} onOpenChange={(open) => { if (!open) { setAdjustDialog(false); setBatches([]) } else setAdjustDialog(true) }}>
         <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle>Adjust Product</DialogTitle>
@@ -1657,133 +1716,6 @@ export function InventoryView() {
                     <>&nbsp;·&nbsp; Nearest Expiry: {formatDate(selectedItem.product.expiryDate)}</>
                   )}
                 </p>
-              </div>
-
-              {/* ── Batch Lookup (by batch number or expiry date) ── */}
-              <div className="border rounded-lg p-3 space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Search className="h-3.5 w-3.5" />
-                  Batch Lookup
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Find a specific batch across all products by entering its batch number or expiry date (YYYY-MM-DD). Click edit to adjust that batch directly.
-                </p>
-                <div className="relative">
-                  <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${batchLookupSearching ? 'text-indigo-500 animate-pulse' : 'text-muted-foreground'}`} />
-                  <Input
-                    placeholder="Enter batch number or expiry date..."
-                    value={batchLookupQuery}
-                    onChange={(e) => handleBatchLookup(e.target.value)}
-                    className="h-8 text-sm pl-8 pr-16"
-                  />
-                  {batchLookupQuery && (
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                      {batchLookupSearching ? 'Searching...' : `${batchLookupResults.length} found`}
-                    </span>
-                  )}
-                </div>
-                {batchLookupResults.length > 0 && (
-                  <div className="border rounded max-h-36 overflow-y-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/60 sticky top-0">
-                        <tr>
-                          <th className="px-2 py-1 text-left font-medium">Product</th>
-                          <th className="px-2 py-1 text-left font-medium">Batch #</th>
-                          <th className="px-2 py-1 text-center font-medium">Qty</th>
-                          <th className="px-2 py-1 text-left font-medium">Expiry</th>
-                          <th className="px-2 py-1 text-right font-medium">Cost</th>
-                          <th className="px-2 py-1 text-center font-medium w-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {batchLookupResults.map((b: any) => {
-                          const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
-                          return (
-                            <tr key={b.id} className="hover:bg-muted/30">
-                              <td className="px-2 py-1.5">
-                                <p className="font-medium truncate max-w-[120px]">{b.productName}</p>
-                              </td>
-                              <td className="px-2 py-1.5 font-mono">{b.batchNumber || '—'}</td>
-                              <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
-                              <td className="px-2 py-1.5">
-                                {b.expiryDate ? (
-                                  <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
-                                    {formatDate(b.expiryDate)}
-                                    {days !== null && days <= 90 && (
-                                      <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
-                                        {days <= 0 ? 'Expired' : `${days}d`}
-                                      </Badge>
-                                    )}
-                                  </span>
-                                ) : '—'}
-                              </td>
-                              <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
-                              <td className="px-2 py-1.5 text-center">
-                                <button
-                                  onClick={() => handleEditBatch(b)}
-                                  disabled={savingBatch}
-                                  className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
-                                  title="Edit batch"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {batchLookupQuery && !batchLookupSearching && batchLookupResults.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">No batches found matching "{batchLookupQuery}"</p>
-                )}
-              </div>
-
-              {/* ── Sell As (Unit Sales) ── */}
-              <div className="border rounded-lg p-3 space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                  <PackagePlus className="h-3.5 w-3.5" />
-                  Sell As (Unit Sales)
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Set how this product is sold to customers. E.g., sell as a Strip of 10 tablets instead of individual tablets.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">Selling Unit</Label>
-                    <Select value={adjustSellingUnit} onValueChange={setAdjustSellingUnit}>
-                      <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="EA">Each / Piece</SelectItem>
-                        <SelectItem value="Tablet">Tablet</SelectItem>
-                        <SelectItem value="Capsule">Capsule</SelectItem>
-                        <SelectItem value="Sachet">Sachet</SelectItem>
-                        <SelectItem value="Vial">Vial</SelectItem>
-                        <SelectItem value="Ampoule">Ampoule</SelectItem>
-                        <SelectItem value="Bottle">Bottle</SelectItem>
-                        <SelectItem value="Strip">Strip</SelectItem>
-                        <SelectItem value="Blister">Blister Pack</SelectItem>
-                        <SelectItem value="Tube">Tube</SelectItem>
-                        <SelectItem value="Pack">Pack</SelectItem>
-                        <SelectItem value="Box">Box</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Items Per {adjustSellingUnit === 'EA' ? 'Unit' : adjustSellingUnit}</Label>
-                    <Input type="number" min="1" step="1" placeholder="e.g., 10" value={adjustItemsPerUnit} onChange={(e) => setAdjustItemsPerUnit(e.target.value)} className="h-8 text-sm mt-0.5" disabled={adjustSellingUnit === 'EA'} />
-                  </div>
-                </div>
-                {adjustSellingUnit !== 'EA' && adjustItemsPerUnit && parseInt(adjustItemsPerUnit) > 1 && (
-                  <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-                    Stock shows as: <span className="font-medium">{Math.floor((Number(selectedItem?.quantity) || 0) / parseInt(adjustItemsPerUnit))} {adjustSellingUnit.toLowerCase()}{Math.floor((Number(selectedItem?.quantity) || 0) / parseInt(adjustItemsPerUnit)) !== 1 ? 's' : ''}</span> of {adjustItemsPerUnit} items each
-                    &nbsp;·&nbsp; Unit price: <span className="font-medium">{formatCurrency(selectedItem!.product.sellingPrice / parseInt(adjustItemsPerUnit))}</span>
-                  </p>
-                )}
-                <Button size="sm" variant="outline" onClick={handleSaveSellAs} disabled={savingSellAs} className="w-full">
-                  {savingSellAs ? 'Saving...' : 'Update Sell As'}
-                </Button>
               </div>
 
               {/* ── Batch / Lot Management ── */}
