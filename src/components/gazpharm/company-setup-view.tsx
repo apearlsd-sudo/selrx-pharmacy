@@ -78,6 +78,7 @@ export function CompanySetupView() {
   const setCompany = useAppStore((s) => s.setCompany)
   const setIsCompanySetup = useAppStore((s) => s.setIsCompanySetup)
   const setCurrency = useAppStore((s) => s.setCurrency)
+  const setTimezone = useAppStore((s) => s.setTimezone)
   const setUser = useAppStore((s) => s.setUser)
   const addToast = useAppStore((s) => s.addToast)
 
@@ -110,7 +111,7 @@ export function CompanySetupView() {
   const [website, setWebsite] = useState('')
 
   const [currency, setCurrencyState] = useState<CurrencyCode>('GHS')
-  const [timezone, setTimezone] = useState('Africa/Accra')
+  const [timezone, setTimezoneState] = useState('Africa/Accra')
 
   // Validate step
   const getStepError = (): string => {
@@ -214,6 +215,7 @@ export function CompanySetupView() {
       })
       setIsCompanySetup(true)
       setCurrency(currency)
+      setTimezone(timezone)
 
       // Auto-login the owner
       setUser({
@@ -777,7 +779,7 @@ export function CompanySetupView() {
 
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Timezone</Label>
-                        <Select value={timezone} onValueChange={setTimezone}>
+                        <Select value={timezone} onValueChange={setTimezoneState}>
                           <SelectTrigger className="h-11">
                             <SelectValue placeholder="Select timezone" />
                           </SelectTrigger>

@@ -337,6 +337,9 @@ export default function Home() {
         if (savedCompany.currency) {
           store.setCurrency(savedCompany.currency as CurrencyCode)
         }
+        if (savedCompany.timezone) {
+          store.setTimezone(savedCompany.timezone)
+        }
         companyRestored = true
       } else {
         // No cached company — check server
@@ -347,6 +350,9 @@ export default function Home() {
               store.setCompany(data.company)
               if (data.company.currency) {
                 store.setCurrency(data.company.currency as CurrencyCode)
+              }
+              if (data.company.timezone) {
+                store.setTimezone(data.company.timezone)
               }
             } else {
               store.setCurrentView('company-setup')
