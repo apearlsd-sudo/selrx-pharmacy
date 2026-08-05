@@ -1038,11 +1038,11 @@ function DrugEditModal({
                             </td>
                             <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
                             <td className="px-2 py-1.5 text-center">
-                              <div className="flex items-center justify-center gap-0.5">
-                                <button onClick={() => handleEditBatch(b)} disabled={savingBatch} className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 disabled:opacity-50 rounded p-0.5" title="Edit batch">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button onClick={() => handleEditBatch(b)} disabled={savingBatch} className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 disabled:opacity-50 rounded p-1" title="Edit batch">
                                   <Pencil className="h-3 w-3" />
                                 </button>
-                                <button onClick={() => handleDeleteBatch(b)} disabled={savingBatch} className="bg-red-100 hover:bg-red-200 text-red-600 disabled:opacity-50 rounded p-0.5" title="Remove batch">
+                                <button onClick={() => handleDeleteBatch(b)} disabled={savingBatch} className="bg-red-100 hover:bg-red-200 text-red-600 disabled:opacity-50 rounded p-1" title="Remove batch">
                                   <X className="h-3 w-3" />
                                 </button>
                               </div>
