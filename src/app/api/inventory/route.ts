@@ -105,6 +105,79 @@ export async function GET(request: NextRequest) {
 
     // ---- Full inventory list (including products without inventory) ----
     if (isTurso()) {
+      // ── AUTO-EXPIRY: Zero out any batches that reached expiry today ──
+      // This runs on every inventory load so expired stock is removed immediately
+      // without requiring user approval.
+      const expiredBatches = await turso.execute({
+        sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity, b."costPrice",
+                    p.name as productName, p."sellingPrice"
+             FROM "Batch" b
+             INNER JOIN "Product" p ON p.id = b."productId"
+             WHERE b."expiryDate" IS NOT NULL
+               AND date(b."expiryDate") <= date('now')
+               AND b.quantity > 0`,
+        args: [],
+      })
+
+      if (expiredBatches.rows.length > 0) {
+        const now = new Date().toISOString()
+        const affectedProductIds = new Set<string>()
+
+        for (const row of toObjs(expiredBatches)) {
+          const batchId = row.id as string
+          const productId = row.productId as string
+          const prevQty = Number(row.quantity) || 0
+          affectedProductIds.add(productId)
+
+          // Zero the expired batch
+          await turso.execute({
+            sql: 'UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?',
+            args: [now, batchId],
+          })
+
+          // Log in product history
+          writeProductHistory({
+            productId,
+            action: 'EXPIRED',
+            changedFields: ['batchQuantity', 'status'],
+            previousValues: { batchQuantity: prevQty, batchNumber: row.batchNumber, status: 'ACTIVE' },
+            newValues: { batchQuantity: 0, status: 'EXPIRED' },
+            userId: 'system-auto-expiry',
+          })
+        }
+
+        // Recalculate inventory totals & re-sync expiry for affected products
+        for (const pid of affectedProductIds) {
+          const sumResult = await turso.execute({
+            sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
+            args: [pid],
+          })
+          const totalBatchQty = Number(sumResult.rows[0][0]) || 0
+
+          await turso.execute({
+            sql: 'UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?',
+            args: [totalBatchQty, now, pid],
+          })
+
+          // Re-sync Product.expiryDate to nearest active batch
+          await turso.execute({
+            sql: `UPDATE "Product" SET "expiryDate" = (
+                    SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+                  ), "updatedAt" = ?
+                  WHERE id = ?`,
+            args: [pid, now, pid],
+          })
+
+          // Mark product as EXPIRED only if ALL stock is gone
+          if (totalBatchQty === 0) {
+            await turso.execute({
+              sql: `UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,
+              args: [now, now, pid],
+            })
+          }
+        }
+      }
+
       // 1. Inventory rows with product, manufacturer, vendor
       const invResult = await turso.execute({
         sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
