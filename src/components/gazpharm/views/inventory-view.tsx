@@ -276,14 +276,12 @@ export function InventoryView() {
       const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
       const body: Record<string, any> = {
         productId: selectedItem.productId,
-        adjustmentType: adjustType,
         reason: adjustReason,
       }
-      if (isSet) {
-        body.setQuantity = adj
-        body.adjustment = 0
-      } else {
-        body.adjustment = adj
+      // Only send quantity fields when user actually entered an amount
+      if (adjustAmount) {
+        body.adjustmentType = adjustType
+        if (isSet) { body.setQuantity = adj; body.adjustment = 0 } else { body.adjustment = adj }
       }
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
