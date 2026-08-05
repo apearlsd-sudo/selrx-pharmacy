@@ -698,11 +698,13 @@ function DrugEditModal({
     setSavingSellAs(true)
     try {
       const res = await fetch(`/api/products/${editingDrug.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
         body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
+      // Optimistically update form to reflect the new values in the modal
+      setForm(prev => ({ ...prev, sellingUnit: su, itemsPerUnit: String(ipu) }))
       addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
       bumpInventoryVersion()
       onSaved()

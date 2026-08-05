@@ -21,3 +21,23 @@ Stage Summary:
 - Both Turso (production) and Prisma (local dev) code paths supported
 - SUPER_ADMIN role required for both backup and restore operations
 - Commit: d22be45 pushed to main
+
+---
+Task ID: 2
+Agent: main
+Task: Fix Sell As (Unit Sales) cross-page sync between inventory and drug catalog
+
+Work Log:
+- Diagnosed root cause: both views used `method: 'PATCH'` but `/api/products/[id]/route.ts` only exports GET/PUT/DELETE — PATCH was returning 405 silently
+- Fixed `handleSaveSellAs` in inventory-view.tsx: changed PATCH → PUT, added optimistic local state update
+- Fixed `handleSaveSellAs` in master-data-view.tsx: changed PATCH → PUT, added optimistic form state update
+- Added `inventoryVersion` subscription to inventory-view.tsx (with `useRef` + `useEffect`) so drug catalog mutations trigger inventory refetch
+- Drug catalog already had `inventoryVersion` listener for the reverse direction
+- Added `useRef` import to inventory-view.tsx
+- Both files pass TypeScript type check with zero errors
+
+Stage Summary:
+- Bug: Sell As save was silently failing (405 Method Not Allowed) because no PATCH handler existed
+- Fix: Changed to PUT (which supports partial updates) + added optimistic UI updates
+- Cross-page sync: inventory-view now listens to `inventoryVersion` changes from drug catalog
+- Modified: `src/components/gazpharm/views/inventory-view.tsx`, `src/components/gazpharm/views/master-data-view.tsx`

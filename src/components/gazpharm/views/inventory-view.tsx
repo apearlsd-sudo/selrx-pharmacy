@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
@@ -146,6 +146,7 @@ export function InventoryView() {
   const currentUser = useAppStore((s) => s.user)
   const dateFormat = useAppStore((s) => s.dateFormat)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
+  const inventoryVersion = useAppStore((s) => s.inventoryVersion)
 
   const fetchInventory = useCallback(async (forceRefresh = false) => {
     setLoading(true)
@@ -206,6 +207,15 @@ export function InventoryView() {
   useEffect(() => { fetchCategories(); fetchManufacturers(); fetchVendors(); fetchDosageForms() }, [fetchCategories, fetchManufacturers, fetchVendors, fetchDosageForms])
   useEffect(() => { fetchInventory() }, [fetchInventory])
 
+  // Re-fetch inventory when drug catalog or other views mutate product data
+  const prevInvVer = useRef(inventoryVersion)
+  useEffect(() => {
+    if (prevInvVer.current !== inventoryVersion) {
+      prevInvVer.current = inventoryVersion
+      fetchInventory(true)
+    }
+  }, [inventoryVersion, fetchInventory])
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const q = Number(item.quantity) || 0
@@ -234,11 +244,20 @@ export function InventoryView() {
     setSavingSellAs(true)
     try {
       const res = await fetch(`/api/products/${selectedItem.productId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
         body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
+      // Optimistically update the local item so the modal reflects the change immediately
+      setItems(prev => prev.map(it =>
+        it.productId === selectedItem.productId
+          ? { ...it, product: { ...it.product, sellingUnit: su, itemsPerUnit: ipu } }
+          : it
+      ))
+      setSelectedItem(prev => prev ? { ...prev, product: { ...prev.product, sellingUnit: su, itemsPerUnit: ipu } } : null)
+      setAdjustSellingUnit('')
+      setAdjustItemsPerUnit('')
       addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
       fetchInventory(true)
       bumpInventoryVersion()
