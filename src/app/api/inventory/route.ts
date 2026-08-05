@@ -543,6 +543,30 @@ export async function PUT(request: NextRequest) {
         batchCreated = true
       }
 
+      // Expiry-only update: no quantity change but expiryDate provided.
+      // Update the nearest active batch's expiry, or update Product.expiryDate if no batches.
+      let expiryUpdated = false
+      if (expiryDate && !(adjustmentType === 'ADD' && adjustment > 0)) {
+        // Try to update the nearest active batch
+        const nearestBatch = await turso.execute({
+          sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND date("expiryDate") > date('now') ORDER BY "expiryDate" ASC LIMIT 1`,
+          args: [productId],
+        })
+        if (nearestBatch.rows.length > 0) {
+          await turso.execute({
+            sql: `UPDATE "Batch" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`,
+            args: [expiryDate, now, nearestBatch.rows[0][0]],
+          })
+          expiryUpdated = true
+        }
+        // Also update Product.expiryDate so the UI reflects it immediately
+        await turso.execute({
+          sql: `UPDATE "Product" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`,
+          args: [expiryDate, now, productId],
+        })
+        expiryUpdated = true
+      }
+
       // Update product prices (but NOT expiryDate — that's managed by batches)
       if (costPrice !== undefined || sellingPrice !== undefined) {
         const setClauses: string[] = []
@@ -599,6 +623,11 @@ export async function PUT(request: NextRequest) {
         previousValues.batchReceived = null
         newValues.batchReceived = { quantity: adjustment, expiryDate }
       }
+      if (expiryUpdated && !batchCreated) {
+        changedFields.push('expiryDate')
+        previousValues.expiryDate = '—'
+        newValues.expiryDate = expiryDate
+      }
 
       if (changedFields.length > 0) {
         writeProductHistory({
@@ -611,15 +640,18 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}`)
+      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}${expiryUpdated && !batchCreated ? ' (expiry updated)' : ''}`)
 
       return NextResponse.json({
         success: true,
         newQuantity,
         productId,
         batchCreated,
+        expiryUpdated,
         message: batchCreated
           ? `Added ${adjustment} units as new batch with expiry ${expiryDate} (${reason})`
+          : expiryUpdated
+          ? `Expiry date updated to ${expiryDate} (${reason})`
           : `Stock set to ${newQuantity} (${reason})`,
       })
     }

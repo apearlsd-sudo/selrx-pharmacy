@@ -269,7 +269,7 @@ export function InventoryView() {
   }
 
   const handleAdjust = async () => {
-    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
+    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason) return
     try {
       const isSet = adjustType === 'SET'
       const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
@@ -299,13 +299,13 @@ export function InventoryView() {
       }
       const result = await res.json()
       addToast({ title: 'Product Updated', description: result.message || `${selectedItem.product.name} adjusted successfully`, variant: 'success' })
-      setAdjustDialog(false)
       setAdjustAmount('')
       setAdjustReason('')
       setAdjustCostPrice('')
       setAdjustSellingPrice('')
       setAdjustExpiryDate('')
       fetchInventory(true)
+      fetchBatches(selectedItem.productId)
       bumpInventoryVersion()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to adjust stock', variant: 'destructive' })
@@ -1507,7 +1507,7 @@ export function InventoryView() {
                     <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
                   </div>
                 </div>
-                <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason} className="w-full">
+                <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason} className="w-full">
                   Apply Adjustment
                 </Button>
               </div>

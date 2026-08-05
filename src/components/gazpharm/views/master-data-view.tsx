@@ -669,7 +669,7 @@ function DrugEditModal({
 
   // ── Quick Stock Adjustment ──
   const handleAdjust = async () => {
-    if (!editingDrug || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
+    if (!editingDrug || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason) return
     setAdjusting(true)
     try {
       const isSet = adjustType === 'SET'
@@ -892,7 +892,7 @@ function DrugEditModal({
                   <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
                 </div>
               </div>
-              <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason || adjusting} className="w-full">
+              <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason || adjusting} className="w-full">
                 {adjusting ? 'Applying...' : 'Apply Adjustment'}
               </Button>
             </div>
