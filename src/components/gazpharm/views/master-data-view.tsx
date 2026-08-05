@@ -585,6 +585,7 @@ function DrugEditModal({
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
+  const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
   const [adjusting, setAdjusting] = useState(false)
 
@@ -677,10 +678,11 @@ function DrugEditModal({
       if (isSet) { body.setQuantity = adj; body.adjustment = 0 } else { body.adjustment = adj }
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
+      if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
       const res = await fetch('/api/inventory', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '', 'x-user-id': currentUser?.id || '' }, body: JSON.stringify(body) })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Adjustment failed') }
       addToast({ title: 'Stock Adjusted', description: `Adjustment applied to ${editingDrug.name}`, variant: 'success' })
-      setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustReason('')
+      setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustExpiryDate(''); setAdjustReason('')
       fetchBatches(editingDrug.id)
       bumpInventoryVersion()
       onSaved()
@@ -880,6 +882,10 @@ function DrugEditModal({
                 <div>
                   <Label className="text-xs">Selling Price</Label>
                   <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Expiry Date</Label>
+                  <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} className="h-8 text-sm mt-0.5" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>

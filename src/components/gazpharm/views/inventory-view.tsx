@@ -286,6 +286,7 @@ export function InventoryView() {
       }
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
+      if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
 
       const res = await fetch('/api/inventory', {
         method: 'PUT',
@@ -1496,6 +1497,10 @@ export function InventoryView() {
                   <div>
                     <Label className="text-xs">Selling Price</Label>
                     <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Expiry Date</Label>
+                    <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} className="h-8 text-sm mt-0.5" />
                   </div>
                   <div className="col-span-2">
                     <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>
