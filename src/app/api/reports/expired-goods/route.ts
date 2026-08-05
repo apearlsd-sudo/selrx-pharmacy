@@ -6,7 +6,8 @@ import { writeProductHistory } from '@/lib/product-history'
  * GET /api/reports/expired-goods
  *
  * Returns ALL expired goods — both unprocessed (stock > 0) and already
- * processed (stock zeroed, kept for record until user deletes them).
+ * processed (stock zeroed). Every expired batch is shown individually
+ * with the quantity removed, cost value, expiry date, and date removed.
  *
  * POST /api/reports/expired-goods
  * Body: { productIds?: string[] }
@@ -53,10 +54,13 @@ export async function GET() {
   try {
     if (isTurso()) {
       // Unprocessed: expired batches still with stock > 0
+      // Processed: expired batches where quantity was zeroed (removed from inventory)
+      // We query ALL batches with past expiry dates to get a complete record
       const [unprocessedResult, processedResult] = await Promise.all([
         turso.execute({
           sql: `SELECT b.id as batchId, b."batchNumber", b."expiryDate",
                    b.quantity as batchQty, b."costPrice" as batchCostPrice,
+                   b."updatedAt" as batchUpdatedAt,
                    p.id, p.name, p.ndc, p.category, p."dosageForm",
                    p."sellingPrice", p."costPrice" as productCostPrice, p.manufacturer,
                    p.status as productStatus, p."expiredAt",
@@ -70,18 +74,25 @@ export async function GET() {
             ORDER BY b."expiryDate" ASC`,
           args: [],
         }),
-        // Processed: products marked EXPIRED (stock already zeroed)
+        // Processed: batches that WERE expired and had their stock zeroed
+        // We look at batches where expiryDate is past AND quantity = 0
+        // (but only if they originally had stock — updatedAt is recent or product is EXPIRED)
         turso.execute({
-          sql: `SELECT p.id, p.name, p.ndc, p.category, p."dosageForm",
-                   p."sellingPrice", p."costPrice", p.manufacturer,
+          sql: `SELECT b.id as batchId, b."batchNumber", b."expiryDate",
+                   b.quantity as batchQty, b."costPrice" as batchCostPrice,
+                   b."updatedAt" as batchUpdatedAt,
+                   p.id, p.name, p.ndc, p.category, p."dosageForm",
+                   p."sellingPrice", p."costPrice" as productCostPrice, p.manufacturer,
                    p.status as productStatus, p."expiredAt",
-                   p."batchNumber", p."expiryDate",
-                   0 as batchQty, 0 as totalStockQty,
-                   NULL as batchId, NULL as batchCostPrice
-            FROM "Product" p
-            WHERE p.status = 'EXPIRED'
-              AND p."expiryDate" IS NOT NULL
-            ORDER BY p."expiredAt" DESC`,
+                   COALESCE(i.quantity, 0) as totalStockQty
+            FROM "Batch" b
+            INNER JOIN "Product" p ON p.id = b."productId"
+            LEFT JOIN Inventory i ON i."productId" = p.id
+            WHERE b."expiryDate" IS NOT NULL
+              AND date(b."expiryDate") <= date('now')
+              AND b.quantity = 0
+              AND (p.status = 'EXPIRED' OR p."expiredAt" IS NOT NULL)
+            ORDER BY b."expiryDate" DESC`,
           args: [],
         }),
       ])
@@ -105,6 +116,7 @@ export async function GET() {
             manufacturer: row.manufacturer,
             productStatus: row.productStatus,
             expiredAt: row.expiredAt,
+            dateRemoved: null,
             stockQty: batchQty,
             totalStockQty: Number(row.totalStockQty) || 0,
             processed: false,
@@ -116,24 +128,27 @@ export async function GET() {
           }
         }),
         ...processedResult.rows.map((row: any) => {
-          const costPrice = Number(row.costPrice) || 0
+          const batchCost = Number(row.batchCostPrice) || Number(row.productCostPrice) || 0
           const sellingPrice = Number(row.sellingPrice) || 0
+          // For processed items, the batchQty is 0 (already zeroed)
+          // We show it as the "removed quantity" context
           return {
-            id: row.id,  // product ID for processed items
+            id: row.batchId,
             productId: row.id,
             name: row.name,
             ndc: row.ndc,
             category: row.category,
             dosageForm: row.dosageForm,
-            costPrice,
+            costPrice: batchCost,
             sellingPrice,
             expiryDate: row.expiryDate,
             batchNumber: row.batchNumber,
             manufacturer: row.manufacturer,
             productStatus: row.productStatus,
             expiredAt: row.expiredAt,
+            dateRemoved: row.batchUpdatedAt,
             stockQty: 0,
-            totalStockQty: 0,
+            totalStockQty: Number(row.totalStockQty) || 0,
             processed: true,
             costValue: 0,
             retailValue: 0,
@@ -144,7 +159,7 @@ export async function GET() {
         }),
       ]
 
-      // Fetch sales data
+      // Fetch sales data for all products
       const productIds = [...new Set(allProducts.map((p) => p.productId))]
       const salesMap = await fetchSalesMap(productIds)
 
@@ -156,18 +171,82 @@ export async function GET() {
       const unprocessed = enriched.filter((p) => !p.processed)
       const processed = enriched.filter((p) => p.processed)
 
+      // For processed items, we need to know the original quantity that was removed.
+      // Fetch from ProductHistory for EXPIRED actions
+      const processedBatchIds = processed.map((p) => p.id)
+      let removedQtyMap: Record<string, number> = {}
+      if (processedBatchIds.length > 0) {
+        try {
+          const chunkSize = 50
+          for (let i = 0; i < processedBatchIds.length; i += chunkSize) {
+            const chunk = processedBatchIds.slice(i, i + chunkSize)
+            const phPlaceholders = chunk.map(() => '?').join(', ')
+            // ProductHistory stores previousValues as JSON with batchQuantity
+            // The action is EXPIRED and the productId matches
+            const phResult = await turso.execute({
+              sql: `SELECT ph."productId", ph."previousValues", ph."createdAt"
+              FROM "ProductHistory" ph
+              WHERE ph."productId" IN (
+                SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${phPlaceholders})
+              )
+              AND ph.action = 'EXPIRED'
+              ORDER BY ph."createdAt" DESC`,
+              args: chunk,
+            })
+            for (const row of phResult.rows) {
+              const r = row as any
+              try {
+                const prev = typeof r.previousValues === 'string' ? JSON.parse(r.previousValues) : (r.previousValues || {})
+                if (prev.batchQuantity && prev.batchQuantity > 0) {
+                  // Store by productId — we'll use it for all processed batches of that product
+                  const pid = r.productId as string
+                  if (!removedQtyMap[pid] || removedQtyMap[pid] < prev.batchQuantity) {
+                    removedQtyMap[pid] = prev.batchQuantity
+                  }
+                }
+              } catch { /* skip malformed JSON */ }
+            }
+          }
+        } catch { /* non-critical — we just won't show removed qty */ }
+      }
+
+      // Enrich processed items with the removed quantity from history
+      const final = enriched.map((p) => {
+        if (p.processed && removedQtyMap[p.productId]) {
+          const removedQty = removedQtyMap[p.productId]
+          return {
+            ...p,
+            stockQty: 0,
+            removedQty,
+            costValue: p.costPrice * removedQty,
+            retailValue: p.sellingPrice * removedQty,
+            lossValue: (p.sellingPrice - p.costPrice) * removedQty,
+          }
+        }
+        return p
+      })
+
+      const finalUnprocessed = final.filter((p) => !p.processed)
+      const finalProcessed = final.filter((p) => p.processed)
+
+      // Recalculate summary including processed items' historical values
+      const allCostValue = final.reduce((s, p) => s + (p.costValue || 0), 0)
+      const allRetailValue = final.reduce((s, p) => s + (p.retailValue || 0), 0)
+      const allLossValue = final.reduce((s, p) => s + (p.lossValue || 0), 0)
+
       return NextResponse.json({
-        products: enriched,
+        products: final,
         summary: {
-          totalItems: enriched.length,
-          unprocessedItems: unprocessed.length,
-          processedItems: processed.length,
-          totalStockQty: unprocessed.reduce((s, p) => s + p.stockQty, 0),
-          totalCostValue: unprocessed.reduce((s, p) => s + p.costValue, 0),
-          totalRetailValue: unprocessed.reduce((s, p) => s + p.retailValue, 0),
-          totalLossValue: unprocessed.reduce((s, p) => s + p.lossValue, 0),
-          totalQtySold: enriched.reduce((s, p) => s + p.qtySold, 0),
-          totalSalesRevenue: enriched.reduce((s, p) => s + p.salesRevenue, 0),
+          totalItems: final.length,
+          unprocessedItems: finalUnprocessed.length,
+          processedItems: finalProcessed.length,
+          totalStockQty: finalUnprocessed.reduce((s, p) => s + p.stockQty, 0),
+          totalRemovedQty: (finalProcessed as any[]).reduce((s: number, p: any) => s + (p.removedQty || 0), 0),
+          totalCostValue: allCostValue,
+          totalRetailValue: allRetailValue,
+          totalLossValue: allLossValue,
+          totalQtySold: final.reduce((s, p) => s + p.qtySold, 0),
+          totalSalesRevenue: final.reduce((s, p) => s + p.salesRevenue, 0),
         },
       })
     }
@@ -175,7 +254,7 @@ export async function GET() {
     // Prisma fallback
     const { db } = await import('@/lib/db')
     const expiredProducts = await db.product.findMany({
-      where: { expiryDate: { lt: new Date() } },
+      where: { expiryDate: { lt: new Date().toISOString() } },
       include: { inventory: true },
       orderBy: { expiryDate: 'desc' },
     })
@@ -184,8 +263,9 @@ export async function GET() {
       dosageForm: p.dosageForm, costPrice: p.costPrice || 0,
       sellingPrice: p.sellingPrice || 0, expiryDate: p.expiryDate,
       batchNumber: p.batchNumber, manufacturer: p.manufacturer,
-      productStatus: p.status, expiredAt: null,
+      productStatus: p.status, expiredAt: null, dateRemoved: null,
       stockQty: p.inventory?.quantity || 0,
+      removedQty: 0,
       processed: (p.inventory?.quantity || 0) === 0,
       qtySold: 0, salesRevenue: 0,
       costValue: (p.costPrice || 0) * (p.inventory?.quantity || 0),
@@ -199,6 +279,7 @@ export async function GET() {
         unprocessedItems: products.filter((p: any) => !p.processed).length,
         processedItems: products.filter((p: any) => p.processed).length,
         totalStockQty: products.reduce((s: number, p: any) => s + p.stockQty, 0),
+        totalRemovedQty: 0,
         totalCostValue: products.reduce((s: number, p: any) => s + p.costValue, 0),
         totalRetailValue: products.reduce((s: number, p: any) => s + p.retailValue, 0),
         totalLossValue: products.reduce((s: number, p: any) => s + p.lossValue, 0),

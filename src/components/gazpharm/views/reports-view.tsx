@@ -388,14 +388,15 @@ export function ReportsView() {
       addToast({ title: 'No Data', description: 'No expired goods to export', variant: 'destructive' })
       return
     }
-    const headers = ['Product', 'NDC', 'Category', 'Dosage Form', 'Batch', 'Manufacturer', 'Cost Price', 'Selling Price', 'Stock Qty', 'Cost Value', 'Retail Value', 'Loss Value', 'Qty Sold', 'Sales Revenue', 'Expiry Date']
+    const headers = ['Product', 'Dosage Form', 'Batch', 'Category', 'Manufacturer', 'Cost Price', 'Quantity', 'Cost Value', 'Loss Value', 'Expiry Date', 'Date Removed', 'Status']
     const rows = expiredGoods.map((p: any) => [
-      p.name, p.ndc || '', p.category?.replace(/_/g, ' ') || '', p.dosageForm || '',
-      p.batchNumber || '', p.manufacturer || '',
-      (p.costPrice ?? 0).toFixed(2), (p.sellingPrice ?? 0).toFixed(2),
-      p.stockQty, (p.costValue ?? 0).toFixed(2), (p.retailValue ?? 0).toFixed(2),
-      (p.lossValue ?? 0).toFixed(2), p.qtySold, (p.salesRevenue ?? 0).toFixed(2),
+      p.name, p.dosageForm || '', p.batchNumber || '', p.category?.replace(/_/g, ' ') || '',
+      p.manufacturer || '', (p.costPrice ?? 0).toFixed(2),
+      p.processed ? (p.removedQty || 0) : p.stockQty,
+      (p.costValue ?? 0).toFixed(2), (p.lossValue ?? 0).toFixed(2),
       p.expiryDate ? formatDate(p.expiryDate) : '',
+      p.processed ? (p.dateRemoved ? formatDate(p.dateRemoved) : (p.expiredAt ? formatDateTimeShort(p.expiredAt) : '')) : '',
+      p.processed ? 'Removed' : (p.stockQty > 0 ? 'In Stock' : 'No Stock'),
     ])
     const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -1327,7 +1328,7 @@ export function ReportsView() {
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Expired</p>
                     <p className="text-xl font-bold mt-1">{expiredSummary?.totalItems || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">{expiredSummary?.processedItems || 0} processed, {expiredSummary?.unprocessedItems || 0} pending</p>
+                    <p className="text-[10px] text-muted-foreground">{expiredSummary?.processedItems || 0} removed, {expiredSummary?.unprocessedItems || 0} pending</p>
                   </CardContent>
                 </Card>
                 <Card className={(expiredSummary?.unprocessedItems || 0) > 0 ? 'border-red-200 bg-red-50/50' : ''}>
@@ -1339,14 +1340,15 @@ export function ReportsView() {
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost Value at Risk</p>
-                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Qty Removed</p>
+                    <p className="text-xl font-bold mt-1 text-orange-600">{expiredSummary?.totalRemovedQty || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Units written off</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Potential Loss</p>
-                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost Value at Risk</p>
+                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1361,16 +1363,15 @@ export function ReportsView() {
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sold Before Expiry</p>
-                    <p className="text-xl font-bold mt-1 text-emerald-600">{expiredSummary?.totalQtySold || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">Revenue: {formatCurrency(expiredSummary?.totalSalesRevenue || 0)}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Potential Loss</p>
+                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Already Processed</p>
-                    <p className="text-xl font-bold mt-1 text-muted-foreground">{expiredSummary?.processedItems || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">Removed from inventory</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sold Before Expiry</p>
+                    <p className="text-xl font-bold mt-1 text-emerald-600">{expiredSummary?.totalQtySold || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Revenue: {formatCurrency(expiredSummary?.totalSalesRevenue || 0)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1399,16 +1400,13 @@ export function ReportsView() {
                           {(expiredSummary?.unprocessedItems || 0) > 0 && <TableHead className="w-8"></TableHead>}
                           <TableHead>Product</TableHead>
                           <TableHead className="hidden md:table-cell">Batch</TableHead>
+                          <TableHead className="text-right">Qty</TableHead>
                           <TableHead className="hidden lg:table-cell">Category</TableHead>
                           <TableHead className="text-right">Cost</TableHead>
-                          <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">Stock</TableHead>
                           <TableHead className="text-right hidden sm:table-cell">Cost Value</TableHead>
-                          <TableHead className="text-right hidden sm:table-cell">Retail Value</TableHead>
-                          <TableHead className="text-right hidden md:table-cell">Loss</TableHead>
-                          <TableHead className="text-right hidden md:table-cell">Sold</TableHead>
-                          <TableHead className="text-right hidden lg:table-cell">Revenue</TableHead>
-                          <TableHead className="text-right">Expired</TableHead>
+                          <TableHead className="text-right hidden sm:table-cell">Loss</TableHead>
+                          <TableHead className="text-right">Expiry Date</TableHead>
+                          <TableHead className="text-right hidden md:table-cell">Date Removed</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1427,38 +1425,41 @@ export function ReportsView() {
                             <TableCell>
                               <div>
                                 <p className="font-medium text-sm">{p.name}</p>
-                                {p.ndc && <p className="text-[10px] text-muted-foreground font-mono">{p.ndc}</p>}
+                                {p.dosageForm && <p className="text-[10px] text-muted-foreground">{p.dosageForm}</p>}
                               </div>
                             </TableCell>
-                            <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{p.batchNumber || '—'}</TableCell>
+                            <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">{p.batchNumber || '—'}</TableCell>
+                            <TableCell className="text-right">
+                              <span className={`font-bold text-sm ${p.processed ? 'text-orange-600' : p.stockQty > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                {p.processed ? (p.removedQty || 0) : p.stockQty}
+                              </span>
+                            </TableCell>
                             <TableCell className="hidden lg:table-cell">
                               <Badge variant="outline" className="text-[10px]">{p.category?.replace(/_/g, ' ')}</Badge>
                             </TableCell>
                             <TableCell className="text-right text-xs">{formatCurrency(p.costPrice)}</TableCell>
-                            <TableCell className="text-right text-xs font-medium">{formatCurrency(p.sellingPrice)}</TableCell>
-                            <TableCell className="text-right">
-                              <span className={`font-bold text-sm ${p.stockQty > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                {p.stockQty}
-                              </span>
+                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">
+                              {p.costValue > 0 ? formatCurrency(p.costValue) : '—'}
                             </TableCell>
-                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">{p.stockQty > 0 ? formatCurrency(p.costValue) : '—'}</TableCell>
-                            <TableCell className="text-right text-xs hidden sm:table-cell">{p.stockQty > 0 ? formatCurrency(p.retailValue) : '—'}</TableCell>
-                            <TableCell className="text-right text-xs text-red-600 hidden md:table-cell">{p.stockQty > 0 ? formatCurrency(p.lossValue) : '—'}</TableCell>
-                            <TableCell className="text-right text-xs text-emerald-600 hidden md:table-cell">{p.qtySold > 0 ? p.qtySold : '—'}</TableCell>
-                            <TableCell className="text-right text-xs text-emerald-600 hidden lg:table-cell">{p.salesRevenue > 0 ? formatCurrency(p.salesRevenue) : '—'}</TableCell>
+                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">
+                              {p.lossValue > 0 ? formatCurrency(p.lossValue) : '—'}
+                            </TableCell>
                             <TableCell className="text-right text-xs text-gray-600 whitespace-nowrap">
                               {formatDate(p.expiryDate)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                              {p.processed ? (p.dateRemoved ? formatDate(p.dateRemoved) : (p.expiredAt ? formatDateTimeShort(p.expiredAt) : '—')) : '—'}
                             </TableCell>
                             <TableCell className="text-center">
                               {p.processed ? (
                                 <div className="flex items-center justify-center gap-1">
-                                  <Badge className="bg-gray-100 text-gray-600 text-[10px] gap-1">
+                                  <Badge className="bg-orange-100 text-orange-700 text-[10px] gap-1">
                                     <CheckCircle2 className="h-3 w-3" /> Removed
                                   </Badge>
                                   <Button
                                     variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
                                     disabled={deletingExpired}
-                                    onClick={() => deleteExpiredGoods({ productIds: [p.processed ? p.id : p.productId] })}
+                                    onClick={() => deleteExpiredGoods({ productIds: [p.productId] })}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -1479,11 +1480,10 @@ export function ReportsView() {
                   {/* Totals footer */}
                   <div className="border-t px-4 py-2 bg-gray-50/80 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
                     <span>Totals —</span>
-                    <span>Items: <strong>{expiredSummary?.totalItems || 0}</strong></span>
-                    <span>Cost Value: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</strong></span>
-                    <span>Retail Value: <strong>{formatCurrency(expiredSummary?.totalRetailValue || 0)}</strong></span>
+                    <span>Batches: <strong>{expiredSummary?.totalItems || 0}</strong></span>
+                    <span>Qty Removed: <strong className="text-orange-600">{expiredSummary?.totalRemovedQty || 0}</strong></span>
+                    <span>Cost Written Off: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</strong></span>
                     <span>Loss: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</strong></span>
-                    <span>Sold: <strong className="text-emerald-600">{expiredSummary?.totalQtySold || 0}</strong> ({formatCurrency(expiredSummary?.totalSalesRevenue || 0)})</span>
                   </div>
                 </CardContent>
               </Card>
