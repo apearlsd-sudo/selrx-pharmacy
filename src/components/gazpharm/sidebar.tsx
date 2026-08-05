@@ -286,12 +286,9 @@ function SidebarNavContent({
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-200">
-                    {user.name}
-                  </p>
                   <Badge
                     variant="secondary"
-                    className={`mt-0.5 text-[10px] px-1.5 py-0 ${getRoleBadgeColor(user.role)}`}
+                    className={`text-[10px] px-1.5 py-0 ${getRoleBadgeColor(user.role)}`}
                   >
                     {user.role.replace('_', ' ')}
                   </Badge>
