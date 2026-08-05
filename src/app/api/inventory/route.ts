@@ -117,7 +117,43 @@ export async function GET(request: NextRequest) {
                ORDER BY i.updatedAt DESC`,
         args: [],
       })
-      const inventory = toObjs(invResult).map(mapInventoryRow)
+      const inventoryRows = toObjs(invResult).map(mapInventoryRow)
+
+      // Batch-level expiry summary for each product (avoids product-level false expired)
+      const batchSummaryResult = await turso.execute({
+        sql: `SELECT b."productId",
+                     COUNT(*) as totalBatches,
+                     SUM(CASE WHEN date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
+                     SUM(CASE WHEN date(b."expiryDate") > date('now') THEN 1 ELSE 0 END) as activeBatches,
+                     MIN(CASE WHEN date(b."expiryDate") > date('now') THEN b."expiryDate" ELSE NULL END) as nearestActiveExpiry,
+                     MIN(CASE WHEN date(b."expiryDate") <= date('now') THEN b."expiryDate" ELSE NULL END) as nearestExpiredDate,
+                     SUM(CASE WHEN date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
+              FROM "Batch" b
+              WHERE b.quantity > 0 AND b."expiryDate" IS NOT NULL
+              GROUP BY b."productId"`,
+        args: [],
+      })
+      const batchSummaryMap = new Map<string, Record<string, unknown>>() 
+      for (const r of toObjs(batchSummaryResult)) {
+        batchSummaryMap.set(r.productId as string, r)
+      }
+
+      // Attach batch summary to each inventory row
+      const inventory = inventoryRows.map((row) => {
+        const bs = batchSummaryMap.get(row.productId)
+        const summary = bs ? {
+          hasBatches: true,
+          totalBatches: Number(bs.totalBatches) || 0,
+          expiredBatches: Number(bs.expiredBatches) || 0,
+          activeBatches: Number(bs.activeBatches) || 0,
+          allBatchesExpired: (Number(bs.activeBatches) || 0) === 0,
+          hasExpiredBatches: (Number(bs.expiredBatches) || 0) > 0,
+          nearExpiryBatches: Number(bs.nearExpiryBatches) || 0,
+          nearestActiveExpiry: bs.nearestActiveExpiry as string | null,
+          nearestExpiredDate: bs.nearestExpiredDate as string | null,
+        } : { hasBatches: false, totalBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null }
+        return { ...row, batchExpirySummary: summary }
+      })
 
       // 2. Products WITHOUT an inventory record (qty=0 virtual)
       const noInvResult = await turso.execute({
@@ -157,6 +193,30 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
+    // Batch-level expiry for Prisma fallback
+    const allBatchRecords = await db.batch.findMany({
+      where: { quantity: { gt: 0 }, expiryDate: { not: null } },
+      select: { productId: true, expiryDate: true },
+    })
+    const batchGrouped = new Map<string, { total: number; expired: number; active: number; nearExpiry: number; nearestActive: string | null; nearestExpired: string | null }>()
+    const now = new Date()
+    const thirtyDays = 30 * 86400000
+    for (const b of allBatchRecords) {
+      const pid = b.productId
+      if (!batchGrouped.has(pid)) batchGrouped.set(pid, { total: 0, expired: 0, active: 0, nearExpiry: 0, nearestActive: null, nearestExpired: null })
+      const g = batchGrouped.get(pid)!
+      g.total++
+      const expDate = new Date(b.expiryDate!)
+      if (expDate <= now) {
+        g.expired++
+        if (!g.nearestExpired || expDate < new Date(g.nearestExpired)) g.nearestExpired = b.expiryDate
+      } else {
+        g.active++
+        if (!g.nearestActive || expDate < new Date(g.nearestActive)) g.nearestActive = b.expiryDate
+        if (expDate.getTime() - now.getTime() <= thirtyDays) g.nearExpiry++
+      }
+    }
+
     const productsWithInventory = new Set(inventory.map((i) => i.productId))
     const productsWithoutInventory = await db.product.findMany({
       where: { id: { notIn: Array.from(productsWithInventory) } },
@@ -166,9 +226,25 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const attachSummary = (row: any) => {
+      const g = batchGrouped.get(row.productId)
+      row.batchExpirySummary = g ? {
+        hasBatches: true,
+        totalBatches: g.total,
+        expiredBatches: g.expired,
+        activeBatches: g.active,
+        allBatchesExpired: g.active === 0,
+        hasExpiredBatches: g.expired > 0,
+        nearExpiryBatches: g.nearExpiry,
+        nearestActiveExpiry: g.nearestActive,
+        nearestExpiredDate: g.nearestExpired,
+      } : { hasBatches: false, totalBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null }
+      return row
+    }
+
     const merged = [
-      ...inventory,
-      ...productsWithoutInventory.map((p) => ({
+      ...inventory.map(attachSummary),
+      ...productsWithoutInventory.map((p) => attachSummary({
         id: `no-inv-${p.id}`,
         productId: p.id,
         quantity: 0,
@@ -248,7 +324,7 @@ export async function PUT(request: NextRequest) {
           // Re-sync Product.expiryDate from batch data
           await turso.execute({
             sql: `UPDATE "Product" SET "expiryDate" = (
-                    SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                    SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                   ), "updatedAt" = ?
                   WHERE id = ?`,
             args: [item.productId, now, item.productId],
@@ -390,7 +466,7 @@ export async function PUT(request: NextRequest) {
       if (batchCreated) {
         await turso.execute({
           sql: `UPDATE "Product" SET "expiryDate" = (
-                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                 ), "updatedAt" = ?
                 WHERE id = ?`,
           args: [productId, now, productId],
@@ -560,10 +636,10 @@ export async function POST(request: NextRequest) {
           ],
         })
 
-        // Re-sync Product.expiryDate from batch data
+        // Re-sync Product.expiryDate from batch data (skip expired batches)
         await turso.execute({
           sql: `UPDATE "Product" SET "expiryDate" = (
-                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                 ), "updatedAt" = ?
                 WHERE id = ?`,
           args: [item.productId, now, item.productId],
