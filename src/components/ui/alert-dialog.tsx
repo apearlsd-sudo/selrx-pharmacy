@@ -53,8 +53,9 @@ function AlertDialogContent({
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
+        style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
         className={cn(
-          "bg-white fixed inset-0 z-[100] m-auto w-full max-w-[calc(100%-2rem)] rounded-2xl border border-gray-200/80 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] p-6 sm:max-w-md overflow-hidden relative",
+          "bg-white z-[100] w-full max-w-[calc(100%-2rem)] rounded-2xl border border-gray-200/80 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] p-6 sm:max-w-md relative",
           className
         )}
         {...props}
