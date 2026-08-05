@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
-  AlertCircle, CheckCircle2, Factory, Edit2, Save, X, RefreshCw,
-  Upload, FileSpreadsheet, Download, History, Clock, RotateCcw, Database,
+  AlertCircle, CheckCircle2, Factory, Edit, Edit2, Save, X, RefreshCw,
+  Upload, FileSpreadsheet, Download, History, Clock, RotateCcw, Database, PackagePlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -532,7 +532,7 @@ function DosageFormModal({
   )
 }
 
-// ── Drug Edit Modal ─────────────────────────────────────────────────────
+// ── Drug Edit Modal (mirrors Inventory Adjustment Modal) ─────────────
 
 function DrugEditModal({
   open,
@@ -563,19 +563,52 @@ function DrugEditModal({
 }) {
   const [form, setForm] = useState({
     name: '', ndc: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
-    vendorId: '', reorderPoint: '', expiryDate: '', batchNumber: '', stockQuantity: '',
+    vendorId: '', reorderPoint: '',
     sellingUnit: 'EA', itemsPerUnit: '1',
   })
   const [saving, setSaving] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
   const currentUser = useAppStore((s) => s.user)
+
+  // ── Batch state ──
+  const [batches, setBatches] = useState<any[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
+  const [savingBatch, setSavingBatch] = useState(false)
+  const [newBatchQty, setNewBatchQty] = useState('')
+  const [newBatchNumber, setNewBatchNumber] = useState('')
+  const [newBatchExpiry, setNewBatchExpiry] = useState('')
+  const [newBatchCost, setNewBatchCost] = useState('')
+
+  // ── Quick Stock Adjustment state ──
+  const [adjustType, setAdjustType] = useState('ADD')
+  const [adjustAmount, setAdjustAmount] = useState('')
+  const [adjustCostPrice, setAdjustCostPrice] = useState('')
+  const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
+  const [adjustReason, setAdjustReason] = useState('')
+  const [adjusting, setAdjusting] = useState(false)
+
+  // ── Sell As state ──
+  const [savingSellAs, setSavingSellAs] = useState(false)
+
   const genBN = () => {
     const d = new Date()
     const date = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear().toString()
     const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
     return `BN-${date}-${seq}`
   }
+
+  const fetchBatches = useCallback(async (productId: string) => {
+    setBatchesLoading(true)
+    try {
+      const res = await fetch(`/api/inventory/batches?productId=${productId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setBatches(data.batches || [])
+      }
+    } catch { /* silent */ }
+    setBatchesLoading(false)
+  }, [])
 
   useEffect(() => {
     if (open && editingDrug) {
@@ -589,17 +622,19 @@ function DrugEditModal({
         sellingPrice: editingDrug.sellingPrice != null ? String(editingDrug.sellingPrice) : '',
         vendorId: editingDrug.vendor?.id || '',
         reorderPoint: String(editingDrug.reorderPoint || 10),
-        expiryDate: editingDrug.expiryDate ? editingDrug.expiryDate.split('T')[0] : '',
-        batchNumber: editingDrug.batchNumber || '',
-        stockQuantity: editingDrug.inventory?.[0]?.quantity != null ? String(editingDrug.inventory[0].quantity) : '',
         sellingUnit: editingDrug.sellingUnit || 'EA',
         itemsPerUnit: String(editingDrug.itemsPerUnit || 1),
       })
       setSaving(false)
+      setAdjustType('ADD'); setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustReason('')
+      setNewBatchQty(''); setNewBatchNumber(''); setNewBatchExpiry(''); setNewBatchCost('')
+      fetchBatches(editingDrug.id)
     }
-  }, [open, editingDrug])
+    if (!open) { setBatches([]) }
+  }, [open, editingDrug, fetchBatches])
 
-  const handleSave = async () => {
+  // ── Save product details ──
+  const handleSaveDetails = async () => {
     if (!form.name.trim() || !form.sellingPrice) return
     setSaving(true)
     try {
@@ -618,186 +653,380 @@ function DrugEditModal({
           itemsPerUnit: parseInt(form.itemsPerUnit) || 1,
           vendorId: form.vendorId || null,
           reorderPoint: parseInt(form.reorderPoint) || 10,
-          expiryDate: form.expiryDate || null,
-          batchNumber: form.batchNumber || null,
+          expiryDate: null,
+          batchNumber: null,
         }),
       })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to update product')
-      }
-
-      // Update stock quantity if changed
-      if (form.stockQuantity !== '' && editingDrug) {
-        const currentQty = editingDrug.inventory?.[0]?.quantity ?? 0
-        const newQty = parseInt(form.stockQuantity) || 0
-        if (newQty !== currentQty) {
-          await fetch('/api/inventory', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-user-role': currentUser?.role || '',
-              'x-user-id': currentUser?.id || '',
-            },
-            body: JSON.stringify({
-              productId: editingDrug.id,
-              setQuantity: newQty,
-              adjustmentType: 'SET',
-              reason: 'Updated from Drug Catalog edit',
-            }),
-          }).catch(() => {})
-          bumpInventoryVersion()
-        }
-      }
-
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update product') }
       bumpInventoryVersion()
       addToast({ title: 'Drug Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
       onSaved()
-      onOpenChange(false)
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
+  // ── Quick Stock Adjustment ──
+  const handleAdjust = async () => {
+    if (!editingDrug || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason) return
+    setAdjusting(true)
+    try {
+      const isSet = adjustType === 'SET'
+      const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
+      const body: Record<string, any> = { productId: editingDrug.id, adjustmentType: adjustType, reason: adjustReason }
+      if (isSet) { body.setQuantity = adj; body.adjustment = 0 } else { body.adjustment = adj }
+      if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
+      if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
+      const res = await fetch('/api/inventory', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '', 'x-user-id': currentUser?.id || '' }, body: JSON.stringify(body) })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Adjustment failed') }
+      addToast({ title: 'Stock Adjusted', description: `Adjustment applied to ${editingDrug.name}`, variant: 'success' })
+      setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustReason('')
+      fetchBatches(editingDrug.id)
+      bumpInventoryVersion()
+      onSaved()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally { setAdjusting(false) }
+  }
+
+  // ── Save Sell As ──
+  const handleSaveSellAs = async () => {
+    if (!editingDrug) return
+    const su = form.sellingUnit || 'EA'
+    const ipu = form.itemsPerUnit ? parseInt(form.itemsPerUnit) : editingDrug.itemsPerUnit || 1
+    if (su === (editingDrug.sellingUnit || 'EA') && ipu === (editingDrug.itemsPerUnit || 1)) return
+    setSavingSellAs(true)
+    try {
+      const res = await fetch(`/api/products/${editingDrug.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
+        body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
+      addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
+      bumpInventoryVersion()
+      onSaved()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally { setSavingSellAs(false) }
+  }
+
+  // ── Receive New Batch ──
+  const handleReceiveBatch = async () => {
+    if (!editingDrug || !newBatchQty || Number(newBatchQty) <= 0) return
+    setSavingBatch(true)
+    try {
+      const res = await fetch('/api/inventory/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '' },
+        body: JSON.stringify({
+          productId: editingDrug.id, quantity: parseInt(newBatchQty),
+          batchNumber: newBatchNumber || null, expiryDate: newBatchExpiry || null,
+          costPrice: newBatchCost ? parseFloat(newBatchCost) : null, reason: 'Received from Drug Catalog',
+        }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to receive batch') }
+      addToast({ title: 'Batch Received', description: `${newBatchQty} units added`, variant: 'success' })
+      setNewBatchQty(''); setNewBatchNumber(''); setNewBatchExpiry(''); setNewBatchCost('')
+      fetchBatches(editingDrug.id)
+      bumpInventoryVersion()
+      onSaved()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally { setSavingBatch(false) }
+  }
+
+  // ── Delete Batch ──
+  const handleDeleteBatch = async (batchId: string) => {
+    if (!editingDrug) return
+    setSavingBatch(true)
+    try {
+      const res = await fetch(`/api/inventory/batches/${batchId}`, { method: 'DELETE', headers: { 'x-user-role': currentUser?.role || '', 'x-user-id': currentUser?.id || '' } })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to delete batch') }
+      addToast({ title: 'Batch Removed', description: 'Batch deleted successfully', variant: 'success' })
+      fetchBatches(editingDrug.id)
+      bumpInventoryVersion()
+      onSaved()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+    }
+    setSavingBatch(false)
+  }
+
+  const currentStock = editingDrug?.inventory?.[0]?.quantity ?? 0
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl rounded-xl">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setBatches([]) }; onOpenChange(o) }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
         <DialogHeader>
-          <DialogTitle className="font-semibold text-gray-800">Edit Drug / Product</DialogTitle>
-          <DialogDescription>Update product details and pricing</DialogDescription>
+          <DialogTitle>Adjust Product</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-          <div className="col-span-2">
-            <Label className="text-xs">Product Name <span className="text-red-500">*</span></Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Paracetamol 500mg" className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">SKU / NDC</Label>
-            <Input value={form.ndc} onChange={(e) => setForm({ ...form, ndc: e.target.value })} placeholder="e.g., SKU-00123" className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Category</Label>
-            <Select value={form.category} onValueChange={(v) => { if (v === '__new__') { onOpenAddCategory() } else { setForm({ ...form, category: v }) } }}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
-                ))}
-                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new category</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Manufacturer</Label>
-            <Select value={form.manufacturerId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddManufacturer() } else { setForm({ ...form, manufacturerId: v === '_none' ? '' : v }) } }}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">None</SelectItem>
-                {manufacturers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
-                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new manufacturer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Dosage Form</Label>
-            <Select value={form.dosageForm || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddDosageForm() } else { setForm({ ...form, dosageForm: v === '_none' ? '' : v }) } }}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">None</SelectItem>
-                {dosageForms.map((f) => (
-                  <SelectItem key={f} value={f}>{f}</SelectItem>
-                ))}
-                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new dosage form</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Vendor / Supplier</Label>
-            <Select value={form.vendorId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddVendor() } else { setForm({ ...form, vendorId: v === '_none' ? '' : v }) } }}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Optional" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">None</SelectItem>
-                {vendors.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                ))}
-                <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new vendor</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Stock Quantity</Label>
-            <p className="text-[10px] text-muted-foreground mb-0.5">Leave blank to keep unchanged</p>
-            <Input
-              type="number"
-              min="0"
-              value={form.stockQuantity}
-              onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
-              placeholder={editingDrug?.inventory?.[0]?.quantity != null ? `Current: ${editingDrug.inventory[0].quantity}` : 'Enter quantity'}
-              className="mt-0.5"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Cost Price ($)</Label>
-            <Input type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} placeholder="0.00" className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Selling Price ($) <span className="text-red-500">*</span></Label>
-            <Input type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} placeholder="0.00" className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Sell As</Label>
-            <Select value={form.sellingUnit} onValueChange={(v) => setForm({ ...form, sellingUnit: v })}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EA">Each / Piece</SelectItem>
-                <SelectItem value="Tablet">Tablet</SelectItem>
-                <SelectItem value="Capsule">Capsule</SelectItem>
-                <SelectItem value="Sachet">Sachet</SelectItem>
-                <SelectItem value="Vial">Vial</SelectItem>
-                <SelectItem value="Ampoule">Ampoule</SelectItem>
-                <SelectItem value="Bottle">Bottle</SelectItem>
-                <SelectItem value="Strip">Strip</SelectItem>
-                <SelectItem value="Blister">Blister Pack</SelectItem>
-                <SelectItem value="Tube">Tube</SelectItem>
-                <SelectItem value="Pack">Pack</SelectItem>
-                <SelectItem value="Box">Box</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {form.sellingUnit !== 'EA' && (
-            <div>
-              <Label className="text-xs">Items Per {form.sellingUnit}</Label>
-              <Input type="number" min="1" placeholder="e.g., 10" value={form.itemsPerUnit} onChange={(e) => setForm({ ...form, itemsPerUnit: e.target.value })} className="mt-1" />
-              <p className="text-[10px] text-muted-foreground mt-1">Individual units (tablets/capsules) per {form.sellingUnit.toLowerCase()}</p>
+        {editingDrug && (
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
+            {/* ── Product Info Summary ── */}
+            <div className="bg-muted rounded-lg p-3">
+              <p className="font-medium">{editingDrug.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Current Stock: {currentStock} {editingDrug.unitOfMeasure}
+                &nbsp;·&nbsp; Cost: {editingDrug.costPrice != null ? formatCurrency(editingDrug.costPrice) : '—'}
+                &nbsp;·&nbsp; Price: {formatCurrency(editingDrug.sellingPrice)}
+              </p>
             </div>
-          )}
-          <div>
-            <Label className="text-xs">Min Stock Level</Label>
-            <Input type="number" min="0" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} placeholder="10" className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Expiry Date</Label>
-            <Input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs">Batch Number</Label>
-            <div className="flex gap-1 mt-1">
-              <Input value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="BN-DDMMYYYY-XXXX" className="flex-1" />
-              <Button type="button" variant="outline" size="sm" className="h-9 w-9 px-0 shrink-0" onClick={() => setForm({ ...form, batchNumber: genBN() })} title="Auto-generate batch number">
-                <RefreshCw className="h-3.5 w-3.5" />
+
+            {/* ── Product Details ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Edit2 className="h-3.5 w-3.5" />
+                Product Details
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label className="text-xs">Product Name <span className="text-red-500">*</span></Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Paracetamol 500mg" className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">SKU / NDC</Label>
+                  <Input value={form.ndc} onChange={(e) => setForm({ ...form, ndc: e.target.value })} placeholder="SKU-00123" className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Category</Label>
+                  <Select value={form.category} onValueChange={(v) => { if (v === '__new__') { onOpenAddCategory() } else { setForm({ ...form, category: v }) } }}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (<SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>))}
+                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new category</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Manufacturer</Label>
+                  <Select value={form.manufacturerId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddManufacturer() } else { setForm({ ...form, manufacturerId: v === '_none' ? '' : v }) } }}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="Optional" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">None</SelectItem>
+                      {manufacturers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Dosage Form</Label>
+                  <Select value={form.dosageForm || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddDosageForm() } else { setForm({ ...form, dosageForm: v === '_none' ? '' : v }) } }}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">None</SelectItem>
+                      {dosageForms.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}
+                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Vendor / Supplier</Label>
+                  <Select value={form.vendorId || '_none'} onValueChange={(v) => { if (v === '__new__') { onOpenAddVendor() } else { setForm({ ...form, vendorId: v === '_none' ? '' : v }) } }}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="Optional" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">None</SelectItem>
+                      {vendors.map((v) => (<SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>))}
+                      <SelectItem value="__new__" className="text-emerald-600 font-medium">+ Add new</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Cost Price</Label>
+                  <Input type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} placeholder="0.00" className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Selling Price <span className="text-red-500">*</span></Label>
+                  <Input type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} placeholder="0.00" className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Min Stock Level</Label>
+                  <Input type="number" min="0" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} placeholder="10" className="h-8 text-sm mt-0.5" />
+                </div>
+              </div>
+              <Button size="sm" onClick={handleSaveDetails} disabled={!form.name.trim() || !form.sellingPrice || saving} className="w-full">
+                {saving ? 'Saving...' : 'Save Product Details'}
               </Button>
             </div>
+
+            {/* ── Quick Stock Adjustment ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Edit className="h-3.5 w-3.5" />
+                Quick Stock Adjustment
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Adjustment Type</Label>
+                  <Select value={adjustType} onValueChange={setAdjustType}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ADD">Add Stock</SelectItem>
+                      <SelectItem value="SET">Set Quantity</SelectItem>
+                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Quantity</Label>
+                  <Input type="number" min="0" placeholder={adjustType === 'SET' ? 'New total' : 'Units'} value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Cost Price</Label>
+                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Selling Price</Label>
+                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>
+                  <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+              </div>
+              <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice) || !adjustReason || adjusting} className="w-full">
+                {adjusting ? 'Applying...' : 'Apply Adjustment'}
+              </Button>
+            </div>
+
+            {/* ── Sell As (Unit Sales) ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <PackagePlus className="h-3.5 w-3.5" />
+                Sell As (Unit Sales)
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Set how this product is sold to customers. E.g., sell as a Strip of 10 tablets instead of individual tablets.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Selling Unit</Label>
+                  <Select value={form.sellingUnit} onValueChange={(v) => setForm({ ...form, sellingUnit: v })}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EA">Each / Piece</SelectItem>
+                      <SelectItem value="Tablet">Tablet</SelectItem>
+                      <SelectItem value="Capsule">Capsule</SelectItem>
+                      <SelectItem value="Sachet">Sachet</SelectItem>
+                      <SelectItem value="Vial">Vial</SelectItem>
+                      <SelectItem value="Ampoule">Ampoule</SelectItem>
+                      <SelectItem value="Bottle">Bottle</SelectItem>
+                      <SelectItem value="Strip">Strip</SelectItem>
+                      <SelectItem value="Blister">Blister Pack</SelectItem>
+                      <SelectItem value="Tube">Tube</SelectItem>
+                      <SelectItem value="Pack">Pack</SelectItem>
+                      <SelectItem value="Box">Box</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Items Per {form.sellingUnit === 'EA' ? 'Unit' : form.sellingUnit}</Label>
+                  <Input type="number" min="1" step="1" placeholder="e.g., 10" value={form.itemsPerUnit} onChange={(e) => setForm({ ...form, itemsPerUnit: e.target.value })} className="h-8 text-sm mt-0.5" disabled={form.sellingUnit === 'EA'} />
+                </div>
+              </div>
+              {form.sellingUnit !== 'EA' && form.itemsPerUnit && parseInt(form.itemsPerUnit) > 1 && (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Stock shows as: <span className="font-medium">{Math.floor(currentStock / parseInt(form.itemsPerUnit))} {form.sellingUnit.toLowerCase()}{Math.floor(currentStock / parseInt(form.itemsPerUnit)) !== 1 ? 's' : ''}</span> of {form.itemsPerUnit} items each
+                  &nbsp;·&nbsp; Unit price: <span className="font-medium">{formatCurrency(editingDrug.sellingPrice / parseInt(form.itemsPerUnit))}</span>
+                </p>
+              )}
+              <Button size="sm" variant="outline" onClick={handleSaveSellAs} disabled={savingSellAs} className="w-full">
+                {savingSellAs ? 'Saving...' : 'Update Sell As'}
+              </Button>
+            </div>
+
+            {/* ── Batch / Lot Management ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5" />
+                Stock Batches (Lots)
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Each batch has its own expiry date and cost. Use this section to add new stock with its specific expiry date. Sales automatically consume the earliest-expiring batch first (FEFO).
+              </p>
+              {batchesLoading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : batches.length > 0 ? (
+                <div className="border rounded max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-medium">Batch #</th>
+                        <th className="px-2 py-1.5 text-center font-medium">Qty</th>
+                        <th className="px-2 py-1.5 text-left font-medium">Expiry</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Cost</th>
+                        <th className="px-2 py-1.5 text-center font-medium w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {batches.map((b: any) => {
+                        const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
+                        return (
+                          <tr key={b.id} className="hover:bg-muted/30">
+                            <td className="px-2 py-1.5 font-medium">{b.batchNumber || '—'}</td>
+                            <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
+                            <td className="px-2 py-1.5">
+                              {b.expiryDate ? (
+                                <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                                  {formatDate(b.expiryDate)}
+                                  {days !== null && days <= 90 && (
+                                    <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
+                                      {days <= 0 ? 'Expired' : `${days}d`}
+                                    </Badge>
+                                  )}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              <button onClick={() => handleDeleteBatch(b.id)} disabled={savingBatch} className="text-muted-foreground hover:text-red-600 disabled:opacity-50" title="Remove batch">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState icon={Package} title="No batches" description="No batches recorded for this product yet." />
+              )}
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Receive New Stock as Batch</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px]">Quantity <span className="text-red-500">*</span></Label>
+                    <Input type="number" min="1" placeholder="e.g., 100" value={newBatchQty} onChange={(e) => setNewBatchQty(e.target.value)} className="h-7 text-xs mt-0.5" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px]">Batch Number</Label>
+                    <div className="flex gap-1 mt-0.5">
+                      <Input placeholder="BN-DDMMYYYY-XXXX" value={newBatchNumber} onChange={(e) => setNewBatchNumber(e.target.value)} className="h-7 text-xs flex-1" />
+                      <Button type="button" variant="outline" size="sm" className="h-7 w-7 px-0 shrink-0" onClick={() => setNewBatchNumber(genBN())} title="Regenerate batch number">
+                        <RefreshCw className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[11px]">Expiry Date</Label>
+                    <Input type="date" value={newBatchExpiry} onChange={(e) => setNewBatchExpiry(e.target.value)} className="h-7 text-xs mt-0.5" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px]">Cost Price</Label>
+                    <Input type="number" step="0.01" min="0" placeholder="e.g., 5.00" value={newBatchCost} onChange={(e) => setNewBatchCost(e.target.value)} className="h-7 text-xs mt-0.5" />
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleReceiveBatch} disabled={!newBatchQty || Number(newBatchQty) <= 0 || savingBatch} className="w-full text-xs">
+                  {savingBatch ? 'Receiving...' : `Receive ${newBatchQty || '0'} Units as New Batch`}
+                </Button>
+              </div>
+            </div>
+
           </div>
-        </div>
+        )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.name.trim() || !form.sellingPrice || saving} className="bg-teal-600 hover:bg-teal-700">
-            {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> Update Drug</>}
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
