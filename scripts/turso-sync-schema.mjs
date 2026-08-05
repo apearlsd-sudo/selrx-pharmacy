@@ -256,6 +256,7 @@ async function main() {
   `)
   await run(turso, `CREATE INDEX IF NOT EXISTS "ShiftInventory_shiftId_idx" ON "ShiftInventory"("shiftId");`)
   await run(turso, `CREATE INDEX IF NOT EXISTS "ShiftInventory_productId_idx" ON "ShiftInventory"("productId");`)
+  await addColumn(turso, 'ShiftInventory', 'category', 'TEXT')
 
   console.log('✅ Turso schema sync complete!')
 }

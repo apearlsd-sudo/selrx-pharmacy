@@ -6,6 +6,7 @@ import {
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
   Trash2, Clock, ChevronLeft, ChevronRight, Search, PackageX,
   AlertTriangle, CheckCircle2, DollarSign, Package, Filter, Printer, BarChart3,
+  Camera, ArrowRightLeft, Wallet, ClipboardCheck,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -131,6 +132,12 @@ export function ReportsView() {
   const [discrepancy, setDiscrepancy] = useState<any>(null)
   const [discLoading, setDiscLoading] = useState(false)
 
+  // Daily shift snapshots state
+  const [snapshotData, setSnapshotData] = useState<any>(null)
+  const [snapshotLoading, setSnapshotLoading] = useState(false)
+  const [expandedShiftSnap, setExpandedShiftSnap] = useState<string | null>(null)
+  const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().split('T')[0])
+
   const fetchShiftReport = useCallback(async () => {
     setShiftLoading(true)
     try {
@@ -208,6 +215,80 @@ export function ReportsView() {
     URL.revokeObjectURL(url)
     addToast({ title: 'Exported', description: 'Shift report exported as CSV', variant: 'success' })
   }, [shiftReport, shiftFilterFrom, addToast])
+
+  // Fetch daily shift snapshots for comparison & accounting
+  const fetchSnapshots = useCallback(async (date?: string) => {
+    const d = date || snapshotDate
+    setSnapshotLoading(true)
+    try {
+      const params = new URLSearchParams({ date: d })
+      const res = await fetch(`/api/shifts/snapshots?${params}`, { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setSnapshotData(data)
+      } else {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to load snapshots')
+      }
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to load shift snapshots', variant: 'destructive' })
+    }
+    setSnapshotLoading(false)
+  }, [snapshotDate, addToast])
+
+  // Auto-fetch snapshots when shift tab is active
+  useEffect(() => {
+    if (activeTab === 'shifts' && !snapshotData) fetchSnapshots()
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refetch snapshots when snapshot date changes
+  useEffect(() => {
+    if (activeTab === 'shifts') {
+      setSnapshotData(null)
+      fetchSnapshots(snapshotDate)
+    }
+  }, [snapshotDate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Export snapshots comparison CSV
+  const handleSnapshotExportCSV = useCallback(() => {
+    if (!snapshotData?.comparisonMatrix) return
+    const shifts = snapshotData.shifts || []
+    const headers = ['Product', 'Category', 'Cost Price', ...shifts.map((s: any) => `${s.userName} (${format(new Date(s.endedAt), 'HH:mm')})`), 'Variance']
+    const rows = [headers.join(',')]
+    for (const item of snapshotData.comparisonMatrix) {
+      const row = [
+        `"${item.productName}"`,
+        item.category || '',
+        (item.costPrice || 0).toFixed(2),
+        ...shifts.map((s: any) => item.quantities[s.shiftId] || 0),
+        item.variance,
+      ]
+      rows.push(row.join(','))
+    }
+    // Add daily cash accounting rows
+    rows.push([])
+    rows.push(['DAILY CASH ACCOUNTING'])
+    rows.push(['User', 'Started', 'Ended', 'Sales', 'Txns', 'Cash Start', 'Cash End', 'Expected', 'Discrepancy'].join(','))
+    for (const s of shifts) {
+      rows.push([
+        `"${s.userName}"`,
+        s.startedAt ? format(new Date(s.startedAt), 'yyyy-MM-dd HH:mm') : '',
+        s.endedAt ? format(new Date(s.endedAt), 'yyyy-MM-dd HH:mm') : '',
+        (s.totalSales || 0).toFixed(2),
+        s.totalTransactions || 0,
+        (s.cashAtStart ?? '').toString(),
+        (s.cashAtEnd ?? '').toString(),
+        (s.expectedCash ?? '').toString(),
+        (s.cashDiscrepancy ?? '').toString(),
+      ].join(','))
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `shift-snapshots-${snapshotDate}.csv`; a.click()
+    URL.revokeObjectURL(url)
+    addToast({ title: 'Exported', description: 'Snapshot comparison exported as CSV', variant: 'success' })
+  }, [snapshotData, snapshotDate, addToast, format])
 
   // Product list for delete functionality
   const [products, setProducts] = useState<any[]>([])
@@ -2237,6 +2318,287 @@ export function ReportsView() {
               </Card>
             </>
           )}
+
+          {/* ── Daily Shift Snapshots & Cash Accounting ── */}
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                  <Camera className="h-4 w-4 text-emerald-600" />
+                  Daily Shift Snapshots & Cash Accounting
+                  {snapshotData?.shifts && (
+                    <Badge variant="outline" className="ml-2 text-[10px] font-normal">
+                      {snapshotData.shifts.length} shift(s) · {snapshotData.dailySummary?.uniqueUsers || 0} user(s)
+                    </Badge>
+                  )}
+                </CardTitle>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    value={snapshotDate}
+                    onChange={(e) => setSnapshotDate(e.target.value)}
+                    className="h-7 text-[11px] w-[130px]"
+                  />
+                  <Button
+                    size="sm" variant="outline" className="h-7 text-[11px]"
+                    onClick={() => fetchSnapshots()}
+                    disabled={snapshotLoading}
+                  >
+                    {snapshotLoading ? 'Loading...' : 'Load'}
+                  </Button>
+                  {snapshotData?.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
+                    <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={handleSnapshotExportCSV}>
+                      <Download className="h-3 w-3 mr-1" /> CSV
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {snapshotLoading && !snapshotData && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-sm text-muted-foreground animate-pulse">Loading shift snapshots...</div>
+                </div>
+              )}
+
+              {snapshotData && snapshotData.shifts && snapshotData.shifts.length === 0 && (
+                <div className="text-center py-8">
+                  <Camera className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">{snapshotData.message || 'No completed shifts found for this date'}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Inventory snapshots are captured automatically when a user ends their shift.</p>
+                </div>
+              )}
+
+              {snapshotData && snapshotData.shifts && snapshotData.shifts.length > 0 && (
+                <>
+                  {/* Daily Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 text-center">
+                      <p className="text-[10px] text-emerald-600 font-medium">Total Day Sales</p>
+                      <p className="text-base font-bold text-emerald-800">{formatCurrency(snapshotData.dailySummary.totalSales)}</p>
+                    </div>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-2.5 text-center">
+                      <p className="text-[10px] text-blue-600 font-medium">Total Transactions</p>
+                      <p className="text-base font-bold text-blue-800">{snapshotData.dailySummary.totalTransactions}</p>
+                    </div>
+                    <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-2.5 text-center">
+                      <p className="text-[10px] text-purple-600 font-medium">Physical Cash (Total)</p>
+                      <p className="text-base font-bold text-purple-800">
+                        {snapshotData.dailySummary.hasCashData
+                          ? formatCurrency(snapshotData.dailySummary.totalCashAtEnd)
+                          : '—'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 text-center">
+                      <p className="text-[10px] text-amber-600 font-medium">Cash Variance</p>
+                      <p className={`text-base font-bold ${snapshotData.dailySummary.totalCashDiscrepancy > 0 ? 'text-red-700' : snapshotData.dailySummary.totalCashDiscrepancy < 0 ? 'text-blue-700' : 'text-emerald-700'}`}>
+                        {snapshotData.dailySummary.hasCashData
+                          ? `${snapshotData.dailySummary.totalCashDiscrepancy > 0 ? '-' : '+'}${formatCurrency(Math.abs(snapshotData.dailySummary.totalCashDiscrepancy))}`
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Cash Accounting Table */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Cash Accounting Per Shift</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table className="table-header-standard">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">User</TableHead>
+                            <TableHead className="text-xs">Started</TableHead>
+                            <TableHead className="text-xs">Ended</TableHead>
+                            <TableHead className="text-xs text-center">Txns</TableHead>
+                            <TableHead className="text-xs text-right">Sales</TableHead>
+                            <TableHead className="text-xs text-right">Cash Start</TableHead>
+                            <TableHead className="text-xs text-right">Cash End</TableHead>
+                            <TableHead className="text-xs text-right">Expected</TableHead>
+                            <TableHead className="text-xs text-right">Variance</TableHead>
+                            <TableHead className="text-xs text-center">Snapshot</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {snapshotData.shifts.map((s: any) => (
+                            <TableRow key={s.shiftId}>
+                              <TableCell className="text-sm font-medium">{s.userName}</TableCell>
+                              <TableCell className="text-[11px]">
+                                {s.startedAt ? format(new Date(s.startedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm') : '—'}
+                              </TableCell>
+                              <TableCell className="text-[11px]">
+                                {s.endedAt ? format(new Date(s.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm') : '—'}
+                              </TableCell>
+                              <TableCell className="text-xs text-center font-mono">{s.totalTransactions}</TableCell>
+                              <TableCell className="text-xs text-right font-mono font-medium text-emerald-700">{formatCurrency(s.totalSales)}</TableCell>
+                              <TableCell className="text-xs text-right font-mono">{s.cashAtStart != null ? formatCurrency(s.cashAtStart) : '—'}</TableCell>
+                              <TableCell className="text-xs text-right font-mono">{s.cashAtEnd != null ? formatCurrency(s.cashAtEnd) : '—'}</TableCell>
+                              <TableCell className="text-xs text-right font-mono">{s.expectedCash != null ? formatCurrency(s.expectedCash) : '—'}</TableCell>
+                              <TableCell className={`text-xs text-right font-mono font-medium ${s.cashDiscrepancy == null ? 'text-muted-foreground' : s.cashDiscrepancy > 0 ? 'text-red-600' : s.cashDiscrepancy < 0 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                                {s.cashDiscrepancy != null ? `${s.cashDiscrepancy > 0 ? '-' : '+'}${formatCurrency(Math.abs(s.cashDiscrepancy))}` : '—'}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  size="sm"
+                                  variant={expandedShiftSnap === s.shiftId ? 'default' : 'outline'}
+                                  className="h-6 text-[10px] px-2"
+                                  onClick={() => setExpandedShiftSnap(expandedShiftSnap === s.shiftId ? null : s.shiftId)}
+                                >
+                                  {expandedShiftSnap === s.shiftId ? 'Hide' : `${s.snapshotItemCount} items`}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  {/* Expanded single shift snapshot */}
+                  {expandedShiftSnap && snapshotData.snapshotMap?.[expandedShiftSnap] && (
+                    <div className="mb-4 border rounded-lg p-3 bg-muted/20">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Inventory Snapshot — {snapshotData.shifts.find((s: any) => s.shiftId === expandedShiftSnap)?.userName}
+                          </p>
+                          <Badge variant="outline" className="text-[10px]">
+                            {snapshotData.snapshotMap[expandedShiftSnap].length} products
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            Value: {formatCurrency(snapshotData.shifts.find((s: any) => s.shiftId === expandedShiftSnap)?.snapshotTotalValue || 0)}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            Cost: {formatCurrency(snapshotData.shifts.find((s: any) => s.shiftId === expandedShiftSnap)?.snapshotTotalCost || 0)}
+                          </Badge>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setExpandedShiftSnap(null)}>
+                          Close
+                        </Button>
+                      </div>
+                      <ScrollArea className="max-h-[300px]">
+                        <Table className="table-header-standard">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs w-10">#</TableHead>
+                              <TableHead className="text-xs">Product</TableHead>
+                              <TableHead className="text-xs">Category</TableHead>
+                              <TableHead className="text-xs text-center">Qty</TableHead>
+                              <TableHead className="text-xs text-right">Selling Price</TableHead>
+                              <TableHead className="text-xs text-right">Cost Price</TableHead>
+                              <TableHead className="text-xs text-right">Stock Value</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {snapshotData.snapshotMap[expandedShiftSnap].map((item: any, i: number) => (
+                              <TableRow key={item.productId}>
+                                <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                                <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{item.category || '—'}</TableCell>
+                                <TableCell className="text-xs text-center font-mono">
+                                  <Badge variant={item.quantity <= 10 ? 'destructive' : item.quantity <= 30 ? 'secondary' : 'default'} className="font-mono text-xs">
+                                    {item.quantity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-mono">{formatCurrency(item.sellingPrice)}</TableCell>
+                                <TableCell className="text-xs text-right font-mono">{formatCurrency(item.costPrice)}</TableCell>
+                                <TableCell className="text-xs text-right font-mono font-medium">{formatCurrency((item.quantity || 0) * (item.sellingPrice || 0))}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  {/* Snapshot Comparison Matrix (multiple shifts) */}
+                  {snapshotData.shifts.length >= 2 && snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Stock Snapshot Comparison Across Shifts
+                        </p>
+                        <Badge variant="outline" className="text-[10px]">
+                          {snapshotData.comparisonMatrix.length} products
+                        </Badge>
+                        {snapshotData.comparisonMatrix.filter((c: any) => c.variance > 0).length > 0 && (
+                          <Badge variant="destructive" className="text-[10px]">
+                            {snapshotData.comparisonMatrix.filter((c: any) => c.variance > 0).length} variance(s)
+                          </Badge>
+                        )}
+                      </div>
+                      <ScrollArea className="max-h-[400px]">
+                        <Table className="table-header-standard">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs w-10">#</TableHead>
+                              <TableHead className="text-xs">Product</TableHead>
+                              <TableHead className="text-xs">Category</TableHead>
+                              {snapshotData.shifts.map((s: any) => (
+                                <TableHead key={s.shiftId} className="text-xs text-center min-w-[80px]">
+                                  <div>{s.userName}</div>
+                                  <div className="text-[9px] font-normal text-muted-foreground">
+                                    {s.endedAt ? format(new Date(s.endedAt), 'HH:mm') : ''}
+                                  </div>
+                                </TableHead>
+                              ))}
+                              <TableHead className="text-xs text-center">Variance</TableHead>
+                              <TableHead className="text-xs text-right">Cost Impact</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {snapshotData.comparisonMatrix.map((item: any, i: number) => (
+                              <TableRow key={item.productId}>
+                                <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                                <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                                <TableCell className="text-[11px] text-muted-foreground">{item.category || '—'}</TableCell>
+                                {snapshotData.shifts.map((s: any) => {
+                                  const qty = item.quantities[s.shiftId] || 0
+                                  return (
+                                    <TableCell key={s.shiftId} className="text-xs text-center font-mono">
+                                      <span className={qty === 0 ? 'text-muted-foreground/40' : ''}>{qty}</span>
+                                    </TableCell>
+                                  )
+                                })}
+                                <TableCell className="text-center">
+                                  {item.variance > 0 ? (
+                                    <Badge variant="destructive" className="text-[10px] font-mono">{item.variance}</Badge>
+                                  ) : item.variance === 0 ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
+                                  ) : null}
+                                </TableCell>
+                                <TableCell className={`text-xs text-right font-mono font-medium ${item.variance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                  {item.variance > 0 ? formatCurrency(item.variance * item.costPrice) : ''}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  {/* Single shift — no comparison possible */}
+                  {snapshotData.shifts.length === 1 && snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
+                    <div className="text-[11px] text-blue-600 bg-blue-50 border border-blue-200 rounded p-2 mb-2">
+                      Only one shift found for this date. Comparison requires at least 2 shifts. Click "Load" on a different date or wait for another user to end their shift.
+                    </div>
+                  )}
+
+                  {snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length === 0 && snapshotData.shifts.length > 0 && (
+                    <div className="text-center py-4">
+                      <Package className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">No inventory items were in stock when shifts ended.</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Discrepancy Analysis (independent of shift report data) ── */}
           <Card className={discrepancy?.hasData && discrepancy.summary.totalDiscrepancies > 0 ? 'border-amber-300 overflow-hidden' : 'overflow-hidden'}>

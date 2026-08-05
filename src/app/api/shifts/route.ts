@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
       // ── Capture inventory snapshot at shift end ──
       const invSnapshotResult = await turso.execute({
         sql: `SELECT i."productId", p.name as "productName", i.quantity,
-                     p."sellingPrice", p."costPrice"
+                     p."sellingPrice", p."costPrice", p.category
               FROM Inventory i JOIN "Product" p ON i."productId" = p.id
               WHERE i.quantity > 0`,
         args: [],
@@ -317,13 +317,13 @@ export async function POST(request: NextRequest) {
       const invRows = toObjs(invSnapshotResult)
       if (invRows.length > 0) {
         const snapStmts = invRows.map((r) => ({
-          sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", "createdAt")
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             generateId(), sid,
             r.productId, r.productName,
             (r.quantity as number) || 0,
-            r.sellingPrice, r.costPrice,
+            r.sellingPrice, r.costPrice, r.category || null,
             now,
           ],
         }))
