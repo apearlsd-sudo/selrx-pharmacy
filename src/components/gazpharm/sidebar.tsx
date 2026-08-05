@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -157,6 +158,9 @@ function SidebarNavContent({
     },
     [setCurrentView, onNavClick]
   )
+
+  const shiftActive = useAppStore((s) => s.shiftActive)
+  const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
 
   const [logoutOpen, setLogoutOpen] = useState(false)
 
@@ -311,9 +315,21 @@ function SidebarNavContent({
           <AlertDialogHeader>
             <AlertDialogTitle>Sign Out</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to sign out? Any unsaved changes will be lost.
+              {shiftActive
+                ? 'You have an active shift. It will continue running and resume when you sign back in.'
+                : 'Are you sure you want to sign out?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {shiftActive && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="h-4 w-4 text-amber-600 shrink-0 flex items-center justify-center">
+                <Clock className="h-3.5 w-3.5" />
+              </div>
+              <p className="text-xs text-amber-800">
+                Shift started at {shiftStartedAt ? new Date(shiftStartedAt).toLocaleTimeString() : '—'}. You can end it later after signing back in.
+              </p>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmLogout} className="bg-red-600 hover:bg-red-700">

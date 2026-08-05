@@ -858,9 +858,19 @@ export default function Home() {
           <AlertDialogHeader>
             <AlertDialogTitle>Sign Out</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to sign out? Any unsaved changes will be lost.
+              {shiftActive
+                ? 'You have an active shift. It will continue running and resume when you sign back in.'
+                : 'Are you sure you want to sign out?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {shiftActive && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+              <p className="text-xs text-amber-800">
+                Shift started at {shiftStartedAt ? new Date(shiftStartedAt).toLocaleTimeString() : '—'}. You can end it later after signing back in.
+              </p>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -869,7 +879,7 @@ export default function Home() {
                 logout()
                 addToast({
                   title: 'Signed out',
-                  description: 'You have been logged out successfully',
+                  description: shiftActive ? 'Your shift is still running. Sign back in to continue.' : 'You have been logged out successfully',
                   variant: 'success',
                 })
               }}
