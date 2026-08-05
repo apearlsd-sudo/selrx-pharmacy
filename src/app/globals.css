@@ -417,3 +417,44 @@ html {
   opacity: 1;
 }
 
+/* ──────────────────────────────────────────────
+   21st.dev-inspired Modal Elegance
+   ────────────────────────────────────────────── */
+
+/* Reveal close button on dialog hover */
+[data-slot="dialog-content"]:hover [data-dialog-close] {
+  opacity: 1 !important;
+}
+
+/* Elegant scrollbar inside dialogs */
+[data-slot="dialog-content"]::-webkit-scrollbar {
+  width: 4px;
+}
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb {
+  background: oklch(0.85 0 0);
+  border-radius: 999px;
+}
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.7 0 0);
+}
+
+/* Dialog footer button polish */
+[data-slot="dialog-footer"] button {
+  border-radius: 10px;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+}
+
+/* AlertDialog footer button polish */
+[data-slot="alert-dialog-footer"] button {
+  border-radius: 10px;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+}
+

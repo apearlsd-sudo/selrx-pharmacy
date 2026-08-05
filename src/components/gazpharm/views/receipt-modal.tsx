@@ -133,7 +133,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md !p-0 !gap-0 overflow-hidden" showCloseButton={false}>
         {/* Receipt Header - Green stripe */}
         <div className="bg-emerald-600 px-6 py-3 flex items-center gap-3">
           <CheckCircle2 className="h-5 w-5 text-white" />
