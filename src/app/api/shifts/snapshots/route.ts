@@ -135,21 +135,83 @@ export async function GET(request: NextRequest) {
       hasCashData: cashAccounting.some((c) => c.cashAtEnd !== null),
     }
 
+    // 5b. Fetch previous day's last shift inventory as baseline
+    const prevDate = new Date(dateParam + 'T00:00:00.000Z')
+    prevDate.setDate(prevDate.getDate() - 1)
+    const prevDayStart = new Date(prevDate.toISOString().split('T')[0] + 'T00:00:00.000Z').toISOString()
+    const prevDayEnd = new Date(prevDate.toISOString().split('T')[0] + 'T23:59:59.999Z').toISOString()
+
+    let previousDayBaseline: { shiftId: string; userName: string; endedAt: string; items: any[] } | null = null
+    try {
+      const prevShiftsResult = await turso.execute({
+        sql: `SELECT id, "userName", "endedAt"
+             FROM "Shift"
+             WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
+             ORDER BY "endedAt" DESC
+             LIMIT 1`,
+        args: [prevDayStart, prevDayEnd],
+      })
+      const prevShifts = toObjs(prevShiftsResult)
+      if (prevShifts.length > 0) {
+        const lastPrevShift = prevShifts[0]
+        const prevInvResult = await turso.execute({
+          sql: `SELECT si."productId", si."productName", si.quantity, si."sellingPrice", si."costPrice",
+                       p.category
+                FROM "ShiftInventory" si
+                LEFT JOIN "Product" p ON si."productId" = p.id
+                WHERE si."shiftId" = ?
+                ORDER BY si."productName" ASC`,
+          args: [lastPrevShift.id],
+        })
+        const prevItems = toObjs(prevInvResult)
+        if (prevItems.length > 0) {
+          previousDayBaseline = {
+            shiftId: lastPrevShift.id as string,
+            userName: (lastPrevShift.userName as string) || 'Previous Day',
+            endedAt: (lastPrevShift.endedAt as string) || '',
+            items: prevItems,
+          }
+        }
+      }
+    } catch (e) {
+      // Non-critical — log but don't fail the whole request
+      console.warn('Could not fetch previous day baseline:', e)
+    }
+
     // 6. Build a merged product comparison across all shifts
-    // For each product that appears in any snapshot, show qty per shift
+    // For each product that appears in any snapshot (including previous day baseline), show qty per shift
     const allProductIds = new Set<string>()
     for (const snap of snapshots) {
       for (const item of snap.items) {
         allProductIds.add(item.productId as string)
       }
     }
+    // Also include products from previous day baseline
+    if (previousDayBaseline) {
+      for (const item of previousDayBaseline.items) {
+        allProductIds.add(item.productId as string)
+      }
+    }
 
-    // Get product names from first occurrence
+    // Get product names from first occurrence (including previous day baseline)
     const productNames: Record<string, string> = {}
     const productCategories: Record<string, string> = {}
     const productCostPrices: Record<string, number> = {}
     for (const snap of snapshots) {
       for (const item of snap.items) {
+        if (!productNames[item.productId as string]) {
+          productNames[item.productId as string] = (item.productName as string) || 'Unknown'
+        }
+        if (!productCategories[item.productId as string] && item.category) {
+          productCategories[item.productId as string] = item.category as string
+        }
+        if (!productCostPrices[item.productId as string]) {
+          productCostPrices[item.productId as string] = (item.costPrice as number) || 0
+        }
+      }
+    }
+    if (previousDayBaseline) {
+      for (const item of previousDayBaseline.items) {
         if (!productNames[item.productId as string]) {
           productNames[item.productId as string] = (item.productName as string) || 'Unknown'
         }
@@ -169,9 +231,11 @@ export async function GET(request: NextRequest) {
       category: string
       costPrice: number
       quantities: Record<string, number>
+      prevDayQty: number
       minQty: number
       maxQty: number
       variance: number
+      dayChange: number
     }> = []
 
     for (const pid of allProductIds) {
@@ -181,22 +245,33 @@ export async function GET(request: NextRequest) {
         const found = items.find((i: any) => i.productId === pid)
         quantities[s.id] = found ? ((found.quantity as number) || 0) : 0
       }
+      // Previous day baseline quantity
+      const prevItems = previousDayBaseline?.items || []
+      const prevFound = prevItems.find((i: any) => i.productId === pid)
+      const prevDayQty = prevFound ? ((prevFound.quantity as number) || 0) : 0
+
       const qtyValues = Object.values(quantities)
       const minQty = Math.min(...qtyValues)
       const maxQty = Math.max(...qtyValues)
       const variance = maxQty - minQty
+      // dayChange = difference between first shift of today and previous day's end
+      const firstShiftQty = shifts.length > 0 ? (quantities[shifts[0].id] || 0) : 0
+      const dayChange = prevDayQty > 0 ? firstShiftQty - prevDayQty : 0
 
-      // Only include products that have some variance or appear in at least one snapshot
-      if (maxQty > 0) {
+      // Only include products that appear in at least one snapshot
+      const overallMax = Math.max(maxQty, prevDayQty)
+      if (overallMax > 0) {
         comparisonMatrix.push({
           productId: pid,
           productName: productNames[pid] || 'Unknown',
           category: productCategories[pid] || '',
           costPrice: productCostPrices[pid] || 0,
           quantities,
+          prevDayQty,
           minQty,
           maxQty,
           variance,
+          dayChange,
         })
       }
     }
@@ -210,6 +285,14 @@ export async function GET(request: NextRequest) {
       dailySummary,
       snapshotMap,
       comparisonMatrix,
+      previousDayBaseline: previousDayBaseline
+        ? {
+            shiftId: previousDayBaseline.shiftId,
+            userName: previousDayBaseline.userName,
+            endedAt: previousDayBaseline.endedAt,
+            itemCount: previousDayBaseline.items.length,
+          }
+        : null,
     })
   } catch (error) {
     console.error('Error fetching shift snapshots:', error)

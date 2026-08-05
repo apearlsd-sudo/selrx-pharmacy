@@ -253,14 +253,18 @@ export function ReportsView() {
   const handleSnapshotExportCSV = useCallback(() => {
     if (!snapshotData?.comparisonMatrix) return
     const shifts = snapshotData.shifts || []
-    const headers = ['Product', 'Category', 'Cost Price', ...shifts.map((s: any) => `${s.userName} (${format(new Date(s.endedAt), 'HH:mm')})`), 'Variance']
+    const hasPrev = !!snapshotData.previousDayBaseline
+    const prevLabel = hasPrev ? `Prev Day End (${snapshotData.previousDayBaseline.userName})` : ''
+    const headers = ['Product', 'Category', 'Cost Price', ...(hasPrev ? [prevLabel] : []), ...shifts.map((s: any) => `${s.userName} (${format(new Date(s.endedAt), 'HH:mm')})`), ...(hasPrev ? ['Day Change'] : []), 'Variance']
     const rows = [headers.join(',')]
     for (const item of snapshotData.comparisonMatrix) {
       const row = [
         `"${item.productName}"`,
         item.category || '',
         (item.costPrice || 0).toFixed(2),
+        ...(hasPrev ? [item.prevDayQty || 0] : []),
         ...shifts.map((s: any) => item.quantities[s.shiftId] || 0),
+        ...(hasPrev ? [item.dayChange || 0] : []),
         item.variance,
       ]
       rows.push(row.join(','))
@@ -2514,8 +2518,8 @@ export function ReportsView() {
                     </div>
                   )}
 
-                  {/* Snapshot Comparison Matrix (multiple shifts) */}
-                  {snapshotData.shifts.length >= 2 && snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
+                  {/* Snapshot Comparison Matrix (with previous day baseline) */}
+                  {snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground" />
@@ -2531,6 +2535,17 @@ export function ReportsView() {
                           </Badge>
                         )}
                       </div>
+                      {snapshotData.previousDayBaseline && (
+                        <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2.5 py-1.5 mb-2 flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span>Previous day end stock included — from <strong>{snapshotData.previousDayBaseline.userName}</strong>'s shift ended at {format(new Date(snapshotData.previousDayBaseline.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')} ({snapshotData.previousDayBaseline.itemCount} items)</span>
+                        </div>
+                      )}
+                      {!snapshotData.previousDayBaseline && snapshotData.shifts.length === 1 && (
+                        <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-2">
+                          No previous day snapshot found. Comparison requires at least 2 shifts today or a previous day's ended shift with inventory snapshot.
+                        </div>
+                      )}
                       <ScrollArea className="max-h-[400px]">
                         <Table className="table-header-standard">
                           <TableHeader>
@@ -2538,6 +2553,17 @@ export function ReportsView() {
                               <TableHead className="text-xs w-10">#</TableHead>
                               <TableHead className="text-xs">Product</TableHead>
                               <TableHead className="text-xs">Category</TableHead>
+                              {snapshotData.previousDayBaseline && (
+                                <TableHead className="text-xs text-center min-w-[90px] bg-amber-50/60">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Clock className="h-3 w-3 text-amber-600" />
+                                    <span>Prev Day End</span>
+                                  </div>
+                                  <div className="text-[9px] font-normal text-muted-foreground">
+                                    {snapshotData.previousDayBaseline.userName}
+                                  </div>
+                                </TableHead>
+                              )}
                               {snapshotData.shifts.map((s: any) => (
                                 <TableHead key={s.shiftId} className="text-xs text-center min-w-[80px]">
                                   <div>{s.userName}</div>
@@ -2546,6 +2572,9 @@ export function ReportsView() {
                                   </div>
                                 </TableHead>
                               ))}
+                              {snapshotData.previousDayBaseline && (
+                                <TableHead className="text-xs text-center min-w-[70px]">Day Δ</TableHead>
+                              )}
                               <TableHead className="text-xs text-center">Variance</TableHead>
                               <TableHead className="text-xs text-right">Cost Impact</TableHead>
                             </TableRow>
@@ -2556,6 +2585,11 @@ export function ReportsView() {
                                 <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                                 <TableCell className="text-sm font-medium">{item.productName}</TableCell>
                                 <TableCell className="text-[11px] text-muted-foreground">{item.category || '—'}</TableCell>
+                                {snapshotData.previousDayBaseline && (
+                                  <TableCell className="text-xs text-center font-mono bg-amber-50/30">
+                                    <span className={item.prevDayQty === 0 ? 'text-muted-foreground/40' : 'font-medium'}>{item.prevDayQty}</span>
+                                  </TableCell>
+                                )}
                                 {snapshotData.shifts.map((s: any) => {
                                   const qty = item.quantities[s.shiftId] || 0
                                   return (
@@ -2564,6 +2598,17 @@ export function ReportsView() {
                                     </TableCell>
                                   )
                                 })}
+                                {snapshotData.previousDayBaseline && (
+                                  <TableCell className="text-center">
+                                    {item.dayChange !== 0 ? (
+                                      <Badge variant={item.dayChange < 0 ? 'destructive' : 'secondary'} className="text-[10px] font-mono">
+                                        {item.dayChange > 0 ? '+' : ''}{item.dayChange}
+                                      </Badge>
+                                    ) : (
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
+                                    )}
+                                  </TableCell>
+                                )}
                                 <TableCell className="text-center">
                                   {item.variance > 0 ? (
                                     <Badge variant="destructive" className="text-[10px] font-mono">{item.variance}</Badge>
@@ -2579,13 +2624,6 @@ export function ReportsView() {
                           </TableBody>
                         </Table>
                       </ScrollArea>
-                    </div>
-                  )}
-
-                  {/* Single shift — no comparison possible */}
-                  {snapshotData.shifts.length === 1 && snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
-                    <div className="text-[11px] text-blue-600 bg-blue-50 border border-blue-200 rounded p-2 mb-2">
-                      Only one shift found for this date. Comparison requires at least 2 shifts. Click "Load" on a different date or wait for another user to end their shift.
                     </div>
                   )}
 
