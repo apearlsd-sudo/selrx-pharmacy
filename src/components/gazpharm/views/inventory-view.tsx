@@ -1661,7 +1661,7 @@ export function InventoryView() {
                           const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
                           const isEditing = editingBatchId === b.id
                           return (
-                            <tr key={b.id} className={`hover:bg-muted/30 ${isEditing ? 'bg-blue-50/50 ring-1 ring-blue-200' : ''}`>
+                            <tr key={b.id} className={`hover:bg-muted/30 ${isEditing ? 'bg-blue-50/50 ring-1 ring-blue-200' : ''}`}>
                               <td className="px-2 py-1.5 font-medium">{b.batchNumber || '—'}</td>
                               {isEditing ? (
                                 <>
