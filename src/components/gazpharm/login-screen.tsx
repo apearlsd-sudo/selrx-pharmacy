@@ -24,6 +24,7 @@ export function LoginScreen() {
 
   const setUser = useAppStore((s) => s.setUser)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const setShift = useAppStore((s) => s.setShift)
   const addToast = useAppStore((s) => s.addToast)
 
   const handleLogin = async (loginUser: string, loginPassword: string) => {
@@ -46,6 +47,20 @@ export function LoginScreen() {
 
       const user: UserState = data.user
       setUser(user)
+
+      // Clear any leftover shift state from a previous user on the same browser,
+      // then ask the server whether THIS user has an active shift.
+      setShift(null)
+      try {
+        const shiftRes = await fetch('/api/shifts?action=active', {
+          headers: { 'x-user-id': user.id },
+        })
+        const shiftData = await shiftRes.json()
+        if (shiftData.active && shiftData.shift) {
+          setShift({ id: shiftData.shift.id, startedAt: shiftData.shift.startedAt })
+        }
+      } catch { /* silent — shift check is non-blocking */ }
+
       // Redirect to POS if user doesn't have dashboard permission
       const hasDashboard = user.role === 'SUPER_ADMIN' || (user.permissions || []).includes('dashboard')
       setCurrentView(hasDashboard ? 'dashboard' : 'pos')
