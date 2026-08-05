@@ -515,7 +515,7 @@ export function GoodsReturnView() {
 
       {/* ==================== DETAIL DIALOG ==================== */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-emerald-600" />
@@ -524,7 +524,7 @@ export function GoodsReturnView() {
           </DialogHeader>
 
           {detailReturn && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>

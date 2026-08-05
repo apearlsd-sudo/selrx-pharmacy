@@ -1467,7 +1467,7 @@ export function UsersView() {
 
           {/* Create Role Dialog */}
           <Dialog open={createRoleDialog} onOpenChange={setCreateRoleDialog}>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl">
+            <DialogContent className="max-w-3xl max-h-[85vh] rounded-xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5 text-emerald-600" />
@@ -1504,7 +1504,7 @@ export function UsersView() {
 
           {/* Edit Role Dialog */}
           <Dialog open={editRoleDialog} onOpenChange={setEditRoleDialog}>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl">
+            <DialogContent className="max-w-3xl max-h-[85vh] rounded-xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Edit className="h-5 w-5 text-teal-600" />

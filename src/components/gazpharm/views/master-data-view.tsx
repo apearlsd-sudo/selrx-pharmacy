@@ -1870,7 +1870,7 @@ function DrugSection() {
 
       {/* ── Import Products Dialog ──────────────────────────────── */}
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800">
               <FileSpreadsheet className="h-5 w-5 text-teal-600" />
@@ -1881,7 +1881,7 @@ function DrugSection() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
             {/* Template download */}
             <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-xl transition-all duration-200">
               <FileSpreadsheet className="h-5 w-5 text-teal-600 shrink-0" />

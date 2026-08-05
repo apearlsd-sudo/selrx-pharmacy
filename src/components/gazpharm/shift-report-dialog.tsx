@@ -106,7 +106,7 @@ export function ShiftReportDialog({ open, onOpenChange }: ShiftReportDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] rounded-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-600" />
@@ -118,7 +118,7 @@ export function ShiftReportDialog({ open, onOpenChange }: ShiftReportDialogProps
         </DialogHeader>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
+        <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30 shrink-0">
           <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
             <Filter className="h-3.5 w-3.5" />
             Filters

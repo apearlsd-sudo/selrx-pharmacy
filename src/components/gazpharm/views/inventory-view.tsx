@@ -1420,12 +1420,12 @@ export function InventoryView() {
 
       {/* Stock Adjustment Dialog with Batch Management */}
       <Dialog open={adjustDialog} onOpenChange={(open) => { if (!open) { setAdjustDialog(false); setBatches([]) } else setAdjustDialog(true) }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col rounded-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle>Adjust Product</DialogTitle>
           </DialogHeader>
           {selectedItem && (
-            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
               <div className="bg-muted rounded-lg p-3">
                 <p className="font-medium">{selectedItem.product.name}</p>
                 <p className="text-sm text-muted-foreground">
@@ -1634,7 +1634,7 @@ export function InventoryView() {
         if (!open) { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }
         else setStockCountDialog(true)
       }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col rounded-xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-indigo-600" />
@@ -1643,8 +1643,9 @@ export function InventoryView() {
             <DialogDescription>Search products, enter physical stock counts and optionally adjust cost & selling prices. All changes update the system immediately.</DialogDescription>
           </DialogHeader>
 
+          <div className="flex-1 min-h-0 flex flex-col gap-3">
           {/* Product Search — queries API with debounce */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${stockSearching ? 'text-indigo-500 animate-pulse' : 'text-muted-foreground'}`} />
             <Input
               placeholder="Search product by name or NDC to add..."
@@ -1785,6 +1786,7 @@ export function InventoryView() {
               </div>
             )}
           </div>
+          </div>
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => { setStockCountDialog(false); setStockEntries([]); setStockSearch(''); setStockSearchResults([]) }}>
@@ -1810,7 +1812,7 @@ export function InventoryView() {
 
       {/* -- Import Products Dialog -------------------------------- */}
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-teal-600" />
@@ -1821,7 +1823,7 @@ export function InventoryView() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
             {/* Template download */}
             <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
               <FileSpreadsheet className="h-5 w-5 text-teal-600 shrink-0" />

@@ -1044,12 +1044,12 @@ export function SalesHistoryView() {
 
       {/* Transaction Detail Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg rounded-xl">
+        <DialogContent className="max-w-lg max-h-[85vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-sm">Transaction Details</DialogTitle>
           </DialogHeader>
           {detailTxn && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
               {/* Header info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
