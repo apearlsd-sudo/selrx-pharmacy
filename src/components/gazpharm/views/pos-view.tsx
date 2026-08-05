@@ -326,6 +326,7 @@ export function POSView() {
           requiresRx: item.product.requiresPrescription,
           sellingUnit: item.product.sellingUnit || 'EA',
           itemsPerUnit: item.product.itemsPerUnit,
+          barcode: item.product.barcode || null,
         })),
         paymentMethod,
         subtotal,

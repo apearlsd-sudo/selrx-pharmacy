@@ -122,10 +122,10 @@ export async function GET(request: NextRequest) {
               i."lastCounted" AS "inv_lastCounted", i."createdAt" AS "inv_createdAt", i."updatedAt" AS "inv_updatedAt"
             FROM "Product" p
             LEFT JOIN "Inventory" i ON p.id = i."productId"
-            WHERE (p.ndc = ? OR p."batchNumber" = ?) AND p.status != 'DISCONTINUED'
+            WHERE (p.barcode = ? OR p.ndc = ? OR p."batchNumber" = ?) AND p.status != 'DISCONTINUED'
             LIMIT 1
           `,
-          args: [barcode, barcode],
+          args: [barcode, barcode, barcode],
         })
 
         if (result.rows.length === 0) {
@@ -344,10 +344,10 @@ export async function POST(request: NextRequest) {
               i."lastCounted" AS "inv_lastCounted", i."createdAt" AS "inv_createdAt", i."updatedAt" AS "inv_updatedAt"
             FROM "Product" p
             LEFT JOIN "Inventory" i ON p.id = i."productId"
-            WHERE (p.ndc = ? OR p."batchNumber" = ? OR p.name LIKE '%' || ? || '%') AND p.status != 'DISCONTINUED'
+            WHERE (p.barcode = ? OR p.ndc = ? OR p."batchNumber" = ? OR p.name LIKE '%' || ? || '%') AND p.status != 'DISCONTINUED'
             LIMIT 1
           `,
-          args: [barcode, barcode, barcode],
+          args: [barcode, barcode, barcode, barcode],
         })
 
         if (result.rows.length === 0) {
@@ -381,6 +381,7 @@ export async function POST(request: NextRequest) {
         const product = await db.product.findFirst({
           where: {
             OR: [
+              { barcode },
               { ndc: barcode },
               { batchNumber: barcode },
               { name: { contains: barcode } },

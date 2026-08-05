@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       const dataResult = await turso.execute({
         sql: `
           SELECT
-            p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
+            p.id, p.ndc, p.barcode, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
             p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       const rawProducts = dataResult.rows.map((row) => ({
         id: row.id as string,
         ndc: row.ndc as string | null,
+        barcode: row.barcode as string | null,
         name: row.name as string,
         genericName: row.genericName as string | null,
         manufacturer: row.manufacturer as string | null,
@@ -247,6 +248,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
+    // Auto-generate barcode if not provided
+    if (!body.barcode) {
+      const { ensureBarcode } = await import('@/lib/barcode')
+      body.barcode = ensureBarcode(null, body.ndc)
+    }
+
     if (isTurso()) {
       // Raw SQL path
       const id = generateId()
@@ -255,18 +262,19 @@ export async function POST(request: NextRequest) {
       await turso.execute({
         sql: `
           INSERT INTO "Product" (
-            id, ndc, name, "genericName", manufacturer, "manufacturerId", "vendorId",
+            id, ndc, barcode, name, "genericName", manufacturer, "manufacturerId", "vendorId",
             category, description, "dosageForm", strength, "unitOfMeasure",
             "sellingUnit", "itemsPerUnit",
             "requiresPrescription", status, "sellingPrice", "costPrice",
             "reorderPoint", "reorderQty", "maxStock", "storageLocation",
             "batchNumber", "expiryDate", "controlledSubstance", "deaSchedule",
             "createdAt", "updatedAt"
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         args: [
           id,
           body.ndc || null,
+          body.barcode || null,
           body.name,
           body.genericName || null,
           body.manufacturer || null,
@@ -310,7 +318,7 @@ export async function POST(request: NextRequest) {
       const result = await turso.execute({
         sql: `
           SELECT
-            p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
+            p.id, p.ndc, p.barcode, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
             p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
@@ -333,6 +341,7 @@ export async function POST(request: NextRequest) {
       const product = {
         id: row.id as string,
         ndc: row.ndc as string | null,
+        barcode: row.barcode as string | null,
         name: row.name as string,
         genericName: row.genericName as string | null,
         manufacturer: row.manufacturer as string | null,
@@ -400,6 +409,7 @@ export async function POST(request: NextRequest) {
       const product = await db.product.create({
         data: {
           ndc: body.ndc,
+          barcode: body.barcode,
           name: body.name,
           genericName: body.genericName,
           manufacturer: body.manufacturer || null,

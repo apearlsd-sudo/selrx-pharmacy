@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
+import { generateBarcode } from '@/lib/barcode'
 import { formatDate, formatDateTimeShort, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
@@ -677,6 +678,7 @@ function DrugEditModal({
         body: JSON.stringify({
           name: form.name.trim(),
           ndc: form.ndc.trim() || null,
+          barcode: form.barcode || null,
           category: form.category,
           dosageForm: form.dosageForm || null,
           manufacturerId: form.manufacturerId || null,
@@ -2014,7 +2016,13 @@ function DrugSection() {
             {/* Barcode */}
             <div>
               <Label className="text-xs">Barcode</Label>
-              <Input placeholder="e.g., 1234567890123" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="mt-1" />
+              <div className="flex gap-1 mt-1">
+                <Input placeholder="Auto-generated if blank" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="flex-1" />
+                <Button type="button" variant="outline" size="sm" className="h-9 px-3 shrink-0" onClick={() => setForm({ ...form, barcode: generateBarcode(form.ndc || undefined) })} title="Auto-generate barcode">
+                  Auto
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Leave blank to auto-generate</p>
             </div>
 
             {/* Submit - full width */}

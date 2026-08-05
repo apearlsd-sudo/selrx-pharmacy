@@ -15,7 +15,7 @@ export async function GET(
       const result = await turso.execute({
         sql: `
           SELECT
-            p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
+            p.id, p.ndc, p.barcode, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
             p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
@@ -45,6 +45,7 @@ export async function GET(
       const product = {
         id: row.id as string,
         ndc: row.ndc as string | null,
+        barcode: row.barcode as string | null,
         name: row.name as string,
         genericName: row.genericName as string | null,
         manufacturer: row.manufacturer as string | null,
@@ -263,6 +264,10 @@ export async function PUT(
         updateFields.push(`"deaSchedule" = ?`)
         updateArgs.push(body.deaSchedule || null)
       }
+      if (body.barcode !== undefined) {
+        updateFields.push(`barcode = ?`)
+        updateArgs.push(body.barcode || null)
+      }
 
       if (updateFields.length > 0) {
         updateFields.push(`"updatedAt" = ?`)
@@ -324,7 +329,7 @@ export async function PUT(
       const result = await turso.execute({
         sql: `
           SELECT
-            p.id, p.ndc, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
+            p.id, p.ndc, p.barcode, p.name, p."genericName", p.manufacturer, p."manufacturerId", p."vendorId",
             p.category, p.description, p."dosageForm", p.strength, p."unitOfMeasure", p."sellingUnit", p."itemsPerUnit",
             p."requiresPrescription", p.status, p."sellingPrice", p."costPrice",
             p."reorderPoint", p."reorderQty", p."maxStock", p."storageLocation",
@@ -347,6 +352,7 @@ export async function PUT(
       const product = {
         id: row.id as string,
         ndc: row.ndc as string | null,
+        barcode: row.barcode as string | null,
         name: row.name as string,
         genericName: row.genericName as string | null,
         manufacturer: row.manufacturer as string | null,
@@ -414,6 +420,7 @@ export async function PUT(
         where: { id },
         data: {
           ndc: body.ndc !== undefined ? body.ndc : undefined,
+          barcode: body.barcode !== undefined ? body.barcode : undefined,
           name: body.name !== undefined ? body.name : undefined,
           genericName: body.genericName !== undefined ? body.genericName : undefined,
           manufacturer: body.manufacturer !== undefined ? body.manufacturer : undefined,
@@ -553,6 +560,7 @@ export async function DELETE(
       const product = {
         id: row.id as string,
         ndc: row.ndc as string | null,
+        barcode: row.barcode as string | null,
         name: row.name as string,
         genericName: row.genericName as string | null,
         manufacturer: row.manufacturer as string | null,

@@ -26,6 +26,7 @@ import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
+import { generateBarcode } from '@/lib/barcode'
 import { formatDate, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 
 interface InventoryItem {
@@ -531,6 +532,7 @@ export function InventoryView() {
         body: JSON.stringify({
           name: productForm.name,
           ndc: productForm.sku || null,
+          barcode: productForm.barcode || null,
           category: productForm.category,
           sellingPrice: parseFloat(productForm.price),
           costPrice: productForm.costPrice ? parseFloat(productForm.costPrice) : parseFloat(productForm.price) * 0.7,
@@ -1439,13 +1441,19 @@ export function InventoryView() {
             {/* Barcode */}
             <div>
               <Label htmlFor="prod-barcode">Barcode</Label>
-              <Input
-                id="prod-barcode"
-                placeholder="e.g., 1234567890123"
-                value={productForm.barcode}
-                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
-                className="mt-1"
-              />
+              <div className="flex gap-1 mt-1">
+                <Input
+                  id="prod-barcode"
+                  placeholder="Auto-generated if blank"
+                  value={productForm.barcode}
+                  onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" size="sm" className="h-9 px-3 shrink-0" onClick={() => setProductForm({ ...productForm, barcode: generateBarcode(productForm.sku || undefined) })} title="Auto-generate barcode">
+                  Auto
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Leave blank to auto-generate</p>
             </div>
 
             {/* Batch Number */}

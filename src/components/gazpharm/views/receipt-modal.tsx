@@ -51,6 +51,7 @@ interface ReceiptModalProps {
       requiresRx: boolean
       sellingUnit?: string
       itemsPerUnit?: number
+      barcode?: string | null
     }[]
   }
   onClose: () => void
@@ -58,6 +59,7 @@ interface ReceiptModalProps {
 
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTime } from '@/lib/date-utils'
+import { BarcodeSVG } from '@/components/ui/barcode-svg'
 
 function formatDate(dateStr: string): string {
   return formatDateTime(dateStr)
@@ -208,6 +210,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                   <div key={item.id} className="flex justify-between">
                     <div className="flex-1 min-w-0">
                       <p className={`truncate pr-2 ${boldItems ? 'font-bold' : ''}`}>{item.productName}</p>
+                      {item.barcode && (
+                        <div className="mt-0.5">
+                          <BarcodeSVG value={item.barcode} width={1} height={28} fontSize={7} margin={1} />
+                        </div>
+                      )}
                       <p className="text-gray-400">
                         {item.quantity}{item.sellingUnit && item.sellingUnit !== 'EA' ? ` ${item.sellingUnit.toLowerCase()}${item.quantity !== 1 ? 's' : ''}` : ''} x {formatCurrency(item.unitPrice)}
                         {item.itemsPerUnit && item.itemsPerUnit > 1 ? ` (${item.quantity * item.itemsPerUnit} pcs)` : ''}

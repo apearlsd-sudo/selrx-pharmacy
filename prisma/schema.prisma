@@ -97,6 +97,7 @@ enum ProductStatus {
 model Product {
   id                String          @id @default(cuid())
   ndc               String?         @unique // National Drug Code
+  barcode           String?         @unique // EAN-13 barcode (auto-generated from NDC or random)
   name              String
   genericName       String?
   manufacturer      String?
