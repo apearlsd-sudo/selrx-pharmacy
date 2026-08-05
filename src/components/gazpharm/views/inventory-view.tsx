@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
-  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw
+  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil, Check
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,6 +94,10 @@ export function InventoryView() {
   }
   const [newBatchNumber, setNewBatchNumber] = useState(genBN)
   const [savingBatch, setSavingBatch] = useState(false)
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null)
+  const [editBatchQty, setEditBatchQty] = useState('')
+  const [editBatchExpiry, setEditBatchExpiry] = useState('')
+  const [editBatchCost, setEditBatchCost] = useState('')
   const [stockCountDialog, setStockCountDialog] = useState(false)
   const [stockSearch, setStockSearch] = useState('')
   const [stockSearchResults, setStockSearchResults] = useState<{ id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number }[]>([])
@@ -377,6 +381,52 @@ export function InventoryView() {
       bumpInventoryVersion()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to delete batch', variant: 'destructive' })
+    }
+    setSavingBatch(false)
+  }
+
+  const handleEditBatch = (b: any) => {
+    setEditingBatchId(b.id)
+    setEditBatchQty(String(b.quantity))
+    setEditBatchExpiry(b.expiryDate ? b.expiryDate.slice(0, 10) : '')
+    setEditBatchCost(b.costPrice != null ? String(b.costPrice) : '')
+  }
+
+  const handleCancelEditBatch = () => {
+    setEditingBatchId(null)
+    setEditBatchQty('')
+    setEditBatchExpiry('')
+    setEditBatchCost('')
+  }
+
+  const handleSaveBatch = async (batchId: string) => {
+    setSavingBatch(true)
+    try {
+      const body: Record<string, any> = { reason: 'Batch edit' }
+      if (editBatchQty !== '') body.quantity = parseInt(editBatchQty)
+      if (editBatchExpiry) body.expiryDate = new Date(editBatchExpiry).toISOString()
+      else if (editBatchExpiry === '') body.expiryDate = null
+      if (editBatchCost !== '') body.costPrice = parseFloat(editBatchCost)
+
+      const res = await fetch(`/api/inventory/batches/${batchId}`,
+        {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser?.role || 'SUPER_ADMIN',
+          'x-user-id': currentUser?.id || '',
+        },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update batch') }
+      const result = await res.json()
+      addToast({ title: 'Batch Updated', description: `${result.batchNumber || 'Batch'} updated, total stock: ${result.totalStock}`, variant: 'success' })
+      handleCancelEditBatch()
+      if (selectedItem) fetchBatches(selectedItem.productId)
+      fetchInventory(true)
+      bumpInventoryVersion()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to update batch', variant: 'destructive' })
     }
     setSavingBatch(false)
   }
@@ -1609,33 +1659,80 @@ export function InventoryView() {
                       <tbody className="divide-y">
                         {batches.map((b: any) => {
                           const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
+                          const isEditing = editingBatchId === b.id
                           return (
-                            <tr key={b.id} className="hover:bg-muted/30">
+                            <tr key={b.id} className={`hover:bg-muted/30 ${isEditing ? 'bg-blue-50/50 ring-1 ring-blue-200' : ''}`>
                               <td className="px-2 py-1.5 font-medium">{b.batchNumber || '—'}</td>
-                              <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
-                              <td className="px-2 py-1.5">
-                                {b.expiryDate ? (
-                                  <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
-                                    {formatDate(b.expiryDate)}
-                                    {days !== null && days <= 90 && (
-                                      <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
-                                        {days <= 0 ? 'Expired' : `${days}d`}
-                                      </Badge>
-                                    )}
-                                  </span>
-                                ) : '—'}
-                              </td>
-                              <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
-                              <td className="px-2 py-1.5 text-center">
-                                <button
-                                  onClick={() => handleDeleteBatch(b.id)}
-                                  disabled={savingBatch}
-                                  className="text-muted-foreground hover:text-red-600 disabled:opacity-50"
-                                  title="Remove batch"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </td>
+                              {isEditing ? (
+                                <>
+                                  <td className="px-1 py-1">
+                                    <Input type="number" min="0" value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-6 text-xs w-16 text-center" autoFocus />
+                                  </td>
+                                  <td className="px-1 py-1">
+                                    <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-6 text-xs w-[110px]" />
+                                  </td>
+                                  <td className="px-1 py-1">
+                                    <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-6 text-xs w-16 text-right" placeholder="0.00" />
+                                  </td>
+                                  <td className="px-1 py-1 text-center">
+                                    <div className="flex items-center justify-center gap-0.5">
+                                      <button
+                                        onClick={() => handleSaveBatch(b.id)}
+                                        disabled={savingBatch}
+                                        className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50 p-0.5"
+                                        title="Save changes"
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEditBatch}
+                                        disabled={savingBatch}
+                                        className="text-muted-foreground hover:text-gray-700 disabled:opacity-50 p-0.5"
+                                        title="Cancel"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
+                                  <td className="px-2 py-1.5">
+                                    {b.expiryDate ? (
+                                      <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                                        {formatDate(b.expiryDate)}
+                                        {days !== null && days <= 90 && (
+                                          <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
+                                            {days <= 0 ? 'Expired' : `${days}d`}
+                                          </Badge>
+                                        )}
+                                      </span>
+                                    ) : '—'}
+                                  </td>
+                                  <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
+                                  <td className="px-2 py-1.5 text-center">
+                                    <div className="flex items-center justify-center gap-0.5">
+                                      <button
+                                        onClick={() => handleEditBatch(b)}
+                                        disabled={savingBatch}
+                                        className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
+                                        title="Edit batch"
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteBatch(b.id)}
+                                        disabled={savingBatch}
+                                        className="text-muted-foreground hover:text-red-600 disabled:opacity-50 p-0.5"
+                                        title="Remove batch"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </>
+                              )}
                             </tr>
                           )
                         })}

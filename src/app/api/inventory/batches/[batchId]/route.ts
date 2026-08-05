@@ -14,11 +14,11 @@ export async function PUT(
   try {
     const { batchId } = await params
     const body = await request.json()
-    const { quantity, expiryDate, reason } = body
+    const { quantity, expiryDate, costPrice, reason } = body
     const userId = request.headers.get('x-user-id') || ''
 
-    if (quantity === undefined && expiryDate === undefined) {
-      return NextResponse.json({ error: 'quantity or expiryDate is required' }, { status: 400 })
+    if (quantity === undefined && expiryDate === undefined && costPrice === undefined) {
+      return NextResponse.json({ error: 'quantity, expiryDate, or costPrice is required' }, { status: 400 })
     }
 
     if (!isTurso()) {
@@ -59,6 +59,10 @@ export async function PUT(
       setClauses.push('"expiryDate" = ?')
       setArgs.push(expiryDate || null)
     }
+    if (costPrice !== undefined) {
+      setClauses.push('"costPrice" = ?')
+      setArgs.push(costPrice)
+    }
     setArgs.push(batchId)
 
     await turso.execute({
@@ -66,26 +70,37 @@ export async function PUT(
       args: setArgs,
     })
 
-    // Recalculate Inventory total quantity
-    const sumResult = await turso.execute({
-      sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-      args: [batch.productId],
-    })
-    const totalBatchQty = Number(sumResult.rows[0][0]) || 0
+    // Recalculate Inventory total quantity (only when quantity changed)
+    let totalBatchQty = 0
+    if (quantity !== undefined) {
+      const sumResult = await turso.execute({
+        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
+        args: [batch.productId],
+      })
+      totalBatchQty = Number(sumResult.rows[0][0]) || 0
 
-    await turso.execute({
-      sql: 'UPDATE Inventory SET quantity = ?, updatedAt = ? WHERE "productId" = ?',
-      args: [totalBatchQty, now, batch.productId],
-    })
+      await turso.execute({
+        sql: 'UPDATE Inventory SET quantity = ?, updatedAt = ? WHERE "productId" = ?',
+        args: [totalBatchQty, now, batch.productId],
+      })
+    } else {
+      const sumResult = await turso.execute({
+        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
+        args: [batch.productId],
+      })
+      totalBatchQty = Number(sumResult.rows[0][0]) || 0
+    }
 
-    // Update Product expiryDate to nearest ACTIVE (non-expired) batch expiry
-    await turso.execute({
-      sql: `UPDATE "Product" SET "expiryDate" = (
-              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
-            ), "updatedAt" = ?
-            WHERE id = ?`,
-      args: [batch.productId, now, batch.productId],
-    })
+    // Update Product expiryDate when expiry changed
+    if (expiryDate !== undefined) {
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = (
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+              ), "updatedAt" = ?
+              WHERE id = ?`,
+        args: [batch.productId, now, batch.productId],
+      })
+    }
 
     // Log in product history
     const changedFields: string[] = []
@@ -102,6 +117,13 @@ export async function PUT(
       changedFields.push('batchExpiryDate')
       previousValues.batchExpiryDate = batch.expiryDate
       newValues.batchExpiryDate = expiryDate || null
+      previousValues.batchNumber = batch.batchNumber
+      newValues.batchNumber = batch.batchNumber
+    }
+    if (costPrice !== undefined) {
+      changedFields.push('batchCostPrice')
+      previousValues.batchCostPrice = batch.costPrice
+      newValues.batchCostPrice = costPrice
       previousValues.batchNumber = batch.batchNumber
       newValues.batchNumber = batch.batchNumber
     }
