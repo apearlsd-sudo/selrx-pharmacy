@@ -283,11 +283,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentView: 'login',
       cart: [],
       selectedCustomer: null,
+      currentShiftId: null,
+      shiftStartedAt: null,
+      shiftActive: false,
     })
-    // Clear persisted session
+    // Clear persisted session + shift (shift stays running in DB for the user,
+    // but we must not leak it to a different user on the same browser)
     if (typeof window !== 'undefined') {
       localStorage.removeItem('selrx_session')
       localStorage.removeItem('selrx_view')
+      localStorage.removeItem('selrx_shift')
     }
   },
   hasPermission: (requiredPermissions) => {

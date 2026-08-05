@@ -416,14 +416,10 @@ export default function Home() {
           .then((data) => {
             if (data.valid && data.user) {
               store.setUser(data.user)
-              // Check for active shift
+              // Check for active shift — skip localStorage shift data
+              // because it may belong to a different user on the same browser.
+              // Only the server check (using the authenticated user's ID) is authoritative.
               try {
-                const shiftData = localStorage.getItem('selrx_shift')
-                if (shiftData) {
-                  const parsed = JSON.parse(shiftData)
-                  if (parsed.id && parsed.startedAt) store.setShift(parsed)
-                }
-                // Verify with server
                 fetch('/api/shifts?action=active', {
                   headers: { 'x-user-id': data.user.id },
                 }).then((r) => r.json()).then((r) => {
