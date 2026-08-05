@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       if (!uid) return NextResponse.json({ active: false })
 
       if (isTurso()) {
+        try { await ensureShiftTables() } catch { /* non-fatal */ }
         const result = await turso.execute({
           sql: `SELECT id, "userId", "userName", "startedAt", "cashAtStart"
                 FROM "Shift" WHERE "userId" = ? AND status = 'ACTIVE'
@@ -36,6 +37,17 @@ export async function GET(request: NextRequest) {
         })
         if (result.rows.length === 0) return NextResponse.json({ active: false })
         const row = result.rows[0]
+        const startedAt = row[3] as string
+        // Auto-end shifts older than 24 hours (stuck shifts from previous days)
+        const shiftAge = Date.now() - new Date(startedAt).getTime()
+        if (shiftAge > 24 * 60 * 60 * 1000) {
+          const now = new Date().toISOString()
+          await turso.execute({
+            sql: `UPDATE "Shift" SET status = 'ENDED', "endedAt" = ?, "updatedAt" = ? WHERE id = ?`,
+            args: [now, now, row[0]],
+          })
+          return NextResponse.json({ active: false, autoClosed: true, closedShiftId: row[0] })
+        }
         return NextResponse.json({
           active: true,
           shift: { id: row[0], userId: row[1], userName: row[2], startedAt: row[3], cashAtStart: row[4] },
@@ -229,6 +241,43 @@ export async function GET(request: NextRequest) {
 // POST /api/shifts  –  start or end a shift
 // ---------------------------------------------------------------------------
 
+async function ensureShiftTables() {
+  await turso.execute(`CREATE TABLE IF NOT EXISTS "Shift" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "userName" TEXT,
+    "startedAt" TEXT NOT NULL,
+    "endedAt" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "totalSales" REAL NOT NULL DEFAULT 0,
+    "totalTransactions" INTEGER NOT NULL DEFAULT 0,
+    "totalItemsSold" INTEGER NOT NULL DEFAULT 0,
+    "cashAtStart" REAL,
+    "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TEXT NOT NULL
+  )`)
+  try { await turso.execute(`ALTER TABLE "Shift" ADD COLUMN "cashAtEnd" REAL`) } catch { /* column exists */ }
+  try { await turso.execute(`ALTER TABLE "Shift" ADD COLUMN "expectedCash" REAL`) } catch { /* column exists */ }
+  try { await turso.execute(`ALTER TABLE "Shift" ADD COLUMN "cashDiscrepancy" REAL`) } catch { /* column exists */ }
+
+  await turso.execute(`CREATE TABLE IF NOT EXISTS "ShiftInventory" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "shiftId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "productName" TEXT,
+    "quantity" INTEGER NOT NULL DEFAULT 0,
+    "sellingPrice" REAL,
+    "costPrice" REAL,
+    "category" TEXT,
+    "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY ("shiftId") REFERENCES "Shift"("id") ON DELETE CASCADE
+  )`)
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Shift_userId_idx" ON "Shift"("userId")`) } catch { /* */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Shift_status_idx" ON "Shift"("status")`) } catch { /* */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "ShiftInventory_shiftId_idx" ON "ShiftInventory"("shiftId")`) } catch { /* */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "ShiftInventory_productId_idx" ON "ShiftInventory"("productId")`) } catch { /* */ }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -238,15 +287,32 @@ export async function POST(request: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     if (!isTurso()) return NextResponse.json({ error: 'Shift tracking requires cloud database' }, { status: 400 })
 
+    // Ensure tables exist (self-healing)
+    await ensureShiftTables()
+
     const now = new Date().toISOString()
 
     if (action === 'start') {
+      // Check for stuck active shift
       const existing = await turso.execute({
-        sql: `SELECT id FROM "Shift" WHERE "userId" = ? AND status = 'ACTIVE'`,
+        sql: `SELECT id, "startedAt" FROM "Shift" WHERE "userId" = ? AND status = 'ACTIVE'`,
         args: [userId],
       })
       if (existing.rows.length > 0) {
-        return NextResponse.json({ error: 'You already have an active shift' }, { status: 400 })
+        const stuckId = existing.rows[0][0] as string
+        const stuckStartedAt = existing.rows[0][1] as string
+        // Auto-end the stuck shift (it was never properly closed)
+        await turso.execute({
+          sql: `UPDATE "Shift" SET status = 'ENDED', "endedAt" = ?, "updatedAt" = ? WHERE id = ?`,
+          args: [now, now, stuckId],
+        })
+        // Return a warning but still allow starting fresh
+        return NextResponse.json({
+          id: stuckId, userId, userName,
+          startedAt: stuckStartedAt, endedAt: now,
+          status: 'AUTO_ENDED',
+          warning: `Your previous shift (started ${new Date(stuckStartedAt).toLocaleTimeString()}) was not properly ended. It has been auto-closed. Please start a new shift.`,
+        }, { status: 200 })
       }
       const id = generateId()
       await turso.execute({

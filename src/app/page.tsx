@@ -427,7 +427,12 @@ export default function Home() {
                 fetch('/api/shifts?action=active', {
                   headers: { 'x-user-id': data.user.id },
                 }).then((r) => r.json()).then((r) => {
-                  if (!r.active) store.setShift(null)
+                  if (!r.active) {
+                    store.setShift(null)
+                    if (r.autoClosed) {
+                      store.addToast({ title: 'Old Shift Auto-Closed', description: 'A shift from a previous session was automatically closed.', variant: 'default' })
+                    }
+                  }
                   else store.setShift({ id: r.shift.id, startedAt: r.shift.startedAt })
                 }).catch(() => {})
               } catch { /* silent */ }
@@ -709,12 +714,28 @@ export default function Home() {
                       headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
                       body: JSON.stringify({ action: 'start' }),
                     })
-                    if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
+                    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to start shift') }
                     const result = await res.json()
+                    // If a stuck shift was auto-ended, show warning and retry
+                    if (result.status === 'AUTO_ENDED') {
+                      addToast({ title: 'Stuck Shift Auto-Closed', description: result.warning, variant: 'default' })
+                      // Clear local state and retry start immediately
+                      setShift(null)
+                      const retry = await fetch('/api/shifts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+                        body: JSON.stringify({ action: 'start' }),
+                      })
+                      if (!retry.ok) { const err = await retry.json(); throw new Error(err.error || 'Failed to start shift') }
+                      const retryResult = await retry.json()
+                      setShift({ id: retryResult.id, startedAt: retryResult.startedAt })
+                      addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+                      return
+                    }
                     setShift({ id: result.id, startedAt: result.startedAt })
                     addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
                   } catch (err: any) {
-                    addToast({ title: 'Error', description: err.message, variant: 'destructive' })
+                    addToast({ title: 'Error Starting Shift', description: err.message || 'Unknown error. Check your connection and try again.', variant: 'destructive' })
                   }
                 }}
               >
