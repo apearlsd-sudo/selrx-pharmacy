@@ -2,14 +2,67 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 
 /**
- * GET  /api/inventory/batches?productId=xxx  — list batches for a product
- * POST /api/inventory/batches                   — receive new stock as a batch
+ * GET  /api/inventory/batches?productId=xxx                      — list batches for a product
+ * GET  /api/inventory/batches?action=search&q=BN-xxxx           — search batches by batch# or expiry
+ * POST /api/inventory/batches                                   — receive new stock as a batch
  */
 
 // ---------- GET ----------
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const action = searchParams.get('action')
+
+    // ---- Batch lookup by batch number or expiry date ----
+    if (action === 'search') {
+      const q = (searchParams.get('q') || '').trim()
+      if (!q) return NextResponse.json({ batches: [] })
+      if (!isTurso()) return NextResponse.json({ batches: [] })
+
+      // Detect if query looks like a date (YYYY-MM-DD)
+      const isDate = /^\d{4}-\d{2}-\d{2}$/.test(q)
+
+      let sql: string
+      let args: unknown[]
+
+      if (isDate) {
+        // Search by expiry date (exact match)
+        sql = `SELECT b.id, b."productId", b."batchNumber", b."expiryDate",
+                       b.quantity, b."costPrice", b."receivedAt",
+                       p.name as "productName", p.ndc
+                FROM "Batch" b
+                LEFT JOIN "Product" p ON p.id = b."productId"
+                WHERE date(b."expiryDate") = date(?)
+                ORDER BY p.name ASC, b."expiryDate" ASC`
+        args = [q]
+      } else {
+        // Search by batch number (partial, case-insensitive)
+        sql = `SELECT b.id, b."productId", b."batchNumber", b."expiryDate",
+                       b.quantity, b."costPrice", b."receivedAt",
+                       p.name as "productName", p.ndc
+                FROM "Batch" b
+                LEFT JOIN "Product" p ON p.id = b."productId"
+                WHERE LOWER(b."batchNumber") LIKE ?
+                ORDER BY p.name ASC, b."expiryDate" ASC`
+        args = [`%${q.toLowerCase()}%`]
+      }
+
+      const result = await turso.execute(sql, args as any)
+      const batches = result.rows.map((row: any) => ({
+        id: row.id,
+        productId: row.productId,
+        batchNumber: row.batchNumber,
+        expiryDate: row.expiryDate,
+        quantity: Number(row.quantity) || 0,
+        costPrice: row.costPrice != null ? Number(row.costPrice) : null,
+        receivedAt: row.receivedAt,
+        productName: row.productName,
+        ndc: row.ndc,
+      }))
+      return NextResponse.json({ batches })
+    }
+
+    // ---- List batches for a specific product ----
     const productId = searchParams.get('productId')
     if (!productId) {
       return NextResponse.json({ error: 'productId is required' }, { status: 400 })
