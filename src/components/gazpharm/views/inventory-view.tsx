@@ -881,9 +881,15 @@ export function InventoryView() {
                   const reorder = Number(item.product.reorderPoint) || 10
                   const isOut = qty === 0
                   const isLow = qty > 0 && qty <= reorder
-                  const daysToExpiry = daysToExpiryFrom(item.product.expiryDate, todayWAT)
+                  const bs = (item as any).batchExpirySummary
+                  // Use batch-level expiry summary for accurate status (avoids false-expired when some batches are still active)
+                  const allBatchesExpired = bs?.hasBatches ? (bs.allBatchesExpired === true) : false
+                  const hasExpiredBatches = bs?.hasBatches ? (bs.hasExpiredBatches === true) : false
+                  const activeExpiry = bs?.nearestActiveExpiry || item.product.expiryDate
+                  const nearExpiryCount = bs?.nearExpiryBatches || 0
+                  const daysToExpiry = daysToExpiryFrom(activeExpiry, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = daysToExpiry !== null && daysToExpiry <= 0
+                  const showExpired = allBatchesExpired && qty > 0
                   const isDiscontinued = item.product.status === 'DISCONTINUED'
                   return (
                     <TableRow key={item.id} className={`hover:bg-gray-50/50 transition-colors ${isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}`}>
@@ -922,6 +928,8 @@ export function InventoryView() {
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
                         ) : showExpired ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
+                        ) : hasExpiredBatches ? (
+                          <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px]">Partial Expired</Badge>
                         ) : isLow ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">Low Stock</Badge>
                         ) : nearExpiry && daysToExpiry !== null ? (
@@ -934,7 +942,7 @@ export function InventoryView() {
                       <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">
-                        {formatDate(item.product.expiryDate)}
+                        {formatDate(activeExpiry)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); setAdjustSellingUnit(item.product.sellingUnit || 'EA'); setAdjustItemsPerUnit(String(item.product.itemsPerUnit || 1)); fetchBatches(item.productId); setAdjustDialog(true) }}>

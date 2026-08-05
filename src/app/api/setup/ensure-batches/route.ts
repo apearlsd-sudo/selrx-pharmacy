@@ -67,17 +67,17 @@ export async function POST() {
       results.push('No unmigrated inventory found')
     }
 
-    // 3. Update Product.expiryDate to MIN(batch expiry)
+    // 3. Update Product.expiryDate to MIN(active batch expiry) — exclude expired batches
     await turso.execute(`
       UPDATE "Product"
       SET "expiryDate" = (
         SELECT MIN(b."expiryDate")
         FROM "Batch" b
-        WHERE b."productId" = "Product".id AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+        WHERE b."productId" = "Product".id AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
       ), "updatedAt" = ?
       WHERE id IN (SELECT DISTINCT "productId" FROM "Batch" WHERE quantity > 0)
     `)
-    results.push('Product expiry dates synced to earliest batch')
+    results.push('Product expiry dates synced to earliest active batch')
 
     // 4. Report final state
     const { rows: batchCount } = await turso.execute('SELECT COUNT(*) as cnt FROM "Batch"')

@@ -312,7 +312,16 @@ export async function POST(request: NextRequest) {
         args: [totalBatchQty, now, pid],
       })
 
-      // Set expiredAt on product when we expire it
+      // Re-sync Product.expiryDate to nearest ACTIVE (non-expired) batch
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = (
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+              ), "updatedAt" = ?
+              WHERE id = ?`,
+        args: [pid, now, pid],
+      })
+
+      // Set expiredAt on product when ALL stock is gone
       if (totalBatchQty === 0) {
         await turso.execute({
           sql: `UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,

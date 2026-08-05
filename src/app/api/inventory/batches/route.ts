@@ -96,10 +96,10 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update Product expiryDate to nearest batch expiry (for backward compat)
+      // Update Product expiryDate to nearest ACTIVE (non-expired) batch expiry
       await turso.execute({
         sql: `UPDATE "Product" SET "expiryDate" = (
-                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
               ), "updatedAt" = ?
               WHERE id = ?`,
         args: [productId, now, productId],

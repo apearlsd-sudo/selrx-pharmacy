@@ -276,6 +276,35 @@ export async function PUT(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
+    // ---- Re-sync all Product.expiryDate from active batches (PUT ?action=resync-expiry) ----
+    if (action === 'resync-expiry') {
+      if (!isTurso()) {
+        return NextResponse.json({ error: 'Requires cloud database' }, { status: 400 })
+      }
+      const now = new Date().toISOString()
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = (
+                SELECT MIN(b."expiryDate") FROM "Batch" b
+                WHERE b."productId" = "Product".id AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+              ), "updatedAt" = ?
+              WHERE id IN (SELECT DISTINCT "productId" FROM "Batch" WHERE quantity > 0 AND "expiryDate" IS NOT NULL)`,
+        args: [now],
+      })
+      // Also clear expiryDate for products whose ALL batches are expired or have no expiry
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = NULL, "updatedAt" = ?
+              WHERE id IN (
+                SELECT DISTINCT "productId" FROM "Batch" WHERE quantity > 0 AND "expiryDate" IS NOT NULL
+              ) AND "expiryDate" IS NOT NULL
+              AND id NOT IN (
+                SELECT DISTINCT "productId" FROM "Batch"
+                WHERE quantity > 0 AND "expiryDate" IS NOT NULL AND date("expiryDate") > date('now')
+              )`,
+        args: [now],
+      })
+      return NextResponse.json({ message: 'All product expiry dates re-synced to active batches' })
+    }
+
     // ---- Stock receive (PUT ?action=receive) ----
     if (action === 'receive') {
       const body = await request.json()

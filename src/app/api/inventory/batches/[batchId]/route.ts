@@ -78,10 +78,10 @@ export async function PUT(
       args: [totalBatchQty, now, batch.productId],
     })
 
-    // Update Product expiryDate to nearest batch expiry
+    // Update Product expiryDate to nearest ACTIVE (non-expired) batch expiry
     await turso.execute({
       sql: `UPDATE "Product" SET "expiryDate" = (
-              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
             ), "updatedAt" = ?
             WHERE id = ?`,
       args: [batch.productId, now, batch.productId],
@@ -173,10 +173,10 @@ export async function DELETE(
       args: [totalBatchQty, now, batch.productId],
     })
 
-    // Update Product expiryDate
+    // Update Product expiryDate to nearest ACTIVE (non-expired) batch expiry
     await turso.execute({
       sql: `UPDATE "Product" SET "expiryDate" = (
-              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
             ), "updatedAt" = ?
             WHERE id = ?`,
       args: [batch.productId, now, batch.productId],
