@@ -529,6 +529,54 @@ export async function PUT(request: NextRequest) {
         })
       }
 
+      // Sync batch quantities to match the new inventory total.
+      // This ensures the Stock Batches section reflects the adjustment.
+      // Strategy: 
+      //   REMOVE / SET-lower → reduce from FEFO (earliest-expiring) batches first
+      //   ADD / SET-higher  → add to the most recently created active batch
+      const qtyDiff = newQuantity - currentQty
+      let batchSynced = false
+      if (qtyDiff !== 0 && !(adjustmentType === 'ADD' && adjustment > 0 && expiryDate)) {
+        // Don't double-sync when a new batch was already created above
+        try {
+          const activeBatches = await turso.execute({
+            sql: `SELECT id, quantity, "expiryDate" FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY COALESCE("expiryDate", '9999-12-31') ASC`,
+            args: [productId],
+          })
+          const batches = toObjs(activeBatches)
+
+          if (batches.length > 0) {
+            if (qtyDiff < 0) {
+              // REDUCE: FEFO — drain from earliest-expiring batches first
+              let remaining = Math.abs(qtyDiff)
+              for (const b of batches) {
+                if (remaining <= 0) break
+                const bQty = (b.quantity as number) || 0
+                const reduce = Math.min(remaining, bQty)
+                if (reduce > 0) {
+                  await turso.execute({
+                    sql: `UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?`,
+                    args: [bQty - reduce, now, b.id],
+                  })
+                  remaining -= reduce
+                  batchSynced = true
+                }
+              }
+            } else {
+              // INCREASE: add to the most recently created active batch (last in FEFO order)
+              const targetBatch = batches[batches.length - 1]
+              await turso.execute({
+                sql: `UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?`,
+                args: [((targetBatch.quantity as number) || 0) + qtyDiff, now, targetBatch.id],
+              })
+              batchSynced = true
+            }
+          }
+        } catch (e) {
+          console.warn(`[Inventory PUT] Batch sync failed for ${productId}:`, e)
+        }
+      }
+
       // If ADD with an expiry date, create a new Batch record so the stock
       // carries its own expiry (batch-aware stock management)
       let batchCreated = false
@@ -661,7 +709,7 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}${expiryUpdated && !batchCreated ? ' (expiry updated)' : ''}`)
+      console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}${batchSynced ? ' (batches synced)' : ''}${expiryUpdated && !batchCreated ? ' (expiry updated)' : ''}`)
 
       return NextResponse.json({
         success: true,
