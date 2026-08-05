@@ -67,7 +67,20 @@ export async function POST() {
       results.push('No unmigrated inventory found')
     }
 
-    // 3. Update Product.expiryDate to MIN(active batch expiry) — exclude expired batches
+    // 3. Backfill: Update batches with NULL expiryDate from Product.expiryDate
+    //    where the product has an expiry date but the batch doesn't
+    await turso.execute(`
+      UPDATE "Batch"
+      SET "expiryDate" = p."expiryDate", "updatedAt" = ?
+      FROM "Product" p
+      WHERE "Batch"."productId" = p.id
+        AND "Batch"."expiryDate" IS NULL
+        AND p."expiryDate" IS NOT NULL
+    `, [now])
+    const { rows: backfilled } = await turso.execute('SELECT changes() as cnt')
+    results.push(`Backfilled ${Number((backfilled as any)[0]?.cnt || 0)} batch expiry dates from Product`)
+
+    // 4. Update Product.expiryDate to MIN(active batch expiry) — exclude expired batches
     await turso.execute(`
       UPDATE "Product"
       SET "expiryDate" = (
@@ -79,7 +92,7 @@ export async function POST() {
     `)
     results.push('Product expiry dates synced to earliest active batch')
 
-    // 4. Report final state
+    // 5. Report final state
     const { rows: batchCount } = await turso.execute('SELECT COUNT(*) as cnt FROM "Batch"')
     const totalBatches = Number((batchCount as any)[0]?.cnt || 0)
 

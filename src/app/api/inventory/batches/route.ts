@@ -16,6 +16,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (isTurso()) {
+      // Inline backfill: update any NULL expiryDate batches from their Product.expiryDate
+      // This ensures expiry dates always show even if the batch was created without one
+      await turso.execute({
+        sql: `UPDATE "Batch"
+              SET "expiryDate" = (SELECT p."expiryDate" FROM "Product" p WHERE p.id = "Batch"."productId"),
+                  "updatedAt" = ?
+              WHERE "productId" = ?
+                AND "expiryDate" IS NULL
+                AND (SELECT p."expiryDate" FROM "Product" p WHERE p.id = "Batch"."productId") IS NOT NULL`,
+        args: [new Date().toISOString(), productId],
+      })
+
       const result = await turso.execute({
         sql: `SELECT b.id, b."productId", b."batchNumber", b."expiryDate",
                        b.quantity, b."costPrice", b."receivedAt", b."receivedBy",

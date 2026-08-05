@@ -534,6 +534,7 @@ export async function PUT(request: NextRequest) {
       // Strategy: 
       //   REMOVE / SET-lower → reduce from FEFO (earliest-expiring) batches first
       //   ADD / SET-higher  → add to the most recently created active batch
+      //   NO BATCHES EXIST  → create a new catch-all batch with the new quantity
       const qtyDiff = newQuantity - currentQty
       let batchSynced = false
       if (qtyDiff !== 0 && !(adjustmentType === 'ADD' && adjustment > 0 && expiryDate)) {
@@ -571,6 +572,19 @@ export async function PUT(request: NextRequest) {
               })
               batchSynced = true
             }
+          } else if (newQuantity > 0) {
+            // No existing batches — create a catch-all batch so the Stock Batches section
+            // reflects the adjusted quantity. Uses any provided expiry/batch number.
+            const batchId = generateId()
+            const batchNo = batchNumber || generateBatchNo()
+            const batchExpiry = expiryDate || null
+            await turso.execute({
+              sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [batchId, productId, batchNo, batchExpiry, newQuantity, costPrice || null, now, userId, now, now],
+            })
+            batchSynced = true
+            console.log(`[Inventory PUT] Created catch-all batch for ${productId}: qty=${newQuantity}`)
           }
         } catch (e) {
           console.warn(`[Inventory PUT] Batch sync failed for ${productId}:`, e)
@@ -594,7 +608,7 @@ export async function PUT(request: NextRequest) {
       // Update the nearest active batch's expiry, or update Product.expiryDate if no batches.
       let expiryUpdated = false
       if (expiryDate && !(adjustmentType === 'ADD' && adjustment > 0)) {
-        // Try to update the nearest active batch
+        // Try to update the nearest active batch (prefer non-expired, then any with NULL expiry)
         const nearestBatch = await turso.execute({
           sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND date("expiryDate") > date('now') ORDER BY "expiryDate" ASC LIMIT 1`,
           args: [productId],
@@ -605,6 +619,19 @@ export async function PUT(request: NextRequest) {
             args: [expiryDate, now, nearestBatch.rows[0][0]],
           })
           expiryUpdated = true
+        } else {
+          // No non-expired active batches — try any active batch with NULL expiry
+          const nullExpiryBatch = await turso.execute({
+            sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND "expiryDate" IS NULL ORDER BY "createdAt" DESC LIMIT 1`,
+            args: [productId],
+          })
+          if (nullExpiryBatch.rows.length > 0) {
+            await turso.execute({
+              sql: `UPDATE "Batch" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`,
+              args: [expiryDate, now, nullExpiryBatch.rows[0][0]],
+            })
+            expiryUpdated = true
+          }
         }
         // Also update Product.expiryDate so the UI reflects it immediately
         await turso.execute({
@@ -706,6 +733,17 @@ export async function PUT(request: NextRequest) {
           previousValues,
           newValues,
           userId,
+        })
+      }
+
+      // If batches were synced (including catch-all creation), re-sync Product.expiryDate
+      if (batchSynced && !batchCreated) {
+        await turso.execute({
+          sql: `UPDATE "Product" SET "expiryDate" = (
+                  SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+                ), "updatedAt" = ?
+                WHERE id = ?`,
+          args: [productId, now, productId],
         })
       }
 
