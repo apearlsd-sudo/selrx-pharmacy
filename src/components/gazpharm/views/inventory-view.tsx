@@ -105,6 +105,10 @@ export function InventoryView() {
   const [editBatchAdjAmount, setEditBatchAdjAmount] = useState('')
   const [editBatchSellingPrice, setEditBatchSellingPrice] = useState('')
   const [editBatchReason, setEditBatchReason] = useState('')
+  // Sell As (Unit Sales) in edit batch modal
+  const [editBatchSellingUnit, setEditBatchSellingUnit] = useState('')
+  const [editBatchItemsPerUnit, setEditBatchItemsPerUnit] = useState('')
+  const [editBatchSavingSellAs, setEditBatchSavingSellAs] = useState(false)
   // Batch lookup state (search by batch number or expiry across all products)
   const [batchLookupQuery, setBatchLookupQuery] = useState('')
   const [batchLookupResults, setBatchLookupResults] = useState<any[]>([])
@@ -407,6 +411,11 @@ export function InventoryView() {
     setEditBatchAdjAmount('')
     setEditBatchSellingPrice('')
     setEditBatchReason('')
+    // Initialize sell-as from the product
+    const prod = selectedItem?.product
+    setEditBatchSellingUnit(prod?.sellingUnit || 'EA')
+    setEditBatchItemsPerUnit(String(prod?.itemsPerUnit || 1))
+    setEditBatchSavingSellAs(false)
     setEditBatchModalOpen(true)
   }
 
@@ -485,6 +494,44 @@ export function InventoryView() {
       addToast({ title: 'Error', description: err.message || 'Failed to update batch', variant: 'destructive' })
     }
     setSavingBatch(false)
+  }
+
+  // -- Save Sell As from Edit Batch modal --
+  const handleEditBatchSaveSellAs = async () => {
+    if (!editingBatch) return
+    const productId = editingBatch.productId
+    const su = editBatchSellingUnit || 'EA'
+    const ipu = editBatchItemsPerUnit ? parseInt(editBatchItemsPerUnit) : 1
+    // Check if changed from current product values
+    const currentSu = selectedItem?.product.sellingUnit || 'EA'
+    const currentIpu = selectedItem?.product.itemsPerUnit || 1
+    if (su === currentSu && ipu === currentIpu) {
+      addToast({ title: 'No Change', description: 'Selling unit is already set to this value', variant: 'default' })
+      return
+    }
+    setEditBatchSavingSellAs(true)
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
+        body: JSON.stringify({ sellingUnit: su, itemsPerUnit: ipu }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
+      // Optimistically update local state
+      setItems(prev => prev.map(it =>
+        it.productId === productId
+          ? { ...it, product: { ...it.product, sellingUnit: su, itemsPerUnit: ipu } }
+          : it
+      ))
+      setSelectedItem(prev => prev ? { ...prev, product: { ...prev.product, sellingUnit: su, itemsPerUnit: ipu } } : null)
+      addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
+      fetchInventory(true)
+      bumpInventoryVersion()
+    } catch (err: any) {
+      addToast({ title: 'Error', description: err.message || 'Failed to update selling unit', variant: 'destructive' })
+    } finally {
+      setEditBatchSavingSellAs(false)
+    }
   }
 
   // -- Batch lookup (search across all products by batch# or expiry) --
@@ -2346,6 +2393,52 @@ export function InventoryView() {
                   <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-8 text-sm mt-0.5" placeholder="0.00" />
                 </div>
               </div>
+            </div>
+
+            {/* ── Sell As (Unit Sales) ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <PackagePlus className="h-3.5 w-3.5" />
+                Sell As (Unit Sales)
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Set how this product is sold to customers. E.g., sell as a Strip of 10 tablets instead of individual tablets.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Selling Unit</Label>
+                  <Select value={editBatchSellingUnit} onValueChange={setEditBatchSellingUnit}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EA">Each / Piece</SelectItem>
+                      <SelectItem value="Tablet">Tablet</SelectItem>
+                      <SelectItem value="Capsule">Capsule</SelectItem>
+                      <SelectItem value="Sachet">Sachet</SelectItem>
+                      <SelectItem value="Vial">Vial</SelectItem>
+                      <SelectItem value="Ampoule">Ampoule</SelectItem>
+                      <SelectItem value="Bottle">Bottle</SelectItem>
+                      <SelectItem value="Strip">Strip</SelectItem>
+                      <SelectItem value="Blister">Blister Pack</SelectItem>
+                      <SelectItem value="Tube">Tube</SelectItem>
+                      <SelectItem value="Pack">Pack</SelectItem>
+                      <SelectItem value="Box">Box</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Items Per {editBatchSellingUnit === 'EA' ? 'Unit' : editBatchSellingUnit}</Label>
+                  <Input type="number" min="1" step="1" placeholder="e.g., 10" value={editBatchItemsPerUnit} onChange={(e) => setEditBatchItemsPerUnit(e.target.value)} className="h-8 text-sm mt-0.5" disabled={editBatchSellingUnit === 'EA'} />
+                </div>
+              </div>
+              {editBatchSellingUnit !== 'EA' && editBatchItemsPerUnit && parseInt(editBatchItemsPerUnit) > 1 && (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Stock shows as: <span className="font-medium">{Math.floor((Number(selectedItem?.quantity) || 0) / parseInt(editBatchItemsPerUnit))} {editBatchSellingUnit.toLowerCase()}{Math.floor((Number(selectedItem?.quantity) || 0) / parseInt(editBatchItemsPerUnit)) !== 1 ? 's' : ''}</span> of {editBatchItemsPerUnit} items each
+                  &nbsp;·&nbsp; Unit price: <span className="font-medium">{selectedItem ? formatCurrency(selectedItem.product.sellingPrice / parseInt(editBatchItemsPerUnit)) : '—'}</span>
+                </p>
+              )}
+              <Button size="sm" variant="outline" onClick={handleEditBatchSaveSellAs} disabled={editBatchSavingSellAs} className="w-full">
+                {editBatchSavingSellAs ? 'Saving...' : 'Update Sell As'}
+              </Button>
             </div>
           </div>
           <DialogFooter className="mt-4">
