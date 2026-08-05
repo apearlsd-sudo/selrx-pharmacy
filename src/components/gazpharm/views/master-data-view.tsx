@@ -650,6 +650,7 @@ function DrugEditModal({
         }
       }
 
+      bumpInventoryVersion()
       addToast({ title: 'Drug Updated', description: `"${form.name.trim()}" updated successfully`, variant: 'success' })
       onSaved()
       onOpenChange(false)
@@ -1163,6 +1164,7 @@ function DrugSection() {
         }
       }
 
+      bumpInventoryVersion()
       addToast({ title: 'Drug Added', description: `"${form.name}" registered in inventory`, variant: 'success' })
       setForm({
         name: '', sku: '', category: 'OTC', dosageForm: '', manufacturerId: '', costPrice: '', sellingPrice: '',
@@ -1295,6 +1297,7 @@ function DrugSection() {
       }
       const data = await res.json()
       addToast({ title: 'Product Discontinued', description: data.message || `"${deleteDrug.name}" has been discontinued`, variant: 'success' })
+      bumpInventoryVersion()
       fetchData()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })
@@ -1316,6 +1319,7 @@ function DrugSection() {
         throw new Error(err.error || 'Failed to reactivate product')
       }
       addToast({ title: 'Product Reactivated', description: `"${drug.name}" is now active`, variant: 'success' })
+      bumpInventoryVersion()
       fetchData()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message, variant: 'destructive' })

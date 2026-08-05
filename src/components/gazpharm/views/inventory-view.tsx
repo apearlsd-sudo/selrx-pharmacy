@@ -241,6 +241,7 @@ export function InventoryView() {
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update') }
       addToast({ title: 'Sell As Updated', description: `Now sells as ${su}${ipu > 1 ? ` (${ipu} per unit)` : ''}`, variant: 'success' })
       fetchInventory(true)
+      bumpInventoryVersion()
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to update selling unit', variant: 'destructive' })
     } finally {
@@ -403,6 +404,7 @@ export function InventoryView() {
       }
 
       addToast({ title: 'Product Added', description: `${productForm.name} has been added to inventory`, variant: 'success' })
+      bumpInventoryVersion()
       setAddProductDialog(false)
       setProductForm({ name: '', sku: '', category: 'OTC', price: '', costPrice: '', stockQuantity: '', minStockLevel: '10', expiryDate: '', barcode: '', batchNumber: '', manufacturerId: '', vendorId: '', dosageForm: '', sellingUnit: 'EA', itemsPerUnit: '1' })
       fetchInventory()
