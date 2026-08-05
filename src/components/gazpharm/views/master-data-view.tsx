@@ -603,6 +603,11 @@ function DrugEditModal({
   const [editBatchExpiry, setEditBatchExpiry] = useState('')
   const [editBatchCost, setEditBatchCost] = useState('')
   const [editBatchNumber, setEditBatchNumber] = useState('')
+  // Enhanced batch edit: quick stock adjustment fields
+  const [editBatchAdjType, setEditBatchAdjType] = useState('ADD')
+  const [editBatchAdjAmount, setEditBatchAdjAmount] = useState('')
+  const [editBatchSellingPrice, setEditBatchSellingPrice] = useState('')
+  const [editBatchReason, setEditBatchReason] = useState('')
   // Batch lookup state (search by batch number or expiry across all products)
   const [batchLookupQuery, setBatchLookupQuery] = useState('')
   const [batchLookupResults, setBatchLookupResults] = useState<any[]>([])
@@ -782,17 +787,45 @@ function DrugEditModal({
     setEditBatchExpiry(b.expiryDate ? b.expiryDate.slice(0, 10) : '')
     setEditBatchCost(b.costPrice != null ? String(b.costPrice) : '')
     setEditBatchNumber(b.batchNumber || '')
+    setEditBatchAdjType('ADD')
+    setEditBatchAdjAmount('')
+    setEditBatchSellingPrice('')
+    setEditBatchReason('')
     setEditBatchModalOpen(true)
   }
 
   const handleSaveBatchEdit = async () => {
     if (!editingBatch) return
+    const hasAdjAmount = editBatchAdjAmount !== '' && Number(editBatchAdjAmount) !== 0
+    const hasDirectEdits = editBatchQty !== '' || editBatchExpiry !== '' || editBatchCost !== '' || editBatchNumber !== (editingBatch.batchNumber || '')
+    const hasPriceChange = editBatchSellingPrice !== ''
+    const needsReason = hasAdjAmount
+
+    if (!hasDirectEdits && !hasAdjAmount && !hasPriceChange) return
+    if (needsReason && !editBatchReason.trim()) {
+      addToast({ title: 'Reason Required', description: 'Enter a reason for the stock adjustment', variant: 'destructive' })
+      return
+    }
+
     setSavingBatch(true)
     try {
-      const body: Record<string, any> = { reason: 'Batch edit' }
-      if (editBatchQty !== '') body.quantity = parseInt(editBatchQty)
+      // 1) Calculate the final batch quantity
+      let finalQty: number | undefined
+      if (hasAdjAmount) {
+        const currentQty = Number(editingBatch.quantity) || 0
+        const adj = Number(editBatchAdjAmount) || 0
+        if (editBatchAdjType === 'ADD') finalQty = currentQty + adj
+        else if (editBatchAdjType === 'REMOVE') finalQty = Math.max(0, currentQty - adj)
+        else finalQty = adj // SET
+      } else if (editBatchQty !== '') {
+        finalQty = parseInt(editBatchQty)
+      }
+
+      // 2) Update the batch via PUT
+      const body: Record<string, any> = { reason: editBatchReason.trim() || 'Batch edit' }
+      if (finalQty !== undefined) body.quantity = finalQty
       if (editBatchExpiry) body.expiryDate = new Date(editBatchExpiry).toISOString()
-      else if (editBatchExpiry === '') body.expiryDate = null
+      else if (editBatchExpiry === '' && editingBatch.expiryDate) body.expiryDate = null
       if (editBatchCost !== '') body.costPrice = parseFloat(editBatchCost)
       if (editBatchNumber !== (editingBatch.batchNumber || '')) body.batchNumber = editBatchNumber.trim() || null
 
@@ -803,7 +836,22 @@ function DrugEditModal({
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update batch') }
       const result = await res.json()
-      addToast({ title: 'Batch Updated', description: `${result.batchNumber || 'Batch'} updated, total stock: ${result.totalStock}`, variant: 'success' })
+
+      // 3) Update selling price at product level if changed
+      if (hasPriceChange) {
+        await fetch(`/api/products/${editingBatch.productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '', 'x-user-id': currentUser?.id || '' },
+          body: JSON.stringify({ sellingPrice: parseFloat(editBatchSellingPrice) }),
+        })
+      }
+
+      const descParts: string[] = []
+      if (hasAdjAmount) descParts.push(`stock ${editBatchAdjType === 'ADD' ? '+' : editBatchAdjType === 'REMOVE' ? '-' : 'set'}${editBatchAdjAmount}`)
+      if (hasPriceChange) descParts.push(`price → ${formatCurrency(parseFloat(editBatchSellingPrice))}`)
+      if (!hasAdjAmount && hasDirectEdits) descParts.push('details updated')
+
+      addToast({ title: 'Batch Updated', description: `${result.batchNumber || 'Batch'}: ${descParts.join(', ')}. Total stock: ${result.totalStock}`, variant: 'success' })
       setEditBatchModalOpen(false)
       setEditingBatch(null)
       if (editingDrug && editingBatch?.productId === editingDrug.id) fetchBatches(editingDrug.id)
@@ -946,54 +994,6 @@ function DrugEditModal({
               </div>
               <Button size="sm" onClick={handleSaveDetails} disabled={!form.name.trim() || !form.sellingPrice || saving} className="w-full">
                 {saving ? 'Saving...' : 'Save Product Details'}
-              </Button>
-            </div>
-
-            {/* ── Quick Stock Adjustment ── */}
-            <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Edit className="h-3.5 w-3.5" />
-                Quick Stock Adjustment
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Adjustment Type</Label>
-                  <Select value={adjustType} onValueChange={setAdjustType}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ADD">Add Stock</SelectItem>
-                      <SelectItem value="SET">Set Quantity</SelectItem>
-                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Quantity</Label>
-                  <Input type="number" min="0" placeholder={adjustType === 'SET' ? 'New total' : 'Units'} value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Cost Price</Label>
-                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustCostPrice} onChange={(e) => setAdjustCostPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Selling Price</Label>
-                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={adjustSellingPrice} onChange={(e) => setAdjustSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Expiry Date</Label>
-                  <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-xs">Batch Number</Label>
-                  <Input placeholder="e.g., BN-DDMMYYYY-XXXX" value={adjustBatchNumber} onChange={(e) => setAdjustBatchNumber(e.target.value)} className="h-8 text-sm mt-0.5" />
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>
-                  <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
-                </div>
-              </div>
-              <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason || adjusting} className="w-full">
-                {adjusting ? 'Applying...' : 'Apply Adjustment'}
               </Button>
             </div>
 
@@ -1224,46 +1224,93 @@ function DrugEditModal({
         </DialogFooter>
       </DialogContent>
 
-      {/* Edit Batch Modal */}
+      {/* Edit Batch Modal — includes Quick Stock Adjustment */}
       <Dialog open={editBatchModalOpen} onOpenChange={(open) => { if (!open) { setEditBatchModalOpen(false); setEditingBatch(null) } }}>
-        <DialogContent className="max-w-md rounded-xl">
+        <DialogContent className="max-w-lg max-h-[90vh] rounded-xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-4 w-4 text-indigo-600" />
               Edit Batch
             </DialogTitle>
             <DialogDescription>
-              {editingBatch ? `Editing batch ${editingBatch.batchNumber || editingBatch.id.slice(0, 8)}${editingDrug ? ` for ${editingDrug.name}` : ''}` : ''}
+              {editingBatch ? `Editing batch ${editingBatch.batchNumber || editingBatch.id.slice(0, 8)}${editingBatch.productName || editingDrug ? ` for ${editingBatch.productName || editingDrug?.name}` : ''}` : ''}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs">Batch Number</Label>
-              <div className="flex gap-1 mt-1">
-                <Input
-                  placeholder="BN-DDMMYYYY-XXXX or leave blank"
-                  value={editBatchNumber}
-                  onChange={(e) => setEditBatchNumber(e.target.value)}
-                  className="h-9 text-sm flex-1"
-                />
-                <Button type="button" variant="outline" size="sm" className="h-9 w-9 px-0 shrink-0" onClick={() => setEditBatchNumber(genBN())} title="Auto-generate batch number">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </Button>
+          <div className="space-y-4">
+            {/* Current batch info */}
+            {editingBatch && (
+              <div className="bg-muted rounded-lg p-2.5 text-xs text-muted-foreground">
+                Current: <span className="font-mono font-medium text-foreground">{editingBatch.quantity}</span> units
+                {editingBatch.costPrice != null && <>
+                  · Cost: <span className="font-medium text-foreground">{formatCurrency(editingBatch.costPrice)}</span></>}
+                {editingBatch.expiryDate && <>
+                  · Exp: <span className={getDaysToExpiry(editingBatch.expiryDate) <= 0 ? 'text-red-600 font-semibold' : ''}>{formatDate(editingBatch.expiryDate)}</span></>}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Leave empty to clear the batch number.</p>
+            )}
+
+            {/* ── Quick Stock Adjustment ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Edit className="h-3.5 w-3.5" />
+                Quick Stock Adjustment
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Adjustment Type</Label>
+                  <Select value={editBatchAdjType} onValueChange={setEditBatchAdjType}>
+                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ADD">Add Stock</SelectItem>
+                      <SelectItem value="SET">Set Quantity</SelectItem>
+                      <SelectItem value="REMOVE">Remove Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">{editBatchAdjType === 'SET' ? 'New Total' : 'Units'}</Label>
+                  <Input type="number" min="0" placeholder={editBatchAdjType === 'SET' ? 'New total qty' : 'Units to adjust'} value={editBatchAdjAmount} onChange={(e) => setEditBatchAdjAmount(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Selling Price</Label>
+                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={editBatchSellingPrice} onChange={(e) => setEditBatchSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Reason {editBatchAdjAmount && Number(editBatchAdjAmount) !== 0 && <span className="text-red-500">*</span>}</Label>
+                  <Input placeholder="e.g., Restocked, Damaged" value={editBatchReason} onChange={(e) => setEditBatchReason(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+
+            {/* ── Batch Details ── */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5" />
+                Batch Details
+              </h4>
               <div>
-                <Label className="text-xs">Quantity</Label>
-                <Input type="number" min="0" value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-9 text-sm mt-1" />
+                <Label className="text-xs">Batch Number</Label>
+                <div className="flex gap-1 mt-1">
+                  <Input placeholder="BN-DDMMYYYY-XXXX or leave blank" value={editBatchNumber} onChange={(e) => setEditBatchNumber(e.target.value)} className="h-8 text-sm flex-1" />
+                  <Button type="button" variant="outline" size="sm" className="h-8 w-8 px-0 shrink-0" onClick={() => setEditBatchNumber(genBN())} title="Auto-generate">
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Leave empty to clear.</p>
               </div>
-              <div>
-                <Label className="text-xs">Expiry Date</Label>
-                <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-9 text-sm mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Cost Price</Label>
-                <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-9 text-sm mt-1" placeholder="0.00" />
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Set Quantity</Label>
+                  <Input type="number" min="0" placeholder={String(editingBatch?.quantity || 0)} value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Direct set (or use adjustment above)</p>
+                </div>
+                <div>
+                  <Label className="text-xs">Expiry Date</Label>
+                  <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-xs">Cost Price</Label>
+                  <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-8 text-sm mt-0.5" placeholder="0.00" />
+                </div>
               </div>
             </div>
           </div>
