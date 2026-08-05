@@ -74,6 +74,7 @@ export function InventoryView() {
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
+  const [adjustBatchNumber, setAdjustBatchNumber] = useState('')
   const [adjustSellingUnit, setAdjustSellingUnit] = useState('')
   const [adjustItemsPerUnit, setAdjustItemsPerUnit] = useState('')
   const [savingSellAs, setSavingSellAs] = useState(false)
@@ -269,7 +270,7 @@ export function InventoryView() {
   }
 
   const handleAdjust = async () => {
-    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason) return
+    if (!selectedItem || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason) return
     try {
       const isSet = adjustType === 'SET'
       const adj = adjustAmount ? (adjustType === 'ADD' ? parseInt(adjustAmount) : adjustType === 'REMOVE' ? -parseInt(adjustAmount) : parseInt(adjustAmount)) : 0
@@ -287,6 +288,7 @@ export function InventoryView() {
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
       if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
+      if (adjustBatchNumber.trim()) body.batchNumber = adjustBatchNumber.trim()
 
       const res = await fetch('/api/inventory', {
         method: 'PUT',
@@ -304,6 +306,7 @@ export function InventoryView() {
       setAdjustCostPrice('')
       setAdjustSellingPrice('')
       setAdjustExpiryDate('')
+      setAdjustBatchNumber('')
       fetchInventory(true)
       fetchBatches(selectedItem.productId)
       bumpInventoryVersion()
@@ -1502,12 +1505,16 @@ export function InventoryView() {
                     <Label className="text-xs">Expiry Date</Label>
                     <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} className="h-8 text-sm mt-0.5" />
                   </div>
+                  <div>
+                    <Label className="text-xs">Batch Number</Label>
+                    <Input placeholder="e.g., BN-DDMMYYYY-XXXX" value={adjustBatchNumber} onChange={(e) => setAdjustBatchNumber(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  </div>
                   <div className="col-span-2">
                     <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>
                     <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
                   </div>
                 </div>
-                <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason} className="w-full">
+                <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason} className="w-full">
                   Apply Adjustment
                 </Button>
               </div>

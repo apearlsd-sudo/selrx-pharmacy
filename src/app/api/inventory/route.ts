@@ -481,7 +481,7 @@ export async function PUT(request: NextRequest) {
     const {
       productId, quantity, adjustment, reason,
       costPrice, sellingPrice, setQuantity, adjustmentType,
-      expiryDate,
+      expiryDate, batchNumber,
     } = body
 
     if (!productId || !reason) {
@@ -534,15 +534,14 @@ export async function PUT(request: NextRequest) {
       let batchCreated = false
       if (adjustmentType === 'ADD' && adjustment > 0 && expiryDate) {
         const batchId = generateId()
-        const autoBN = generateBatchNo()
+        const batchNo = batchNumber || generateBatchNo()
         await turso.execute({
           sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [batchId, productId, autoBN, expiryDate, adjustment, costPrice || null, now, userId, now, now],
+          args: [batchId, productId, batchNo, expiryDate, adjustment, costPrice || null, now, userId, now, now],
         })
         batchCreated = true
       }
-
       // Expiry-only update: no quantity change but expiryDate provided.
       // Update the nearest active batch's expiry, or update Product.expiryDate if no batches.
       let expiryUpdated = false
@@ -565,6 +564,23 @@ export async function PUT(request: NextRequest) {
           args: [expiryDate, now, productId],
         })
         expiryUpdated = true
+      }
+
+      // Batch number update: if batchNumber provided without creating a new batch,
+      // update the nearest active batch's batch number.
+      let batchNoUpdated = false
+      if (batchNumber && !batchCreated) {
+        const targetBatch = await turso.execute({
+          sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY "createdAt" DESC LIMIT 1`,
+          args: [productId],
+        })
+        if (targetBatch.rows.length > 0) {
+          await turso.execute({
+            sql: `UPDATE "Batch" SET "batchNumber" = ?, "updatedAt" = ? WHERE id = ?`,
+            args: [batchNumber, now, targetBatch.rows[0][0]],
+          })
+          batchNoUpdated = true
+        }
       }
 
       // Update product prices (but NOT expiryDate — that's managed by batches)
@@ -627,6 +643,11 @@ export async function PUT(request: NextRequest) {
         changedFields.push('expiryDate')
         previousValues.expiryDate = '—'
         newValues.expiryDate = expiryDate
+      }
+      if (batchNoUpdated) {
+        changedFields.push('batchNumber')
+        previousValues.batchNumber = '—'
+        newValues.batchNumber = batchNumber
       }
 
       if (changedFields.length > 0) {

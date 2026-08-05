@@ -586,6 +586,7 @@ function DrugEditModal({
   const [adjustCostPrice, setAdjustCostPrice] = useState('')
   const [adjustSellingPrice, setAdjustSellingPrice] = useState('')
   const [adjustExpiryDate, setAdjustExpiryDate] = useState('')
+  const [adjustBatchNumber, setAdjustBatchNumber] = useState('')
   const [adjustReason, setAdjustReason] = useState('')
   const [adjusting, setAdjusting] = useState(false)
 
@@ -669,7 +670,7 @@ function DrugEditModal({
 
   // ── Quick Stock Adjustment ──
   const handleAdjust = async () => {
-    if (!editingDrug || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason) return
+    if (!editingDrug || (!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason) return
     setAdjusting(true)
     try {
       const isSet = adjustType === 'SET'
@@ -679,10 +680,11 @@ function DrugEditModal({
       if (adjustCostPrice !== '') body.costPrice = parseFloat(adjustCostPrice)
       if (adjustSellingPrice !== '') body.sellingPrice = parseFloat(adjustSellingPrice)
       if (adjustExpiryDate) body.expiryDate = adjustExpiryDate
+      if (adjustBatchNumber.trim()) body.batchNumber = adjustBatchNumber.trim()
       const res = await fetch('/api/inventory', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-user-role': currentUser?.role || '', 'x-user-id': currentUser?.id || '' }, body: JSON.stringify(body) })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Adjustment failed') }
       addToast({ title: 'Stock Adjusted', description: `Adjustment applied to ${editingDrug.name}`, variant: 'success' })
-      setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustExpiryDate(''); setAdjustReason('')
+      setAdjustAmount(''); setAdjustCostPrice(''); setAdjustSellingPrice(''); setAdjustExpiryDate(''); setAdjustBatchNumber(''); setAdjustReason('')
       fetchBatches(editingDrug.id)
       bumpInventoryVersion()
       onSaved()
@@ -887,12 +889,16 @@ function DrugEditModal({
                   <Label className="text-xs">Expiry Date</Label>
                   <Input type="date" value={adjustExpiryDate} onChange={(e) => setAdjustExpiryDate(e.target.value)} className="h-8 text-sm mt-0.5" />
                 </div>
+                <div>
+                  <Label className="text-xs">Batch Number</Label>
+                  <Input placeholder="e.g., BN-DDMMYYYY-XXXX" value={adjustBatchNumber} onChange={(e) => setAdjustBatchNumber(e.target.value)} className="h-8 text-sm mt-0.5" />
+                </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Reason <span className="text-red-500">*</span></Label>
                   <Input placeholder="e.g., Restocked, Damaged" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="h-8 text-sm mt-0.5" />
                 </div>
               </div>
-              <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate) || !adjustReason || adjusting} className="w-full">
+              <Button size="sm" onClick={handleAdjust} disabled={(!adjustAmount && !adjustCostPrice && !adjustSellingPrice && !adjustExpiryDate && !adjustBatchNumber) || !adjustReason || adjusting} className="w-full">
                 {adjusting ? 'Applying...' : 'Apply Adjustment'}
               </Button>
             </div>
