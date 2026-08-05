@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
-  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil, Check
+  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,10 +94,12 @@ export function InventoryView() {
   }
   const [newBatchNumber, setNewBatchNumber] = useState(genBN)
   const [savingBatch, setSavingBatch] = useState(false)
-  const [editingBatchId, setEditingBatchId] = useState<string | null>(null)
+  const [editBatchModalOpen, setEditBatchModalOpen] = useState(false)
+  const [editingBatch, setEditingBatch] = useState<any>(null)
   const [editBatchQty, setEditBatchQty] = useState('')
   const [editBatchExpiry, setEditBatchExpiry] = useState('')
   const [editBatchCost, setEditBatchCost] = useState('')
+  const [editBatchNumber, setEditBatchNumber] = useState('')
   const [stockCountDialog, setStockCountDialog] = useState(false)
   const [stockSearch, setStockSearch] = useState('')
   const [stockSearchResults, setStockSearchResults] = useState<{ id: string; name: string; ndc: string | null; unitOfMeasure: string; currentQty: number }[]>([])
@@ -386,20 +388,16 @@ export function InventoryView() {
   }
 
   const handleEditBatch = (b: any) => {
-    setEditingBatchId(b.id)
+    setEditingBatch(b)
     setEditBatchQty(String(b.quantity))
     setEditBatchExpiry(b.expiryDate ? b.expiryDate.slice(0, 10) : '')
     setEditBatchCost(b.costPrice != null ? String(b.costPrice) : '')
+    setEditBatchNumber(b.batchNumber || '')
+    setEditBatchModalOpen(true)
   }
 
-  const handleCancelEditBatch = () => {
-    setEditingBatchId(null)
-    setEditBatchQty('')
-    setEditBatchExpiry('')
-    setEditBatchCost('')
-  }
-
-  const handleSaveBatch = async (batchId: string) => {
+  const handleSaveBatch = async () => {
+    if (!editingBatch) return
     setSavingBatch(true)
     try {
       const body: Record<string, any> = { reason: 'Batch edit' }
@@ -407,8 +405,9 @@ export function InventoryView() {
       if (editBatchExpiry) body.expiryDate = new Date(editBatchExpiry).toISOString()
       else if (editBatchExpiry === '') body.expiryDate = null
       if (editBatchCost !== '') body.costPrice = parseFloat(editBatchCost)
+      if (editBatchNumber !== (editingBatch.batchNumber || '')) body.batchNumber = editBatchNumber.trim() || null
 
-      const res = await fetch(`/api/inventory/batches/${batchId}`,
+      const res = await fetch(`/api/inventory/batches/${editingBatch.id}`,
         {
         method: 'PUT',
         headers: {
@@ -421,7 +420,8 @@ export function InventoryView() {
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update batch') }
       const result = await res.json()
       addToast({ title: 'Batch Updated', description: `${result.batchNumber || 'Batch'} updated, total stock: ${result.totalStock}`, variant: 'success' })
-      handleCancelEditBatch()
+      setEditBatchModalOpen(false)
+      setEditingBatch(null)
       if (selectedItem) fetchBatches(selectedItem.productId)
       fetchInventory(true)
       bumpInventoryVersion()
@@ -1659,80 +1659,43 @@ export function InventoryView() {
                       <tbody className="divide-y">
                         {batches.map((b: any) => {
                           const days = b.expiryDate ? getDaysToExpiry(b.expiryDate) : null
-                          const isEditing = editingBatchId === b.id
                           return (
-                            <tr key={b.id} className={`hover:bg-muted/30 ${isEditing ? 'bg-blue-50/50 ring-1 ring-blue-200' : ''}`}>
+                            <tr key={b.id} className="hover:bg-muted/30">
                               <td className="px-2 py-1.5 font-medium">{b.batchNumber || '—'}</td>
-                              {isEditing ? (
-                                <>
-                                  <td className="px-1 py-1">
-                                    <Input type="number" min="0" value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-6 text-xs w-16 text-center" autoFocus />
-                                  </td>
-                                  <td className="px-1 py-1">
-                                    <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-6 text-xs w-[110px]" />
-                                  </td>
-                                  <td className="px-1 py-1">
-                                    <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-6 text-xs w-16 text-right" placeholder="0.00" />
-                                  </td>
-                                  <td className="px-1 py-1 text-center">
-                                    <div className="flex items-center justify-center gap-0.5">
-                                      <button
-                                        onClick={() => handleSaveBatch(b.id)}
-                                        disabled={savingBatch}
-                                        className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50 p-0.5"
-                                        title="Save changes"
-                                      >
-                                        <Check className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={handleCancelEditBatch}
-                                        disabled={savingBatch}
-                                        className="text-muted-foreground hover:text-gray-700 disabled:opacity-50 p-0.5"
-                                        title="Cancel"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </>
-                              ) : (
-                                <>
-                                  <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
-                                  <td className="px-2 py-1.5">
-                                    {b.expiryDate ? (
-                                      <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
-                                        {formatDate(b.expiryDate)}
-                                        {days !== null && days <= 90 && (
-                                          <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
-                                            {days <= 0 ? 'Expired' : `${days}d`}
-                                          </Badge>
-                                        )}
-                                      </span>
-                                    ) : '—'}
-                                  </td>
-                                  <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
-                                  <td className="px-2 py-1.5 text-center">
-                                    <div className="flex items-center justify-center gap-0.5">
-                                      <button
-                                        onClick={() => handleEditBatch(b)}
-                                        disabled={savingBatch}
-                                        className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
-                                        title="Edit batch"
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteBatch(b.id)}
-                                        disabled={savingBatch}
-                                        className="text-muted-foreground hover:text-red-600 disabled:opacity-50 p-0.5"
-                                        title="Remove batch"
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </>
-                              )}
+                              <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
+                              <td className="px-2 py-1.5">
+                                {b.expiryDate ? (
+                                  <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                                    {formatDate(b.expiryDate)}
+                                    {days !== null && days <= 90 && (
+                                      <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
+                                        {days <= 0 ? 'Expired' : `${days}d`}
+                                      </Badge>
+                                    )}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="px-2 py-1.5 text-right">{b.costPrice != null ? formatCurrency(b.costPrice) : '—'}</td>
+                              <td className="px-2 py-1.5 text-center">
+                                <div className="flex items-center justify-center gap-0.5">
+                                  <button
+                                    onClick={() => handleEditBatch(b)}
+                                    disabled={savingBatch}
+                                    className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
+                                    title="Edit batch"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteBatch(b.id)}
+                                    disabled={savingBatch}
+                                    className="text-muted-foreground hover:text-red-600 disabled:opacity-50 p-0.5"
+                                    title="Remove batch"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
                           )
                         })}
@@ -2184,6 +2147,58 @@ export function InventoryView() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Batch Modal */}
+      <Dialog open={editBatchModalOpen} onOpenChange={(open) => { if (!open) { setEditBatchModalOpen(false); setEditingBatch(null) } }}>
+        <DialogContent className="max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-indigo-600" />
+              Edit Batch
+            </DialogTitle>
+            <DialogDescription>
+              {editingBatch ? `Editing batch ${editingBatch.batchNumber || editingBatch.id.slice(0, 8)}${selectedItem ? ` for ${selectedItem.name}` : ''}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Batch Number</Label>
+              <div className="flex gap-1 mt-1">
+                <Input
+                  placeholder="BN-DDMMYYYY-XXXX or leave blank"
+                  value={editBatchNumber}
+                  onChange={(e) => setEditBatchNumber(e.target.value)}
+                  className="h-9 text-sm flex-1"
+                />
+                <Button type="button" variant="outline" size="sm" className="h-9 w-9 px-0 shrink-0" onClick={() => setEditBatchNumber(genBN())} title="Auto-generate batch number">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Leave empty to clear the batch number.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Quantity</Label>
+                <Input type="number" min="0" value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-9 text-sm mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Expiry Date</Label>
+                <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-9 text-sm mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Cost Price</Label>
+                <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-9 text-sm mt-1" placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setEditBatchModalOpen(false); setEditingBatch(null) }}>Cancel</Button>
+            <Button onClick={handleSaveBatch} disabled={savingBatch} className="bg-indigo-600 hover:bg-indigo-700">
+              {savingBatch ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

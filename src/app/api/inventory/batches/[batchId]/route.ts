@@ -14,11 +14,11 @@ export async function PUT(
   try {
     const { batchId } = await params
     const body = await request.json()
-    const { quantity, expiryDate, costPrice, reason } = body
+    const { quantity, expiryDate, costPrice, batchNumber, reason } = body
     const userId = request.headers.get('x-user-id') || ''
 
-    if (quantity === undefined && expiryDate === undefined && costPrice === undefined) {
-      return NextResponse.json({ error: 'quantity, expiryDate, or costPrice is required' }, { status: 400 })
+    if (quantity === undefined && expiryDate === undefined && costPrice === undefined && batchNumber === undefined) {
+      return NextResponse.json({ error: 'quantity, expiryDate, costPrice, or batchNumber is required' }, { status: 400 })
     }
 
     if (!isTurso()) {
@@ -62,6 +62,10 @@ export async function PUT(
     if (costPrice !== undefined) {
       setClauses.push('"costPrice" = ?')
       setArgs.push(costPrice)
+    }
+    if (batchNumber !== undefined) {
+      setClauses.push('"batchNumber" = ?')
+      setArgs.push(batchNumber || null)
     }
     setArgs.push(batchId)
 
@@ -127,6 +131,11 @@ export async function PUT(
       previousValues.batchNumber = batch.batchNumber
       newValues.batchNumber = batch.batchNumber
     }
+    if (batchNumber !== undefined && batch.batchNumber !== (batchNumber || null)) {
+      changedFields.push('batchNumber')
+      previousValues.batchNumber = batch.batchNumber
+      newValues.batchNumber = batchNumber || null
+    }
     if (changedFields.length > 0) {
       writeProductHistory({
         productId: batch.productId,
@@ -142,7 +151,7 @@ export async function PUT(
       id: batchId,
       productId: batch.productId,
       productName: batch.productName,
-      batchNumber: batch.batchNumber,
+      batchNumber: batchNumber !== undefined ? (batchNumber || null) : batch.batchNumber,
       prevQty,
       newQty,
       expiryDate: expiryDate !== undefined ? (expiryDate || null) : batch.expiryDate,
