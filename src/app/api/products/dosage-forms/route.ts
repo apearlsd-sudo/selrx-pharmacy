@@ -1,10 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, generateId } from '@/lib/turso'
+
+const SEED_FORMS = [
+  'TABLET', 'CAPSULE', 'SYRUP', 'SUSPENSION', 'CREAM', 'OINTMENT',
+  'GEL', 'LOTION', 'DROPS', 'INJECTION', 'INHALER', 'SPRAY', 'PATCH',
+  'SUPPOSITORY', 'POWDER', 'GRANULES', 'SOLUTION', 'EMULSION', 'FOAM',
+  'LOZENGE', 'PASTILLE', 'SOFTGEL', 'FILM-COATED TABLET', 'CHEWABLE TABLET',
+  'EFFERVESCENT TABLET', 'SUBLINGUAL TABLET', 'ENTERIC-COATED TABLET',
+  'EXTENDED-RELEASE TABLET', 'BLISTER PACK', 'VIAL', 'AMPOULE', 'BOTTLE',
+  'SACHET', 'STRIP', 'TUBE', 'PESSARY', 'NEBULISER SOLUTION',
+  'EYE OINTMENT', 'EAR DROPS', 'NOSE SPRAY', 'ENEMA',
+]
+
+/** Ensure DosageForm table exists in Turso and seed it. Safe to call repeatedly. */
+async function ensureTursoTable() {
+  await turso.execute(`
+    CREATE TABLE IF NOT EXISTS "DosageForm" (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL UNIQUE,
+      "isActive"  INTEGER NOT NULL DEFAULT 1,
+      "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+      "updatedAt" TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+  // Check if we need to seed
+  const count = await turso.execute(`SELECT COUNT(*) as c FROM "DosageForm"`)
+  if (Number(count.rows[0].c) === 0) {
+    const now = new Date().toISOString()
+    for (const name of SEED_FORMS) {
+      const id = generateId()
+      try {
+        await turso.execute({
+          sql: `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, ?, ?)`,
+          args: [id, name, now, now],
+        })
+      } catch {
+        // skip duplicates
+      }
+    }
+  }
+}
 
 // GET /api/products/dosage-forms — All active dosage forms from the DosageForm table
 export async function GET() {
   try {
     if (isTurso()) {
+      await ensureTursoTable()
       const result = await turso.execute({
         sql: `SELECT name FROM "DosageForm" WHERE "isActive" = 1 ORDER BY name ASC`,
         args: [],
@@ -36,6 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (isTurso()) {
+      await ensureTursoTable()
       // Check for duplicates
       const existing = await turso.execute({
         sql: `SELECT id FROM "DosageForm" WHERE UPPER(name) = ?`,
@@ -44,7 +86,7 @@ export async function POST(req: NextRequest) {
       if (existing.rows.length > 0) {
         return NextResponse.json({ error: 'Dosage form already exists', name }, { status: 409 })
       }
-      const id = 'df_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+      const id = generateId()
       await turso.execute({
         sql: `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, datetime('now'), datetime('now'))`,
         args: [id, name],
@@ -76,6 +118,7 @@ export async function PUT(req: NextRequest) {
     }
 
     if (isTurso()) {
+      await ensureTursoTable()
       // Check new name not taken
       const dup = await turso.execute({ sql: `SELECT id FROM "DosageForm" WHERE UPPER(name) = ? AND name != ?`, args: [trimmed, oldName] })
       if (dup.rows.length > 0) {
@@ -112,6 +155,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (isTurso()) {
+      await ensureTursoTable()
       await turso.execute({ sql: `UPDATE "DosageForm" SET "isActive" = 0, "updatedAt" = datetime('now') WHERE name = ?`, args: [name] })
       return NextResponse.json({ deleted: name })
     } else {
