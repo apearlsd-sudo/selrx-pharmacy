@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         args: [...args, limit, skip],
       })
 
-      const products = dataResult.rows.map((row) => ({
+      const rawProducts = dataResult.rows.map((row) => ({
         id: row.id as string,
         ndc: row.ndc as string | null,
         name: row.name as string,
@@ -123,6 +123,48 @@ export async function GET(request: NextRequest) {
             }
           : null,
       }))
+
+      // Batch-level expiry summary for products on this page
+      const productIds = rawProducts.map((p) => p.id)
+      let batchSummaryMap = new Map<string, Record<string, unknown>>() 
+      if (productIds.length > 0) {
+        const phPlaceholders = productIds.map(() => '?').join(', ')
+        const batchSummaryResult = await turso.execute({
+          sql: `SELECT b."productId",
+                       COUNT(*) as totalBatches,
+                       SUM(CASE WHEN date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
+                       SUM(CASE WHEN date(b."expiryDate") > date('now') THEN 1 ELSE 0 END) as activeBatches,
+                       MIN(CASE WHEN date(b."expiryDate") > date('now') THEN b."expiryDate" ELSE NULL END) as nearestActiveExpiry,
+                       MIN(CASE WHEN date(b."expiryDate") <= date('now') THEN b."expiryDate" ELSE NULL END) as nearestExpiredDate,
+                       SUM(CASE WHEN date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
+                FROM "Batch" b
+                WHERE b.quantity > 0 AND b."expiryDate" IS NOT NULL AND b."productId" IN (${phPlaceholders})
+                GROUP BY b."productId"`,
+          args: productIds as (string | number)[],
+        })
+        for (const r of batchSummaryResult.rows) {
+          const obj: Record<string, unknown> = {}
+          batchSummaryResult.columns.forEach((c, i) => { obj[c.name] = r[i] })
+          batchSummaryMap.set(obj.productId as string, obj)
+        }
+      }
+
+      const defaultSummary = { hasBatches: false, totalBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null }
+      const products = rawProducts.map((p) => {
+        const bs = batchSummaryMap.get(p.id)
+        const summary = bs ? {
+          hasBatches: true,
+          totalBatches: Number(bs.totalBatches) || 0,
+          expiredBatches: Number(bs.expiredBatches) || 0,
+          activeBatches: Number(bs.activeBatches) || 0,
+          allBatchesExpired: (Number(bs.activeBatches) || 0) === 0,
+          hasExpiredBatches: (Number(bs.expiredBatches) || 0) > 0,
+          nearExpiryBatches: Number(bs.nearExpiryBatches) || 0,
+          nearestActiveExpiry: bs.nearestActiveExpiry as string | null,
+          nearestExpiredDate: bs.nearestExpiredDate as string | null,
+        } : defaultSummary
+        return { ...p, batchExpirySummary: summary }
+      })
 
       return NextResponse.json({
         products,

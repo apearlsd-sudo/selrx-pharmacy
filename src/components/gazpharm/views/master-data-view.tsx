@@ -1647,9 +1647,13 @@ function DrugSection() {
                   const stockQty = drug.inventory?.[0]?.quantity || 0
                   const reorderLvl = drug.reorderPoint || 10
                   const isDiscontinued = drug.status === 'DISCONTINUED'
-                  const daysToExpiry = daysToExpiryFrom(drug.expiryDate, todayWAT)
+                  const bs = (drug as any).batchExpirySummary
+                  const allBatchesExpired = bs?.hasBatches ? (bs.allBatchesExpired === true) : false
+                  const hasExpiredBatches = bs?.hasBatches ? (bs.hasExpiredBatches === true) : false
+                  const activeExpiry = bs?.nearestActiveExpiry || drug.expiryDate
+                  const daysToExpiry = daysToExpiryFrom(activeExpiry, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = daysToExpiry !== null && daysToExpiry <= 0
+                  const showExpired = allBatchesExpired && stockQty > 0
                   return (
                     <TableRow key={drug.id} className={showExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : nearExpiry ? 'bg-amber-50/50' : ''}>
                       <TableCell>
@@ -1686,6 +1690,8 @@ function DrugSection() {
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
                         ) : showExpired ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
+                        ) : hasExpiredBatches ? (
+                          <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px]">Partial Expired</Badge>
                         ) : stockQty <= reorderLvl ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">Low Stock</Badge>
                         ) : nearExpiry && daysToExpiry !== null ? (
@@ -1708,7 +1714,7 @@ function DrugSection() {
                         {drug.sellingUnit === 'EA' || !drug.sellingUnit ? 'Each' : `${drug.itemsPerUnit || 1}x ${drug.sellingUnit.toLowerCase()}`}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                        {formatDate(drug.expiryDate)}
+                        {formatDate(activeExpiry)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
