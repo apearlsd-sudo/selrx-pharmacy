@@ -494,13 +494,31 @@ function DosageFormModal({
     onOpenChange(nextOpen)
   }
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
     const trimmed = name.trim().toUpperCase()
-    if (!trimmed) return
-    addToast({ title: 'Dosage Form Added', description: `"${trimmed}" added to list`, variant: 'success' })
-    onSaved(trimmed)
-    setName('')
-    onOpenChange(false)
+    if (!trimmed || saving) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/products/dosage-forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (res.ok || res.status === 409) {
+        addToast({ title: 'Dosage Form Added', description: `"${trimmed}" added to list`, variant: 'success' })
+        onSaved(trimmed)
+        setName('')
+        onOpenChange(false)
+      } else {
+        addToast({ title: 'Error', description: 'Failed to add dosage form', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to add dosage form', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -523,8 +541,8 @@ function DosageFormModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
-          <Button onClick={handleSave} disabled={!name.trim()} className="bg-teal-600 hover:bg-teal-700">
-            <><Save className="h-4 w-4 mr-2" /> Create</>
+          <Button onClick={handleSave} disabled={!name.trim() || saving} className="bg-teal-600 hover:bg-teal-700">
+            <><Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Create'}</>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1295,8 +1313,8 @@ function DrugSection() {
   const [historyData, setHistoryData] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
-  // Custom dosage forms (synced with localStorage via DosageFormSection)
-  const [customDosageForms, setCustomDosageForms] = useState<string[]>(() => loadDosageForms())
+  // Dosage forms — fetched from DB
+  const [dosageFormsList, setDosageFormsList] = useState<string[]>([])
 
   // ── Import state ────────────────────────────────────────────────
   const [importDialog, setImportDialog] = useState(false)
@@ -1314,18 +1332,14 @@ function DrugSection() {
   const dateFormat = useAppStore((s) => s.dateFormat)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
-  const [dbDosageForms, setDbDosageForms] = useState<string[]>([])
-
-  const allDosageForms = useMemo(() => [...new Set([...customDosageForms, ...dbDosageForms])].sort(), [customDosageForms, dbDosageForms])
-
-  const fetchDosageFormsFromDB = useCallback(async () => {
+  const fetchDosageFormsList = useCallback(async () => {
     try {
       const res = await fetch('/api/products/dosage-forms')
-      if (res.ok) setDbDosageForms(await res.json())
+      if (res.ok) setDosageFormsList(await res.json())
     } catch { /* silent */ }
   }, [])
 
-  useEffect(() => { fetchDosageFormsFromDB() }, [fetchDosageFormsFromDB])
+  useEffect(() => { fetchDosageFormsList() }, [fetchDosageFormsList])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -1359,8 +1373,9 @@ function DrugSection() {
     if (prevInvVer.current !== inventoryVersion) {
       prevInvVer.current = inventoryVersion
       fetch('/api/products').then(r => { if (r.ok) r.json().then(d => setDrugs(Array.isArray(d) ? d : d.products || [])) }).catch(() => {})
+      fetchDosageFormsList()
     }
-  }, [inventoryVersion])
+  }, [inventoryVersion, fetchDosageFormsList])
 
   const handleCreate = async () => {
     if (!form.name || !form.sellingPrice) return
@@ -1455,11 +1470,7 @@ function DrugSection() {
 
   const handleDosageFormCreated = (name: string) => {
     const upper = name.trim().toUpperCase()
-    setCustomDosageForms((prev) => {
-      const updated = prev.includes(upper) ? prev : [...prev, upper].sort()
-      saveDosageForms(updated)
-      return updated
-    })
+    setDosageFormsList((prev) => [...new Set([...prev, upper])].sort())
     setForm((prev) => ({ ...prev, dosageForm: upper }))
   }
 
@@ -1478,11 +1489,7 @@ function DrugSection() {
 
   const handleEditDosageFormCreated = (name: string) => {
     const upper = name.trim().toUpperCase()
-    setCustomDosageForms((prev) => {
-      const updated = prev.includes(upper) ? prev : [...prev, upper].sort()
-      saveDosageForms(updated)
-      return updated
-    })
+    setDosageFormsList((prev) => [...new Set([...prev, upper])].sort())
   }
 
   // ── Import handlers ──────────────────────────────────────────────
@@ -1732,7 +1739,7 @@ function DrugSection() {
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select form..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">None</SelectItem>
-                  {allDosageForms.map((f) => (
+                  {dosageFormsList.map((f) => (
                     <SelectItem key={f} value={f}>{f}</SelectItem>
                   ))}
                   <SelectItem value="__new__" className="text-emerald-600 font-medium">
@@ -2037,7 +2044,7 @@ function DrugSection() {
         categories={categories}
         vendors={vendors}
         manufacturers={manufacturers}
-        dosageForms={allDosageForms}
+        dosageForms={dosageFormsList}
         onSaved={fetchData}
         onOpenAddManufacturer={() => setMfgModalOpen(true)}
         onOpenAddVendor={() => setVendorModalOpen(true)}
@@ -2350,23 +2357,9 @@ function DrugSection() {
 
 // ── DOSAGE FORM SECTION ──────────────────────────────────────────
 
-const STORAGE_KEY_DOSAGE = 'selrx-custom-dosage-forms'
-
-function loadDosageForms(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_DOSAGE)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
-}
-
-function saveDosageForms(forms: string[]) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(STORAGE_KEY_DOSAGE, JSON.stringify(forms))
-}
-
 function DosageFormSection() {
   const [forms, setForms] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingForm, setEditingForm] = useState<string | null>(null)
@@ -2374,42 +2367,76 @@ function DosageFormSection() {
   const [saving, setSaving] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
 
-  useEffect(() => { setForms(loadDosageForms()) }, [])
+  const fetchForms = useCallback(async () => {
+    try {
+      const res = await fetch('/api/products/dosage-forms')
+      if (res.ok) {
+        setForms(await res.json())
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchForms() }, [fetchForms])
 
   const openAdd = () => { setEditingForm(null); setNewName(''); setModalOpen(true) }
   const openEdit = (f: string) => { setEditingForm(f); setNewName(f); setModalOpen(true) }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const trimmed = newName.trim().toUpperCase()
-    if (!trimmed) return
+    if (!trimmed || saving) return
     setSaving(true)
     try {
       if (editingForm) {
-        const updated = forms.map((f) => f === editingForm ? trimmed : f)
-        setForms(updated)
-        saveDosageForms(updated)
-        addToast({ title: 'Updated', description: `Renamed to "${trimmed}"`, variant: 'success' })
-      } else {
-        if (forms.includes(trimmed)) {
-          addToast({ title: 'Duplicate', description: `"${trimmed}" already exists`, variant: 'destructive' })
-          setSaving(false)
-          return
+        const res = await fetch('/api/products/dosage-forms', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName: editingForm, newName: trimmed }),
+        })
+        if (res.ok) {
+          const updated = forms.map((f) => f === editingForm ? trimmed : f).sort()
+          setForms(updated)
+          addToast({ title: 'Updated', description: `Renamed to "${trimmed}"`, variant: 'success' })
+          setModalOpen(false)
+          setNewName('')
+        } else {
+          const data = await res.json().catch(() => ({}))
+          addToast({ title: 'Error', description: data.error || 'Failed to rename', variant: 'destructive' })
         }
-        const updated = [...forms, trimmed].sort()
-        setForms(updated)
-        saveDosageForms(updated)
-        addToast({ title: 'Added', description: `"${trimmed}" added`, variant: 'success' })
+      } else {
+        const res = await fetch('/api/products/dosage-forms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmed }),
+        })
+        if (res.ok || res.status === 409) {
+          if (!forms.includes(trimmed)) {
+            setForms([...forms, trimmed].sort())
+          }
+          addToast({ title: 'Added', description: `"${trimmed}" added`, variant: 'success' })
+          setModalOpen(false)
+          setNewName('')
+        } else {
+          addToast({ title: 'Error', description: 'Failed to add dosage form', variant: 'destructive' })
+        }
       }
-      setModalOpen(false)
-      setNewName('')
+    } catch {
+      addToast({ title: 'Error', description: 'Network error', variant: 'destructive' })
     } finally { setSaving(false) }
   }
 
-  const handleDelete = (f: string) => {
-    const updated = forms.filter((x) => x !== f)
-    setForms(updated)
-    saveDosageForms(updated)
-    addToast({ title: 'Deleted', description: `"${f}" removed`, variant: 'success' })
+  const handleDelete = async (f: string) => {
+    try {
+      const res = await fetch(`/api/products/dosage-forms?name=${encodeURIComponent(f)}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        setForms((prev) => prev.filter((x) => x !== f))
+        addToast({ title: 'Deleted', description: `"${f}" removed`, variant: 'success' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete', variant: 'destructive' })
+    }
   }
 
   const filtered = forms.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
@@ -2442,7 +2469,9 @@ function DosageFormSection() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full mt-2" /><Skeleton className="h-8 w-3/4 mt-2" /></TableCell></TableRow>
+              ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="p-0"><EmptyState icon={Pill} title={forms.length === 0 ? 'No dosage forms yet' : 'No matches found'} description={forms.length === 0 ? 'Add your first dosage form to get started' : 'Try a different search term'} /></TableCell>
                 </TableRow>

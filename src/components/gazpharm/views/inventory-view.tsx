@@ -123,10 +123,7 @@ export function InventoryView() {
   const [addCatForm, setAddCatForm] = useState({ name: '', description: '' })
   const [addDfOpen, setAddDfOpen] = useState(false)
   const [addDfName, setAddDfName] = useState('')
-  const STORAGE_KEY_DOSAGE = 'selrx-custom-dosage-forms'
-  const loadDosageForms = (): string[] => { try { const r = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_DOSAGE) : null; return r ? JSON.parse(r) : [] } catch { return [] } }
-  const saveDosageForms = (f: string[]) => { if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY_DOSAGE, JSON.stringify(f)) }
-  const [dosageForms, setDosageForms] = useState<string[]>(loadDosageForms)
+  const [dosageForms, setDosageForms] = useState<string[]>([])
   const [savingProduct, setSavingProduct] = useState(false)
 
   // -- Import state ------------------------------------------------
@@ -202,10 +199,7 @@ export function InventoryView() {
     try {
       const res = await fetch('/api/products/dosage-forms')
       if (res.ok) {
-        const dbForms: string[] = await res.json()
-        const localForms = loadDosageForms()
-        const merged = [...new Set([...dbForms, ...localForms])].sort()
-        setDosageForms(merged)
+        setDosageForms(await res.json())
       }
     } catch {
       // silent
@@ -222,8 +216,9 @@ export function InventoryView() {
     if (prevInvVer.current !== inventoryVersion) {
       prevInvVer.current = inventoryVersion
       fetchInventory(true)
+      fetchDosageForms()
     }
-  }, [inventoryVersion, fetchInventory])
+  }, [inventoryVersion, fetchInventory, fetchDosageForms])
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -544,19 +539,30 @@ export function InventoryView() {
     }
   }
 
-  const handleAddDosageForm = () => {
+  const handleAddDosageForm = async () => {
     if (!addDfName.trim()) return
     const upper = addDfName.trim().toUpperCase()
     if (dosageForms.includes(upper)) {
       setProductForm((prev) => ({ ...prev, dosageForm: upper }))
-    } else {
-      setDosageForms((prev) => {
-        const updated = [...prev, upper].sort()
-        saveDosageForms(updated)
-        return updated
+      setAddDfName('')
+      setAddDfOpen(false)
+      return
+    }
+    try {
+      const res = await fetch('/api/products/dosage-forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: upper }),
       })
-      setProductForm((prev) => ({ ...prev, dosageForm: upper }))
-      addToast({ title: 'Dosage Form Added', description: `${upper} added`, variant: 'success' })
+      if (res.ok || res.status === 409) {
+        setDosageForms((prev) => [...new Set([...prev, upper])].sort())
+        setProductForm((prev) => ({ ...prev, dosageForm: upper }))
+        addToast({ title: 'Dosage Form Added', description: `${upper} added`, variant: 'success' })
+      } else {
+        addToast({ title: 'Error', description: 'Failed to add dosage form', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to add dosage form', variant: 'destructive' })
     }
     setAddDfName('')
     setAddDfOpen(false)

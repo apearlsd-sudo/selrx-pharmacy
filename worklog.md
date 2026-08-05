@@ -41,3 +41,39 @@ Stage Summary:
 - Fix: Changed to PUT (which supports partial updates) + added optimistic UI updates
 - Cross-page sync: inventory-view now listens to `inventoryVersion` changes from drug catalog
 - Modified: `src/components/gazpharm/views/inventory-view.tsx`, `src/components/gazpharm/views/master-data-view.tsx`
+
+---
+Task ID: 3
+Agent: main
+Task: Fix dosage form dropdown showing no items on both inventory and drug catalog pages
+
+Work Log:
+- Root cause: API queried `SELECT DISTINCT dosageForm FROM Product` but DB had 0 products → empty dropdown
+- No dedicated DosageForm table existed — forms were derived from product data (chicken-and-egg problem)
+- Added `DosageForm` model to `prisma/schema.prisma` with `name` (unique), `isActive`, timestamps
+- Ran `prisma db push` to create the table in SQLite
+- Rewrote `/api/products/dosage-forms/route.ts` with full CRUD:
+  - GET: reads active forms from DosageForm table
+  - POST: creates new form (with duplicate check, 409 response)
+  - PUT: renames form + updates any products using old name
+  - DELETE: soft-deletes (sets isActive=false)
+- Seeded 41 common pharmacy dosage forms (TABLET, CAPSULE, SYRUP, INJECTION, etc.)
+- Updated inventory-view.tsx:
+  - Removed localStorage-based dosage form logic
+  - `fetchDosageForms` now reads directly from DB API
+  - `handleAddDosageForm` now POSTs to DB API
+  - Added `fetchDosageForms()` call to inventoryVersion listener for cross-page sync
+- Updated master-data-view.tsx:
+  - Removed `customDosageForms`, `dbDosageForms`, `allDosageForms`, `loadDosageForms`, `saveDosageForms`, `STORAGE_KEY_DOSAGE`
+  - DrugSection now uses single `dosageFormsList` state fetched from DB
+  - DosageFormModal now POSTs to DB API with loading state
+  - DosageFormSection (standalone page) now fetches from DB, creates/renames/deletes via API
+  - Added loading skeleton to DosageFormSection table
+  - Both DrugSection and DosageFormSection refetch on inventoryVersion bump
+
+Stage Summary:
+- New table: `DosageForm` in SQLite with 41 pre-seeded forms
+- API: `/api/products/dosage-forms` now supports GET/POST/PUT/DELETE
+- Both pages show all dosage forms from the DB — no more empty dropdowns
+- Forms added from either page persist in the DB and sync across pages
+- Modified: `prisma/schema.prisma`, `src/app/api/products/dosage-forms/route.ts`, `src/components/gazpharm/views/inventory-view.tsx`, `src/components/gazpharm/views/master-data-view.tsx`
