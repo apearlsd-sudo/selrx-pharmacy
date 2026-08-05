@@ -9,7 +9,6 @@ import {
   Menu,
   X,
   LogOut,
-  User,
   Package,
   ClipboardList,
   Users,
@@ -624,10 +623,9 @@ export default function Home() {
         <div className="border-t border-gray-100 p-3">
           <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-gray-50/50">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
-              <User className="h-4 w-4 text-white" />
+              <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate text-gray-800">{user?.name || 'User'}</p>
               <p className="text-[10px] text-emerald-600 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
@@ -743,12 +741,9 @@ export default function Home() {
               <Separator orientation="vertical" className="h-6 bg-gray-200" />
               <div className="flex items-center gap-2">
                 <span className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
-                  <User className="h-4 w-4 text-white" />
+                  <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
                 </span>
-                <div className="flex flex-col leading-none">
-                  <span className="font-semibold text-gray-800 text-xs">{user?.name}</span>
-                  <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
-                </div>
+                <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
               </div>
               <Button
                 variant="ghost"
