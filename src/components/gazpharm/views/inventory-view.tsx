@@ -17,6 +17,11 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -107,6 +112,8 @@ export function InventoryView() {
   const [editBatchSellingUnit, setEditBatchSellingUnit] = useState('')
   const [editBatchItemsPerUnit, setEditBatchItemsPerUnit] = useState('')
   const [editBatchSavingSellAs, setEditBatchSavingSellAs] = useState(false)
+  const [deleteBatchTarget, setDeleteBatchTarget] = useState<any>(null)
+  const [deletingBatch, setDeletingBatch] = useState(false)
   // Batch lookup state (search by batch number or expiry across all products)
   const [batchLookupQuery, setBatchLookupQuery] = useState('')
   const [batchLookupResults, setBatchLookupResults] = useState<any[]>([])
@@ -349,10 +356,15 @@ export function InventoryView() {
     setSavingBatch(false)
   }
 
-  const handleDeleteBatch = async (batchId: string) => {
-    setSavingBatch(true)
+  const handleDeleteBatch = (batch: any) => {
+    setDeleteBatchTarget(batch)
+  }
+
+  const confirmDeleteBatch = async () => {
+    if (!deleteBatchTarget) return
+    setDeletingBatch(true)
     try {
-      const res = await fetch(`/api/inventory/batches/${batchId}`, {
+      const res = await fetch(`/api/inventory/batches/${deleteBatchTarget.id}`, {
         method: 'DELETE',
         headers: { 'x-user-role': currentUser?.role || 'SUPER_ADMIN', 'x-user-id': currentUser?.id || '' },
       })
@@ -361,10 +373,11 @@ export function InventoryView() {
       if (selectedItem) fetchBatches(selectedItem.productId)
       fetchInventory(true)
       bumpInventoryVersion()
+      setDeleteBatchTarget(null)
     } catch (err: any) {
       addToast({ title: 'Error', description: err.message || 'Failed to delete batch', variant: 'destructive' })
     }
-    setSavingBatch(false)
+    setDeletingBatch(false)
   }
 
   const handleEditBatch = (b: any) => {
@@ -1776,15 +1789,15 @@ export function InventoryView() {
                                   <button
                                     onClick={() => handleEditBatch(b)}
                                     disabled={savingBatch}
-                                    className="text-muted-foreground hover:text-indigo-600 disabled:opacity-50 p-0.5"
+                                    className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 disabled:opacity-50 rounded p-0.5"
                                     title="Edit batch"
                                   >
                                     <Pencil className="h-3 w-3" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteBatch(b.id)}
+                                    onClick={() => handleDeleteBatch(b)}
                                     disabled={savingBatch}
-                                    className="text-muted-foreground hover:text-red-600 disabled:opacity-50 p-0.5"
+                                    className="bg-red-100 hover:bg-red-200 text-red-600 disabled:opacity-50 rounded p-0.5"
                                     title="Remove batch"
                                   >
                                     <X className="h-3 w-3" />
@@ -2389,6 +2402,35 @@ export function InventoryView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete Batch Confirmation ─────────────────────── */}
+      <AlertDialog open={!!deleteBatchTarget} onOpenChange={(open) => { if (!open) setDeleteBatchTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              </div>
+              Delete Batch
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete batch <strong>{deleteBatchTarget?.batchNumber || deleteBatchTarget?.id}</strong>?
+              This will permanently remove this stock batch record and reduce the product's total inventory.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={confirmDeleteBatch}
+              disabled={deletingBatch}
+            >
+              {deletingBatch ? 'Deleting...' : 'Delete Batch'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
