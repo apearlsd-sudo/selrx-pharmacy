@@ -178,6 +178,99 @@ export async function GET(request: NextRequest) {
       console.warn('Could not fetch previous day baseline:', e)
     }
 
+    // 5c. Detect products that expired between previous day snapshot and today
+    // This prevents false variance alerts for stock lost to expiry
+    const expiredSinceLastShift: Array<{
+      productId: string
+      productName: string
+      category: string
+      costPrice: number
+      expiredBatches: Array<{ batchNumber: string | null; expiryDate: string; quantity: number }>
+      totalExpiredQty: number
+      costLoss: number
+    }> = []
+    const expiredProductIds = new Set<string>()
+    const expiredProductQty: Record<string, number> = {}
+
+    if (previousDayBaseline) {
+      try {
+        // The prev day snapshot was taken at prevDayBaseline.endedAt.
+        // Anything with expiryDate <= today's date and > previous day's date qualifies.
+        // Also check Product.expiredAt for products explicitly marked expired.
+        const prevDayDate = prevDate.toISOString().split('T')[0] // YYYY-MM-DD of prev day
+        const todayDate = dateParam // YYYY-MM-DD of requested date
+
+        // Query 1: Batches with expiryDate between prev day and today (inclusive)
+        const expiredBatchesResult = await turso.execute({
+          sql: `SELECT b."productId", b."batchNumber", b."expiryDate", b.quantity, b."costPrice",
+                       p.name as "productName", p.category
+                FROM "Batch" b
+                LEFT JOIN "Product" p ON b."productId" = p.id
+                WHERE b."expiryDate" IS NOT NULL
+                  AND b."expiryDate" >= ?
+                  AND b."expiryDate" <= ?
+                  AND b.quantity > 0`,
+          args: [prevDayDate, todayDate],
+        })
+        const expiredBatches = toObjs(expiredBatchesResult)
+
+        // Group by productId
+        const batchByProduct: Record<string, Array<{ batchNumber: string | null; expiryDate: string; quantity: number; costPrice: number }>> = {}
+        for (const b of expiredBatches) {
+          const pid = b.productId as string
+          if (!batchByProduct[pid]) batchByProduct[pid] = []
+          batchByProduct[pid].push({
+            batchNumber: b.batchNumber as string | null,
+            expiryDate: b.expiryDate as string,
+            quantity: (b.quantity as number) || 0,
+            costPrice: (b.costPrice as number) || 0,
+          })
+          expiredProductIds.add(pid)
+          expiredProductQty[pid] = (expiredProductQty[pid] || 0) + ((b.quantity as number) || 0)
+        }
+
+        // Query 2: Products explicitly marked expired (expiredAt field) between prev day and today
+        const expiredProductsResult = await turso.execute({
+          sql: `SELECT id, name, category, "expiredAt", "costPrice"
+                FROM "Product"
+                WHERE "expiredAt" IS NOT NULL
+                  AND "expiredAt" >= ?
+                  AND "expiredAt" <= ?`,
+          args: [prevDayDate, todayDate],
+        })
+        const expiredProducts = toObjs(expiredProductsResult)
+        for (const ep of expiredProducts) {
+          const pid = ep.id as string
+          if (!expiredProductIds.has(pid)) {
+            expiredProductIds.add(pid)
+          }
+        }
+
+        // Build expiredSinceLastShift array (only for products that were in prev day baseline)
+        for (const prevItem of previousDayBaseline.items) {
+          const pid = prevItem.productId as string
+          if (expiredProductIds.has(pid) || batchByProduct[pid]) {
+            const batches = batchByProduct[pid] || []
+            const totalExpiredQty = batches.reduce((s, b) => s + b.quantity, 0)
+            const avgCost = batches.length > 0
+              ? batches.reduce((s, b) => s + b.costPrice, 0) / batches.length
+              : ((prevItem.costPrice as number) || 0)
+            expiredSinceLastShift.push({
+              productId: pid,
+              productName: (prevItem.productName as string) || 'Unknown',
+              category: (prevItem.category as string) || '',
+              costPrice: avgCost,
+              expiredBatches: batches,
+              totalExpiredQty,
+              costLoss: totalExpiredQty * avgCost,
+            })
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch expired batch data:', e)
+      }
+    }
+
     // 6. Build a merged product comparison across all shifts
     // For each product that appears in any snapshot (including previous day baseline), show qty per shift
     const allProductIds = new Set<string>()
@@ -236,6 +329,9 @@ export async function GET(request: NextRequest) {
       maxQty: number
       variance: number
       dayChange: number
+      expiryRelated: boolean
+      adjustedVariance: number
+      adjustedDayChange: number
     }> = []
 
     for (const pid of allProductIds) {
@@ -253,10 +349,31 @@ export async function GET(request: NextRequest) {
       const qtyValues = Object.values(quantities)
       const minQty = Math.min(...qtyValues)
       const maxQty = Math.max(...qtyValues)
-      const variance = maxQty - minQty
+      const rawVariance = maxQty - minQty
       // dayChange = difference between first shift of today and previous day's end
       const firstShiftQty = shifts.length > 0 ? (quantities[shifts[0].id] || 0) : 0
-      const dayChange = prevDayQty > 0 ? firstShiftQty - prevDayQty : 0
+      const rawDayChange = prevDayQty > 0 ? firstShiftQty - prevDayQty : 0
+
+      // Check if this product's variance is explained by expiry
+      const isExpiredRelated = expiredProductIds.has(pid)
+      const expiredQty = expiredProductQty[pid] || 0
+
+      // Adjust variance: if the drop matches expired quantity, remove it from variance
+      let adjustedVariance = rawVariance
+      let adjustedDayChange = rawDayChange
+      if (isExpiredRelated && prevDayBaseline) {
+        // For dayChange: if we had prevDayQty and now have less, the drop explained by expiry shouldn't count
+        if (rawDayChange < 0) {
+          const drop = Math.abs(rawDayChange)
+          const explainedByExpiry = Math.min(drop, expiredQty)
+          adjustedDayChange = rawDayChange + explainedByExpiry // reduces the negative (e.g. -30 + 30 = 0)
+        }
+        // For variance across shifts: similar logic using the expired quantity
+        if (rawVariance > 0 && prevDayQty > 0) {
+          const explainedByExpiry = Math.min(rawVariance, expiredQty)
+          adjustedVariance = Math.max(0, rawVariance - explainedByExpiry)
+        }
+      }
 
       // Only include products that appear in at least one snapshot
       const overallMax = Math.max(maxQty, prevDayQty)
@@ -270,14 +387,24 @@ export async function GET(request: NextRequest) {
           prevDayQty,
           minQty,
           maxQty,
-          variance,
-          dayChange,
+          variance: rawVariance,
+          dayChange: rawDayChange,
+          expiryRelated: isExpiredRelated,
+          adjustedVariance,
+          adjustedDayChange,
         })
       }
     }
 
     // Sort: highest variance first (most interesting for comparison)
     comparisonMatrix.sort((a, b) => b.variance - a.variance)
+
+    // 7. Summary stats for expired items
+    const expiredSummary = {
+      totalProducts: expiredSinceLastShift.length,
+      totalExpiredQty: expiredSinceLastShift.reduce((s, e) => s + e.totalExpiredQty, 0),
+      totalCostLoss: expiredSinceLastShift.reduce((s, e) => s + e.costLoss, 0),
+    }
 
     return NextResponse.json({
       date: dateParam,
@@ -293,6 +420,8 @@ export async function GET(request: NextRequest) {
             itemCount: previousDayBaseline.items.length,
           }
         : null,
+      expiredSinceLastShift,
+      expiredSummary,
     })
   } catch (error) {
     console.error('Error fetching shift snapshots:', error)

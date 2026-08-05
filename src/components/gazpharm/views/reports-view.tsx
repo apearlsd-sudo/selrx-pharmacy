@@ -255,17 +255,25 @@ export function ReportsView() {
     const shifts = snapshotData.shifts || []
     const hasPrev = !!snapshotData.previousDayBaseline
     const prevLabel = hasPrev ? `Prev Day End (${snapshotData.previousDayBaseline.userName})` : ''
-    const headers = ['Product', 'Category', 'Cost Price', ...(hasPrev ? [prevLabel] : []), ...shifts.map((s: any) => `${s.userName} (${format(new Date(s.endedAt), 'HH:mm')})`), ...(hasPrev ? ['Day Change'] : []), 'Variance']
+    const headers = ['Product', 'Category', 'Cost Price', ...(hasPrev ? [prevLabel] : []), ...shifts.map((s: any) => `${s.userName} (${format(new Date(s.endedAt), 'HH:mm')})`), ...(hasPrev ? ['Day Change'] : []), 'Variance', 'Adjusted Variance', 'Expiry Note', 'Cost Impact']
     const rows = [headers.join(',')]
     for (const item of snapshotData.comparisonMatrix) {
+      const displayVariance = item.expiryRelated ? item.adjustedVariance : item.variance
+      const displayDayChange = item.expiryRelated ? item.adjustedDayChange : item.dayChange
+      const expiryNote = item.expiryRelated
+        ? (item.adjustedVariance === 0 && item.variance > 0 ? 'Fully explained by expiry' : `Partially explained by expiry (raw: ${item.variance})`)
+        : ''
       const row = [
         `"${item.productName}"`,
         item.category || '',
         (item.costPrice || 0).toFixed(2),
         ...(hasPrev ? [item.prevDayQty || 0] : []),
         ...shifts.map((s: any) => item.quantities[s.shiftId] || 0),
-        ...(hasPrev ? [item.dayChange || 0] : []),
+        ...(hasPrev ? [displayDayChange || 0] : []),
         item.variance,
+        displayVariance,
+        `"${expiryNote}"`,
+        displayVariance > 0 ? (displayVariance * item.costPrice).toFixed(2) : '0',
       ]
       rows.push(row.join(','))
     }
@@ -2518,7 +2526,7 @@ export function ReportsView() {
                     </div>
                   )}
 
-                  {/* Snapshot Comparison Matrix (with previous day baseline) */}
+                  {/* Snapshot Comparison Matrix (with previous day baseline + expiry handling) */}
                   {snapshotData.comparisonMatrix && snapshotData.comparisonMatrix.length > 0 && (
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
@@ -2529,9 +2537,17 @@ export function ReportsView() {
                         <Badge variant="outline" className="text-[10px]">
                           {snapshotData.comparisonMatrix.length} products
                         </Badge>
-                        {snapshotData.comparisonMatrix.filter((c: any) => c.variance > 0).length > 0 && (
-                          <Badge variant="destructive" className="text-[10px]">
-                            {snapshotData.comparisonMatrix.filter((c: any) => c.variance > 0).length} variance(s)
+                        {(() => {
+                          const realVariances = snapshotData.comparisonMatrix.filter((c: any) => c.expiryRelated ? c.adjustedVariance > 0 : c.variance > 0)
+                          return realVariances.length > 0 ? (
+                            <Badge variant="destructive" className="text-[10px]">
+                              {realVariances.length} variance(s)
+                            </Badge>
+                          ) : null
+                        })()}
+                        {snapshotData.expiredSummary && snapshotData.expiredSummary.totalProducts > 0 && (
+                          <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">
+                            {snapshotData.expiredSummary.totalProducts} expired
                           </Badge>
                         )}
                       </div>
@@ -2539,6 +2555,12 @@ export function ReportsView() {
                         <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2.5 py-1.5 mb-2 flex items-center gap-1.5">
                           <Clock className="h-3 w-3 shrink-0" />
                           <span>Previous day end stock included — from <strong>{snapshotData.previousDayBaseline.userName}</strong>'s shift ended at {format(new Date(snapshotData.previousDayBaseline.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')} ({snapshotData.previousDayBaseline.itemCount} items)</span>
+                        </div>
+                      )}
+                      {snapshotData.expiredSummary && snapshotData.expiredSummary.totalProducts > 0 && (
+                        <div className="text-[11px] text-orange-700 bg-orange-50 border border-orange-200 rounded px-2.5 py-1.5 mb-2 flex items-center gap-1.5">
+                          <PackageX className="h-3 w-3 shrink-0" />
+                          <span><strong>{snapshotData.expiredSummary.totalProducts}</strong> product(s) ({snapshotData.expiredSummary.totalExpiredQty} units) expired since last shift — cost loss: <strong className="text-red-700">{formatCurrency(snapshotData.expiredSummary.totalCostLoss)}</strong>. Variance adjusted to exclude expiry-explained drops.</span>
                         </div>
                       )}
                       {!snapshotData.previousDayBaseline && snapshotData.shifts.length === 1 && (
@@ -2580,50 +2602,130 @@ export function ReportsView() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {snapshotData.comparisonMatrix.map((item: any, i: number) => (
-                              <TableRow key={item.productId}>
-                                <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
-                                <TableCell className="text-sm font-medium">{item.productName}</TableCell>
-                                <TableCell className="text-[11px] text-muted-foreground">{item.category || '—'}</TableCell>
-                                {snapshotData.previousDayBaseline && (
-                                  <TableCell className="text-xs text-center font-mono bg-amber-50/30">
-                                    <span className={item.prevDayQty === 0 ? 'text-muted-foreground/40' : 'font-medium'}>{item.prevDayQty}</span>
-                                  </TableCell>
-                                )}
-                                {snapshotData.shifts.map((s: any) => {
-                                  const qty = item.quantities[s.shiftId] || 0
-                                  return (
-                                    <TableCell key={s.shiftId} className="text-xs text-center font-mono">
-                                      <span className={qty === 0 ? 'text-muted-foreground/40' : ''}>{qty}</span>
+                            {snapshotData.comparisonMatrix.map((item: any, i: number) => {
+                              const displayVariance = item.expiryRelated ? item.adjustedVariance : item.variance
+                              const displayDayChange = item.expiryRelated ? item.adjustedDayChange : item.dayChange
+                              const isExpiredRow = item.expiryRelated
+                              return (
+                                <TableRow key={item.productId} className={isExpiredRow ? 'opacity-60 bg-orange-50/30' : ''}>
+                                  <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                                  <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                                  <TableCell className="text-[11px] text-muted-foreground">{item.category || '—'}</TableCell>
+                                  {snapshotData.previousDayBaseline && (
+                                    <TableCell className={`text-xs text-center font-mono ${isExpiredRow ? 'bg-orange-50/50' : 'bg-amber-50/30'}`}>
+                                      <span className={item.prevDayQty === 0 ? 'text-muted-foreground/40' : 'font-medium'}>{item.prevDayQty}</span>
                                     </TableCell>
-                                  )
-                                })}
-                                {snapshotData.previousDayBaseline && (
+                                  )}
+                                  {snapshotData.shifts.map((s: any) => {
+                                    const qty = item.quantities[s.shiftId] || 0
+                                    return (
+                                      <TableCell key={s.shiftId} className="text-xs text-center font-mono">
+                                        <span className={qty === 0 ? 'text-muted-foreground/40' : ''}>{qty}</span>
+                                      </TableCell>
+                                    )
+                                  })}
+                                  {snapshotData.previousDayBaseline && (
+                                    <TableCell className="text-center">
+                                      {isExpiredRow && item.dayChange < 0 && item.adjustedDayChange === 0 ? (
+                                        <Badge variant="outline" className="text-[10px] font-mono border-orange-300 text-orange-600 bg-orange-50" title={`Raw: ${item.dayChange}, adjusted for ${item.prevDayQty - (snapshotData.shifts.length > 0 ? (item.quantities[snapshotData.shifts[0].shiftId] || 0) : 0)} expired units`}>
+                                          Expired
+                                        </Badge>
+                                      ) : displayDayChange !== 0 ? (
+                                        <Badge variant={displayDayChange < 0 ? 'destructive' : 'secondary'} className="text-[10px] font-mono">
+                                          {displayDayChange > 0 ? '+' : ''}{displayDayChange}
+                                        </Badge>
+                                      ) : (
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
+                                      )}
+                                    </TableCell>
+                                  )}
                                   <TableCell className="text-center">
-                                    {item.dayChange !== 0 ? (
-                                      <Badge variant={item.dayChange < 0 ? 'destructive' : 'secondary'} className="text-[10px] font-mono">
-                                        {item.dayChange > 0 ? '+' : ''}{item.dayChange}
+                                    {isExpiredRow && item.variance > 0 && item.adjustedVariance === 0 ? (
+                                      <Badge variant="outline" className="text-[10px] font-mono border-orange-300 text-orange-600 bg-orange-50" title={`Raw variance: ${item.variance}, fully explained by expiry`}>
+                                        <PackageX className="h-2.5 w-2.5 mr-0.5 inline" />
+                                        Expired
                                       </Badge>
-                                    ) : (
+                                    ) : isExpiredRow && item.adjustedVariance > 0 && item.adjustedVariance < item.variance ? (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <Badge variant="destructive" className="text-[10px] font-mono">{item.adjustedVariance}</Badge>
+                                        <span className="text-[8px] text-orange-500">was {item.variance}</span>
+                                      </div>
+                                    ) : displayVariance > 0 ? (
+                                      <Badge variant="destructive" className="text-[10px] font-mono">{displayVariance}</Badge>
+                                    ) : displayVariance === 0 ? (
                                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
-                                    )}
+                                    ) : null}
                                   </TableCell>
-                                )}
-                                <TableCell className="text-center">
-                                  {item.variance > 0 ? (
-                                    <Badge variant="destructive" className="text-[10px] font-mono">{item.variance}</Badge>
-                                  ) : item.variance === 0 ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
-                                  ) : null}
+                                  <TableCell className={`text-xs text-right font-mono font-medium ${displayVariance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {displayVariance > 0 ? formatCurrency(displayVariance * item.costPrice) : ''}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  {/* Expired Since Last Shift — detailed breakdown */}
+                  {snapshotData.expiredSinceLastShift && snapshotData.expiredSinceLastShift.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <PackageX className="h-3.5 w-3.5 text-orange-500" />
+                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Expired Since Last Shift
+                        </p>
+                        <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">
+                          {snapshotData.expiredSummary.totalProducts} products
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] border-red-300 text-red-700 bg-red-50">
+                          Loss: {formatCurrency(snapshotData.expiredSummary.totalCostLoss)}
+                        </Badge>
+                      </div>
+                      <div className="border border-orange-200 rounded-lg overflow-hidden">
+                        <Table className="table-header-standard">
+                          <TableHeader>
+                            <TableRow className="bg-orange-50/60">
+                              <TableHead className="text-xs w-10">#</TableHead>
+                              <TableHead className="text-xs">Product</TableHead>
+                              <TableHead className="text-xs">Category</TableHead>
+                              <TableHead className="text-xs text-center">Batches Expired</TableHead>
+                              <TableHead className="text-xs text-center">Units Expired</TableHead>
+                              <TableHead className="text-xs text-right">Cost / Unit</TableHead>
+                              <TableHead className="text-xs text-right">Cost Loss</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {snapshotData.expiredSinceLastShift.map((exp: any, i: number) => (
+                              <TableRow key={exp.productId} className="bg-orange-50/20">
+                                <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                                <TableCell className="text-sm font-medium">{exp.productName}</TableCell>
+                                <TableCell className="text-[11px] text-muted-foreground">{exp.category || '—'}</TableCell>
+                                <TableCell className="text-xs text-center">
+                                  {exp.expiredBatches && exp.expiredBatches.length > 0 ? (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-mono">{exp.expiredBatches.length}</span>
+                                      <div className="flex flex-wrap gap-0.5 justify-center">
+                                        {exp.expiredBatches.map((b: any, bi: number) => (
+                                          <span key={bi} className="text-[8px] font-mono text-orange-600 bg-orange-100 rounded px-1" title={`Exp: ${b.expiryDate}, Qty: ${b.quantity}`}>
+                                            {b.batchNumber || 'No BN'}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
                                 </TableCell>
-                                <TableCell className={`text-xs text-right font-mono font-medium ${item.variance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                  {item.variance > 0 ? formatCurrency(item.variance * item.costPrice) : ''}
-                                </TableCell>
+                                <TableCell className="text-xs text-center font-mono font-medium text-orange-700">{exp.totalExpiredQty}</TableCell>
+                                <TableCell className="text-xs text-right font-mono">{formatCurrency(exp.costPrice)}</TableCell>
+                                <TableCell className="text-xs text-right font-mono font-medium text-red-600">{formatCurrency(exp.costLoss)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
-                      </ScrollArea>
+                      </div>
                     </div>
                   )}
 
