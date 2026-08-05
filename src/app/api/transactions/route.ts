@@ -438,9 +438,9 @@ export async function POST(request: NextRequest) {
         const pid = item.productId as string
         const now2 = new Date().toISOString()
 
-        // Try FEFO: deduct from batches with earliest expiry first
+        // Try FEFO: deduct from active (non-expired) batches with earliest expiry first
         const batchResult = await turso.execute({
-          sql: `SELECT id, quantity FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY "expiryDate" ASC NULLS LAST`,
+          sql: `SELECT id, quantity FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND ("expiryDate" IS NULL OR date("expiryDate") > date('now')) ORDER BY "expiryDate" ASC NULLS LAST`,
           args: [pid],
         })
 
