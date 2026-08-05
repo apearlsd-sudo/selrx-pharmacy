@@ -115,8 +115,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
   { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, permission: 'pos:sell', badge: 'LIVE' },
+  { name: 'master-data', label: 'Drug Catalogue', icon: Database, permission: 'master-data:view' },
   { name: 'inventory', label: 'Inventory', icon: Package, permission: 'inventory:view' },
-  { name: 'master-data', label: 'Drug Catalog', icon: Database, permission: 'master-data:view' },
   { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, permission: 'prescriptions:view' },
   { name: 'customers', label: 'Customers', icon: Users, permission: 'customers:view' },
   { name: 'reports', label: 'Reports', icon: BarChart3, permission: 'reports:view' },

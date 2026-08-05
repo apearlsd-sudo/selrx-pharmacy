@@ -51,7 +51,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   'Dashboard': LayoutDashboard,
   'Point of Sale': ShoppingCart,
   'Inventory': Package,
-  'Drug Catalog': Database,
+  'Drug Catalogue': Database,
   'Prescriptions': FileText,
   'Customers': Users,
   'Users & Security': Shield,

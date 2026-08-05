@@ -631,7 +631,7 @@ function DrugEditModal({
         body: JSON.stringify({
           productId: editingDrug.id, quantity: parseInt(newBatchQty),
           batchNumber: newBatchNumber || null, expiryDate: newBatchExpiry || null,
-          costPrice: newBatchCost ? parseFloat(newBatchCost) : null, reason: 'Received from Drug Catalog',
+          costPrice: newBatchCost ? parseFloat(newBatchCost) : null, reason: 'Received from Drug Catalogue',
         }),
       })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to receive batch') }
@@ -1086,7 +1086,7 @@ export function MasterDataView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader icon={Database} title="Drug Catalog" description="Manage medications, categories, suppliers, and dosage forms" />
+      <PageHeader icon={Database} title="Drug Catalogue" description="Manage medications, categories, suppliers, and dosage forms" />
 
       {/* Section Selector Buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">

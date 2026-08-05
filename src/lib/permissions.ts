@@ -19,7 +19,7 @@ export const ALL_PERMISSION_KEYS = [
   'inventory:receive-supply',
   'inventory:batches',
   'inventory:sell-as',
-  // Drug Catalog (Master Data)
+  // Drug Catalogue (Master Data)
   'master-data:view',
   'master-data:manage',
   'master-data:categories',
@@ -102,10 +102,10 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
-    category: 'Drug Catalog',
+    category: 'Drug Catalogue',
     permissions: [
-      { key: 'master-data:view', label: 'View Drug Catalog', description: 'Browse the master drug catalog' },
-      { key: 'master-data:manage', label: 'Manage Drug Catalog', description: 'Add, edit, and update drug records' },
+      { key: 'master-data:view', label: 'View Drug Catalogue', description: 'Browse the master drug catalog' },
+      { key: 'master-data:manage', label: 'Manage Drug Catalogue', description: 'Add, edit, and update drug records' },
       { key: 'master-data:categories', label: 'Manage Categories', description: 'Create and manage drug categories' },
       { key: 'master-data:manufacturers', label: 'Manage Manufacturers', description: 'Add and edit manufacturer records' },
       { key: 'master-data:suppliers', label: 'Manage Suppliers', description: 'Add and edit supplier/vendor records' },
