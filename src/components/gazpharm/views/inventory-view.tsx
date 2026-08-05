@@ -123,7 +123,10 @@ export function InventoryView() {
   const [addCatForm, setAddCatForm] = useState({ name: '', description: '' })
   const [addDfOpen, setAddDfOpen] = useState(false)
   const [addDfName, setAddDfName] = useState('')
-  const [dosageForms, setDosageForms] = useState<string[]>([])
+  const STORAGE_KEY_DOSAGE = 'selrx-custom-dosage-forms'
+  const loadDosageForms = (): string[] => { try { const r = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_DOSAGE) : null; return r ? JSON.parse(r) : [] } catch { return [] } }
+  const saveDosageForms = (f: string[]) => { if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY_DOSAGE, JSON.stringify(f)) }
+  const [dosageForms, setDosageForms] = useState<string[]>(loadDosageForms)
   const [savingProduct, setSavingProduct] = useState(false)
 
   // -- Import state ------------------------------------------------
@@ -198,7 +201,12 @@ export function InventoryView() {
   const fetchDosageForms = useCallback(async () => {
     try {
       const res = await fetch('/api/products/dosage-forms')
-      if (res.ok) setDosageForms(await res.json())
+      if (res.ok) {
+        const dbForms: string[] = await res.json()
+        const localForms = loadDosageForms()
+        const merged = [...new Set([...dbForms, ...localForms])].sort()
+        setDosageForms(merged)
+      }
     } catch {
       // silent
     }
@@ -542,9 +550,13 @@ export function InventoryView() {
     if (dosageForms.includes(upper)) {
       setProductForm((prev) => ({ ...prev, dosageForm: upper }))
     } else {
-      setDosageForms((prev) => [...prev, upper])
+      setDosageForms((prev) => {
+        const updated = [...prev, upper].sort()
+        saveDosageForms(updated)
+        return updated
+      })
       setProductForm((prev) => ({ ...prev, dosageForm: upper }))
-      addToast({ title: 'Dosage Form Added', description: `${upper} will persist once a product is saved with it`, variant: 'success' })
+      addToast({ title: 'Dosage Form Added', description: `${upper} added`, variant: 'success' })
     }
     setAddDfName('')
     setAddDfOpen(false)

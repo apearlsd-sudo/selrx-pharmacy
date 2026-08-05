@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit, Edit2, Save, X, RefreshCw,
@@ -1314,7 +1314,18 @@ function DrugSection() {
   const dateFormat = useAppStore((s) => s.dateFormat)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
 
-  const allDosageForms = [...customDosageForms]
+  const [dbDosageForms, setDbDosageForms] = useState<string[]>([])
+
+  const allDosageForms = useMemo(() => [...new Set([...customDosageForms, ...dbDosageForms])].sort(), [customDosageForms, dbDosageForms])
+
+  const fetchDosageFormsFromDB = useCallback(async () => {
+    try {
+      const res = await fetch('/api/products/dosage-forms')
+      if (res.ok) setDbDosageForms(await res.json())
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { fetchDosageFormsFromDB() }, [fetchDosageFormsFromDB])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
