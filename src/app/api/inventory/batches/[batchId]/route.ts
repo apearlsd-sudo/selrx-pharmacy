@@ -49,7 +49,7 @@ export async function PUT(
 
     // Update the batch
     const setClauses: string[] = ['"updatedAt" = ?']
-    const setArgs: unknown[] = [now]
+    const setArgs: (string | number | boolean | null)[] = [now]
 
     if (quantity !== undefined) {
       setClauses.push('quantity = ?')
