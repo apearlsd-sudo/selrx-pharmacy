@@ -71,7 +71,6 @@ export async function GET() {
             WHERE b."expiryDate" IS NOT NULL
               AND date(b."expiryDate") <= date('now')
               AND b.quantity > 0
-              AND (p.status IS NULL OR p.status != 'DISCONTINUED')
             ORDER BY b."expiryDate" ASC`,
           args: [],
         }),
@@ -93,7 +92,6 @@ export async function GET() {
               AND date(b."expiryDate") <= date('now')
               AND b.quantity = 0
               AND (p.status = 'EXPIRED' OR p."expiredAt" IS NOT NULL)
-              AND (p.status IS NULL OR p.status != 'DISCONTINUED')
             ORDER BY b."expiryDate" DESC`,
           args: [],
         }),
@@ -426,62 +424,87 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ===================== DELETE — Discontinue expired products =====================
+// ===================== DELETE — Remove expired records from report =====================
 
 export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { batchIds, productIds, all } = body as { batchIds?: string[]; productIds?: string[]; all?: boolean }
+    const { batchIds, all } = body as { batchIds?: string[]; all?: boolean }
 
     if (!isTurso()) {
       return NextResponse.json({ error: 'Requires cloud database' }, { status: 400 })
     }
 
     const now = new Date().toISOString()
+    let deletedCount = 0
+    const affectedProductIds = new Set<string>()
 
     if (all) {
-      // Discontinue ALL expired products
+      // Delete ALL expired batch records (both processed and unprocessed)
+      // First collect affected product IDs for inventory recalc
+      const prodResult = await turso.execute({
+        sql: `SELECT DISTINCT "productId" FROM "Batch" WHERE "expiryDate" IS NOT NULL AND date("expiryDate") <= date('now')`,
+        args: [],
+      })
+      for (const row of prodResult.rows) affectedProductIds.add(row[0] as string)
+
       const result = await turso.execute({
-        sql: `UPDATE "Product" SET status = 'DISCONTINUED', "updatedAt" = ? WHERE status = 'EXPIRED'`,
-        args: [now],
+        sql: `DELETE FROM "Batch" WHERE "expiryDate" IS NOT NULL AND date("expiryDate") <= date('now')`,
+        args: [],
       })
-      return NextResponse.json({
-        discontinued: result.rowsAffected,
-        message: `${result.rowsAffected} expired product(s) permanently discontinued.`,
-      })
-    }
-
-    // Discontinue specific items by product ID or batch ID
-    let idsToDiscontinue: string[] = []
-
-    if (productIds && productIds.length > 0) {
-      idsToDiscontinue = productIds
+      deletedCount = result.rowsAffected
     } else if (batchIds && batchIds.length > 0) {
-      // Convert batch IDs to product IDs
-      const placeholders = batchIds.map(() => '?').join(', ')
-      const result = await turso.execute({
-        sql: `SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${placeholders})`,
+      // Collect affected product IDs
+      const ph = batchIds.map(() => '?').join(', ')
+      const prodResult = await turso.execute({
+        sql: `SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${ph})`,
         args: batchIds,
       })
-      idsToDiscontinue = result.rows.map((r) => r[0] as string)
-    }
+      for (const row of prodResult.rows) affectedProductIds.add(row[0] as string)
 
-    if (idsToDiscontinue.length === 0) {
+      // Delete the batch records
+      const delResult = await turso.execute({
+        sql: `DELETE FROM "Batch" WHERE id IN (${ph})`,
+        args: batchIds,
+      })
+      deletedCount = delResult.rowsAffected
+    } else {
       return NextResponse.json({ error: 'No items specified for deletion' }, { status: 400 })
     }
 
-    const placeholders = idsToDiscontinue.map(() => '?').join(', ')
-    await turso.execute({
-      sql: `UPDATE "Product" SET status = 'DISCONTINUED', "updatedAt" = ? WHERE id IN (${placeholders})`,
-      args: [now, ...idsToDiscontinue],
-    })
+    // Recalculate inventory for affected products from remaining batches
+    for (const pid of affectedProductIds) {
+      const sumResult = await turso.execute({
+        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
+        args: [pid],
+      })
+      const totalBatchQty = Number(sumResult.rows[0][0]) || 0
+      await turso.execute({
+        sql: 'UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?',
+        args: [totalBatchQty, now, pid],
+      })
+      // Re-sync product expiry to nearest active batch
+      await turso.execute({
+        sql: `UPDATE "Product" SET "expiryDate" = (
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+              ), "updatedAt" = ? WHERE id = ?`,
+        args: [pid, now, pid],
+      })
+      // If product was EXPIRED and still has stock, reset status
+      if (totalBatchQty > 0) {
+        await turso.execute({
+          sql: `UPDATE "Product" SET status = 'ACTIVE', "expiredAt" = NULL, "updatedAt" = ? WHERE id = ? AND status = 'EXPIRED'`,
+          args: [now, pid],
+        })
+      }
+    }
 
     return NextResponse.json({
-      discontinued: idsToDiscontinue.length,
-      message: `${idsToDiscontinue.length} expired product(s) discontinued.`,
+      deleted: deletedCount,
+      message: `${deletedCount} expired record${deletedCount === 1 ? '' : 's'} removed.`,
     })
   } catch (error) {
-    console.error('Error deleting expired products:', error)
-    return NextResponse.json({ error: 'Failed to delete expired products' }, { status: 500 })
+    console.error('Error deleting expired records:', error)
+    return NextResponse.json({ error: 'Failed to delete expired records' }, { status: 500 })
   }
 }

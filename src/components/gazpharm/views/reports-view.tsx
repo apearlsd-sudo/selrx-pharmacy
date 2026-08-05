@@ -514,12 +514,12 @@ export function ReportsView() {
 
   // Toggle select all unprocessed expired goods
   const toggleSelectAllExpired = useCallback(() => {
-    const selectable = expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0))
-    const allSelected = selectable.length > 0 && selectable.every((p: any) => selectedExpiredIds.has(p.id))
+    const allSelectable = expiredGoods.map((p: any) => p.id)
+    const allSelected = allSelectable.length > 0 && allSelectable.every((id) => selectedExpiredIds.has(id))
     if (allSelected) {
       setSelectedExpiredIds(new Set())
     } else {
-      setSelectedExpiredIds(new Set(selectable.map((p: any) => p.id)))
+      setSelectedExpiredIds(new Set(allSelectable))
     }
   }, [selectedExpiredIds, expiredGoods])
 
@@ -567,7 +567,7 @@ export function ReportsView() {
   }, [user, addToast, bumpInventoryVersion, fetchExpiredGoods])
 
   // Delete expired goods records (discontinue products)
-  const deleteExpiredGoods = useCallback(async (options: { batchIds?: string[]; productIds?: string[]; all?: boolean }) => {
+  const deleteExpiredGoods = useCallback(async (options: { batchIds?: string[]; all?: boolean }) => {
     setDeletingExpired(true)
     try {
       const res = await fetch('/api/reports/expired-goods', {
@@ -1362,29 +1362,13 @@ export function ReportsView() {
               <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportExpiredCSV} disabled={expiredGoods.length === 0}>
                 <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
               </Button>
-              {(expiredSummary?.processedItems || 0) > 0 && (
+              {expiredGoods.length > 0 && (
                 <Button
                   variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-600 hover:bg-gray-100"
                   disabled={deletingExpired}
                   onClick={() => deleteExpiredGoods({ all: true })}
                 >
-                  {deletingExpired ? 'Deleting...' : 'Delete All Records'}
-                </Button>
-              )}
-              {(expiredSummary?.unprocessedItems || 0) > 0 && (
-                <Button
-                  size="sm"
-                  className="h-8 text-xs bg-red-600 hover:bg-red-700 text-white"
-                  disabled={processingExpired}
-                  onClick={() => processExpiredGoods(selectedExpiredIds.size > 0 ? Array.from(selectedExpiredIds) : undefined)}
-                >
-                  {processingExpired ? (
-                    <span className="flex items-center gap-1"><span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</span>
-                  ) : selectedExpiredIds.size > 0 ? (
-                    <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Remove Selected ({selectedExpiredIds.size})</>
-                  ) : (
-                    <><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Zero Expired Stock</>
-                  )}
+                  {deletingExpired ? 'Deleting...' : 'Clear All Records'}
                 </Button>
               )}
             </div>
@@ -1394,24 +1378,14 @@ export function ReportsView() {
           {selectedExpiredIds.size > 0 && (
             <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
               <Checkbox
-                checked={expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).length > 0}
+                checked={expiredGoods.length > 0 && expiredGoods.every((p: any) => selectedExpiredIds.has(p.id))}
                 onCheckedChange={toggleSelectAllExpired}
               />
               <span className="text-red-700 font-medium">{selectedExpiredIds.size} item{selectedExpiredIds.size === 1 ? '' : 's'} selected</span>
-              {expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && !p.processed).length > 0 && (
-                <span className="text-red-500">— cost to write off: {formatCurrency(expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && !p.processed).reduce((s: number, p: any) => s + p.costValue, 0))}</span>
-              )}
               <div className="flex items-center gap-2 ml-auto">
-                {expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && !p.processed).length > 0 && (
-                  <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={processingExpired} onClick={() => processExpiredGoods(Array.from(selectedExpiredIds).filter((id) => !expiredGoods.find((p: any) => p.id === id)?.processed))}>
-                    {processingExpired ? 'Processing...' : 'Zero Stock'}
-                  </Button>
-                )}
-                {expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && p.processed).length > 0 && (
-                  <Button variant="destructive" size="sm" className="h-7 text-xs bg-gray-700 hover:bg-gray-800" disabled={deletingExpired} onClick={() => deleteExpiredGoods({ batchIds: Array.from(selectedExpiredIds).filter((id) => expiredGoods.find((p: any) => p.id === id)?.processed) })}>
-                    {deletingExpired ? 'Deleting...' : 'Delete Selected'}
-                  </Button>
-                )}
+                <Button variant="destructive" size="sm" className="h-7 text-xs bg-gray-700 hover:bg-gray-800" disabled={deletingExpired} onClick={() => deleteExpiredGoods({ batchIds: Array.from(selectedExpiredIds) })}>
+                  {deletingExpired ? 'Deleting...' : `Delete Selected (${selectedExpiredIds.size})`}
+                </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedExpiredIds(new Set())}>Cancel</Button>
               </div>
             </div>
@@ -1489,7 +1463,7 @@ export function ReportsView() {
                     {expiredGoods.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Checkbox
-                          checked={expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).length > 0}
+                          checked={expiredGoods.every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.length > 0}
                           onCheckedChange={toggleSelectAllExpired}
                         />
                         <span className="text-[10px] text-muted-foreground">Select all</span>
@@ -1521,7 +1495,6 @@ export function ReportsView() {
                             <TableCell>
                               <Checkbox
                                 checked={selectedExpiredIds.has(p.id)}
-                                disabled={!p.processed && p.stockQty <= 0}
                                 onCheckedChange={() => toggleExpiredSelection(p.id)}
                               />
                             </TableCell>
@@ -1562,15 +1535,24 @@ export function ReportsView() {
                                   <Button
                                     variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
                                     disabled={deletingExpired}
-                                    onClick={() => deleteExpiredGoods({ productIds: [p.productId] })}
+                                    onClick={() => deleteExpiredGoods({ batchIds: [p.id] })}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               ) : p.stockQty > 0 ? (
-                                <Badge className="bg-red-100 text-red-700 text-[10px] gap-1">
-                                  <AlertTriangle className="h-3 w-3" /> In Stock
-                                </Badge>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Badge className="bg-red-100 text-red-700 text-[10px] gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> In Stock
+                                  </Badge>
+                                  <Button
+                                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                                    disabled={deletingExpired}
+                                    onClick={() => deleteExpiredGoods({ batchIds: [p.id] })}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               ) : (
                                 <Badge className="bg-gray-100 text-gray-600 text-[10px]">No Stock</Badge>
                               )}
