@@ -71,6 +71,7 @@ export async function GET() {
             WHERE b."expiryDate" IS NOT NULL
               AND date(b."expiryDate") <= date('now')
               AND b.quantity > 0
+              AND (p.status IS NULL OR p.status != 'DISCONTINUED')
             ORDER BY b."expiryDate" ASC`,
           args: [],
         }),
@@ -92,6 +93,7 @@ export async function GET() {
               AND date(b."expiryDate") <= date('now')
               AND b.quantity = 0
               AND (p.status = 'EXPIRED' OR p."expiredAt" IS NOT NULL)
+              AND (p.status IS NULL OR p.status != 'DISCONTINUED')
             ORDER BY b."expiryDate" DESC`,
           args: [],
         }),

@@ -514,11 +514,12 @@ export function ReportsView() {
 
   // Toggle select all unprocessed expired goods
   const toggleSelectAllExpired = useCallback(() => {
-    const unprocessed = expiredGoods.filter((p: any) => !p.processed)
-    if (selectedExpiredIds.size === unprocessed.length && unprocessed.length > 0) {
+    const selectable = expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0))
+    const allSelected = selectable.length > 0 && selectable.every((p: any) => selectedExpiredIds.has(p.id))
+    if (allSelected) {
       setSelectedExpiredIds(new Set())
     } else {
-      setSelectedExpiredIds(new Set(unprocessed.map((p: any) => p.id)))
+      setSelectedExpiredIds(new Set(selectable.map((p: any) => p.id)))
     }
   }, [selectedExpiredIds, expiredGoods])
 
@@ -1393,15 +1394,26 @@ export function ReportsView() {
           {selectedExpiredIds.size > 0 && (
             <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
               <Checkbox
-                checked={expiredGoods.filter((p: any) => !p.processed).every((p: any) => selectedExpiredIds.has(p.id))}
+                checked={expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).length > 0}
                 onCheckedChange={toggleSelectAllExpired}
               />
               <span className="text-red-700 font-medium">{selectedExpiredIds.size} item{selectedExpiredIds.size === 1 ? '' : 's'} selected</span>
-              <span className="text-red-500">— cost to write off: {formatCurrency(expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id)).reduce((s: number, p: any) => s + p.costValue, 0))}</span>
-              <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto" disabled={processingExpired} onClick={() => processExpiredGoods(Array.from(selectedExpiredIds))}>
-                {processingExpired ? 'Processing...' : 'Zero Stock'}
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedExpiredIds(new Set())}>Cancel</Button>
+              {expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && !p.processed).length > 0 && (
+                <span className="text-red-500">— cost to write off: {formatCurrency(expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && !p.processed).reduce((s: number, p: any) => s + p.costValue, 0))}</span>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                {expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && !p.processed).length > 0 && (
+                  <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={processingExpired} onClick={() => processExpiredGoods(Array.from(selectedExpiredIds).filter((id) => !expiredGoods.find((p: any) => p.id === id)?.processed))}>
+                    {processingExpired ? 'Processing...' : 'Zero Stock'}
+                  </Button>
+                )}
+                {expiredGoods.filter((p: any) => selectedExpiredIds.has(p.id) && p.processed).length > 0 && (
+                  <Button variant="destructive" size="sm" className="h-7 text-xs bg-gray-700 hover:bg-gray-800" disabled={deletingExpired} onClick={() => deleteExpiredGoods({ batchIds: Array.from(selectedExpiredIds).filter((id) => expiredGoods.find((p: any) => p.id === id)?.processed) })}>
+                    {deletingExpired ? 'Deleting...' : 'Delete Selected'}
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedExpiredIds(new Set())}>Cancel</Button>
+              </div>
             </div>
           )}
 
@@ -1474,13 +1486,13 @@ export function ReportsView() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold text-gray-800">Expired Products Detail</CardTitle>
-                    {(expiredSummary?.unprocessedItems || 0) > 0 && (
+                    {expiredGoods.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Checkbox
-                          checked={expiredGoods.filter((p: any) => !p.processed).every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.filter((p: any) => !p.processed).length > 0}
+                          checked={expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).every((p: any) => selectedExpiredIds.has(p.id)) && expiredGoods.filter((p: any) => p.processed || (!p.processed && p.stockQty > 0)).length > 0}
                           onCheckedChange={toggleSelectAllExpired}
                         />
-                        <span className="text-[10px] text-muted-foreground">Select all unprocessed</span>
+                        <span className="text-[10px] text-muted-foreground">Select all</span>
                       </div>
                     )}
                   </div>
@@ -1490,7 +1502,7 @@ export function ReportsView() {
                     <Table className="table-header-standard">
                       <TableHeader>
                         <TableRow>
-                          {(expiredSummary?.unprocessedItems || 0) > 0 && <TableHead className="w-8"></TableHead>}
+                          <TableHead className="w-8"></TableHead>
                           <TableHead>Product</TableHead>
                           <TableHead className="hidden md:table-cell">Batch</TableHead>
                           <TableHead className="text-right">Qty</TableHead>
@@ -1506,15 +1518,13 @@ export function ReportsView() {
                       <TableBody>
                         {expiredGoods.map((p: any) => (
                           <TableRow key={p.id} className={p.processed ? 'opacity-60' : ''}>
-                            {(expiredSummary?.unprocessedItems || 0) > 0 && (
-                              <TableCell>
-                                <Checkbox
-                                  checked={selectedExpiredIds.has(p.id)}
-                                  disabled={p.processed}
-                                  onCheckedChange={() => toggleExpiredSelection(p.id)}
-                                />
-                              </TableCell>
-                            )}
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedExpiredIds.has(p.id)}
+                                disabled={!p.processed && p.stockQty <= 0}
+                                onCheckedChange={() => toggleExpiredSelection(p.id)}
+                              />
+                            </TableCell>
                             <TableCell>
                               <div>
                                 <p className="font-medium text-sm">{p.name}</p>
