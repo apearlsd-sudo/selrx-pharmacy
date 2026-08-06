@@ -197,10 +197,13 @@ export async function POST(
       )
     }
 
+    const requesterId = request.headers.get('x-user-id') || ''
+    const isSuperAdmin = request.headers.get('x-user-role') === 'SUPER_ADMIN'
+
     if (isTurso()) {
-      // 1. Check transaction exists and its status
+      // 1. Check transaction exists, its status, and ownership
       const txnResult = await turso.execute({
-        sql: 'SELECT status FROM "Transaction" WHERE id = ?',
+        sql: 'SELECT status, "userId" FROM "Transaction" WHERE id = ?',
         args: [id],
       })
 
@@ -208,7 +211,17 @@ export async function POST(
         return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
       }
 
-      const status = txnResult.rows[0][0] as string
+      const txnRow = toObjs(txnResult)[0]
+      const status = txnRow.status as string
+      const txnUserId = txnRow.userId as string
+
+      // Non-admin can only void their own transactions
+      if (!isSuperAdmin && requesterId && txnUserId !== requesterId) {
+        return NextResponse.json(
+          { error: 'You can only void your own transactions' },
+          { status: 403 },
+        )
+      }
       if (status === 'VOIDED') {
         return NextResponse.json({ error: 'Transaction is already voided' }, { status: 400 })
       }
@@ -330,6 +343,14 @@ export async function POST(
 
     if (!transaction) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    }
+
+    // Non-admin can only void their own transactions
+    if (!isSuperAdmin && requesterId && transaction.userId !== requesterId) {
+      return NextResponse.json(
+        { error: 'You can only void your own transactions' },
+        { status: 403 },
+      )
     }
 
     if (transaction.status === 'VOIDED') {

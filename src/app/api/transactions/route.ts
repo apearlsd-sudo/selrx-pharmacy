@@ -150,8 +150,17 @@ export async function GET(request: NextRequest) {
         args.push(requesterId)
       }
 
-      // Date range
-      if (from || to) {
+      // Date range — non-admin users are restricted to today only
+      if (!isSuperAdmin) {
+        const startOfDay = new Date()
+        startOfDay.setHours(0, 0, 0, 0)
+        const endOfDay = new Date()
+        endOfDay.setHours(23, 59, 59, 999)
+        conditions.push('t.createdAt >= ?')
+        args.push(startOfDay.toISOString())
+        conditions.push('t.createdAt <= ?')
+        args.push(endOfDay.toISOString())
+      } else if (from || to) {
         if (from) { conditions.push('t.createdAt >= ?'); args.push(new Date(from).toISOString()) }
         if (to) { conditions.push('t.createdAt <= ?'); args.push(new Date(to).toISOString()) }
       }
@@ -272,7 +281,14 @@ export async function GET(request: NextRequest) {
       where.userId = requesterId
     }
 
-    if (from || to) {
+    // Non-admin users are restricted to today only
+    if (!isSuperAdmin) {
+      const startOfDay = new Date()
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date()
+      endOfDay.setHours(23, 59, 59, 999)
+      where.createdAt = { gte: startOfDay, lte: endOfDay }
+    } else if (from || to) {
       where.createdAt = {} as Record<string, unknown>
       if (from) (where.createdAt as Record<string, unknown>).gte = new Date(from)
       if (to) (where.createdAt as Record<string, unknown>).lte = new Date(to)

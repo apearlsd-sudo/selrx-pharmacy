@@ -37,8 +37,18 @@ export async function GET(request: NextRequest) {
     const requesterId = request.headers.get('x-user-id') || ''
     const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
 
-    // Non-SUPER_ADMIN users can only see their own sales
+    // Non-SUPER_ADMIN users can only see their own sales AND today only
     const effectiveUserId = isSuperAdmin ? userId : (requesterId || userId)
+
+    // Enforce today-only date range for non-admin users at the API level
+    let effectiveFrom = from
+    let effectiveTo = to
+    if (!isSuperAdmin) {
+      const now = new Date()
+      const todayStr = now.toISOString().slice(0, 10)
+      effectiveFrom = todayStr
+      effectiveTo = todayStr
+    }
 
     // ========================================================================
     // Turso (raw SQL) path
@@ -48,12 +58,12 @@ export async function GET(request: NextRequest) {
       const conditions: string[] = [`t."status" = 'COMPLETED'`]
       const args: unknown[] = []
 
-      if (from) {
+      if (effectiveFrom) {
         conditions.push(`t."createdAt" >= ?`)
-        args.push(new Date(from).toISOString())
+        args.push(new Date(effectiveFrom).toISOString())
       }
-      if (to) {
-        const toDate = new Date(to)
+      if (effectiveTo) {
+        const toDate = new Date(effectiveTo)
         toDate.setHours(23, 59, 59, 999)
         conditions.push(`t."createdAt" <= ?`)
         args.push(toDate.toISOString())
@@ -160,7 +170,7 @@ export async function GET(request: NextRequest) {
           args: safeArgs(args),
         }),
 
-        // 7. All users for dropdown (completely unfiltered — no userId, no date range)
+        // 7. All users for dropdown (only for SUPER_ADMIN)
         turso.execute({
           sql: `SELECT DISTINCT t."userId",
                        u."name"  as userName,
@@ -168,8 +178,9 @@ export async function GET(request: NextRequest) {
                 FROM "Transaction" t
                 LEFT JOIN User u ON t."userId" = u."id"
                 WHERE t."status" = 'COMPLETED'
+                ${isSuperAdmin ? '' : 'AND t."userId" = ?'}
                 ORDER BY u."name" ASC`,
-          args: [],
+          args: isSuperAdmin ? [] : [requesterId],
         }),
       ])
 
@@ -319,11 +330,11 @@ export async function GET(request: NextRequest) {
     // ========================================================================
     const { db } = await import('@/lib/db')
 
-    // Build date filter
+    // Build date filter (non-admin forced to today)
     const dateFilter: Record<string, unknown> = {}
-    if (from) dateFilter.gte = new Date(from)
-    if (to) {
-      const toDate = new Date(to)
+    if (effectiveFrom) dateFilter.gte = new Date(effectiveFrom)
+    if (effectiveTo) {
+      const toDate = new Date(effectiveTo)
       toDate.setHours(23, 59, 59, 999)
       dateFilter.lte = toDate
     }
@@ -338,8 +349,11 @@ export async function GET(request: NextRequest) {
       baseWhere.userId = effectiveUserId
     }
 
-    // Build baseWhere without any filters for allUsers dropdown
+    // Build baseWhere without any filters for allUsers dropdown (only SUPER_ADMIN gets all users)
     const baseWhereNoUser: Record<string, unknown> = { status: 'COMPLETED' }
+    if (!isSuperAdmin && requesterId) {
+      baseWhereNoUser.userId = requesterId
+    }
 
     // 1. Overall summary stats
     const [allTransactions, totalSalesAgg, allUsersGrouped] = await Promise.all([
