@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
                     r."notes", r."createdAt", r."updatedAt",
                     u."id" AS "userId_val", u."name" AS "userName", u."role" AS "userRole",
                     a."id" AS "approvedById_val", a."name" AS "approvedByName",
-                    t."transactionNo",
+                    t."transactionNo", t."userId" AS "transactionUserId",
                     p."id" AS "prodId", p."name" AS "prodName", p."ndc" AS "prodNdc"
              FROM "Return" r
              LEFT JOIN "User" u ON u."id" = r."userId"
@@ -125,6 +125,7 @@ export async function GET(req: NextRequest) {
         approvedBy: row.approvedById_val
           ? { id: row.approvedById_val, name: row.approvedByName }
           : null,
+        transactionUserId: row.transactionUserId || null,
         transaction: row.transactionNo ? { transactionNo: row.transactionNo } : null,
         product: row.prodId ? { id: row.prodId, name: row.prodName, ndc: row.prodNdc } : null,
       }))
@@ -206,7 +207,7 @@ export async function GET(req: NextRequest) {
         include: {
           user: { select: { id: true, name: true, role: true } },
           approvedBy: { select: { id: true, name: true } },
-          transaction: { select: { transactionNo: true } },
+          transaction: { select: { transactionNo: true, userId: true } },
           product: { select: { id: true, name: true, ndc: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -389,7 +390,10 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date()
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+    const dd = String(now.getDate()).padStart(2, '0')
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const yyyy = String(now.getFullYear())
+    const dateStr = dd + mm + yyyy
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const todayReturns = await db.return.count({ where: { createdAt: { gte: todayStart } } })
     const seq = String(todayReturns + 1).padStart(4, '0')

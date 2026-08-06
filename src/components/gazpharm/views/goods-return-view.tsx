@@ -127,6 +127,7 @@ interface ReturnRecord {
   updatedAt: string
   user: { id: string; name: string; role: string }
   approvedBy: { id: string; name: string } | null
+  transactionUserId: string | null
   transaction: { transactionNo: string }
   product: { id: string; name: string; ndc: string | null }
 }
@@ -422,6 +423,7 @@ export function GoodsReturnView() {
             onAction={performAction}
             actionLoading={actionLoading}
             userRole={user?.role || ''}
+            userId={user?.id || ''}
           />
         </TabsContent>
 
@@ -436,6 +438,7 @@ export function GoodsReturnView() {
             onAction={performAction}
             actionLoading={actionLoading}
             userRole={user?.role || ''}
+            userId={user?.id || ''}
           />
         </TabsContent>
       </Tabs>
@@ -628,7 +631,7 @@ export function GoodsReturnView() {
                   <div className="flex gap-2 flex-wrap">
                     {detailReturn.status === 'PENDING_APPROVAL' && (
                       <>
-                        {user?.role === 'SUPER_ADMIN' && (
+                        {(user?.role === 'SUPER_ADMIN' || detailReturn.transactionUserId === user?.id) && (
                           <>
                             <Button
                               size="sm"
@@ -666,7 +669,7 @@ export function GoodsReturnView() {
                         </Button>
                       </>
                     )}
-                    {detailReturn.status === 'APPROVED' && user?.role === 'SUPER_ADMIN' && (
+                    {detailReturn.status === 'APPROVED' && (user?.role === 'SUPER_ADMIN' || detailReturn.transactionUserId === user?.id) && (
                       <>
                         <Button
                           size="sm"
@@ -719,6 +722,7 @@ function ReturnTable({
   onAction: (id: string, action: string) => void
   actionLoading: boolean
   userRole: string
+  userId: string
 }) {
   if (loading) {
     return (
@@ -809,7 +813,7 @@ function ReturnTable({
                       {ret.status === 'PENDING_APPROVAL' && (
                         <>
                           <DropdownMenuSeparator />
-                          {userRole === 'SUPER_ADMIN' && (
+                          {(userRole === 'SUPER_ADMIN' || ret.transactionUserId === userId) && (
                             <>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'approve')} disabled={actionLoading}>
                                 <Check className="h-3.5 w-3.5 mr-2 text-blue-600" /> Approve & Restock
@@ -827,7 +831,7 @@ function ReturnTable({
                           </DropdownMenuItem>
                         </>
                       )}
-                      {ret.status === 'APPROVED' && userRole === 'SUPER_ADMIN' && (
+                      {ret.status === 'APPROVED' && (userRole === 'SUPER_ADMIN' || ret.transactionUserId === userId) && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'complete')} disabled={actionLoading}>

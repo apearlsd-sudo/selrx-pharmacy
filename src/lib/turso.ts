@@ -155,9 +155,9 @@ export function generateId(): string {
  */
 export function generateTransactionNo(): string {
   const d = new Date()
-  const date = d.getFullYear().toString() +
+  const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
-    String(d.getDate()).padStart(2, '0')
+    d.getFullYear().toString()
   const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
   return `TXN-${date}-${seq}`
 }
@@ -167,9 +167,9 @@ export function generateTransactionNo(): string {
  */
 export function generateReturnNo(): string {
   const d = new Date()
-  const date = d.getFullYear().toString() +
+  const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
-    String(d.getDate()).padStart(2, '0')
+    d.getFullYear().toString()
   const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
   return `RTN-${date}-${seq}`
 }
@@ -199,9 +199,9 @@ export function generateBatchNo(): string {
  */
 export function generateStockTakeRef(): string {
   const d = new Date()
-  const date = d.getFullYear().toString() +
+  const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
-    String(d.getDate()).padStart(2, '0')
+    d.getFullYear().toString()
   const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
   return `ST-${date}-${seq}`
 }

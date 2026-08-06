@@ -195,11 +195,14 @@ export async function PUT(
 
     // ---- Turso raw SQL path ----
     if (isTurso()) {
-      // Fetch existing return
+      // Fetch existing return + the transaction's userId for ownership check
       const existingResult = await turso.execute({
-        sql: `SELECT "id", "returnNo", "status", "userId", "productId", "transactionId", "transactionItemId",
-                    "quantity", "notes", "refundMethod"
-             FROM "Return" WHERE "id" = ?`,
+        sql: `SELECT r."id", r."returnNo", r."status", r."userId", r."productId",
+                    r."transactionId", r."transactionItemId", r."quantity", r."notes", r."refundMethod",
+                    t."userId" AS "transactionUserId"
+             FROM "Return" r
+             LEFT JOIN "Transaction" t ON r."transactionId" = t."id"
+             WHERE r."id" = ?`,
         args: [id],
       })
       if (existingResult.rows.length === 0) {
@@ -207,14 +210,19 @@ export async function PUT(
       }
       const existing = toObjs(existingResult)[0]
 
-      // RBAC: non-admin can only cancel their own pending returns
+      // RBAC: SUPER_ADMIN can do anything.
+      // Non-admin: must be the return creator OR the transaction owner.
+      // Return creator can cancel; transaction owner can approve/reject/complete.
       if (!isSuperAdmin) {
-        if (existing.userId !== requesterId) {
+        const isReturnCreator = existing.userId === requesterId
+        const isTransactionOwner = existing.transactionUserId === requesterId
+        if (!isReturnCreator && !isTransactionOwner) {
           return NextResponse.json({ error: 'Access denied' }, { status: 403 })
         }
-        if (action !== 'cancel') {
+        // Only transaction owner (or admin) can approve/reject/complete
+        if (!isTransactionOwner && action !== 'cancel') {
           return NextResponse.json(
-            { error: 'Only admin can approve, reject, or complete returns' },
+            { error: 'Only the transaction owner or admin can approve, reject, or complete returns' },
             { status: 403 },
           )
         }
@@ -592,14 +600,22 @@ export async function PUT(
       return NextResponse.json({ error: 'Return not found' }, { status: 404 })
     }
 
-    // RBAC
+    // Fetch the transaction owner for RBAC
+    const txn = await db.transaction.findUnique({ where: { id: existing.transactionId }, select: { userId: true } })
+    const transactionUserId = txn?.userId || ''
+
+    // RBAC: SUPER_ADMIN can do anything.
+    // Non-admin: must be the return creator OR the transaction owner.
+    // Return creator can cancel; transaction owner can approve/reject/complete.
     if (!isSuperAdmin) {
-      if (existing.userId !== requesterId) {
+      const isReturnCreator = existing.userId === requesterId
+      const isTransactionOwner = transactionUserId === requesterId
+      if (!isReturnCreator && !isTransactionOwner) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 })
       }
-      if (action !== 'cancel') {
+      if (!isTransactionOwner && action !== 'cancel') {
         return NextResponse.json(
-          { error: 'Only admin can approve, reject, or complete returns' },
+          { error: 'Only the transaction owner or admin can approve, reject, or complete returns' },
           { status: 403 },
         )
       }
