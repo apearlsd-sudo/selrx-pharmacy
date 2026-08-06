@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-utils/schema.json",
+  "identifier": "default",
+  "description": "GazPharm POS capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "dialog:default",
+    "fs:default",
+    "http:default",
+    "process:default",
+    "notification:default"
+  ]
+}

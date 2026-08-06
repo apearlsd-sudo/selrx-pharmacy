@@ -22,3 +22,37 @@ Stage Summary:
 - Inventory Valuation: cost vs retail value by category, potential profit bar, below-reorder-point items
 - All reports include CSV export, date range filtering, and RBAC support
 - Files modified: src/app/api/reports/advanced/route.ts (+470 lines), src/components/gazpharm/views/advanced-reports-view.tsx (+520 lines)
+
+---
+Task ID: 2
+Agent: Main
+Task: Add Tauri v2 desktop app setup with local SQLite and sync engine
+
+Work Log:
+- Analyzed existing project structure: Next.js 16, Prisma + Turso, 43 API routes, full pharmacy POS
+- Created src-tauri/ Rust backend with Cargo.toml, tauri.conf.json, capabilities, build.rs
+- Created src-tauri/src/db.rs: full SQLite schema mirroring Prisma (all 20+ tables) + SyncLog + SyncCheckpoint + DeviceInfo
+- Created src-tauri/src/sync_server.rs: Axum-based hub sync server with pull/push/pending/status endpoints
+- Created src-tauri/src/lib.rs: Tauri commands (db_query, db_execute, db_batch, sync commands, device role)
+- Created src-tauri/src/main.rs: entry point
+- Created src/lib/platform.ts: isDesktop()/isWeb() runtime detection
+- Created src/lib/desktop/tauri-types.ts: type definitions for all IPC commands
+- Created src/lib/desktop/tauri-bridge.ts: lazy-loaded Tauri invoke wrappers (db, sync, device)
+- Created src/lib/db-adapter.ts: universal abstraction layer (adapterFetch, apiGet, apiPost, apiPut, apiDelete, adapterQuery, adapterExecute)
+- Created src/lib/sync-engine.ts: client-side push/pull sync with 30s interval, hub/terminal tables, conflict resolution
+- Created src/components/gazpharm/sync-status-indicator.tsx: UI indicator (green/yellow/red/gray) with tooltip details
+- Updated next.config.ts: conditional static export when TAURI_ENV_PLATFORM is set
+- Updated package.json: added dev:tauri, build:tauri, tauri:dev, tauri:build scripts
+- Updated .gitignore: added src-tauri/target/, src-tauri/icons/, src-tauri/Cargo.lock
+- Created DESKTOP_SETUP.md: full setup guide (prerequisites, quick start, architecture, troubleshooting)
+- Verified all new TypeScript files pass ESLint
+
+Stage Summary:
+- Complete Tauri v2 project structure created (Rust backend + TypeScript frontend abstraction)
+- Rust backend: embedded SQLite (Rusqlite) with full schema + Axum sync hub server
+- Frontend: platform detection, lazy Tauri bridge, universal fetch wrapper, sync engine
+- Sync: push transactions to hub, pull master data from hub, 30s auto-sync, manual sync
+- SyncStatusIndicator component ready to drop into the POS header
+- Web mode (Vercel + Turso) completely unaffected — zero breaking changes
+- To compile: install Rust + system deps (libwebkit2gtk, etc.) + `cargo install tauri-cli` + `npm i @tauri-apps/api`
+- Key files created: src-tauri/src/{main.rs, lib.rs, db.rs, sync_server.rs}, src/lib/{platform.ts, db-adapter.ts, sync-engine.ts}, src/lib/desktop/{tauri-types.ts, tauri-bridge.ts}, DESKTOP_SETUP.md

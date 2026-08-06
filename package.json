@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "next dev -p 3000 --turbopack 2>&1 | tee dev.log",
     "build": "node scripts/install-turso-adapter.mjs && npx prisma generate && node scripts/turso-sync-schema.mjs && next build",
+    "build:tauri": "npx prisma generate && TAURI_ENV_PLATFORM=desktop next build",
+    "dev:tauri": "next dev -p 1420 --turbopack 2>&1 | tee dev.log",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",
