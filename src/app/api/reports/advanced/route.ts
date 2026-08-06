@@ -81,6 +81,16 @@ export async function GET(req: NextRequest) {
           return prescriptionAnalyticsReport(from, to, userFilter, userArgs)
         case 'inventory-valuation':
           return inventoryValuationReport()
+        case 'discount-analysis':
+          return discountAnalysisReport(from, to, userFilter, userArgs)
+        case 'shift-analysis':
+          return shiftAnalysisReport(from, to, userFilter, userArgs)
+        case 'category-deep-dive':
+          return categoryDeepDiveReport(from, to, userFilter, userArgs)
+        case 'executive-summary':
+          return executiveSummaryReport(from, to, userFilter, userArgs)
+        case 'product-affinity':
+          return productAffinityReport(from, to, userFilter, userArgs)
         default:
           return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
       }
@@ -1145,6 +1155,451 @@ async function inventoryValuationReport() {
 }
 
 // ========================================================================
+// DISCOUNT ANALYSIS REPORT
+// ========================================================================
+
+async function discountAnalysisReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Overall discount stats
+  const statsResult = await turso.execute({
+    sql: `SELECT COUNT(*) AS totalTx,
+          SUM(CASE WHEN t."discount" > 0 THEN 1 ELSE 0 END) AS txWithDiscount,
+          COALESCE(SUM(t."discount"), 0) AS totalDiscount,
+          COALESCE(SUM(t."total"), 0) AS totalRevenue,
+          COALESCE(AVG(CASE WHEN t."discount" > 0 THEN t."discount" END), 0) AS avgDiscount
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}`,
+    args: [from, to, ...userArgs],
+  })
+  const stats = toObjs(statsResult)[0]
+  const totalDiscount = Number(stats?.totalDiscount || 0)
+  const totalRevenue = Number(stats?.totalRevenue || 0)
+  const totalTx = Number(stats?.totalTx || 0)
+  const txWithDiscount = Number(stats?.txWithDiscount || 0)
+  const avgDiscountPerTx = txWithDiscount > 0 ? Math.round(totalDiscount / txWithDiscount * 100) / 100 : 0
+  const discountRate = totalTx > 0 ? Math.round((txWithDiscount / totalTx) * 10000) / 100 : 0
+
+  // By user
+  const byUserResult = await turso.execute({
+    sql: `SELECT t."userId", u."name" AS "userName",
+          COUNT(*) AS txCount,
+          SUM(CASE WHEN t."discount" > 0 THEN 1 ELSE 0 END) AS discountedTx,
+          COALESCE(SUM(t."discount"), 0) AS totalDiscount,
+          COALESCE(SUM(t."total"), 0) AS totalSales,
+          COALESCE(SUM(t."subtotal"), 0) AS totalSubtotal
+          FROM "Transaction" t
+          LEFT JOIN "User" u ON u."id" = t."userId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY t."userId", u."name"
+          ORDER BY totalDiscount DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const byUser = toObjs(byUserResult).map((r) => ({
+    userId: r.userId as string,
+    userName: r.userName as string,
+    txCount: Number(r.txCount),
+    discountedTx: Number(r.discountedTx),
+    totalDiscount: Number(r.totalDiscount),
+    totalSales: Number(r.totalSales),
+    discountPctOfSales: Number(r.totalSales) > 0 ? Math.round((Number(r.totalDiscount) / Number(r.totalSales)) * 10000) / 100 : 0,
+    discountTxRate: Number(r.txCount) > 0 ? Math.round((Number(r.discountedTx) / Number(r.txCount)) * 10000) / 100 : 0,
+  }))
+
+  // Daily trend
+  const dailyResult = await turso.execute({
+    sql: `SELECT date(t."createdAt") AS day,
+          COALESCE(SUM(t."discount"), 0) AS totalDiscount,
+          COALESCE(SUM(t."total"), 0) AS totalRevenue,
+          COUNT(*) AS txCount,
+          SUM(CASE WHEN t."discount" > 0 THEN 1 ELSE 0 END) AS discountedTx
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY day ORDER BY day`,
+    args: [from, to, ...userArgs],
+  })
+  const dailyTrend = toObjs(dailyResult).map((r) => ({
+    day: r.day as string,
+    totalDiscount: Number(r.totalDiscount),
+    totalRevenue: Number(r.totalRevenue),
+    txCount: Number(r.txCount),
+    discountedTx: Number(r.discountedTx),
+    discountPct: Number(r.totalRevenue) > 0 ? Math.round((Number(r.totalDiscount) / Number(r.totalRevenue)) * 10000) / 100 : 0,
+  }))
+
+  // Discount distribution (buckets)
+  const distResult = await turso.execute({
+    sql: `SELECT CASE
+          WHEN t."discount" = 0 THEN 'No Discount'
+          WHEN t."discount" <= 5 THEN '1-5'
+          WHEN t."discount" <= 10 THEN '6-10'
+          WHEN t."discount" <= 20 THEN '11-20'
+          WHEN t."discount" <= 50 THEN '21-50'
+          ELSE '50+'
+          END AS bucket,
+          COUNT(*) AS txCount,
+          COALESCE(SUM(t."discount"), 0) AS totalDiscount
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY bucket ORDER BY
+          CASE bucket
+            WHEN 'No Discount' THEN 1 WHEN '1-5' THEN 2 WHEN '6-10' THEN 3
+            WHEN '11-20' THEN 4 WHEN '21-50' THEN 5 ELSE 6
+          END`,
+    args: [from, to, ...userArgs],
+  })
+  const discountDistribution = toObjs(distResult).map((r) => ({
+    bucket: r.bucket as string,
+    txCount: Number(r.txCount),
+    totalDiscount: Number(r.totalDiscount),
+  }))
+
+  return NextResponse.json({
+    summary: { totalDiscount, discountRate, avgDiscountPerTx, txWithDiscount, dateRange: { from, to } },
+    byUser, dailyTrend, discountDistribution,
+  })
+}
+
+// ========================================================================
+// SHIFT ANALYSIS REPORT
+// ========================================================================
+
+async function shiftAnalysisReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Hourly performance for the period
+  const hourlyResult = await turso.execute({
+    sql: `SELECT CAST(strftime('%H', t."createdAt") AS INTEGER) AS hour,
+          COUNT(*) AS txCount,
+          COALESCE(SUM(t."total"), 0) AS totalRevenue,
+          COALESCE(AVG(t."total"), 0) AS avgTxValue,
+          COALESCE(SUM(ti."quantity"), 0) AS totalItems
+          FROM "Transaction" t
+          LEFT JOIN "TransactionItem" ti ON ti."transactionId" = t."id"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY hour ORDER BY hour`,
+    args: [from, to, ...userArgs],
+  })
+  const hourlyComparison = toObjs(hourlyResult).map((r) => ({
+    hour: Number(r.hour),
+    label: `${String(r.hour).padStart(2, '0')}:00`,
+    txCount: Number(r.txCount),
+    totalRevenue: Number(r.totalRevenue),
+    avgTxValue: Number(r.avgTxValue),
+    totalItems: Number(r.totalItems),
+    // Classify into shifts
+    shift: Number(r.hour) < 12 ? 'Morning' : Number(r.hour) < 17 ? 'Afternoon' : 'Evening',
+  }))
+
+  // Aggregate by shift
+  const shiftMap = new Map<string, { txCount: number; revenue: number; items: number }>()
+  for (const h of hourlyComparison) {
+    const existing = shiftMap.get(h.shift) || { txCount: 0, revenue: 0, items: 0 }
+    existing.txCount += h.txCount
+    existing.revenue += h.totalRevenue
+    existing.items += h.totalItems
+    shiftMap.set(h.shift, existing)
+  }
+  const shifts = Array.from(shiftMap.entries()).map(([shift, v]) => ({
+    shift,
+    txCount: v.txCount,
+    totalRevenue: Math.round(v.revenue * 100) / 100,
+    avgTxValue: v.txCount > 0 ? Math.round(v.revenue / v.txCount * 100) / 100 : 0,
+    totalItems: v.items,
+  }))
+
+  // Day-of-week by shift
+  const dowShiftResult = await turso.execute({
+    sql: `SELECT CAST(strftime('%w', t."createdAt") AS INTEGER) AS dow,
+          CASE
+            WHEN CAST(strftime('%H', t."createdAt") AS INTEGER) < 12 THEN 'Morning'
+            WHEN CAST(strftime('%H', t."createdAt") AS INTEGER) < 17 THEN 'Afternoon'
+            ELSE 'Evening'
+          END AS shift,
+          COUNT(*) AS txCount,
+          COALESCE(SUM(t."total"), 0) AS totalRevenue
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY dow, shift ORDER BY dow`,
+    args: [from, to, ...userArgs],
+  })
+  const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dowShiftData = toObjs(dowShiftResult).map((r) => ({
+    day: dowLabels[Number(r.dow) as number] || 'Unknown',
+    shift: r.shift as string,
+    txCount: Number(r.txCount),
+    totalRevenue: Number(r.totalRevenue),
+  }))
+
+  const totalRevenue = shifts.reduce((s, sh) => s + sh.totalRevenue, 0)
+  const totalTx = shifts.reduce((s, sh) => s + sh.txCount, 0)
+
+  return NextResponse.json({
+    summary: { totalRevenue, totalTx, avgTxValue: totalTx > 0 ? Math.round(totalRevenue / totalTx * 100) / 100 : 0, dateRange: { from, to } },
+    shifts, hourlyComparison, dowShiftData,
+  })
+}
+
+// ========================================================================
+// CATEGORY DEEP DIVE REPORT
+// ========================================================================
+
+async function categoryDeepDiveReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Category-level metrics
+  const catResult = await turso.execute({
+    sql: `SELECT COALESCE(p."category", 'Uncategorized') AS category,
+          COUNT(DISTINCT ti."productId") AS productCount,
+          SUM(ti."quantity") AS totalQty,
+          COALESCE(SUM(ti."subtotal"), 0) AS totalRevenue,
+          COUNT(DISTINCT ti."transactionId") AS txCount,
+          COALESCE(AVG(ti."unitPrice"), 0) AS avgUnitPrice
+          FROM "TransactionItem" ti
+          JOIN "Transaction" t ON t."id" = ti."transactionId"
+          LEFT JOIN "Product" p ON p."id" = ti."productId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY category ORDER BY totalRevenue DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const categories = toObjs(catResult).map((r) => ({
+    category: r.category as string,
+    productCount: Number(r.productCount),
+    totalQty: Number(r.totalQty),
+    totalRevenue: Number(r.totalRevenue),
+    txCount: Number(r.txCount),
+    avgUnitPrice: Number(r.avgUnitPrice),
+    revenueShare: 0, // will fill after
+  }))
+
+  // Fill revenue share
+  const totalRev = categories.reduce((s, c) => s + c.totalRevenue, 0)
+  for (const c of categories) { c.revenueShare = totalRev > 0 ? Math.round((c.totalRevenue / totalRev) * 10000) / 100 : 0 }
+
+  // Top 3 products per category (for top 5 categories)
+  const topCats = categories.slice(0, 5)
+  const topProductsByCategory: Array<{ category: string; products: Array<Record<string, unknown>> }> = []
+  for (const cat of topCats) {
+    const prodResult = await turso.execute({
+      sql: `SELECT ti."productName", SUM(ti."quantity") AS totalQty,
+            COALESCE(SUM(ti."subtotal"), 0) AS totalRevenue,
+            COUNT(DISTINCT ti."transactionId") AS txCount
+            FROM "TransactionItem" ti
+            JOIN "Transaction" t ON t."id" = ti."transactionId"
+            LEFT JOIN "Product" p ON p."id" = ti."productId"
+            WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+              AND date(t."createdAt") >= date(?)
+              AND date(t."createdAt") <= date(?)
+              AND COALESCE(p."category", 'Uncategorized') = ?
+            GROUP BY ti."productName" ORDER BY totalRevenue DESC LIMIT 5`,
+      args: [from, to, cat.category],
+    })
+    topProductsByCategory.push({
+      category: cat.category,
+      products: toObjs(prodResult).map((r) => ({
+        productName: r.productName as string,
+        totalQty: Number(r.totalQty),
+        totalRevenue: Number(r.totalRevenue),
+        txCount: Number(r.txCount),
+      })),
+    })
+  }
+
+  return NextResponse.json({
+    summary: {
+      totalCategories: categories.length,
+      topCategory: categories[0] ? { name: categories[0].category, revenue: categories[0].totalRevenue } : null,
+      dateRange: { from, to },
+    },
+    categories,
+    topProductsByCategory,
+  })
+}
+
+// ========================================================================
+// EXECUTIVE SUMMARY REPORT
+// ========================================================================
+
+async function executiveSummaryReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  const today = todayStr()
+
+  // Core KPIs
+  const kpiResult = await turso.execute({
+    sql: `SELECT
+          COALESCE(SUM(CASE WHEN t."status" NOT IN ('PENDING', 'VOIDED') THEN t."total" ELSE 0 END), 0) AS revenue,
+          COUNT(CASE WHEN t."status" NOT IN ('PENDING', 'VOIDED') THEN 1 END) AS completedTx,
+          COUNT(CASE WHEN t."status" = 'VOIDED' THEN 1 END) AS voidedTx,
+          COALESCE(SUM(CASE WHEN t."status" NOT IN ('PENDING', 'VOIDED') THEN t."discount" ELSE 0 END), 0) AS totalDiscount,
+          COALESCE(SUM(CASE WHEN t."status" NOT IN ('PENDING', 'VOIDED') AND date(t."createdAt") = date(?) THEN t."total" ELSE 0 END), 0) AS todayRevenue,
+          COUNT(CASE WHEN t."status" NOT IN ('PENDING', 'VOIDED') AND date(t."createdAt") = date(?) THEN 1 END) AS todayTx
+          FROM "Transaction" t
+          WHERE date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}`,
+    args: [today, today, from, to, ...userArgs],
+  })
+  const kpi = toObjs(kpiResult)[0]
+
+  // Returns count and amount
+  const retResult = await turso.execute({
+    sql: `SELECT COUNT(*) AS totalReturns, COALESCE(SUM(r."refundAmount"), 0) AS totalRefund
+          FROM "Return" r
+          JOIN "Transaction" t ON t."id" = r."transactionId"
+          WHERE date(r."createdAt") >= date(?) AND date(r."createdAt") <= date(?)
+          ${userFilter}`,
+    args: [from, to, ...userArgs],
+  })
+  const ret = toObjs(retResult)[0]
+
+  // Low stock alerts
+  const lowStockResult = await turso.execute({
+    sql: `SELECT COUNT(*) AS lowStockCount FROM "Inventory" i
+          JOIN "Product" p ON p."id" = i."productId"
+          WHERE i."quantity" <= p."reorderPoint" AND p."status" = 'ACTIVE'`,
+    args: [],
+  })
+  const lowStock = Number(toObjs(lowStockResult)[0]?.lowStockCount || 0)
+
+  // Pending prescriptions
+  const pendingRxResult = await turso.execute({
+    sql: `SELECT COUNT(*) AS pendingRx FROM "Prescription"
+          WHERE "status" IN ('PENDING', 'IN_PROGRESS')`,
+    args: [],
+  })
+  const pendingRx = Number(toObjs(pendingRxResult)[0]?.pendingRx || 0)
+
+  // Pending returns
+  const pendingReturnResult = await turso.execute({
+    sql: `SELECT COUNT(*) AS pendingReturns FROM "Return" WHERE "status" = 'PENDING_APPROVAL'`,
+    args: [],
+  })
+  const pendingReturns = Number(toObjs(pendingReturnResult)[0]?.pendingReturns || 0)
+
+  const revenue = Number(kpi?.revenue || 0)
+  const completedTx = Number(kpi?.completedTx || 0)
+  const voidedTx = Number(kpi?.voidedTx || 0)
+  const totalDiscount = Number(kpi?.totalDiscount || 0)
+  const todayRevenue = Number(kpi?.todayRevenue || 0)
+  const todayTx = Number(kpi?.todayTx || 0)
+  const totalReturns = Number(ret?.totalReturns || 0)
+  const totalRefund = Number(ret?.totalRefund || 0)
+
+  // Build alerts
+  const alerts: Array<{ type: 'warning' | 'danger' | 'info'; message: string }> = []
+  if (lowStock > 0) alerts.push({ type: 'warning', message: `${lowStock} products are at or below reorder point` })
+  if (pendingRx > 0) alerts.push({ type: 'info', message: `${pendingRx} prescriptions awaiting fulfillment` })
+  if (pendingReturns > 0) alerts.push({ type: 'warning', message: `${pendingReturns} returns pending approval` })
+  if (voidedTx > 0) alerts.push({ type: 'danger', message: `${voidedTx} transactions were voided in this period` })
+  if (completedTx > 0 && (voidedTx / completedTx) > 0.03) alerts.push({ type: 'danger', message: `Void rate is ${(voidedTx / completedTx * 100).toFixed(1)}% — above 3% threshold` })
+
+  return NextResponse.json({
+    summary: { dateRange: { from, to } },
+    kpis: {
+      revenue, completedTx, voidedTx, totalDiscount,
+      todayRevenue, todayTx,
+      totalReturns, totalRefund,
+      avgTxValue: completedTx > 0 ? Math.round(revenue / completedTx * 100) / 100 : 0,
+      voidRate: completedTx + voidedTx > 0 ? Math.round(voidedTx / (completedTx + voidedTx) * 10000) / 100 : 0,
+      lowStockCount: lowStock,
+      pendingRx, pendingReturns,
+    },
+    alerts,
+    highlights: [
+      { label: 'Revenue', value: revenue, formatted: formatForExec(revenue) },
+      { label: 'Transactions', value: completedTx, formatted: String(completedTx) },
+      { label: 'Avg Transaction', value: 0, formatted: formatForExec(completedTx > 0 ? revenue / completedTx : 0) },
+      { label: 'Total Discounts', value: totalDiscount, formatted: formatForExec(totalDiscount) },
+      { label: 'Returns', value: totalReturns, formatted: String(totalReturns) },
+      { label: 'Refunds', value: totalRefund, formatted: formatForExec(totalRefund) },
+    ],
+  })
+}
+
+function formatForExec(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toFixed(2)
+}
+
+// ========================================================================
+// PRODUCT AFFINITY (MARKET BASKET) REPORT
+// ========================================================================
+
+async function productAffinityReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Find product pairs that appear in the same transaction
+  // Uses a self-join approach: for each transaction with 2+ items,
+  // find all pairs of products
+  const pairsResult = await turso.execute({
+    sql: `SELECT
+          CASE WHEN ti1."productId" < ti2."productId"
+            THEN ti1."productName" || ' + ' || ti2."productName"
+            ELSE ti2."productName" || ' + ' || ti1."productName"
+          END AS pairName,
+          CASE WHEN ti1."productId" < ti2."productId"
+            THEN ti1."productName"
+            ELSE ti2."productName"
+          END AS productA,
+          CASE WHEN ti1."productId" < ti2."productId"
+            THEN ti2."productName"
+            ELSE ti1."productName"
+          END AS productB,
+          COUNT(DISTINCT ti1."transactionId") AS coOccurrence
+          FROM "TransactionItem" ti1
+          JOIN "TransactionItem" ti2 ON ti2."transactionId" = ti1."transactionId"
+            AND ti2."productId" != ti1."productId"
+          JOIN "Transaction" t ON t."id" = ti1."transactionId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+          GROUP BY pairName
+          ORDER BY coOccurrence DESC
+          LIMIT 30`,
+    args: [from, to],
+  })
+  const pairs = toObjs(pairsResult).map((r) => ({
+    pairName: r.pairName as string,
+    productA: r.productA as string,
+    productB: r.productB as string,
+    coOccurrence: Number(r.coOccurrence),
+  }))
+
+  return NextResponse.json({
+    summary: { totalPairs: pairs.length, dateRange: { from, to } },
+    pairs,
+  })
+}
+
+// ========================================================================
 // PRISMA FALLBACK
 // =========================================================================
 
@@ -1187,6 +1642,16 @@ async function prismaFallback(
       return NextResponse.json({ summary: { totalRx: 0, filled: 0, pending: 0, avgFulfillmentHours: 0, dateRange: { from, to } }, byStatus: [], byPrescriber: [], dailyTrend: [] })
     case 'inventory-valuation':
       return NextResponse.json({ summary: { totalProducts: 0, totalUnits: 0, totalCostValue: 0, totalRetailValue: 0, potentialProfit: 0 }, byCategory: [], lowValueItems: [] })
+    case 'discount-analysis':
+      return NextResponse.json({ summary: { totalDiscount: 0, discountRate: 0, avgDiscountPerTx: 0, txWithDiscount: 0, dateRange: { from, to } }, byUser: [], dailyTrend: [], discountDistribution: [] })
+    case 'shift-analysis':
+      return NextResponse.json({ summary: { totalRevenue: 0, totalTx: 0, avgTxValue: 0, dateRange: { from, to } }, shifts: [], hourlyComparison: [] })
+    case 'category-deep-dive':
+      return NextResponse.json({ summary: { totalCategories: 0, topCategory: null, dateRange: { from, to } }, categories: [], topProductsByCategory: [] })
+    case 'executive-summary':
+      return NextResponse.json({ summary: { dateRange: { from, to } }, kpis: {}, highlights: [], alerts: [] })
+    case 'product-affinity':
+      return NextResponse.json({ summary: { totalPairs: 0, dateRange: { from, to } }, pairs: [] })
     default:
       return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
   }

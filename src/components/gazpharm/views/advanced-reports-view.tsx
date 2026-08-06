@@ -5,7 +5,7 @@ import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays, ChevronDown,
   Zap, RotateCcw, Award, FileText, Package, Clock, Activity, TrendingDown,
-  CheckCircle2,
+  CheckCircle2, Tag, Sun, LayoutGrid, LayoutDashboard, Link2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -178,6 +178,11 @@ export function AdvancedReportsView() {
           <TabsTrigger value="user-performance"><Award className="h-3.5 w-3.5 mr-1" /> Staff</TabsTrigger>
           <TabsTrigger value="prescription-analytics"><FileText className="h-3.5 w-3.5 mr-1" /> Prescriptions</TabsTrigger>
           <TabsTrigger value="inventory-valuation"><Package className="h-3.5 w-3.5 mr-1" /> Stock Value</TabsTrigger>
+          <TabsTrigger value="discount-analysis"><Tag className="h-3.5 w-3.5 mr-1" /> Discounts</TabsTrigger>
+          <TabsTrigger value="shift-analysis"><Sun className="h-3.5 w-3.5 mr-1" /> Shifts</TabsTrigger>
+          <TabsTrigger value="category-deep-dive"><LayoutGrid className="h-3.5 w-3.5 mr-1" /> Categories</TabsTrigger>
+          <TabsTrigger value="executive-summary"><LayoutDashboard className="h-3.5 w-3.5 mr-1" /> Executive</TabsTrigger>
+          <TabsTrigger value="product-affinity"><Link2 className="h-3.5 w-3.5 mr-1" /> Affinity</TabsTrigger>
         </TabsList>
 
         {loading ? <Skeleton className="h-96 w-full" /> : (
@@ -193,6 +198,11 @@ export function AdvancedReportsView() {
             <TabsContent value="user-performance"><UserPerformanceTab data={data} /></TabsContent>
             <TabsContent value="prescription-analytics"><PrescriptionAnalyticsTab data={data} /></TabsContent>
             <TabsContent value="inventory-valuation"><InventoryValuationTab data={data} /></TabsContent>
+            <TabsContent value="discount-analysis"><DiscountAnalysisTab data={data} /></TabsContent>
+            <TabsContent value="shift-analysis"><ShiftAnalysisTab data={data} /></TabsContent>
+            <TabsContent value="category-deep-dive"><CategoryDeepDiveTab data={data} /></TabsContent>
+            <TabsContent value="executive-summary"><ExecutiveSummaryTab data={data} /></TabsContent>
+            <TabsContent value="product-affinity"><ProductAffinityTab data={data} /></TabsContent>
           </>
         )}
       </Tabs>
@@ -1312,6 +1322,437 @@ function InventoryValuationTab({ data }: { data: Record<string, unknown> | null 
           </CardContent>
         </Card>
       </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// DISCOUNT ANALYSIS TAB
+// ========================================================================
+
+function DiscountAnalysisTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const byUser = (data?.byUser as Array<Record<string, unknown>>) || []
+  const dailyTrend = (data?.dailyTrend as Array<Record<string, unknown>>) || []
+  const discountDistribution = (data?.discountDistribution as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={Tag} label="Total Discounts" value={formatCurrency(Number(s.totalDiscount || 0))} color="amber" />
+        <KpiCard icon={Percent} label="Discount Rate" value={`${s.discountRate || 0}%`} color="blue" />
+        <KpiCard icon={DollarSign} label="Avg Discount/Tx" value={formatCurrency(Number(s.avgDiscountPerTx || 0))} color="violet" />
+        <KpiCard icon={ShoppingBag} label="Tx with Discount" value={String(s.txWithDiscount || 0)} color="rose" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Discount Trend vs Revenue</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dailyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => String(v).slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="totalRevenue" fill="#e5e7eb" radius={[3, 3, 0, 0]} name="Revenue" />
+                  <Line type="monotone" dataKey="totalDiscount" stroke="#f59e0b" strokeWidth={2} name="Discount" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Discount Size Distribution</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={discountDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="txCount" radius={[4, 4, 0, 0]} name="Transactions">
+                    {discountDistribution.map((_, i) => <Cell key={i} fill={i === 0 ? '#e5e7eb' : COLORS[i % COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Discounts by Staff Member</CardTitle>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(byUser.map(u => ({ Name: u.userName, Transactions: u.txCount, DiscountedTx: u.discountedTx, TotalDiscount: u.totalDiscount, TotalSales: u.totalSales, DiscountPctOfSales: `${u.discountPctOfSales}%`, DiscountTxRate: `${u.discountTxRate}%` })), 'discount-analysis.csv')}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-72 overflow-auto">
+            <Table>
+              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHead className="text-xs">Staff</TableHead>
+                <TableHead className="text-xs text-right">Transactions</TableHead>
+                <TableHead className="text-xs text-right">Discounted Tx</TableHead>
+                <TableHead className="text-xs text-right">Total Discount</TableHead>
+                <TableHead className="text-xs text-right">% of Sales</TableHead>
+                <TableHead className="text-xs text-right">Tx Discount Rate</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{byUser.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">No discount data</TableCell></TableRow>
+              ) : byUser.map((u, i) => (
+                <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableCell className="text-xs font-medium">{String(u.userName)}</TableCell>
+                  <TableCell className="text-xs text-right">{Number(u.txCount)}</TableCell>
+                  <TableCell className="text-xs text-right">{Number(u.discountedTx)}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-amber-600">{formatCurrency(Number(u.totalDiscount))}</TableCell>
+                  <TableCell className="text-xs text-right">
+                    <span className={Number(u.discountPctOfSales) > 5 ? 'text-red-600 font-medium' : ''}>{Number(u.discountPctOfSales)}%</span>
+                  </TableCell>
+                  <TableCell className="text-xs text-right">{Number(u.discountTxRate)}%</TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ========================================================================
+// SHIFT ANALYSIS TAB
+// ========================================================================
+
+function ShiftAnalysisTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const shifts = (data?.shifts as Array<Record<string, unknown>>) || []
+  const hourlyComparison = (data?.hourlyComparison as Array<Record<string, unknown>>) || []
+  const dowShiftData = (data?.dowShiftData as Array<Record<string, unknown>>) || []
+
+  const shiftColors: Record<string, string> = { Morning: '#fbbf24', Afternoon: '#059669', Evening: '#7c3aed' }
+  const days = [...new Set(dowShiftData.map((d) => String(d.day)))]
+  const shiftNames = ['Morning', 'Afternoon', 'Evening']
+  const dowChartData = days.map((day) => {
+    const row: Record<string, unknown> = { day }
+    shiftNames.forEach((sh) => {
+      const match = dowShiftData.find((d) => String(d.day) === day && String(d.shift) === sh)
+      row[sh] = match ? Number(match.totalRevenue) : 0
+    })
+    return row
+  })
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
+        <KpiCard icon={ShoppingBag} label="Total Transactions" value={String(s.totalTx || 0)} color="blue" />
+        <KpiCard icon={TrendingUp} label="Avg Transaction" value={formatCurrency(Number(s.avgTxValue || 0))} color="violet" />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        {shifts.map((sh, i) => (
+          <Card key={i} className="border-none shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: shiftColors[String(sh.shift)] || '#9ca3af' }} />
+                <p className="text-sm font-semibold">{String(sh.shift)} Shift</p>
+              </div>
+              <p className="text-xl font-bold">{formatCurrency(Number(sh.totalRevenue))}</p>
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>{Number(sh.txCount)} txns</span>
+                <span>Avg {formatCurrency(Number(sh.avgTxValue))}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Hourly Revenue Breakdown</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hourlyComparison}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Bar dataKey="totalRevenue" radius={[3, 3, 0, 0]} name="Revenue">
+                    {hourlyComparison.map((h) => <Cell key={String(h.hour)} fill={shiftColors[String(h.shift)] || '#9ca3af'} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-4 mt-2">
+              {shiftNames.map((sh) => (
+                <div key={sh} className="flex items-center gap-1.5 text-xs">
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: shiftColors[sh] }} />
+                  <span>{sh}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Day of Week by Shift</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dowChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  {shiftNames.map((sh) => (
+                    <Bar key={sh} dataKey={sh} fill={shiftColors[sh]} name={sh} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// CATEGORY DEEP DIVE TAB
+// ========================================================================
+
+function CategoryDeepDiveTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const categories = (data?.categories as Array<Record<string, unknown>>) || []
+  const topProductsByCategory = (data?.topProductsByCategory as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={LayoutGrid} label="Categories" value={String(s.totalCategories || 0)} color="blue" />
+        <KpiCard icon={TrendingUp} label="Top Category" value={String((s.topCategory as Record<string, unknown>)?.name || 'N/A')} color="emerald" />
+        <KpiCard icon={DollarSign} label="Top Category Revenue" value={formatCurrency(Number((s.topCategory as Record<string, unknown>)?.revenue || 0))} color="violet" />
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Category Performance</CardTitle>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(categories.map(c => ({ Category: c.category, Products: c.productCount, UnitsSold: c.totalQty, Revenue: c.totalRevenue, Transactions: c.txCount, AvgUnitPrice: c.avgUnitPrice, RevenueShare: `${c.revenueShare}%` })), 'category-deep-dive.csv')}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-80 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Category</TableHead>
+                  <TableHead className="text-xs text-right">Products</TableHead>
+                  <TableHead className="text-xs text-right">Units Sold</TableHead>
+                  <TableHead className="text-xs text-right">Revenue</TableHead>
+                  <TableHead className="text-xs text-right">Transactions</TableHead>
+                  <TableHead className="text-xs text-right">Avg Unit Price</TableHead>
+                  <TableHead className="text-xs text-right">Share</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{categories.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-6">No data</TableCell></TableRow>
+                ) : categories.map((c, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs font-medium">{String(c.category)}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(c.productCount)}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(c.totalQty)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(c.totalRevenue))}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(c.txCount)}</TableCell>
+                    <TableCell className="text-xs text-right">{formatCurrency(Number(c.avgUnitPrice))}</TableCell>
+                    <TableCell className="text-xs text-right">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <div className="w-12 bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, Number(c.revenueShare))}%` }} />
+                        </div>
+                        <span className="w-10 text-right">{Number(c.revenueShare)}%</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+      {topProductsByCategory.map((catGroup, i) => (
+        <Card key={i} className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Top Products: {String(catGroup.category)}</CardTitle></CardHeader>
+          <CardContent>
+            <div className="max-h-48 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs text-right">Qty Sold</TableHead>
+                  <TableHead className="text-xs text-right">Revenue</TableHead>
+                  <TableHead className="text-xs text-right">Transactions</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{(catGroup.products as Array<Record<string, unknown>>).map((p, j) => (
+                  <TableRow key={j} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productName)}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(p.totalQty)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(p.txCount)}</TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ========================================================================
+// EXECUTIVE SUMMARY TAB
+// ========================================================================
+
+function ExecutiveSummaryTab({ data }: { data: Record<string, unknown> | null }) {
+  const kpis = (data?.kpis as Record<string, unknown>) || {}
+  const alerts = (data?.alerts as Array<Record<string, unknown>>) || []
+
+  const alertIcon = (type: string) => {
+    if (type === 'danger') return <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+    if (type === 'warning') return <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+    return <Activity className="h-3.5 w-3.5 text-blue-500" />
+  }
+  const alertBg = (type: string) => {
+    if (type === 'danger') return 'bg-red-50 border-red-100'
+    if (type === 'warning') return 'bg-amber-50 border-amber-100'
+    return 'bg-blue-50 border-blue-100'
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={DollarSign} label="Period Revenue" value={formatCurrency(Number(kpis.revenue || 0))} color="emerald" />
+        <KpiCard icon={ShoppingBag} label="Transactions" value={String(kpis.completedTx || 0)} color="blue" />
+        <KpiCard icon={TrendingUp} label="Avg Transaction" value={formatCurrency(Number(kpis.avgTxValue || 0))} color="violet" />
+        <KpiCard icon={Percent} label="Void Rate" value={`${kpis.voidRate || 0}%`} color={Number(kpis.voidRate || 0) > 3 ? 'rose' : 'cyan'} />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={CalendarDays} label="Today Revenue" value={formatCurrency(Number(kpis.todayRevenue || 0))} color="emerald" />
+        <KpiCard icon={ShoppingBag} label="Today Txns" value={String(kpis.todayTx || 0)} color="blue" />
+        <KpiCard icon={Package} label="Low Stock Items" value={String(kpis.lowStockCount || 0)} color="amber" />
+        <KpiCard icon={FileText} label="Pending Rx" value={String(kpis.pendingRx || 0)} color="violet" />
+      </div>
+
+      {alerts.length > 0 && (
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Alerts & Action Items</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {alerts.map((a, i) => (
+                <div key={i} className={`flex items-center gap-2.5 p-2.5 rounded-lg border ${alertBg(String(a.type))}`}>
+                  {alertIcon(String(a.type))}
+                  <span className="text-xs font-medium">{String(a.message)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">Total Discounts Given</p>
+            <p className="text-lg font-bold text-amber-600 mt-1">{formatCurrency(Number(kpis.totalDiscount || 0))}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">Returns</p>
+            <p className="text-lg font-bold text-rose-600 mt-1">{String(kpis.totalReturns || 0)}</p>
+            <p className="text-[10px] text-muted-foreground">Refunded: {formatCurrency(Number(kpis.totalRefund || 0))}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">Pending Returns</p>
+            <p className="text-lg font-bold text-amber-600 mt-1">{String(kpis.pendingReturns || 0)}</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// PRODUCT AFFINITY TAB
+// ========================================================================
+
+function ProductAffinityTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const pairs = (data?.pairs as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <KpiCard icon={Link2} label="Product Pairs Found" value={String(s.totalPairs || 0)} color="blue" />
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Frequently Bought Together</CardTitle>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(pairs.map(p => ({ ProductA: p.productA, ProductB: p.productB, CoOccurrence: p.coOccurrence })), 'product-affinity.csv')}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pairs.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Link2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">Not enough multi-item transactions in this period</p>
+              <p className="text-xs mt-1">Product affinity requires transactions with 2 or more items</p>
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs w-8">#</TableHead>
+                  <TableHead className="text-xs">Product A</TableHead>
+                  <TableHead className="text-xs">Product B</TableHead>
+                  <TableHead className="text-xs text-right">Times Bought Together</TableHead>
+                  <TableHead className="text-xs">Frequency</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{pairs.map((p, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productA)}</TableCell>
+                    <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productB)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold">{Number(p.coOccurrence)}</TableCell>
+                    <TableCell className="text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, (Number(p.coOccurrence) / (Number(pairs[0]?.coOccurrence || 1))) * 100)}%` }} />
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
