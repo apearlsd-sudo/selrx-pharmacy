@@ -71,6 +71,16 @@ export async function GET(req: NextRequest) {
           return paymentReport(from, to, userFilter, userArgs)
         case 'comparison':
           return comparisonReport(from, to, userFilter, userArgs)
+        case 'stock-velocity':
+          return stockVelocityReport(from, to, userFilter, userArgs)
+        case 'returns-analysis':
+          return returnsAnalysisReport(from, to, userFilter, userArgs)
+        case 'user-performance':
+          return userPerformanceReport(from, to, requesterRole, isSuperAdmin)
+        case 'prescription-analytics':
+          return prescriptionAnalyticsReport(from, to, userFilter, userArgs)
+        case 'inventory-valuation':
+          return inventoryValuationReport()
         default:
           return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
       }
@@ -665,8 +675,478 @@ async function comparisonReport(
 }
 
 // ========================================================================
-// PRISMA FALLBACK
+// STOCK VELOCITY REPORT
 // ========================================================================
+
+async function stockVelocityReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Calculate days in the period
+  const fromDate = new Date(from)
+  const toDate = new Date(to)
+  const daysInPeriod = Math.max(1, Math.ceil((toDate.getTime() - fromDate.getTime()) / 86400000) + 1)
+
+  // Product sales velocity: quantity sold, revenue, transactions
+  const velocityResult = await turso.execute({
+    sql: `SELECT ti."productId", ti."productName",
+          p."category", p."sellingPrice", COALESCE(p."costPrice", 0) AS "costPrice",
+          COALESCE(i."quantity", 0) AS currentStock,
+          SUM(ti."quantity") AS totalSold,
+          COALESCE(SUM(ti."subtotal"), 0) AS totalRevenue,
+          COUNT(DISTINCT ti."transactionId") AS txCount,
+          MIN(date(t."createdAt")) AS firstSold,
+          MAX(date(t."createdAt")) AS lastSold
+          FROM "TransactionItem" ti
+          JOIN "Transaction" t ON t."id" = ti."transactionId"
+          LEFT JOIN "Product" p ON p."id" = ti."productId"
+          LEFT JOIN "Inventory" i ON i."productId" = ti."productId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY ti."productId", ti."productName", p."category", p."sellingPrice", p."costPrice", i."quantity"
+          ORDER BY totalSold DESC`,
+    args: [from, to, ...userArgs],
+  })
+
+  const products = toObjs(velocityResult).map((r) => {
+    const sold = Number(r.totalSold)
+    const dailyRate = sold / daysInPeriod
+    const currentStock = Number(r.currentStock)
+    const daysOfStock = dailyRate > 0 ? Math.floor(currentStock / dailyRate) : (currentStock > 0 ? 999 : 0)
+    let velocity: 'Fast' | 'Moderate' | 'Slow' | 'Dead'
+    if (sold === 0) velocity = 'Dead'
+    else if (dailyRate >= 2) velocity = 'Fast'
+    else if (dailyRate >= 0.5) velocity = 'Moderate'
+    else velocity = 'Slow'
+    return {
+      productId: r.productId as string,
+      productName: r.productName as string,
+      category: (r.category as string) || 'Uncategorized',
+      totalSold: sold,
+      totalRevenue: Number(r.totalRevenue),
+      txCount: Number(r.txCount),
+      dailyRate: Math.round(dailyRate * 100) / 100,
+      currentStock,
+      daysOfStock,
+      velocity,
+      firstSold: r.firstSold as string,
+      lastSold: r.lastSold as string,
+      sellingPrice: Number(r.sellingPrice),
+      costPrice: Number(r.costPrice),
+    }
+  })
+
+  // Velocity distribution
+  const fastMoving = products.filter((p) => p.velocity === 'Fast').length
+  const moderateMoving = products.filter((p) => p.velocity === 'Moderate').length
+  const slowMoving = products.filter((p) => p.velocity === 'Slow').length
+  const deadStock = products.filter((p) => p.velocity === 'Dead').length
+
+  const velocityDistribution = [
+    { velocity: 'Fast (2+/day)', count: fastMoving, color: '#059669' },
+    { velocity: 'Moderate (0.5-2/day)', count: moderateMoving, color: '#0891b2' },
+    { velocity: 'Slow (<0.5/day)', count: slowMoving, color: '#ca8a04' },
+    { velocity: 'Dead Stock', count: deadStock, color: '#dc2626' },
+  ]
+
+  // Average days to sell one unit across all products
+  const avgDaysToSell = products.length > 0
+    ? Math.round(products.reduce((s, p) => s + (p.dailyRate > 0 ? 1 / p.dailyRate : 0), 0) / products.filter((p) => p.dailyRate > 0).length)
+    : 0
+
+  return NextResponse.json({
+    summary: {
+      totalProducts: products.length,
+      fastMoving,
+      slowMoving,
+      deadStock,
+      avgDaysToSell,
+      dateRange: { from, to },
+    },
+    products,
+    velocityDistribution,
+  })
+}
+
+// ========================================================================
+// RETURNS ANALYSIS REPORT
+// ========================================================================
+
+async function returnsAnalysisReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Returns by reason
+  const reasonResult = await turso.execute({
+    sql: `SELECT r."reason",
+          COUNT(*) AS returnCount,
+          COALESCE(SUM(r."refundAmount"), 0) AS totalRefund,
+          COALESCE(AVG(r."refundAmount"), 0) AS avgRefund
+          FROM "Return" r
+          JOIN "Transaction" t ON t."id" = r."transactionId"
+          WHERE date(r."createdAt") >= date(?)
+            AND date(r."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY r."reason"
+          ORDER BY returnCount DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const byReason = toObjs(reasonResult).map((r) => ({
+    reason: (r.reason as string).replace(/_/g, ' '),
+    returnCount: Number(r.returnCount),
+    totalRefund: Number(r.totalRefund),
+    avgRefund: Number(r.avgRefund),
+  }))
+
+  // Daily return trend
+  const dailyResult = await turso.execute({
+    sql: `SELECT date(r."createdAt") AS day,
+          COUNT(*) AS returnCount,
+          COALESCE(SUM(r."refundAmount"), 0) AS totalRefund,
+          COUNT(DISTINCT r."transactionId") AS affectedTx
+          FROM "Return" r
+          JOIN "Transaction" t ON t."id" = r."transactionId"
+          WHERE date(r."createdAt") >= date(?)
+            AND date(r."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY day ORDER BY day`,
+    args: [from, to, ...userArgs],
+  })
+  const dailyTrend = toObjs(dailyResult).map((r) => ({
+    day: r.day as string,
+    returnCount: Number(r.returnCount),
+    totalRefund: Number(r.totalRefund),
+    affectedTx: Number(r.affectedTx),
+  }))
+
+  // Top returned products
+  const topProductsResult = await turso.execute({
+    sql: `SELECT r."productId", r."productName",
+          COUNT(*) AS returnCount,
+          SUM(r."quantity") AS totalQtyReturned,
+          COALESCE(SUM(r."refundAmount"), 0) AS totalRefund
+          FROM "Return" r
+          JOIN "Transaction" t ON t."id" = r."transactionId"
+          WHERE date(r."createdAt") >= date(?)
+            AND date(r."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY r."productId", r."productName"
+          ORDER BY returnCount DESC LIMIT 15`,
+    args: [from, to, ...userArgs],
+  })
+  const topProducts = toObjs(topProductsResult).map((r) => ({
+    productId: r.productId as string,
+    productName: r.productName as string,
+    returnCount: Number(r.returnCount),
+    totalQtyReturned: Number(r.totalQtyReturned),
+    totalRefund: Number(r.totalRefund),
+  }))
+
+  // Calculate return rate
+  const txCountResult = await turso.execute({
+    sql: `SELECT COUNT(*) AS totalTx FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}`,
+    args: [from, to, ...userArgs],
+  })
+  const totalTx = Number(toObjs(txCountResult)[0]?.totalTx || 0)
+  const totalReturns = dailyTrend.reduce((s, d) => s + d.returnCount, 0)
+  const totalRefundAmount = dailyTrend.reduce((s, d) => s + d.totalRefund, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalReturns,
+      totalRefundAmount,
+      returnRate: totalTx > 0 ? Math.round((totalReturns / totalTx) * 10000) / 100 : 0,
+      dateRange: { from, to },
+    },
+    byReason,
+    dailyTrend,
+    topProducts,
+  })
+}
+
+// ========================================================================
+// USER PERFORMANCE REPORT
+// ========================================================================
+
+async function userPerformanceReport(
+  from: string, to: string,
+  requesterRole: string, isSuperAdmin: boolean,
+) {
+  // All users with their transaction stats
+  const userResult = await turso.execute({
+    sql: `SELECT u."id" AS "userId", u."name" AS "userName", u."email", u."role",
+          COUNT(DISTINCT t."id") AS txCount,
+          COALESCE(SUM(t."total"), 0) AS totalSales,
+          COALESCE(SUM(t."subtotal"), 0) AS totalSubtotal,
+          COALESCE(SUM(t."discount"), 0) AS totalDiscount,
+          COALESCE(AVG(t."total"), 0) AS avgTransaction,
+          COALESCE(SUM(t."tax"), 0) AS totalTax
+          FROM "User" u
+          LEFT JOIN "Transaction" t ON t."userId" = u."id"
+            AND t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+          WHERE u."active" = 1
+            ${!isSuperAdmin ? `AND u."role" = ?` : ''}
+          GROUP BY u."id", u."name", u."email", u."role"
+          ORDER BY totalSales DESC`,
+    args: [from, to, ...(!isSuperAdmin ? [requesterRole] : [])],
+  })
+
+  const users = toObjs(userResult).map((r) => {
+    const sales = Number(r.totalSales)
+    const discount = Number(r.totalDiscount)
+    return {
+      userId: r.userId as string,
+      userName: r.userName as string,
+      email: r.email as string,
+      role: r.role as string,
+      txCount: Number(r.txCount),
+      totalSales: sales,
+      totalSubtotal: Number(r.totalSubtotal),
+      totalDiscount: discount,
+      avgTransaction: Number(r.avgTransaction),
+      totalTax: Number(r.totalTax),
+      discountRate: sales > 0 ? Math.round((discount / sales) * 10000) / 100 : 0,
+    }
+  })
+
+  // Items sold per user
+  for (const u of users) {
+    const itemsResult = await turso.execute({
+      sql: `SELECT COALESCE(SUM(ti."quantity"), 0) AS totalItems
+            FROM "TransactionItem" ti
+            JOIN "Transaction" t ON t."id" = ti."transactionId"
+            WHERE t."userId" = ?
+              AND t."status" NOT IN ('PENDING', 'VOIDED')
+              AND date(t."createdAt") >= date(?)
+              AND date(t."createdAt") <= date(?)`,
+      args: [u.userId, from, to],
+    })
+    u.totalItems = Number(toObjs(itemsResult)[0]?.totalItems || 0)
+
+    // Void rate per user
+    const voidResult = await turso.execute({
+      sql: `SELECT COUNT(*) AS voidCount FROM "Transaction"
+            WHERE "userId" = ? AND "status" = 'VOIDED'
+              AND date("createdAt") >= date(?)
+              AND date("createdAt") <= date(?)`,
+      args: [u.userId, from, to],
+    })
+    const voidCount = Number(toObjs(voidResult)[0]?.voidCount || 0)
+    u.voidCount = voidCount
+    u.voidRate = (u.txCount + voidCount) > 0
+      ? Math.round((voidCount / (u.txCount + voidCount)) * 10000) / 100
+      : 0
+  }
+
+  const totalSales = users.reduce((s, u) => s + u.totalSales, 0)
+  const activeUsers = users.filter((u) => u.txCount > 0)
+  const topPerformer = users[0] || null
+
+  return NextResponse.json({
+    summary: {
+      totalUsers: users.length,
+      activeUsers: activeUsers.length,
+      avgSalesPerUser: users.length > 0 ? Math.round(totalSales / users.length * 100) / 100 : 0,
+      topPerformer: topPerformer ? { name: topPerformer.userName, sales: topPerformer.totalSales } : null,
+      dateRange: { from, to },
+    },
+    users,
+  })
+}
+
+// ========================================================================
+// PRESCRIPTION ANALYTICS REPORT
+// ========================================================================
+
+async function prescriptionAnalyticsReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Rx by status
+  const statusResult = await turso.execute({
+    sql: `SELECT p."status", COUNT(*) AS count
+          FROM "Prescription" p
+          WHERE date(p."createdAt") >= date(?)
+            AND date(p."createdAt") <= date(?)
+          GROUP BY p."status" ORDER BY count DESC`,
+    args: [from, to],
+  })
+  const byStatus = toObjs(statusResult).map((r) => ({
+    status: (r.status as string).replace(/_/g, ' '),
+    count: Number(r.count),
+  }))
+
+  // Rx by prescriber
+  const prescriberResult = await turso.execute({
+    sql: `SELECT p."prescriberName",
+          COUNT(*) AS rxCount,
+          COUNT(DISTINCT p."customerId") AS uniquePatients,
+          MIN(date(p."createdAt")) AS firstRx,
+          MAX(date(p."createdAt")) AS lastRx
+          FROM "Prescription" p
+          WHERE date(p."createdAt") >= date(?)
+            AND date(p."createdAt") <= date(?)
+            AND p."prescriberName" IS NOT NULL AND p."prescriberName" != ''
+          GROUP BY p."prescriberName"
+          ORDER BY rxCount DESC LIMIT 20`,
+    args: [from, to],
+  })
+  const byPrescriber = toObjs(prescriberResult).map((r) => ({
+    prescriberName: r.prescriberName as string,
+    rxCount: Number(r.rxCount),
+    uniquePatients: Number(r.uniquePatients),
+    firstRx: r.firstRx as string,
+    lastRx: r.lastRx as string,
+  }))
+
+  // Daily Rx trend
+  const dailyResult = await turso.execute({
+    sql: `SELECT date(p."createdAt") AS day,
+          COUNT(*) AS total,
+          SUM(CASE WHEN p."status" = 'DISPENSED' THEN 1 ELSE 0 END) AS dispensed,
+          SUM(CASE WHEN p."status" IN ('PENDING', 'IN_PROGRESS') THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN p."status" = 'EXPIRED' THEN 1 ELSE 0 END) AS expired
+          FROM "Prescription" p
+          WHERE date(p."createdAt") >= date(?)
+            AND date(p."createdAt") <= date(?)
+          GROUP BY day ORDER BY day`,
+    args: [from, to],
+  })
+  const dailyTrend = toObjs(dailyResult).map((r) => ({
+    day: r.day as string,
+    total: Number(r.total),
+    dispensed: Number(r.dispensed),
+    pending: Number(r.pending),
+    expired: Number(r.expired),
+  }))
+
+  // Average fulfillment time (created → filled for DISPENSED)
+  const fulfillResult = await turso.execute({
+    sql: `SELECT AVG(
+          (julianday(p."filledAt") - julianday(p."createdAt")) * 24
+          ) AS avgHours
+          FROM "Prescription" p
+          WHERE p."status" = 'DISPENSED'
+            AND p."filledAt" IS NOT NULL
+            AND date(p."createdAt") >= date(?)
+            AND date(p."createdAt") <= date(?)`,
+    args: [from, to],
+  })
+  const avgFulfillmentHours = Math.round(Number(toObjs(fulfillResult)[0]?.avgHours || 0) * 100) / 100
+
+  const totalRx = byStatus.reduce((s, b) => s + b.count, 0)
+  const filled = byStatus.find((b) => b.status === 'DISPENSED')?.count || 0
+  const pending = byStatus.filter((b) => b.status === 'PENDING' || b.status === 'IN PROGRESS').reduce((s, b) => s + b.count, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalRx,
+      filled,
+      pending,
+      avgFulfillmentHours,
+      dateRange: { from, to },
+    },
+    byStatus,
+    byPrescriber,
+    dailyTrend,
+  })
+}
+
+// ========================================================================
+// INVENTORY VALUATION REPORT
+// ========================================================================
+
+async function inventoryValuationReport() {
+  // Overall inventory valuation
+  const valResult = await turso.execute({
+    sql: `SELECT p."id" AS "productId", p."name" AS "productName",
+          p."category", p."sellingPrice", COALESCE(p."costPrice", 0) AS "costPrice",
+          COALESCE(i."quantity", 0) AS stockQty,
+          COALESCE(i."quantity", 0) * p."sellingPrice" AS retailValue,
+          COALESCE(i."quantity", 0) * COALESCE(p."costPrice", 0) AS costValue,
+          p."reorderPoint", p."reorderQty"
+          FROM "Product" p
+          LEFT JOIN "Inventory" i ON i."productId" = p."id"
+          WHERE p."status" = 'ACTIVE'
+          ORDER BY retailValue DESC`,
+    args: [],
+  })
+  const allProducts = toObjs(valResult).map((r) => ({
+    productId: r.productId as string,
+    productName: r.productName as string,
+    category: (r.category as string) || 'Uncategorized',
+    sellingPrice: Number(r.sellingPrice),
+    costPrice: Number(r.costPrice),
+    stockQty: Number(r.stockQty),
+    retailValue: Number(r.retailValue),
+    costValue: Number(r.costValue),
+    potentialProfit: Number(r.retailValue) - Number(r.costValue),
+    reorderPoint: Number(r.reorderPoint),
+    reorderQty: Number(r.reorderQty),
+    margin: Number(r.retailValue) > 0
+      ? Math.round(((Number(r.retailValue) - Number(r.costValue)) / Number(r.retailValue)) * 10000) / 100
+      : 0,
+  }))
+
+  // Valuation by category
+  const catMap = new Map<string, { retailValue: number; costValue: number; count: number; units: number }>()
+  for (const p of allProducts) {
+    const cat = p.category
+    const existing = catMap.get(cat) || { retailValue: 0, costValue: 0, count: 0, units: 0 }
+    existing.retailValue += p.retailValue
+    existing.costValue += p.costValue
+    existing.count += 1
+    existing.units += p.stockQty
+    catMap.set(cat, existing)
+  }
+  const byCategory = Array.from(catMap.entries()).map(([category, v]) => ({
+    category,
+    productCount: v.count,
+    totalUnits: v.units,
+    retailValue: Math.round(v.retailValue * 100) / 100,
+    costValue: Math.round(v.costValue * 100) / 100,
+    potentialProfit: Math.round((v.retailValue - v.costValue) * 100) / 100,
+    margin: v.retailValue > 0 ? Math.round(((v.retailValue - v.costValue) / v.retailValue) * 10000) / 100 : 0,
+  })).sort((a, b) => b.retailValue - a.retailValue)
+
+  // Summary
+  const totalProducts = allProducts.length
+  const stockedProducts = allProducts.filter((p) => p.stockQty > 0)
+  const totalUnits = allProducts.reduce((s, p) => s + p.stockQty, 0)
+  const totalCostValue = allProducts.reduce((s, p) => s + p.costValue, 0)
+  const totalRetailValue = allProducts.reduce((s, p) => s + p.retailValue, 0)
+
+  // Low-value items: stock below reorder point
+  const lowValueItems = allProducts
+    .filter((p) => p.stockQty > 0 && p.stockQty <= p.reorderPoint)
+    .sort((a, b) => a.stockQty - b.reorderPoint)
+    .slice(0, 20)
+
+  return NextResponse.json({
+    summary: {
+      totalProducts,
+      stockedProducts: stockedProducts.length,
+      totalUnits,
+      totalCostValue: Math.round(totalCostValue * 100) / 100,
+      totalRetailValue: Math.round(totalRetailValue * 100) / 100,
+      potentialProfit: Math.round((totalRetailValue - totalCostValue) * 100) / 100,
+    },
+    byCategory,
+    lowValueItems,
+  })
+}
+
+// ========================================================================
+// PRISMA FALLBACK
+// =========================================================================
 
 async function prismaFallback(
   type: string, from: string, to: string,
@@ -697,6 +1177,16 @@ async function prismaFallback(
       return NextResponse.json({ summary: { dateRange: { from, to } }, distribution: [], daily: [] })
     case 'comparison':
       return NextResponse.json({ summary: { current: { revenue: 0, txCount: 0, discount: 0, avgTxValue: 0, from, to }, previous: { revenue: 0, txCount: 0, discount: 0, avgTxValue: 0, from, to }, changes: { revenue: 0, txCount: 0, discount: 0, avgTxValue: 0 } }, dailyComparison: [] })
+    case 'stock-velocity':
+      return NextResponse.json({ summary: { totalProducts: 0, fastMoving: 0, slowMoving: 0, deadStock: 0, avgDaysToSell: 0, dateRange: { from, to } }, products: [], velocityDistribution: [] })
+    case 'returns-analysis':
+      return NextResponse.json({ summary: { totalReturns: 0, totalRefundAmount: 0, returnRate: 0, dateRange: { from, to } }, byReason: [], dailyTrend: [], topProducts: [] })
+    case 'user-performance':
+      return NextResponse.json({ summary: { totalUsers: 0, avgSalesPerUser: 0, topPerformer: null, dateRange: { from, to } }, users: [] })
+    case 'prescription-analytics':
+      return NextResponse.json({ summary: { totalRx: 0, filled: 0, pending: 0, avgFulfillmentHours: 0, dateRange: { from, to } }, byStatus: [], byPrescriber: [], dailyTrend: [] })
+    case 'inventory-valuation':
+      return NextResponse.json({ summary: { totalProducts: 0, totalUnits: 0, totalCostValue: 0, totalRetailValue: 0, potentialProfit: 0 }, byCategory: [], lowValueItems: [] })
     default:
       return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
   }

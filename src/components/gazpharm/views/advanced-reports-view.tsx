@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays, ChevronDown,
+  Zap, RotateCcw, Award, FileText, Package, Clock, Activity, TrendingDown,
+  CheckCircle2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -171,6 +173,11 @@ export function AdvancedReportsView() {
           <TabsTrigger value="expiry"><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Expiry</TabsTrigger>
           <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" /> Payments</TabsTrigger>
           <TabsTrigger value="comparison"><ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Compare</TabsTrigger>
+          <TabsTrigger value="stock-velocity"><Zap className="h-3.5 w-3.5 mr-1" /> Stock Velocity</TabsTrigger>
+          <TabsTrigger value="returns-analysis"><RotateCcw className="h-3.5 w-3.5 mr-1" /> Returns</TabsTrigger>
+          <TabsTrigger value="user-performance"><Award className="h-3.5 w-3.5 mr-1" /> Staff</TabsTrigger>
+          <TabsTrigger value="prescription-analytics"><FileText className="h-3.5 w-3.5 mr-1" /> Prescriptions</TabsTrigger>
+          <TabsTrigger value="inventory-valuation"><Package className="h-3.5 w-3.5 mr-1" /> Stock Value</TabsTrigger>
         </TabsList>
 
         {loading ? <Skeleton className="h-96 w-full" /> : (
@@ -181,6 +188,11 @@ export function AdvancedReportsView() {
             <TabsContent value="expiry"><ExpiryTab data={data} /></TabsContent>
             <TabsContent value="payments"><PaymentTab data={data} /></TabsContent>
             <TabsContent value="comparison"><ComparisonTab data={data} /></TabsContent>
+            <TabsContent value="stock-velocity"><StockVelocityTab data={data} /></TabsContent>
+            <TabsContent value="returns-analysis"><ReturnsAnalysisTab data={data} /></TabsContent>
+            <TabsContent value="user-performance"><UserPerformanceTab data={data} /></TabsContent>
+            <TabsContent value="prescription-analytics"><PrescriptionAnalyticsTab data={data} /></TabsContent>
+            <TabsContent value="inventory-valuation"><InventoryValuationTab data={data} /></TabsContent>
           </>
         )}
       </Tabs>
@@ -811,6 +823,495 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
           </Table>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// ========================================================================
+// STOCK VELOCITY TAB
+// ========================================================================
+
+function StockVelocityTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const products = (data?.products as Array<Record<string, unknown>>) || []
+  const velocityDistribution = (data?.velocityDistribution as Array<Record<string, unknown>>) || []
+
+  const velocityColor = (v: string) => {
+    if (v === 'Fast') return 'bg-emerald-100 text-emerald-700'
+    if (v === 'Moderate') return 'bg-blue-100 text-blue-700'
+    if (v === 'Slow') return 'bg-amber-100 text-amber-700'
+    return 'bg-red-100 text-red-700'
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard icon={Package} label="Products Tracked" value={String(s.totalProducts || 0)} color="blue" />
+        <KpiCard icon={Zap} label="Fast Moving" value={String(s.fastMoving || 0)} color="emerald" />
+        <KpiCard icon={TrendingDown} label="Slow Moving" value={String(s.slowMoving || 0)} color="amber" />
+        <KpiCard icon={AlertTriangle} label="Dead Stock" value={String(s.deadStock || 0)} color="rose" />
+        <KpiCard icon={Clock} label="Avg Days to Sell" value={`${s.avgDaysToSell || 0}d`} color="violet" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Velocity Distribution</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={velocityDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="count" nameKey="velocity" paddingAngle={2}>
+                    {velocityDistribution.map((entry, i) => <Cell key={i} fill={String(entry.color)} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Product Velocity Detail</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(products.map(p => ({ Product: p.productName, Category: p.category, Sold: p.totalSold, Revenue: p.totalRevenue, DailyRate: p.dailyRate, Stock: p.currentStock, DaysOfStock: p.daysOfStock, Velocity: p.velocity })), 'stock-velocity.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-72 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs">Category</TableHead>
+                  <TableHead className="text-xs text-right">Sold</TableHead>
+                  <TableHead className="text-xs text-right">Revenue</TableHead>
+                  <TableHead className="text-xs text-right">Daily Rate</TableHead>
+                  <TableHead className="text-xs text-right">In Stock</TableHead>
+                  <TableHead className="text-xs text-right">Days Left</TableHead>
+                  <TableHead className="text-xs">Velocity</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{products.slice(0, 30).map((p, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(p.productName)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{String(p.category)}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(p.totalSold)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(p.dailyRate)}/day</TableCell>
+                    <TableCell className="text-xs text-right">{Number(p.currentStock)}</TableCell>
+                    <TableCell className="text-xs text-right">
+                      <span className={Number(p.daysOfStock) < 14 ? 'text-red-600 font-semibold' : ''}>
+                        {Number(p.daysOfStock) >= 999 ? '∞' : `${Number(p.daysOfStock)}d`}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs"><Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${velocityColor(String(p.velocity))}`}>{String(p.velocity)}</Badge></TableCell>
+                  </TableRow>
+                ))}{products.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-6">No sales data for this period</TableCell></TableRow>}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// RETURNS ANALYSIS TAB
+// ========================================================================
+
+function ReturnsAnalysisTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const byReason = (data?.byReason as Array<Record<string, unknown>>) || []
+  const dailyTrend = (data?.dailyTrend as Array<Record<string, unknown>>) || []
+  const topProducts = (data?.topProducts as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={RotateCcw} label="Total Returns" value={String(s.totalReturns || 0)} color="amber" />
+        <KpiCard icon={DollarSign} label="Total Refunded" value={formatCurrency(Number(s.totalRefundAmount || 0))} color="rose" />
+        <KpiCard icon={Percent} label="Return Rate" value={`${s.returnRate || 0}%`} color="blue" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Returns by Reason</CardTitle></CardHeader>
+          <CardContent className="flex items-center gap-6">
+            <div className="h-52 w-52 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={byReason} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="returnCount" nameKey="reason" paddingAngle={2}>
+                    {byReason.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-2 flex-1">
+              {byReason.map((r, i) => (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                    <span className="font-medium">{String(r.reason)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground">{Number(r.returnCount)} items</span>
+                    <span className="font-semibold text-rose-600">{formatCurrency(Number(r.totalRefund))}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Return Trend</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dailyTrend}>
+                  <defs><linearGradient id="retGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => String(v).slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="returnCount" fill="#f87171" radius={[3, 3, 0, 0]} name="Returns" />
+                  <Line type="monotone" dataKey="totalRefund" stroke="#ef4444" strokeWidth={2} name="Refund Amount" yAxisId={0} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Most Returned Products</CardTitle>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(topProducts.map(p => ({ Product: p.productName, ReturnCount: p.returnCount, QtyReturned: p.totalQtyReturned, TotalRefund: p.totalRefund })), 'returns-products.csv')}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-64 overflow-auto">
+            <Table>
+              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHead className="text-xs">Product</TableHead>
+                <TableHead className="text-xs text-right">Returns</TableHead>
+                <TableHead className="text-xs text-right">Qty Returned</TableHead>
+                <TableHead className="text-xs text-right">Total Refund</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{topProducts.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-6">No returns in this period</TableCell></TableRow>
+              ) : topProducts.map((p, i) => (
+                <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableCell className="text-xs font-medium truncate max-w-[180px]">{String(p.productName)}</TableCell>
+                  <TableCell className="text-xs text-right"><Badge variant="outline" className="text-rose-600 border-rose-200 bg-rose-50">{Number(p.returnCount)}</Badge></TableCell>
+                  <TableCell className="text-xs text-right">{Number(p.totalQtyReturned)}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-rose-600">{formatCurrency(Number(p.totalRefund))}</TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ========================================================================
+// USER PERFORMANCE TAB
+// ========================================================================
+
+function UserPerformanceTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const users = (data?.users as Array<Record<string, unknown>>) || []
+
+  const topPerformer = s.topPerformer as Record<string, unknown> | null
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={Users} label="Total Staff" value={String(s.totalUsers || 0)} color="blue" />
+        <KpiCard icon={Activity} label="Active Staff" value={String(s.activeUsers || 0)} color="emerald" />
+        <KpiCard icon={DollarSign} label="Avg Sales/User" value={formatCurrency(Number(s.avgSalesPerUser || 0))} color="violet" />
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Top Performer</p>
+            <p className="text-lg font-bold text-gray-900 mt-1">{topPerformer ? String(topPerformer.name) : 'N/A'}</p>
+            {topPerformer && <p className="text-xs text-emerald-600 font-medium mt-0.5">{formatCurrency(Number(topPerformer.sales))}</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Staff Performance Breakdown</CardTitle>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(users.map(u => ({ Name: u.userName, Role: u.role, Transactions: u.txCount, TotalSales: u.totalSales, AvgTransaction: u.avgTransaction, ItemsSold: u.totalItems, DiscountRate: `${u.discountRate}%`, VoidRate: `${u.voidRate}%` })), 'staff-performance.csv')}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-96 overflow-auto">
+            <Table>
+              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHead className="text-xs">Staff</TableHead>
+                <TableHead className="text-xs">Role</TableHead>
+                <TableHead className="text-xs text-right">Transactions</TableHead>
+                <TableHead className="text-xs text-right">Total Sales</TableHead>
+                <TableHead className="text-xs text-right">Avg Transaction</TableHead>
+                <TableHead className="text-xs text-right">Items Sold</TableHead>
+                <TableHead className="text-xs text-right">Discount Rate</TableHead>
+                <TableHead className="text-xs text-right">Void Rate</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{users.length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-6">No data</TableCell></TableRow>
+              ) : users.map((u, i) => (
+                <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableCell className="text-xs font-medium">{String(u.userName)}</TableCell>
+                  <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{String(u.role).replace(/_/g, ' ')}</Badge></TableCell>
+                  <TableCell className="text-xs text-right font-medium">{Number(u.txCount)}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(u.totalSales))}</TableCell>
+                  <TableCell className="text-xs text-right">{formatCurrency(Number(u.avgTransaction))}</TableCell>
+                  <TableCell className="text-xs text-right">{Number(u.totalItems)}</TableCell>
+                  <TableCell className="text-xs text-right">
+                    <span className={Number(u.discountRate) > 5 ? 'text-amber-600 font-medium' : 'text-muted-foreground'}>{Number(u.discountRate)}%</span>
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    <span className={Number(u.voidRate) > 3 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{Number(u.voidRate)}%</span>
+                  </TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ========================================================================
+// PRESCRIPTION ANALYTICS TAB
+// ========================================================================
+
+function PrescriptionAnalyticsTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const byStatus = (data?.byStatus as Array<Record<string, unknown>>) || []
+  const byPrescriber = (data?.byPrescriber as Array<Record<string, unknown>>) || []
+  const dailyTrend = (data?.dailyTrend as Array<Record<string, unknown>>) || []
+
+  const statusColors: Record<string, string> = {
+    'PENDING': '#ca8a04', 'IN PROGRESS': '#0891b2', 'READY': '#7c3aed',
+    'DISPENSED': '#059669', 'EXPIRED': '#dc2626', 'CANCELLED': '#9ca3af',
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={FileText} label="Total Prescriptions" value={String(s.totalRx || 0)} color="blue" />
+        <KpiCard icon={CheckCircle2} label="Filled" value={String(s.filled || 0)} color="emerald" />
+        <KpiCard icon={Clock} label="Pending" value={String(s.pending || 0)} color="amber" />
+        <KpiCard icon={Activity} label="Avg Fulfillment" value={`${s.avgFulfillmentHours || 0}h`} color="violet" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Rx Status Breakdown</CardTitle></CardHeader>
+          <CardContent className="flex items-center gap-6">
+            <div className="h-52 w-52 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={byStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="count" nameKey="status" paddingAngle={2}>
+                    {byStatus.map((entry) => <Cell key={String(entry.status)} fill={statusColors[String(entry.status)] || '#9ca3af'} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-2 flex-1">
+              {byStatus.map((b) => (
+                <div key={String(b.status)} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: statusColors[String(b.status)] || '#9ca3af' }} />
+                    <span className="font-medium">{String(b.status)}</span>
+                  </div>
+                  <span className="font-semibold">{Number(b.count)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm lg:col-span-2">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Daily Prescription Trend</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dailyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => String(v).slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="total" fill="#0891b2" radius={[3, 3, 0, 0]} name="Total Rx" />
+                  <Bar dataKey="dispensed" fill="#059669" radius={[3, 3, 0, 0]} name="Dispensed" />
+                  <Line type="monotone" dataKey="pending" stroke="#ca8a04" strokeWidth={2} name="Pending" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Top Prescribers</CardTitle>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(byPrescriber.map(p => ({ Prescriber: p.prescriberName, RxCount: p.rxCount, UniquePatients: p.uniquePatients, FirstRx: p.firstRx, LastRx: p.lastRx })), 'prescribers.csv')}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-64 overflow-auto">
+            <Table>
+              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHead className="text-xs">Prescriber</TableHead>
+                <TableHead className="text-xs text-right">Prescriptions</TableHead>
+                <TableHead className="text-xs text-right">Unique Patients</TableHead>
+                <TableHead className="text-xs">First Rx</TableHead>
+                <TableHead className="text-xs">Last Rx</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{byPrescriber.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">No prescriptions in this period</TableCell></TableRow>
+              ) : byPrescriber.map((p, i) => (
+                <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableCell className="text-xs font-medium">{String(p.prescriberName)}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold">{Number(p.rxCount)}</TableCell>
+                  <TableCell className="text-xs text-right">{Number(p.uniquePatients)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{String(p.firstRx)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{String(p.lastRx)}</TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ========================================================================
+// INVENTORY VALUATION TAB
+// ========================================================================
+
+function InventoryValuationTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const byCategory = (data?.byCategory as Array<Record<string, unknown>>) || []
+  const lowValueItems = (data?.lowValueItems as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard icon={Package} label="Total Products" value={String(s.totalProducts || 0)} color="blue" />
+        <KpiCard icon={ShoppingBag} label="Products in Stock" value={String(s.stockedProducts || 0)} color="emerald" />
+        <KpiCard icon={TrendingUp} label="Total Units" value={String(s.totalUnits || 0)} color="cyan" />
+        <KpiCard icon={DollarSign} label="Cost Value" value={formatCurrency(Number(s.totalCostValue || 0))} color="amber" />
+        <KpiCard icon={TrendingUp} label="Retail Value" value={formatCurrency(Number(s.totalRetailValue || 0))} color="violet" />
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Potential Profit</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-emerald-600">{formatCurrency(Number(s.potentialProfit || 0))}</p>
+              <p className="text-xs text-muted-foreground mt-1">If all stock sold at retail price</p>
+            </div>
+            <div className="flex-1">
+              <div className="h-8 bg-gray-100 rounded-full overflow-hidden flex">
+                <div className="bg-emerald-500 h-full" style={{ width: `${Number(s.totalRetailValue || 0) > 0 ? Math.min(100, ((Number(s.totalRetailValue) - Number(s.totalCostValue)) / Number(s.totalRetailValue)) * 100) : 0}%` }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>Cost: {formatCurrency(Number(s.totalCostValue || 0))}</span>
+                <span>Retail: {formatCurrency(Number(s.totalRetailValue || 0))}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Valuation by Category</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(byCategory.map(c => ({ Category: c.category, Products: c.productCount, Units: c.totalUnits, CostValue: c.costValue, RetailValue: c.retailValue, PotentialProfit: c.potentialProfit, Margin: `${c.margin}%` })), 'inventory-valuation.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={byCategory} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => formatCurrency(Number(v))} />
+                  <YAxis type="category" dataKey="category" tick={{ fontSize: 10 }} width={120} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="costValue" fill="#fbbf24" name="Cost Value" />
+                  <Bar dataKey="retailValue" fill="#059669" name="Retail Value" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Below Reorder Point</CardTitle></CardHeader>
+          <CardContent>
+            <div className="max-h-72 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs">Category</TableHead>
+                  <TableHead className="text-xs text-right">Stock</TableHead>
+                  <TableHead className="text-xs text-right">Reorder At</TableHead>
+                  <TableHead className="text-xs text-right">Deficit</TableHead>
+                  <TableHead className="text-xs text-right">Retail Value</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{lowValueItems.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">All stocked items above reorder point</TableCell></TableRow>
+                ) : lowValueItems.map((item, i) => {
+                  const deficit = Number(item.reorderPoint) - Number(item.stockQty)
+                  return (
+                    <TableRow key={i} className="hover:bg-gray-50/50">
+                      <TableCell className="text-xs font-medium truncate max-w-[120px]">{String(item.productName)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{String(item.category)}</TableCell>
+                      <TableCell className="text-xs text-right text-red-600 font-medium">{Number(item.stockQty)}</TableCell>
+                      <TableCell className="text-xs text-right">{Number(item.reorderPoint)}</TableCell>
+                      <TableCell className="text-xs text-right text-red-600 font-semibold">-{deficit}</TableCell>
+                      <TableCell className="text-xs text-right">{formatCurrency(Number(item.retailValue))}</TableCell>
+                    </TableRow>
+                  )
+                })}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
