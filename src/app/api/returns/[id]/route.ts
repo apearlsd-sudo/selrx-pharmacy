@@ -33,7 +33,7 @@ async function fetchReturnWithJoins(id: string) {
                 r."notes", r."createdAt", r."updatedAt",
                 u."id" AS "userId_val", u."name" AS "userName", u."role" AS "userRole",
                 a."id" AS "approvedById_val", a."name" AS "approvedByName",
-                t."transactionNo", t."status" AS "txnStatus", t."subtotal" AS "txnSubtotal", t."total" AS "txnTotal",
+                t."transactionNo", t."userId" AS "transactionUserId", t."status" AS "txnStatus", t."subtotal" AS "txnSubtotal", t."total" AS "txnTotal",
                 ti."id" AS "txItemId", ti."quantity" AS "txItemQty", ti."unitPrice" AS "txItemUnitPrice",
                 ti."subtotal" AS "txItemSubtotal", ti."requiresRx" AS "txItemRequiresRx",
                 ti."productName" AS "txItemProductName", ti."productId" AS "txItemProductId",
@@ -89,6 +89,7 @@ async function fetchReturnWithJoins(id: string) {
           total: row.txnTotal,
         }
       : null,
+    transactionUserId: row.transactionUserId || null,
     transactionItem: row.txItemId
       ? {
           id: row.txItemId,

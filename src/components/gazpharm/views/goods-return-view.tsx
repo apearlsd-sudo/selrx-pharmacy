@@ -712,6 +712,7 @@ function ReturnTable({
   onAction,
   actionLoading,
   userRole,
+  userId,
 }: {
   returns: ReturnRecord[]
   loading: boolean
