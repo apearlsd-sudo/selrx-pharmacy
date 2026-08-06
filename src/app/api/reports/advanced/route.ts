@@ -101,6 +101,10 @@ export async function GET(req: NextRequest) {
           return stockTakeAccuracyReport(from, to)
         case 'manufacturer-performance':
           return manufacturerPerformanceReport(from, to, userFilter, userArgs)
+        case 'tax-compliance':
+          return taxComplianceReport(from, to, userFilter, userArgs)
+        case 'hourly-heatmap':
+          return hourlyHeatmapReport(from, to, userFilter, userArgs)
         default:
           return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
       }
@@ -2215,6 +2219,207 @@ async function manufacturerPerformanceReport(
 }
 
 // ========================================================================
+// TAX COMPLIANCE REPORT
+// ========================================================================
+
+async function taxComplianceReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // 1. Daily tax collection
+  const dailyResult = await turso.execute({
+    sql: `SELECT date(t."createdAt") AS day,
+          COALESCE(SUM(t."total"), 0) AS revenue,
+          COALESCE(SUM(t."tax"), 0) AS tax,
+          COUNT(*) AS txCount
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY day ORDER BY day`,
+    args: [from, to, ...userArgs],
+  })
+  const dailyTax = toObjs(dailyResult).map((r) => ({
+    day: r.day as string,
+    revenue: Number(r.revenue),
+    tax: Number(r.tax),
+    txCount: Number(r.txCount),
+    taxRate: Number(r.revenue) > 0 ? Math.round((Number(r.tax) / Number(r.revenue)) * 10000) / 100 : 0,
+  }))
+
+  // 2. Tax by payment method
+  const pmResult = await turso.execute({
+    sql: `SELECT t."paymentMethod" AS method,
+          COALESCE(SUM(t."tax"), 0) AS tax,
+          COALESCE(SUM(t."total"), 0) AS revenue
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY t."paymentMethod"
+          ORDER BY tax DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const byPaymentMethod = toObjs(pmResult).map((r) => ({
+    method: r.method as string,
+    tax: Number(r.tax),
+    revenue: Number(r.revenue),
+  }))
+
+  // 3. Tax by category
+  const catResult = await turso.execute({
+    sql: `SELECT COALESCE(p."category", 'Uncategorized') AS category,
+          COALESCE(SUM(ti."subtotal"), 0) AS revenue,
+          COALESCE(SUM(ti."subtotal" * 0), 0) AS tax
+          FROM "TransactionItem" ti
+          JOIN "Transaction" t ON t."id" = ti."transactionId"
+          LEFT JOIN "Product" p ON p."id" = ti."productId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY category
+          ORDER BY revenue DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const allTax = dailyTax.reduce((s, d) => s + d.tax, 0)
+  const allRevenue = dailyTax.reduce((s, d) => s + d.revenue, 0)
+  const catTax = toObjs(catResult).map((r) => {
+    const rev = Number(r.revenue)
+    // Estimate tax proportionally to category's share of total revenue
+    const estimatedTax = allRevenue > 0 ? Math.round((rev / allRevenue) * allTax * 100) / 100 : 0
+    return {
+      category: r.category as string,
+      revenue: rev,
+      tax: estimatedTax,
+      taxRate: rev > 0 ? Math.round((estimatedTax / rev) * 10000) / 100 : 0,
+    }
+  })
+
+  // 4. Tax-exempt transactions (insurance, FSA/HSA)
+  const exemptResult = await turso.execute({
+    sql: `SELECT date(t."createdAt") AS date,
+          t."transactionNo",
+          t."subtotal",
+          t."tax",
+          t."paymentMethod"
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND t."paymentMethod" IN ('INSURANCE', 'FSA_HSA')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+          ORDER BY date DESC
+          LIMIT 50`,
+    args: [from, to],
+  })
+  const exemptTransactions = toObjs(exemptResult).map((r) => ({
+    date: r.date as string,
+    transactionNo: r.transactionNo as string,
+    subtotal: Number(r.subtotal),
+    tax: Number(r.tax),
+    paymentMethod: r.paymentMethod as string,
+  }))
+
+  const exemptRevenue = exemptTransactions.reduce((s, t) => s + t.subtotal, 0)
+  const taxableRevenue = allRevenue - exemptRevenue
+
+  return NextResponse.json({
+    summary: {
+      totalRevenue: Math.round(allRevenue * 100) / 100,
+      totalTax: Math.round(allTax * 100) / 100,
+      taxableRevenue: Math.round(taxableRevenue * 100) / 100,
+      exemptRevenue: Math.round(exemptRevenue * 100) / 100,
+      effectiveRate: allRevenue > 0 ? Math.round((allTax / allRevenue) * 10000) / 100 : 0,
+      totalTransactions: dailyTax.reduce((s, d) => s + d.txCount, 0),
+      dateRange: { from, to },
+    },
+    dailyTax,
+    byPaymentMethod,
+    byCategory: catTax,
+    exemptTransactions,
+  })
+}
+
+// ========================================================================
+// HOURLY SALES HEATMAP REPORT
+// ========================================================================
+
+async function hourlyHeatmapReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  // 1. Day x Hour heatmap data
+  const heatResult = await turso.execute({
+    sql: `SELECT CAST(strftime('%w', t."createdAt") AS INTEGER) AS dow,
+          CAST(strftime('%H', t."createdAt") AS INTEGER) AS hour,
+          COALESCE(SUM(t."total"), 0) AS revenue,
+          COUNT(*) AS txCount
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY dow, hour
+          ORDER BY dow, hour`,
+    args: [from, to, ...userArgs],
+  })
+  const heatmap = toObjs(heatResult).map((r) => ({
+    day: dowLabels[Number(r.dow) as number] || 'Unknown',
+    hour: Number(r.hour),
+    revenue: Number(r.revenue),
+    txCount: Number(r.txCount),
+  }))
+
+  // 2. Hourly average across all days
+  const hourAvgResult = await turso.execute({
+    sql: `SELECT CAST(strftime('%H', t."createdAt") AS INTEGER) AS hour,
+          COALESCE(AVG(t."total"), 0) AS avgRevenue,
+          COALESCE(SUM(t."total"), 0) AS totalRevenue,
+          COUNT(*) AS txCount
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY hour ORDER BY hour`,
+    args: [from, to, ...userArgs],
+  })
+  const hourlyAvg = toObjs(hourAvgResult).map((r) => ({
+    hour: Number(r.hour),
+    avgRevenue: Math.round(Number(r.avgRevenue) * 100) / 100,
+    totalRevenue: Number(r.totalRevenue),
+    txCount: Number(r.txCount),
+  }))
+
+  // 3. Find peak hour/day
+  const peakEntry = heatmap.reduce((best, curr) => curr.revenue > best.revenue ? curr : best, { day: 'N/A', hour: 0, revenue: 0, txCount: 0 })
+  // Peak hour aggregated across all days
+  const peakHourAgg = hourlyAvg.reduce((best, curr) => curr.avgRevenue > best.avgRevenue ? curr : best, { hour: 0, avgRevenue: 0, totalRevenue: 0, txCount: 0 })
+
+  // 4. Top 20 peak slots
+  const peakHours = [...heatmap].sort((a, b) => b.revenue - a.revenue).slice(0, 20)
+
+  const totalRevenue = heatmap.reduce((s, h) => s + h.revenue, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      peakHour: `${peakHourAgg.hour}:00`,
+      peakDay: peakEntry.day,
+      peakHourAvg: Math.round(peakHourAgg.avgRevenue * 100) / 100,
+      dateRange: { from, to },
+    },
+    heatmap,
+    hourlyAvg,
+    peakHours,
+  })
+}
+
+// ========================================================================
 // PRISMA FALLBACK
 // =========================================================================
 
@@ -2267,6 +2472,20 @@ async function prismaFallback(
       return NextResponse.json({ summary: { dateRange: { from, to } }, kpis: {}, highlights: [], alerts: [] })
     case 'product-affinity':
       return NextResponse.json({ summary: { totalPairs: 0, dateRange: { from, to } }, pairs: [] })
+    case 'sales-forecast':
+      return NextResponse.json({ summary: { totalRevenue: 0, avgDailyRevenue: 0, trendSlope: 0, trendDirection: 'Stable', forecast14Day: 0, dateRange: { from, to } }, historical: [], forecast: [], dayOfWeekAvg: [] })
+    case 'customer-segmentation':
+      return NextResponse.json({ summary: { totalCustomers: 0, totalSpend: 0, avgSpend: 0, segmentsCount: 0, dateRange: { from, to } }, segmentDistribution: [], customers: [] })
+    case 'batch-expiry':
+      return NextResponse.json({ summary: { totalBatches: 0, totalUnits: 0, totalCostValue: 0, expiredCount: 0, expiredCost: 0, atRisk30DayCost: 0, asOf: todayStr() }, expiryBuckets: [], atRiskProducts: [], batchDiversity: [] })
+    case 'stock-take-accuracy':
+      return NextResponse.json({ summary: { totalStockTakes: 0, overallAccuracy: 0, totalItemsCounted: 0, totalDiscrepancies: 0, dateRange: { from, to } }, stockTakes: [], trendData: [], discrepancies: [], categoryAccuracy: [] })
+    case 'manufacturer-performance':
+      return NextResponse.json({ summary: { totalManufacturers: 0, totalRevenue: 0, topManufacturer: null, dateRange: { from, to } }, manufacturers: [], topProductsByMfr: [], dailyTrend: [], trendManufacturerNames: [] })
+    case 'tax-compliance':
+      return NextResponse.json({ summary: { totalRevenue: 0, totalTax: 0, taxableRevenue: 0, exemptRevenue: 0, effectiveRate: 0, totalTransactions: 0, dateRange: { from, to } }, dailyTax: [], byPaymentMethod: [], byCategory: [], exemptTransactions: [] })
+    case 'hourly-heatmap':
+      return NextResponse.json({ summary: { totalRevenue: 0, peakHour: null, peakDay: null, peakHourAvg: 0, dateRange: { from, to } }, heatmap: [], hourlyAvg: [], peakHours: [] })
     default:
       return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
   }
