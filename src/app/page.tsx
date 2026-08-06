@@ -27,7 +27,16 @@ import {
   AlertTriangle,
   PackageX,
   Clock as ClockIcon,
+  Monitor,
+  ChevronDown,
 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -63,6 +72,7 @@ import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import { OtherSettingsView } from '@/components/gazpharm/views/other-settings-view'
+import { WorkstationsView } from '@/components/gazpharm/views/workstations-view'
 
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
@@ -129,6 +139,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware:view' },
   { name: 'users', label: 'User Management', icon: UserCog, permission: 'users:view' },
   { name: 'settings', label: 'Other Settings', icon: Settings, permission: 'pos:sell' },
+  { name: 'workstations', label: 'Workstations', icon: Monitor, permission: 'users:view' },
 ]
 
 // ── Live Clock for Topbar ──────────────────────────────────────────────
@@ -155,6 +166,40 @@ function TopbarClock() {
       <Clock className="h-3.5 w-3.5" />
       <span className="font-medium tabular-nums">{time}</span>
     </div>
+  )
+}
+
+// ── Workstation Selector for Topbar ──────────────────────────────
+function WorkstationSelector() {
+  const currentWorkstationId = useAppStore((s) => s.currentWorkstationId)
+  const setCurrentWorkstationId = useAppStore((s) => s.setCurrentWorkstationId)
+  const [workstations, setWorkstations] = useState<Array<{ id: string; name: string }>>([])
+
+  useEffect(() => {
+    fetch('/api/workstations').then(r => r.ok ? r.json() : { workstations: [] }).then(d => {
+      setWorkstations((d.workstations || []).filter((w: { isActive: boolean }) => w.isActive))
+    }).catch(() => {})
+  }, [])
+
+  if (workstations.length === 0) return null
+
+  return (
+    <Select value={currentWorkstationId || '_none'} onValueChange={(v) => setCurrentWorkstationId(v === '_none' ? null : v)}>
+      <SelectTrigger className="h-8 w-[140px] text-[11px] border-gray-200 bg-gray-50/50">
+        <div className="flex items-center gap-1.5 truncate">
+          <Monitor className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <SelectValue placeholder="Select terminal" />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="_none" className="text-xs">
+          <span className="text-muted-foreground">No Workstation</span>
+        </SelectItem>
+        {workstations.map((ws) => (
+          <SelectItem key={ws.id} value={ws.id} className="text-xs">{ws.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -439,6 +484,11 @@ export default function Home() {
                   else store.setShift({ id: r.shift.id, startedAt: r.shift.startedAt })
                 }).catch(() => {})
               } catch { /* silent */ }
+              // Restore workstation selection from localStorage
+              try {
+                const savedWsId = localStorage.getItem('selrx_workstation')
+                if (savedWsId) store.setCurrentWorkstationId(savedWsId)
+              } catch { /* silent */ }
               // Restore saved view, but redirect to POS if user lacks permission for it
               let targetView = savedView && savedView !== 'login' && savedView !== 'company-setup'
                 ? savedView as ViewName
@@ -532,6 +582,7 @@ export default function Home() {
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
       case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportViewWrapper /></ViewErrorBoundary>
       case 'settings': return <OtherSettingsView />
+      case 'workstations': return <WorkstationsView />
       default: return <DashboardView />
     }
   }
@@ -679,6 +730,8 @@ export default function Home() {
           <div className="ml-auto flex items-center gap-2">
             {/* Live Clock */}
             <TopbarClock />
+            {/* Workstation Selector */}
+            <WorkstationSelector />
             {/* Notification Bell */}
             <NotificationBell />
             {shiftActive && shiftStartedAt && (

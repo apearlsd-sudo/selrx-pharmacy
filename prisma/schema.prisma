@@ -173,6 +173,7 @@ model Transaction {
   transactionNo   String            @unique
   customerId      String?
   userId          String
+  workstationId   String?
   subtotal        Float
   tax             Float             @default(0)
   discount        Float             @default(0)
@@ -191,7 +192,7 @@ model Transaction {
   prescription    Prescription?     @relation(fields: [prescriptionId], references: [id])
   items           TransactionItem[]
   returns         Return[]
-
+  workstation     Workstation?      @relation(fields: [workstationId], references: [id])
   hardwareLog     HardwareLog?
 }
 
@@ -335,6 +336,20 @@ model Return {
   product          Product          @relation(fields: [productId], references: [id])
   user             User             @relation(fields: [userId], references: [id])
   approvedBy       User?            @relation("ReturnApprover", fields: [approvedById], references: [id])
+}
+
+// ============ WORKSTATIONS ============
+
+model Workstation {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "Counter 1", "Pharmacy Window"
+  description String?
+  location    String?  // e.g. "Front Desk", "Drive-Thru"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions Transaction[]
 }
 
 // ============ COMPANY / STORE ============

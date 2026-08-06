@@ -340,6 +340,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-user-id')
+    const workstationId = request.headers.get('x-workstation-id') || null
     if (!userId) {
       return NextResponse.json(
         { error: 'User authentication required. Please log in and try again.' },
@@ -420,11 +421,11 @@ export async function POST(request: NextRequest) {
       // 3. Insert Transaction
       await turso.execute({
         sql: `INSERT INTO "Transaction"
-              (id, transactionNo, customerId, userId, subtotal, tax, discount, total,
+              (id, transactionNo, customerId, userId, workstationId, subtotal, tax, discount, total,
                paymentMethod, paymentAmount, changeAmount, status, prescriptionId, notes, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
-          transactionId, transactionNo, customerId || null, userId,
+          transactionId, transactionNo, customerId || null, userId, workstationId,
           subtotal || 0, tax || 0, discount || 0, total,
           paymentMethod, paymentAmount || total,
           Math.max(0, (paymentAmount || total) - total),

@@ -266,6 +266,17 @@ export function POSView() {
     }
   }, [inventoryVersion, searchQuery, activeCategory, searchProducts])
 
+  // Real-time inventory polling: refresh product list every 8 seconds
+  // so stock levels stay in sync across multiple terminals
+  useEffect(() => {
+    // Only poll when there's an active search to avoid unnecessary requests
+    if (!searchQuery && !activeCategory) return
+    const interval = setInterval(() => {
+      searchProducts(searchQuery, activeCategory)
+    }, 8000)
+    return () => clearInterval(interval)
+  }, [searchQuery, activeCategory, searchProducts])
+
   const handleAddToCart = (product: Product) => {
     addToCart(
       {

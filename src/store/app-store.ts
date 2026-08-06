@@ -22,6 +22,7 @@ export type ViewName =
   | 'stock-take'
   | 'stock-take-report'
   | 'advanced-reports'
+  | 'workstations'
 
 export type PaymentMethodType =
   | 'CASH'
@@ -229,11 +230,17 @@ export interface UIState {
 
 // ============ COMBINED APP STATE TYPE ============
 
+export interface WorkstationState {
+  currentWorkstationId: string | null
+  setCurrentWorkstationId: (id: string | null) => void
+}
+
 export type AppState = NavigationState &
   AuthState &
   POSState &
   InventoryUIState &
   ShiftState &
+  WorkstationState &
   CompanyState &
   CurrencyState &
   ReceiptSettingsState &
@@ -370,6 +377,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   setStockAlerts: (alerts) => set({ stockAlerts: alerts }),
   inventoryVersion: 0,
   bumpInventoryVersion: () => set((s) => ({ inventoryVersion: s.inventoryVersion + 1 })),
+
+  // ---- Workstation ----
+  currentWorkstationId: null,
+  setCurrentWorkstationId: (id) => {
+    set({ currentWorkstationId: id })
+    if (typeof window !== 'undefined') {
+      if (id) {
+        localStorage.setItem('selrx_workstation', id)
+      } else {
+        localStorage.removeItem('selrx_workstation')
+      }
+    }
+  },
 
   // ---- Shift ----
   currentShiftId: null,
