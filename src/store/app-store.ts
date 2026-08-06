@@ -21,6 +21,7 @@ export type ViewName =
   | 'product-sales-analytics'
   | 'stock-take'
   | 'stock-take-report'
+  | 'advanced-reports'
 
 export type PaymentMethodType =
   | 'CASH'

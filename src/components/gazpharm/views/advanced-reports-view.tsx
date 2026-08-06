@@ -1,0 +1,816 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import {
+  BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
+  Download, DollarSign, ShoppingBag, Percent, CalendarDays, ChevronDown,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import {
+  BarChart, Bar, LineChart, Line, AreaChart, Area,
+  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, ComposedChart,
+} from 'recharts'
+import { formatCurrency } from '@/lib/currency'
+import { formatDateShort } from '@/lib/date-utils'
+import { authHeaders } from '@/lib/auth-headers'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { useAppStore } from '@/store/app-store'
+
+// Palette
+const COLORS = ['#059669', '#0d9488', '#0891b2', '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#65a30d', '#14b8a6']
+const COLORS_LIGHT = ['#d1fae5', '#ccfbf1', '#cffafe', '#e0f2fe', '#ede9fe', '#fce7f3', '#ffedd5', '#fef9c3', '#dcfce7', '#ccfbf1']
+
+// Date helpers
+function todayLocal() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function daysAgoLocal(n: number) {
+  const d = new Date(); d.setDate(d.getDate() - n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function ChangeIndicator({ value, suffix = '%' }: { value: number; suffix?: string }) {
+  const isUp = value >= 0
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${isUp ? 'text-emerald-600' : 'text-red-500'}`}>
+      {isUp ? '↑' : '↓'} {Math.abs(value).toFixed(1)}{suffix}
+    </span>
+  )
+}
+
+function KpiCard({ icon: Icon, label, value, sub, color = 'emerald' }: {
+  icon: React.ElementType; label: string; value: string; sub?: React.ReactNode; color?: string
+}) {
+  const bgMap: Record<string, string> = {
+    emerald: 'bg-emerald-50 text-emerald-600', blue: 'bg-blue-50 text-blue-600',
+    amber: 'bg-amber-50 text-amber-600', rose: 'bg-rose-50 text-rose-600',
+    violet: 'bg-violet-50 text-violet-600', cyan: 'bg-cyan-50 text-cyan-600',
+  }
+  return (
+    <Card className="border-none shadow-sm card-hover">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+            {sub && <div className="mt-1">{sub}</div>}
+          </div>
+          <div className={`h-10 w-10 rounded-lg ${bgMap[color] || bgMap.emerald} flex items-center justify-center`}>
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function exportCSV(data: Record<string, unknown>[], filename: string) {
+  if (!data.length) return
+  const headers = Object.keys(data[0])
+  const csv = [headers.join(','), ...data.map(row => headers.map(h => {
+    const v = row[h]
+    const s = typeof v === 'string' ? v : JSON.stringify(v ?? '')
+    return `"${s.replace(/"/g, '""')}"`
+  }).join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+// Quick date presets
+const PRESETS = [
+  { label: 'Today', from: todayLocal(), to: todayLocal() },
+  { label: '7 Days', from: daysAgoLocal(6), to: todayLocal() },
+  { label: '30 Days', from: daysAgoLocal(29), to: todayLocal() },
+  { label: '90 Days', from: daysAgoLocal(89), to: todayLocal() },
+  { label: 'This Month', from: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`, to: todayLocal() },
+  { label: 'This Year', from: `${new Date().getFullYear()}-01-01`, to: todayLocal() },
+]
+
+// ========================================================================
+// MAIN COMPONENT
+// ========================================================================
+
+export function AdvancedReportsView() {
+  const addToast = useAppStore((s) => s.addToast)
+  const [activeTab, setActiveTab] = useState('revenue')
+  const [from, setFrom] = useState(daysAgoLocal(29))
+  const [to, setTo] = useState(todayLocal())
+  const [data, setData] = useState<Record<string, unknown> | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ type: activeTab, from, to })
+      const res = await fetch(`/api/reports/advanced?${params}`, { headers: authHeaders() })
+      if (!res.ok) throw new Error(`Server error (${res.status})`)
+      const json = await res.json()
+      if (json.error) { addToast({ title: 'Report Error', description: json.error, variant: 'destructive' }); return }
+      setData(json)
+    } catch (err) {
+      console.error(err)
+      addToast({ title: 'Failed to load report', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [activeTab, from, to])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const applyPreset = (p: { from: string; to: string }) => { setFrom(p.from); setTo(p.to) }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader icon={BarChart3} title="Advanced Reports" description="Deep analytics and insights" />
+
+      {/* Date Range Controls */}
+      <Card className="border-none shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Period:</span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                className="h-9 w-[140px] text-xs border rounded-md px-2 bg-white" />
+              <span className="text-xs text-muted-foreground">to</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                className="h-9 w-[140px] text-xs border rounded-md px-2 bg-white" />
+            </div>
+            <div className="flex items-center gap-1 flex-wrap">
+              {PRESETS.map((p) => (
+                <Button key={p.label} variant="outline" size="sm" className="h-7 text-xs"
+                  onClick={() => applyPreset(p)}>{p.label}</Button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="revenue"><TrendingUp className="h-3.5 w-3.5 mr-1" /> Revenue</TabsTrigger>
+          <TabsTrigger value="profit"><DollarSign className="h-3.5 w-3.5 mr-1" /> Profit</TabsTrigger>
+          <TabsTrigger value="customers"><Users className="h-3.5 w-3.5 mr-1" /> Customers</TabsTrigger>
+          <TabsTrigger value="expiry"><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Expiry</TabsTrigger>
+          <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" /> Payments</TabsTrigger>
+          <TabsTrigger value="comparison"><ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Compare</TabsTrigger>
+        </TabsList>
+
+        {loading ? <Skeleton className="h-96 w-full" /> : (
+          <>
+            <TabsContent value="revenue"><RevenueTab data={data} /></TabsContent>
+            <TabsContent value="profit"><ProfitTab data={data} /></TabsContent>
+            <TabsContent value="customers"><CustomerTab data={data} /></TabsContent>
+            <TabsContent value="expiry"><ExpiryTab data={data} /></TabsContent>
+            <TabsContent value="payments"><PaymentTab data={data} /></TabsContent>
+            <TabsContent value="comparison"><ComparisonTab data={data} /></TabsContent>
+          </>
+        )}
+      </Tabs>
+    </div>
+  )
+}
+
+// ========================================================================
+// REVENUE TAB
+// ========================================================================
+
+function RevenueTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const daily = (data?.daily as Array<Record<string, unknown>>) || []
+  const hourly = (data?.hourly as Array<Record<string, unknown>>) || []
+  const dayOfWeek = (data?.dayOfWeek as Array<Record<string, unknown>>) || []
+  const topProducts = (data?.topProducts as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
+        <KpiCard icon={ShoppingBag} label="Transactions" value={String(s.totalTx || 0)} color="blue" />
+        <KpiCard icon={Percent} label="Avg Transaction" value={formatCurrency(Number(s.avgTxValue || 0))} color="violet" />
+        <KpiCard icon={TrendingUp} label="Total Discount" value={formatCurrency(Number(s.totalDiscount || 0))} color="amber" />
+      </div>
+
+      {/* Daily Revenue Trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="border-none shadow-sm lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Daily Revenue Trend</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(daily.map(d => ({ Date: d.day, Revenue: d.revenue, Transactions: d.txCount })), 'revenue-daily.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={daily}>
+                  <defs><linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#059669" stopOpacity={0.3}/><stop offset="95%" stopColor="#059669" stopOpacity={0}/></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => v?.slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Area type="monotone" dataKey="revenue" stroke="#059669" fill="url(#revGrad)" strokeWidth={2} name="Revenue" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Revenue by Day of Week */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Revenue by Day</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dayOfWeek}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Bar dataKey="revenue" fill="#0891b2" radius={[4, 4, 0, 0]} name="Revenue" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Hourly + Top Products */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Revenue by Hour</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hourly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}:00`} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Bar dataKey="revenue" fill="#7c3aed" radius={[4, 4, 0, 0]} name="Revenue" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Top Revenue Products</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(topProducts.map(p => ({ Product: p.productName, Qty: p.totalQty, Revenue: p.totalRevenue, Transactions: p.txCount })), 'top-products.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow className="bg-gray-50/80">
+                <TableHead className="text-xs">Product</TableHead>
+                <TableHead className="text-xs text-right">Qty</TableHead>
+                <TableHead className="text-xs text-right">Revenue</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{topProducts.slice(0, 10).map((p, i) => (
+                <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productName)}</TableCell>
+                  <TableCell className="text-xs text-right">{Number(p.totalQty)}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// PROFIT TAB
+// ========================================================================
+
+function ProfitTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const dailyProfit = (data?.dailyProfit as Array<Record<string, unknown>>) || []
+  const categoryProfit = (data?.categoryProfit as Array<Record<string, unknown>>) || []
+  const productProfit = (data?.productProfit as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
+        <KpiCard icon={ShoppingBag} label="Total Cost" value={formatCurrency(Number(s.totalCost || 0))} color="amber" />
+        <KpiCard icon={TrendingUp} label="Gross Profit" value={formatCurrency(Number(s.totalProfit || 0))} color="blue" />
+        <KpiCard icon={Percent} label="Avg Margin" value={`${Number(s.avgMargin || 0)}%`} color={Number(s.avgMargin || 0) >= 30 ? 'emerald' : Number(s.avgMargin || 0) >= 15 ? 'amber' : 'rose'} />
+      </div>
+
+      {/* Revenue vs Cost vs Profit daily */}
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Daily Profit Trend</CardTitle></CardHeader>
+        <CardContent>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={dailyProfit}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => v?.slice(5)} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="cost" fill="#f59e0b" radius={[2, 2, 0, 0]} name="Cost" />
+                <Bar dataKey="revenue" fill="#059669" radius={[2, 2, 0, 0]} name="Revenue" />
+                <Line type="monotone" dataKey="profit" stroke="#0284c7" strokeWidth={2} dot={false} name="Profit" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Category profit */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Profit by Category</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(categoryProfit.map(c => ({ Category: c.category, Revenue: c.totalRevenue, Cost: c.totalCost, Profit: c.profit, Margin: `${c.margin}%` })), 'profit-by-category.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={categoryProfit} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="category" tick={{ fontSize: 10 }} width={100} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Bar dataKey="profit" fill="#059669" radius={[0, 4, 4, 0]} name="Profit" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Product profit table */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Product Profitability</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(productProfit.map(p => ({ Product: p.productName, Category: p.category, Qty: p.totalQty, Revenue: p.totalRevenue, Cost: p.totalCost, Profit: p.profit, Margin: `${p.margin}%` })), 'product-profitability.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-64 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs text-right">Revenue</TableHead>
+                  <TableHead className="text-xs text-right">Profit</TableHead>
+                  <TableHead className="text-xs text-right">Margin</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{productProfit.slice(0, 15).map((p, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs font-medium truncate max-w-[120px]">{String(p.productName)}</TableCell>
+                    <TableCell className="text-xs text-right">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                    <TableCell className={`text-xs text-right font-semibold ${Number(p.profit) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatCurrency(Number(p.profit))}</TableCell>
+                    <TableCell className="text-xs text-right"><Badge className={`text-[10px] ${Number(p.margin) >= 30 ? 'bg-emerald-100 text-emerald-700' : Number(p.margin) >= 15 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{Number(p.margin)}%</Badge></TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// CUSTOMER TAB
+// ========================================================================
+
+function CustomerTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const topCustomers = (data?.topCustomers as Array<Record<string, unknown>>) || []
+  const dailyRetention = (data?.dailyRetention as Array<Record<string, unknown>>) || []
+  const basketDistribution = (data?.basketDistribution as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={Users} label="Active Customers" value={String(s.totalCustomers || 0)} color="blue" />
+        <KpiCard icon={DollarSign} label="Total Spent" value={formatCurrency(Number(s.totalSpent || 0))} color="emerald" />
+        <KpiCard icon={ShoppingBag} label="Avg Basket Size" value={formatCurrency(Number(s.avgBasket || 0))} color="violet" />
+      </div>
+
+      {/* Retention trend */}
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">New vs Returning Customers</CardTitle></CardHeader>
+        <CardContent>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dailyRetention}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => v?.slice(5)} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                <Area type="monotone" dataKey="newCustomers" stackId="1" stroke="#059669" fill="#d1fae5" name="New" />
+                <Area type="monotone" dataKey="returningCustomers" stackId="1" stroke="#0284c7" fill="#e0f2fe" name="Returning" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Basket distribution */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Basket Size Distribution</CardTitle></CardHeader>
+          <CardContent className="flex items-center gap-6">
+            <div className="h-52 flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={basketDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="txCount" nameKey="range" paddingAngle={2}>
+                    {basketDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-2">
+              {basketDistribution.map((b, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                  <span className="text-muted-foreground w-20">{String(b.range)}</span>
+                  <span className="font-semibold">{Number(b.txCount)} txns</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top customers table */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Top Customers</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(topCustomers.map(c => ({ Name: c.customerName, Phone: c.customerPhone || '', Transactions: c.txCount, TotalSpent: c.totalSpent, AvgBasket: c.avgBasket })), 'top-customers.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-64 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Customer</TableHead>
+                  <TableHead className="text-xs text-right">Txns</TableHead>
+                  <TableHead className="text-xs text-right">Total Spent</TableHead>
+                  <TableHead className="text-xs text-right">Avg Basket</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{topCustomers.slice(0, 15).map((c, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs">
+                      <p className="font-medium">{String(c.customerName)}</p>
+                      {c.customerPhone && <p className="text-muted-foreground">{String(c.customerPhone)}</p>}
+                    </TableCell>
+                    <TableCell className="text-xs text-right">{Number(c.txCount)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(c.totalSpent))}</TableCell>
+                    <TableCell className="text-xs text-right">{formatCurrency(Number(c.avgBasket))}</TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// EXPIRY TAB
+// ========================================================================
+
+function ExpiryTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const buckets = (data?.buckets as Array<Record<string, unknown>>) || []
+  const expired = (data?.expired as Array<Record<string, unknown>>) || []
+
+  const bucketChartData = buckets.map((b) => ({ name: String(b.label), value: Number(b.totalValue), count: Number(b.count) }))
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={AlertTriangle} label="At-Risk Value" value={formatCurrency(Number(s.totalAtRisk || 0))} color="amber" />
+        <KpiCard icon={AlertTriangle} label="Expired Value" value={formatCurrency(Number(s.totalExpired || 0))} color="rose" />
+        <KpiCard icon={DollarSign} label="Total Potential Loss" value={formatCurrency(Number(s.totalLoss || 0))} color={Number(s.totalLoss || 0) > 0 ? 'rose' : 'emerald'} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Expiry Risk Breakdown</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={bucketChartData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} dataKey="value" nameKey="name" paddingAngle={3}>
+                    {bucketChartData.map((_, i) => <Cell key={i} fill={['#f59e0b', '#fb923c', '#f87171', '#ef4444'][i] || '#f59e0b'} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {buckets.map((b, i) => (
+                <div key={i} className="text-xs flex items-center gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ['#f59e0b', '#fb923c', '#f87171', '#ef4444'][i] }} />
+                  <span className="text-muted-foreground">{String(b.label)}: <strong>{Number(b.count)}</strong> items ({formatCurrency(Number(b.totalValue))})</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expired items table */}
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Already Expired</CardTitle>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => exportCSV(expired.map(e => ({ Product: e.productName, Batch: e.batchNumber, Qty: e.quantity, CostPrice: e.costPrice, Value: e.totalValue, ExpiryDate: e.expiryDate })), 'expired-goods.csv')}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-64 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs">Batch</TableHead>
+                  <TableHead className="text-xs text-right">Qty</TableHead>
+                  <TableHead className="text-xs text-right">Loss Value</TableHead>
+                  <TableHead className="text-xs">Expiry</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{expired.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">No expired items in stock</TableCell></TableRow>
+                ) : expired.map((e, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(e.productName)}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">{String(e.batchNumber)}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(e.quantity)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-red-500">{formatCurrency(Number(e.totalValue))}</TableCell>
+                    <TableCell className="text-xs text-red-500">{String(e.expiryDate)}</TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Expiring soon buckets */}
+      {buckets.map((bucket, bi) => Number(bucket.count) > 0 && (
+        <Card key={bi} className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Expiring in {String(bucket.label)}</CardTitle></CardHeader>
+          <CardContent>
+            <div className="max-h-48 overflow-auto">
+              <Table>
+                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs">Batch</TableHead>
+                  <TableHead className="text-xs text-right">Qty</TableHead>
+                  <TableHead className="text-xs text-right">Value at Risk</TableHead>
+                  <TableHead className="text-xs">Expiry Date</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{(bucket.items as Array<Record<string, unknown>>).map((item, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(item.productName)}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">{String(item.batchNumber)}</TableCell>
+                    <TableCell className="text-xs text-right">{Number(item.quantity)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-amber-600">{formatCurrency(Number(item.totalValue))}</TableCell>
+                    <TableCell className="text-xs text-amber-600">{String(item.expiryDate)}</TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// ========================================================================
+// PAYMENT TAB
+// ========================================================================
+
+function PaymentTab({ data }: { data: Record<string, unknown> | null }) {
+  const distribution = (data?.distribution as Array<Record<string, unknown>>) || []
+  const daily = (data?.daily as Array<Record<string, unknown>>) || []
+
+  // Pivot daily data for stacked chart
+  const methods = [...new Set(daily.map((d) => String(d.method)))]
+  const days = [...new Set(daily.map((d) => String(d.day)))].sort()
+  const chartData = days.map((day) => {
+    const row: Record<string, unknown> = { day }
+    methods.forEach((m) => {
+      const match = daily.find((d) => String(d.day) === day && String(d.method) === m)
+      row[m] = match ? Number(match.totalAmount) : 0
+    })
+    return row
+  })
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Payment Method Distribution</CardTitle></CardHeader>
+          <CardContent className="flex items-center gap-6">
+            <div className="h-56 w-56 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={distribution} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="totalAmount" nameKey="method" paddingAngle={2}>
+                    {distribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-3 flex-1">
+              {distribution.map((d, i) => {
+                const total = distribution.reduce((s, x) => s + Number(x.totalAmount), 0)
+                const pct = total > 0 ? Math.round((Number(d.totalAmount) / total) * 100) : 0
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        <span className="font-medium">{String(d.method)}</span>
+                      </div>
+                      <span className="text-muted-foreground">{pct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                      <span>{Number(d.txCount)} transactions</span>
+                      <span className="font-medium">{formatCurrency(Number(d.totalAmount))}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Payment Trend</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => String(v).slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  {methods.map((m, i) => (
+                    <Bar key={m} dataKey={m} stackId="a" fill={COLORS[i % COLORS.length]} name={m} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ========================================================================
+// COMPARISON TAB
+// ========================================================================
+
+function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
+  const s = (data?.summary as Record<string, unknown>) || {}
+  const cur = (s.current as Record<string, unknown>) || {}
+  const prv = (s.previous as Record<string, unknown>) || {}
+  const changes = (s.changes as Record<string, unknown>) || {}
+  const dailyComparison = (data?.dailyComparison as Array<Record<string, unknown>>) || []
+
+  return (
+    <div className="space-y-6 mt-4">
+      {/* Comparison KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenue</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(Number(cur.revenue || 0))}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">vs {formatCurrency(Number(prv.revenue || 0))}</p>
+            <ChangeIndicator value={Number(changes.revenue || 0)} />
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Transactions</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{Number(cur.txCount || 0)}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">vs {Number(prv.txCount || 0)}</p>
+            <ChangeIndicator value={Number(changes.txCount || 0)} />
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Transaction</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(Number(cur.avgTxValue || 0))}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">vs {formatCurrency(Number(prv.avgTxValue || 0))}</p>
+            <ChangeIndicator value={Number(changes.avgTxValue || 0)} />
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Discounts</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(Number(cur.discount || 0))}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">vs {formatCurrency(Number(prv.discount || 0))}</p>
+            <ChangeIndicator value={Number(changes.discount || 0)} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Daily comparison chart */}
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Daily Comparison — Current vs Previous Period</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={dailyComparison}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="day" tick={{ fontSize: 10 }} tickFormatter={(v) => String(v).slice(5)} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatCurrency(v)} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="currentRevenue" fill="#059669" radius={[3, 3, 0, 0]} name="Current" />
+                <Bar dataKey="previousRevenue" fill="#e5e7eb" radius={[3, 3, 0, 0]} name="Previous" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Period detail table */}
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Period Details</CardTitle></CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader><TableRow className="bg-gray-50/80">
+              <TableHead className="text-xs">Metric</TableHead>
+              <TableHead className="text-xs text-right">Current Period</TableHead>
+              <TableHead className="text-xs text-right">Previous Period</TableHead>
+              <TableHead className="text-xs text-right">Change</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {[
+                { label: 'Total Revenue', cur: cur.revenue, prv: prv.revenue, chg: changes.revenue },
+                { label: 'Transactions', cur: cur.txCount, prv: prv.txCount, chg: changes.txCount },
+                { label: 'Avg Transaction Value', cur: cur.avgTxValue, prv: prv.avgTxValue, chg: changes.avgTxValue },
+                { label: 'Total Discounts', cur: cur.discount, prv: prv.discount, chg: changes.discount },
+              ].map((row, i) => (
+                <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableCell className="text-xs font-medium">{row.label}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold">{typeof row.cur === 'number' && row.label.includes('Revenue') || row.label.includes('Discount') || row.label.includes('Avg') ? formatCurrency(Number(row.cur)) : String(row.cur)}</TableCell>
+                  <TableCell className="text-xs text-right text-muted-foreground">{typeof row.prv === 'number' && (row.label.includes('Revenue') || row.label.includes('Discount') || row.label.includes('Avg')) ? formatCurrency(Number(row.prv)) : String(row.prv)}</TableCell>
+                  <TableCell className="text-xs text-right"><ChangeIndicator value={Number(row.chg || 0)} /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
