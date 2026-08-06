@@ -316,7 +316,7 @@ export async function POST(req: NextRequest) {
                "reason", "reasonNote", "customerId", "customerName", "userId",
                "status", "approvedById", "approvedAt", "refundMethod",
                "refundProcessed", "restocked", "notes", "createdAt", "updatedAt")
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         args: [
           id, returnNo, transactionId, transactionItemId, productId, productName,
           qty, price, calcRefund, reason, reasonNote || null, customerId || null,
