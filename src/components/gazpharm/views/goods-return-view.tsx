@@ -243,7 +243,7 @@ export function GoodsReturnView() {
         const actionLabels: Record<string, string> = {
           approve: 'approved & restocked',
           reject: 'rejected',
-          complete: 'completed',
+          complete: 'completed & restocked',
           cancel: 'cancelled',
         }
         addToast({
@@ -632,11 +632,19 @@ export function GoodsReturnView() {
                           <>
                             <Button
                               size="sm"
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
                               onClick={() => performAction(detailReturn.id, 'approve')}
                               disabled={actionLoading}
                             >
                               <Check className="h-3.5 w-3.5 mr-1" /> Approve & Restock
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              onClick={() => performAction(detailReturn.id, 'complete')}
+                              disabled={actionLoading}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete & Restock
                             </Button>
                             <Button
                               size="sm"
@@ -666,7 +674,7 @@ export function GoodsReturnView() {
                           onClick={() => performAction(detailReturn.id, 'complete')}
                           disabled={actionLoading}
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete & Restock
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
                         </Button>
                         <Button
                           size="sm"
@@ -804,7 +812,10 @@ function ReturnTable({
                           {userRole === 'SUPER_ADMIN' && (
                             <>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'approve')} disabled={actionLoading}>
-                                <Check className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Approve & Restock
+                                <Check className="h-3.5 w-3.5 mr-2 text-blue-600" /> Approve & Restock
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onAction(ret.id, 'complete')} disabled={actionLoading}>
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Complete & Restock
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'reject')} disabled={actionLoading}>
                                 <XCircle className="h-3.5 w-3.5 mr-2 text-red-600" /> Reject
@@ -820,7 +831,7 @@ function ReturnTable({
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'complete')} disabled={actionLoading}>
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Complete & Restock
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Complete
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'cancel')} disabled={actionLoading}>
                             <Ban className="h-3.5 w-3.5 mr-2 text-gray-500" /> Cancel

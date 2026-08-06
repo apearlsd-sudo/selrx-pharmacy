@@ -427,23 +427,136 @@ export async function PUT(
       }
 
       // ---- COMPLETE ----
+      // Works from both APPROVED (just finalize) and PENDING_APPROVAL (full restock + complete in one step)
       if (action === 'complete') {
-        if (existing.status !== 'APPROVED') {
+        if (existing.status !== 'APPROVED' && existing.status !== 'PENDING_APPROVAL') {
           return NextResponse.json(
-            { error: 'Only approved returns can be completed' },
+            { error: 'Only pending or approved returns can be completed' },
             { status: 400 },
           )
         }
 
+        // If coming from PENDING, do the full restock logic (same as approve)
+        if (existing.status === 'PENDING_APPROVAL') {
+          const returnQty = Number(existing.quantity)
+          const productId = existing.productId as string
+          const transactionItemId = existing.transactionItemId as string
+          const transactionId = existing.transactionId as string
+
+          const txItemResult = await turso.execute({
+            sql: 'SELECT "quantity", "unitPrice", "sellingUnit", "itemsPerUnit" FROM "TransactionItem" WHERE "id" = ?',
+            args: [transactionItemId],
+          })
+          const txItem = txItemResult.rows.length > 0 ? toObjs(txItemResult)[0] : null
+          const itemsPerUnit = txItem ? (Number(txItem.itemsPerUnit) || 1) : 1
+          const sellingUnit = (txItem?.sellingUnit as string) || 'EA'
+          const baseUnitsToRestock = returnQty * itemsPerUnit
+
+          // Find original batch to restock into
+          const prodResult = await turso.execute({
+            sql: 'SELECT "costPrice", "expiryDate" FROM "Product" WHERE id = ?',
+            args: [productId],
+          })
+          const prodRow = prodResult.rows.length > 0 ? toObjs(prodResult)[0] : null
+          const prodCostPrice = prodRow ? Number(prodRow.costPrice) || 0 : 0
+          const prodExpiryDate = prodRow?.expiryDate as string | null
+
+          const exactBatch = await turso.execute({
+            sql: `SELECT id, "batchNumber", quantity FROM "Batch"
+                  WHERE "productId" = ? AND "costPrice" = ?
+                    AND (("expiryDate" IS NULL AND ? IS NULL) OR ("expiryDate" = ?))
+                  ORDER BY "receivedAt" DESC LIMIT 1`,
+            args: [productId, prodCostPrice, prodExpiryDate, prodExpiryDate],
+          })
+          const anyBatch = await turso.execute({
+            sql: `SELECT id, "batchNumber", quantity FROM "Batch"
+                  WHERE "productId" = ? ORDER BY "receivedAt" DESC LIMIT 1`,
+            args: [productId],
+          })
+
+          const matchedBatch = exactBatch.rows.length > 0
+            ? toObjs(exactBatch)[0]
+            : anyBatch.rows.length > 0 ? toObjs(anyBatch)[0] : null
+
+          if (matchedBatch) {
+            await turso.execute({
+              sql: 'UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?',
+              args: [Number(matchedBatch.quantity) + baseUnitsToRestock, now, matchedBatch.id],
+            })
+          } else {
+            const newBatchNo = generateBatchNo()
+            await turso.execute({
+              sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [generateId(), productId, newBatchNo, prodExpiryDate, baseUnitsToRestock, prodCostPrice, now, approvedById || 'system-return', now, now],
+            })
+          }
+
+          // Recalculate inventory
+          const sumResult = await turso.execute({
+            sql: 'SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?',
+            args: [productId],
+          })
+          const newInvQty = Number(sumResult.rows[0][0]) || 0
+          const invCheck = await turso.execute({
+            sql: 'SELECT id FROM "Inventory" WHERE "productId" = ?',
+            args: [productId],
+          })
+          if (invCheck.rows.length > 0) {
+            await turso.execute({
+              sql: 'UPDATE "Inventory" SET "quantity" = ?, "lastCounted" = ?, "updatedAt" = ? WHERE "productId" = ?',
+              args: [newInvQty, now, now, productId],
+            })
+          } else {
+            await turso.execute({
+              sql: `INSERT INTO "Inventory" (id, "productId", quantity, "lastCounted", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?)`,
+              args: [generateId(), productId, newInvQty, now, now, now],
+            })
+          }
+
+          writeProductHistory({
+            productId,
+            action: 'UPDATED',
+            changedFields: ['quantity', 'returnRestock'],
+            previousValues: { quantity: newInvQty - baseUnitsToRestock },
+            newValues: { quantity: newInvQty, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) added to batch via return ${(existing as any).returnNo || id}` },
+            userId: approvedById || undefined,
+          })
+
+          // Adjust original transaction item
+          if (txItem) {
+            const originalQty = Number(txItem.quantity)
+            const unitPrice = Number(txItem.unitPrice)
+            const returnedQty = Math.min(returnQty, originalQty)
+            const adjQty = Math.max(0, originalQty - returnedQty)
+            await turso.execute({
+              sql: 'UPDATE "TransactionItem" SET "quantity" = ?, "subtotal" = ? WHERE "id" = ?',
+              args: [adjQty, unitPrice * adjQty, transactionItemId],
+            })
+          }
+
+          // Recalculate transaction totals
+          const allItemsResult = await turso.execute({
+            sql: 'SELECT "subtotal" FROM "TransactionItem" WHERE "transactionId" = ?',
+            args: [transactionId],
+          })
+          const allItems = toObjs(allItemsResult)
+          const recalculatedSubtotal = allItems.reduce((sum, item) => sum + Number(item.subtotal), 0)
+          await turso.execute({
+            sql: `UPDATE "Transaction" SET "subtotal" = ?, "total" = ?, "paymentAmount" = ?, "status" = ?, "updatedAt" = ? WHERE "id" = ?`,
+            args: [recalculatedSubtotal, Math.max(0, recalculatedSubtotal), Math.max(0, recalculatedSubtotal), 'REFUNDED', now, transactionId],
+          })
+        }
+
+        // Mark as COMPLETED (with restocked + refundProcessed)
         await turso.execute({
-          sql: `UPDATE "Return" SET "status" = ?, "restocked" = 1, "refundProcessed" = 1,
-               "refundMethod" = ?, "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          sql: `UPDATE "Return" SET "status" = ?, "approvedById" = COALESCE("approvedById", ?), "approvedAt" = COALESCE("approvedAt", ?),
+               "restocked" = 1, "refundProcessed" = 1, "refundMethod" = ?, "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
           args: [
             'COMPLETED',
+            approvedById || null, now,
             refundMethod || existing.refundMethod || 'CASH',
             notes || existing.notes || null,
-            now,
-            id,
+            now, id,
           ],
         })
 
@@ -668,28 +781,83 @@ export async function PUT(
       }
 
       case 'complete': {
-        if (existing.status !== 'APPROVED') {
+        if (existing.status !== 'APPROVED' && existing.status !== 'PENDING_APPROVAL') {
           return NextResponse.json(
-            { error: 'Only approved returns can be completed' },
+            { error: 'Only pending or approved returns can be completed' },
             { status: 400 },
           )
         }
-        updated = await db.return.update({
-          where: { id },
-          data: {
-            status: 'COMPLETED',
-            restocked: true,
-            refundProcessed: true,
-            refundMethod: refundMethod || existing.refundMethod,
-            notes: notes || existing.notes,
-          },
-          include: {
-            user: { select: { id: true, name: true, role: true } },
-            approvedBy: { select: { id: true, name: true } },
-            product: { select: { id: true, name: true } },
-            transaction: { select: { transactionNo: true, status: true, subtotal: true, total: true } },
-          },
-        })
+
+        // If coming from PENDING, do full restock (same as approve)
+        if (existing.status === 'PENDING_APPROVAL') {
+          const returnQty = Number(existing.quantity)
+          const txItem = await db.transactionItem.findUnique({ where: { id: existing.transactionItemId } })
+          const itemsPerUnit = txItem ? (Number((txItem as any).itemsPerUnit) || 1) : 1
+          const sellingUnit = (txItem as any)?.sellingUnit || 'EA'
+          const baseUnitsToRestock = returnQty * itemsPerUnit
+
+          updated = await db.$transaction(async (tx) => {
+            try {
+              const product = await tx.product.findUnique({ where: { id: existing.productId } })
+              const prodCostPrice = product ? Number(product.costPrice) || 0 : 0
+              const prodExpiryDate = product?.expiryDate || null
+              let batch = await tx.batch.findFirst({
+                where: { productId: existing.productId, costPrice: prodCostPrice, ...(prodExpiryDate ? { expiryDate: prodExpiryDate } : { expiryDate: null }) },
+                orderBy: { receivedAt: 'desc' },
+              })
+              if (!batch) {
+                batch = await tx.batch.findFirst({ where: { productId: existing.productId }, orderBy: { receivedAt: 'desc' } })
+              }
+              if (batch) {
+                await tx.batch.update({ where: { id: batch.id }, data: { quantity: { increment: baseUnitsToRestock } } })
+              } else {
+                await tx.batch.create({
+                  data: { productId: existing.productId, batchNumber: 'BN-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Math.floor(Math.random()*10000)).padStart(4,'0'), quantity: baseUnitsToRestock, costPrice: prodCostPrice, receivedAt: new Date(), receivedBy: approvedById || 'system-return' },
+                })
+              }
+            } catch { /* Batch table might not exist */ }
+
+            const existingInv = await tx.inventory.findUnique({ where: { productId: existing.productId } })
+            const currentQty = existingInv ? Number(existingInv.quantity) : 0
+            if (existingInv) {
+              await tx.inventory.update({ where: { productId: existing.productId }, data: { quantity: currentQty + baseUnitsToRestock, lastCounted: new Date() } })
+            } else {
+              await tx.inventory.create({ data: { productId: existing.productId, quantity: baseUnitsToRestock, lastCounted: new Date() } })
+            }
+
+            if (txItem) {
+              const adjQty = Math.max(0, Number(txItem.quantity) - returnQty)
+              await tx.transactionItem.update({ where: { id: existing.transactionItemId }, data: { quantity: adjQty, subtotal: Number(txItem.unitPrice) * adjQty } })
+            }
+
+            const allTxItems = await tx.transactionItem.findMany({ where: { transactionId: existing.transactionId } })
+            const recalculatedSubtotal = allTxItems.reduce((sum, item) => sum + Number(item.subtotal), 0)
+            await tx.transaction.update({
+              where: { id: existing.transactionId },
+              data: { subtotal: recalculatedSubtotal, total: Math.max(0, recalculatedSubtotal), paymentAmount: Math.max(0, recalculatedSubtotal), status: 'REFUNDED' },
+            })
+
+            return await tx.return.update({
+              where: { id },
+              data: { status: 'COMPLETED', approvedById: approvedById || null, approvedAt: new Date(), restocked: true, refundProcessed: true, refundMethod: refundMethod || existing.refundMethod, notes: notes || existing.notes },
+              include: { user: { select: { id: true, name: true, role: true } }, approvedBy: { select: { id: true, name: true } }, product: { select: { id: true, name: true } }, transaction: { select: { transactionNo: true, status: true, subtotal: true, total: true } } },
+            })
+          })
+
+          writeProductHistory({
+            productId: existing.productId, action: 'UPDATED', changedFields: ['quantity', 'returnRestock'],
+            previousValues: { quantity: (Number(existing.quantity) || 0) * itemsPerUnit - baseUnitsToRestock },
+            newValues: { quantity: baseUnitsToRestock, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) via return ${existing.returnNo || id}` },
+            userId: approvedById || undefined,
+          })
+        } else {
+          // Already APPROVED — just finalize
+          updated = await db.return.update({
+            where: { id },
+            data: { status: 'COMPLETED', restocked: true, refundProcessed: true, refundMethod: refundMethod || existing.refundMethod, notes: notes || existing.notes },
+            include: { user: { select: { id: true, name: true, role: true } }, approvedBy: { select: { id: true, name: true } }, product: { select: { id: true, name: true } }, transaction: { select: { transactionNo: true, status: true, subtotal: true, total: true } } },
+          })
+        }
         break
       }
 
