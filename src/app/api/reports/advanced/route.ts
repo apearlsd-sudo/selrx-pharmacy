@@ -91,6 +91,16 @@ export async function GET(req: NextRequest) {
           return executiveSummaryReport(from, to, userFilter, userArgs)
         case 'product-affinity':
           return productAffinityReport(from, to, userFilter, userArgs)
+        case 'sales-forecast':
+          return salesForecastReport(from, to, userFilter, userArgs)
+        case 'customer-segmentation':
+          return customerSegmentationReport(from, to, userFilter, userArgs)
+        case 'batch-expiry':
+          return batchExpiryReport()
+        case 'stock-take-accuracy':
+          return stockTakeAccuracyReport(from, to)
+        case 'manufacturer-performance':
+          return manufacturerPerformanceReport(from, to, userFilter, userArgs)
         default:
           return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
       }
@@ -1596,6 +1606,611 @@ async function productAffinityReport(
   return NextResponse.json({
     summary: { totalPairs: pairs.length, dateRange: { from, to } },
     pairs,
+  })
+}
+
+// ========================================================================
+// SALES FORECAST REPORT
+// ========================================================================
+
+async function salesForecastReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // 1. Get daily revenue for the selected period
+  const dailyResult = await turso.execute({
+    sql: `SELECT date(t."createdAt") AS day,
+          COALESCE(SUM(t."total"), 0) AS revenue,
+          COUNT(*) AS txCount
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY day ORDER BY day`,
+    args: [from, to, ...userArgs],
+  })
+  const daily = toObjs(dailyResult).map((r) => ({
+    day: r.day as string,
+    revenue: Number(r.revenue),
+    txCount: Number(r.txCount),
+  }))
+
+  // 2. Linear regression on daily revenue
+  // X = day index (0..n-1), Y = revenue
+  const n = daily.length
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0
+  for (let i = 0; i < n; i++) {
+    sumX += i
+    sumY += daily[i].revenue
+    sumXY += i * daily[i].revenue
+    sumX2 += i * i
+  }
+  const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 0
+  const intercept = n > 0 ? (sumY - slope * sumX) / n : 0
+
+  // 3. Also calculate 7-day moving average for smoothing
+  const movingAvg: Array<{ day: string; revenue: number; movingAvg: number }> = []
+  for (let i = 0; i < n; i++) {
+    const windowStart = Math.max(0, i - 6)
+    const windowSlice = daily.slice(windowStart, i + 1)
+    const avg = windowSlice.reduce((s, d) => s + d.revenue, 0) / windowSlice.length
+    movingAvg.push({ day: daily[i].day, revenue: daily[i].revenue, movingAvg: Math.round(avg * 100) / 100 })
+  }
+
+  // 4. Generate 14-day forecast
+  const forecast: Array<{ day: string; forecast: number; lower: number; upper: number }> = []
+  const lastDate = daily.length > 0 ? new Date(daily[n - 1].day + 'T00:00:00') : new Date()
+  // Calculate standard deviation of residuals for confidence interval
+  let sumResidual2 = 0
+  for (let i = 0; i < n; i++) {
+    const predicted = intercept + slope * i
+    sumResidual2 += (daily[i].revenue - predicted) ** 2
+  }
+  const stdErr = n > 2 ? Math.sqrt(sumResidual2 / (n - 2)) : 0
+
+  for (let i = 1; i <= 14; i++) {
+    const futureDate = new Date(lastDate)
+    futureDate.setDate(futureDate.getDate() + i)
+    const dayStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`
+    const xVal = n - 1 + i
+    const predicted = Math.max(0, intercept + slope * xVal)
+    const margin = stdErr * 1.96 // 95% CI
+    forecast.push({
+      day: dayStr,
+      forecast: Math.round(predicted * 100) / 100,
+      lower: Math.round(Math.max(0, predicted - margin) * 100) / 100,
+      upper: Math.round((predicted + margin) * 100) / 100,
+    })
+  }
+
+  // 5. Day-of-week averages (for weekly pattern)
+  const dowAvgResult = await turso.execute({
+    sql: `SELECT CAST(strftime('%w', t."createdAt") AS INTEGER) AS dow,
+          COALESCE(AVG(t."total"), 0) AS avgRevenue,
+          COALESCE(SUM(t."total"), 0) AS totalRevenue
+          FROM "Transaction" t
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+          GROUP BY dow ORDER BY dow`,
+    args: [from, to],
+  })
+  const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayOfWeekAvg = toObjs(dowAvgResult).map((r) => ({
+    day: dowLabels[Number(r.dow) as number] || 'Unknown',
+    avgRevenue: Math.round(Number(r.avgRevenue) * 100) / 100,
+    totalRevenue: Number(r.totalRevenue),
+  }))
+
+  const totalRevenue = daily.reduce((s, d) => s + d.revenue, 0)
+  const avgDaily = n > 0 ? Math.round(totalRevenue / n * 100) / 100 : 0
+  const forecastTotal14 = forecast.reduce((s, f) => s + f.forecast, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalRevenue,
+      avgDailyRevenue: avgDaily,
+      trendSlope: Math.round(slope * 100) / 100,
+      trendDirection: slope > 5 ? 'Growing' : slope < -5 ? 'Declining' : 'Stable',
+      forecast14Day: Math.round(forecastTotal14 * 100) / 100,
+      dateRange: { from, to },
+    },
+    historical: movingAvg,
+    forecast,
+    dayOfWeekAvg,
+  })
+}
+
+// ========================================================================
+// CUSTOMER SEGMENTATION (RFM) REPORT
+// ========================================================================
+
+async function customerSegmentationReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // Calculate RFM metrics per customer
+  // Recency: days since last purchase
+  // Frequency: number of transactions
+  // Monetary: total spend
+  const rfmResult = await turso.execute({
+    sql: `SELECT t."customerId",
+          COALESCE(c."firstName", '') || ' ' || COALESCE(c."lastName", '') AS customerName,
+          c."phone" AS customerPhone,
+          COUNT(DISTINCT t."id") AS frequency,
+          COALESCE(SUM(t."total"), 0) AS monetary,
+          MAX(julianday('now') - julianday(t."createdAt")) AS recencyDays,
+          MIN(date(t."createdAt")) AS firstPurchase,
+          MAX(date(t."createdAt")) AS lastPurchase
+          FROM "Transaction" t
+          LEFT JOIN "Customer" c ON c."id" = t."customerId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND t."customerId" IS NOT NULL
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY t."customerId", customerName, c."phone"
+          ORDER BY monetary DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const customers = toObjs(rfmResult).map((r) => ({
+    customerId: r.customerId as string,
+    customerName: (r.customerName as string).trim() || 'Unknown',
+    customerPhone: (r.customerPhone as string) || null,
+    frequency: Number(r.frequency),
+    monetary: Number(r.monetary),
+    recencyDays: Math.round(Number(r.recencyDays)),
+    firstPurchase: r.firstPurchase as string,
+    lastPurchase: r.lastPurchase as string,
+    segment: '' as string,
+  }))
+
+  // Score each dimension 1-4 (quartile-based)
+  if (customers.length > 0) {
+    // Recency: lower is better → score inversely
+    const recencies = customers.map(c => c.recencyDays).sort((a, b) => a - b)
+    const frequencies = customers.map(c => c.frequency).sort((a, b) => a - b)
+    const monetaries = customers.map(c => c.monetary).sort((a, b) => a - b)
+
+    const quartile = (arr: number[], val: number): number => {
+      // Higher score = better for frequency and monetary
+      if (val <= arr[0]) return 1
+      if (val >= arr[arr.length - 1]) return 4
+      const idx = arr.findIndex(v => v >= val)
+      if (idx <= Math.floor(arr.length / 4)) return 1
+      if (idx <= Math.floor(arr.length / 2)) return 2
+      if (idx <= Math.floor(arr.length * 3 / 4)) return 3
+      return 4
+    }
+    const recencyQuartile = (arr: number[], val: number): number => {
+      // Lower recency = higher score
+      if (val <= arr[0]) return 4
+      if (val >= arr[arr.length - 1]) return 1
+      const idx = arr.findIndex(v => v >= val)
+      if (idx <= Math.floor(arr.length / 4)) return 4
+      if (idx <= Math.floor(arr.length / 2)) return 3
+      if (idx <= Math.floor(arr.length * 3 / 4)) return 2
+      return 1
+    }
+
+    for (const c of customers) {
+      const r = recencyQuartile(recencies, c.recencyDays)
+      const f = quartile(frequencies, c.frequency)
+      const m = quartile(monetaries, c.monetary)
+      const rfm = r * 100 + f * 10 + m
+
+      // Segment assignment
+      if (r >= 3 && f >= 3 && m >= 3) c.segment = 'Champions'
+      else if (r >= 3 && f >= 2) c.segment = 'Loyal'
+      else if (r >= 3 && f <= 2 && m >= 3) c.segment = 'Big Spenders'
+      else if (r <= 2 && f >= 3) c.segment = 'At Risk'
+      else if (r <= 2 && f <= 2) c.segment = 'Lost'
+      else if (f >= 3 && m >= 2) c.segment = 'Potential Loyalists'
+      else c.segment = 'New Customers'
+    }
+  }
+
+  // Segment distribution
+  const segmentMap = new Map<string, number>()
+  for (const c of customers) {
+    segmentMap.set(c.segment, (segmentMap.get(c.segment) || 0) + 1)
+  }
+  const segmentDistribution = Array.from(segmentMap.entries()).map(([segment, count]) => ({ segment, count }))
+
+  const totalCustomers = customers.length
+  const totalSpend = customers.reduce((s, c) => s + c.monetary, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalCustomers,
+      totalSpend: Math.round(totalSpend * 100) / 100,
+      avgSpend: totalCustomers > 0 ? Math.round(totalSpend / totalCustomers * 100) / 100 : 0,
+      segmentsCount: segmentDistribution.length,
+      dateRange: { from, to },
+    },
+    segmentDistribution,
+    customers,
+  })
+}
+
+// ========================================================================
+// BATCH & EXPIRY DEEP DIVE REPORT
+// ========================================================================
+
+async function batchExpiryReport() {
+  const today = todayStr()
+
+  // 1. Batch expiry distribution by bucket
+  const batchResult = await turso.execute({
+    sql: `SELECT
+          CASE
+            WHEN b."expiryDate" < date('now') THEN 'Expired'
+            WHEN b."expiryDate" < date('now', '+30 days') THEN '0-30 Days'
+            WHEN b."expiryDate" < date('now', '+90 days') THEN '31-90 Days'
+            WHEN b."expiryDate" < date('now', '+180 days') THEN '91-180 Days'
+            WHEN b."expiryDate" < date('now', '+365 days') THEN '181-365 Days'
+            ELSE '365+ Days'
+          END AS bucket,
+          COUNT(*) AS batchCount,
+          SUM(b."quantity") AS totalUnits,
+          SUM(b."quantity" * b."costPrice") AS costValue
+          FROM "Batch" b
+          WHERE b."quantity" > 0
+          GROUP BY bucket
+          ORDER BY
+            CASE bucket
+              WHEN 'Expired' THEN 1 WHEN '0-30 Days' THEN 2 WHEN '31-90 Days' THEN 3
+              WHEN '91-180 Days' THEN 4 WHEN '181-365 Days' THEN 5 ELSE 6
+            END`,
+    args: [],
+  })
+  const expiryBuckets = toObjs(batchResult).map((r) => ({
+    bucket: r.bucket as string,
+    batchCount: Number(r.batchCount),
+    totalUnits: Number(r.totalUnits),
+    costValue: Number(r.costValue),
+  }))
+
+  // 2. Top products at expiry risk (expiring within 90 days)
+  const atRiskResult = await turso.execute({
+    sql: `SELECT p."name" AS productName,
+          p."category",
+          b."expiryDate",
+          b."quantity",
+          b."costPrice",
+          b."quantity" * b."costPrice" AS atRiskValue,
+          b."batchNumber"
+          FROM "Batch" b
+          JOIN "Product" p ON p."id" = b."productId"
+          WHERE b."quantity" > 0
+            AND b."expiryDate" < date('now', '+90 days')
+          ORDER BY b."expiryDate" ASC
+          LIMIT 25`,
+    args: [],
+  })
+  const atRiskProducts = toObjs(atRiskResult).map((r) => ({
+    productName: r.productName as string,
+    category: (r.category as string) || 'N/A',
+    expiryDate: r.expiryDate as string,
+    quantity: Number(r.quantity),
+    costPrice: Number(r.costPrice),
+    atRiskValue: Number(r.atRiskValue),
+    batchNumber: (r.batchNumber as string) || 'N/A',
+  }))
+
+  // 3. Batch diversity (products with most batches)
+  const diversityResult = await turso.execute({
+    sql: `SELECT p."name" AS productName,
+          COUNT(*) AS batchCount,
+          SUM(b."quantity") AS totalUnits,
+          MIN(b."expiryDate") AS nearestExpiry,
+          MAX(b."expiryDate") AS furthestExpiry,
+          SUM(b."quantity" * b."costPrice") AS totalCost
+          FROM "Batch" b
+          JOIN "Product" p ON p."id" = b."productId"
+          WHERE b."quantity" > 0
+          GROUP BY b."productId", p."name"
+          HAVING COUNT(*) > 1
+          ORDER BY batchCount DESC
+          LIMIT 15`,
+    args: [],
+  })
+  const batchDiversity = toObjs(diversityResult).map((r) => ({
+    productName: r.productName as string,
+    batchCount: Number(r.batchCount),
+    totalUnits: Number(r.totalUnits),
+    nearestExpiry: r.nearestExpiry as string,
+    furthestExpiry: r.furthestExpiry as string,
+    totalCost: Number(r.totalCost),
+  }))
+
+  // 4. Summary KPIs
+  const totalBatches = expiryBuckets.reduce((s, b) => s + b.batchCount, 0)
+  const totalUnits = expiryBuckets.reduce((s, b) => s + b.totalUnits, 0)
+  const totalCost = expiryBuckets.reduce((s, b) => s + b.costValue, 0)
+  const expiredBatches = expiryBuckets.find(b => b.bucket === 'Expired')
+  const nearExpiryBatches = expiryBuckets.filter(b => b.bucket === '0-30 Days' || b.bucket === 'Expired')
+  const atRiskCost = nearExpiryBatches.reduce((s, b) => s + b.costValue, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalBatches,
+      totalUnits,
+      totalCostValue: Math.round(totalCost * 100) / 100,
+      expiredCount: expiredBatches?.batchCount || 0,
+      expiredCost: expiredBatches?.costValue || 0,
+      atRisk30DayCost: Math.round(atRiskCost * 100) / 100,
+      asOf: today,
+    },
+    expiryBuckets,
+    atRiskProducts,
+    batchDiversity,
+  })
+}
+
+// ========================================================================
+// STOCK TAKE ACCURACY REPORT
+// ========================================================================
+
+async function stockTakeAccuracyReport(from: string, to: string) {
+  // 1. Stock take summary stats
+  const stResult = await turso.execute({
+    sql: `SELECT st.id, st.reference, st.status,
+          st."startedAt", st."completedAt",
+          st."createdAt",
+          COUNT(sti.id) AS itemCount,
+          SUM(CASE WHEN sti."variance" IS NOT NULL THEN ABS(sti."variance") ELSE 0 END) AS totalVariance,
+          SUM(CASE WHEN sti."variance" = 0 THEN 1 ELSE 0 END) AS exactMatches,
+          SUM(CASE WHEN sti."variance" IS NOT NULL AND sti."variance" != 0 THEN 1 ELSE 0 END) AS variances,
+          AVG(CASE WHEN sti."variance" IS NOT NULL THEN ABS(sti."variance") ELSE 0 END) AS avgVariance
+          FROM "StockTake" st
+          LEFT JOIN "StockTakeItem" sti ON sti."stockTakeId" = st.id
+          WHERE date(st."createdAt") >= date(?)
+            AND date(st."createdAt") <= date(?)
+            AND st.status = 'COMPLETED'
+          GROUP BY st.id
+          ORDER BY st."createdAt" DESC`,
+    args: [from, to],
+  })
+  const stockTakes = toObjs(stResult).map((r) => {
+    const totalItems = Number(r.itemCount)
+    const exact = Number(r.exactMatches)
+    const accuracy = totalItems > 0 ? Math.round((exact / totalItems) * 10000) / 100 : 0
+    return {
+      id: r.id as string,
+      reference: r.reference as string,
+      status: r.status as string,
+      startedAt: r.startedAt as string,
+      completedAt: r.completedAt as string,
+      createdAt: r.createdAt as string,
+      itemCount: totalItems,
+      totalVariance: Number(r.totalVariance),
+      exactMatches: exact,
+      varianceCount: Number(r.variances),
+      avgVariance: Math.round(Number(r.avgVariance) * 100) / 100,
+      accuracy,
+    }
+  })
+
+  // 2. Overall accuracy trend (by stock take)
+  const trendData = stockTakes.map((st) => ({
+    date: (st.createdAt || '').slice(0, 10),
+    reference: st.reference,
+    accuracy: st.accuracy,
+    itemCount: st.itemCount,
+    totalVariance: st.totalVariance,
+  }))
+
+  // 3. Biggest discrepancies (items with highest variance across all stock takes)
+  const discrepancyResult = await turso.execute({
+    sql: `SELECT p."name" AS productName,
+          p."category",
+          sti."systemQty",
+          sti."countedQty",
+          sti."variance",
+          st.reference AS stockTakeRef,
+          st."createdAt" AS stockTakeDate
+          FROM "StockTakeItem" sti
+          JOIN "StockTake" st ON st.id = sti."stockTakeId"
+          JOIN "Product" p ON p."id" = sti."productId"
+          WHERE st.status = 'COMPLETED'
+            AND sti."variance" IS NOT NULL
+            AND sti."variance" != 0
+            AND date(st."createdAt") >= date(?)
+            AND date(st."createdAt") <= date(?)
+          ORDER BY ABS(sti."variance") DESC
+          LIMIT 25`,
+    args: [from, to],
+  })
+  const discrepancies = toObjs(discrepancyResult).map((r) => ({
+    productName: r.productName as string,
+    category: (r.category as string) || 'N/A',
+    systemQty: Number(r.systemQty),
+    countedQty: Number(r.countedQty),
+    variance: Number(r.variance),
+    stockTakeRef: r.stockTakeRef as string,
+    stockTakeDate: r.stockTakeDate as string,
+  }))
+
+  // 4. Category accuracy
+  const catResult = await turso.execute({
+    sql: `SELECT COALESCE(p."category", 'Uncategorized') AS category,
+          COUNT(sti.id) AS totalItems,
+          SUM(CASE WHEN sti."variance" = 0 OR sti."variance" IS NULL THEN 1 ELSE 0 END) AS accurate,
+          SUM(CASE WHEN sti."variance" IS NOT NULL AND sti."variance" != 0 THEN 1 ELSE 0 END) AS inaccurate,
+          AVG(CASE WHEN sti."variance" IS NOT NULL THEN ABS(sti."variance") ELSE 0 END) AS avgVariance
+          FROM "StockTakeItem" sti
+          JOIN "StockTake" st ON st.id = sti."stockTakeId"
+          JOIN "Product" p ON p."id" = sti."productId"
+          WHERE st.status = 'COMPLETED'
+            AND date(st."createdAt") >= date(?)
+            AND date(st."createdAt") <= date(?)
+          GROUP BY category
+          ORDER BY avgVariance DESC`,
+    args: [from, to],
+  })
+  const categoryAccuracy = toObjs(catResult).map((r) => {
+    const total = Number(r.totalItems)
+    const accurate = Number(r.accurate)
+    return {
+      category: r.category as string,
+      totalItems: total,
+      accurate,
+      inaccurate: Number(r.inaccurate),
+      avgVariance: Math.round(Number(r.avgVariance) * 100) / 100,
+      accuracy: total > 0 ? Math.round((accurate / total) * 10000) / 100 : 0,
+    }
+  })
+
+  const totalStockTakes = stockTakes.length
+  const overallAccuracy = stockTakes.length > 0
+    ? Math.round(stockTakes.reduce((s, st) => s + st.accuracy, 0) / stockTakes.length * 100) / 100
+    : 0
+  const totalItemsCounted = stockTakes.reduce((s, st) => s + st.itemCount, 0)
+
+  return NextResponse.json({
+    summary: {
+      totalStockTakes,
+      overallAccuracy,
+      totalItemsCounted,
+      totalDiscrepancies: discrepancies.length,
+      dateRange: { from, to },
+    },
+    stockTakes,
+    trendData,
+    discrepancies,
+    categoryAccuracy,
+  })
+}
+
+// ========================================================================
+// MANUFACTURER PERFORMANCE REPORT
+// ========================================================================
+
+async function manufacturerPerformanceReport(
+  from: string, to: string,
+  userFilter: string, userArgs: unknown[],
+) {
+  // 1. Per-manufacturer sales metrics
+  const mfrResult = await turso.execute({
+    sql: `SELECT COALESCE(m."name", 'Unknown') AS manufacturer,
+          COUNT(DISTINCT ti."productId") AS productCount,
+          SUM(ti."quantity") AS totalQty,
+          COALESCE(SUM(ti."subtotal"), 0) AS totalRevenue,
+          COUNT(DISTINCT ti."transactionId") AS txCount,
+          COALESCE(AVG(p."costPrice"), 0) AS avgCostPrice,
+          COALESCE(AVG(ti."unitPrice"), 0) AS avgSellingPrice
+          FROM "TransactionItem" ti
+          JOIN "Transaction" t ON t."id" = ti."transactionId"
+          LEFT JOIN "Product" p ON p."id" = ti."productId"
+          LEFT JOIN "Manufacturer" m ON m."id" = p."manufacturerId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            ${userFilter}
+          GROUP BY m."name"
+          ORDER BY totalRevenue DESC`,
+    args: [from, to, ...userArgs],
+  })
+  const manufacturers = toObjs(mfrResult).map((r) => {
+    const revenue = Number(r.totalRevenue)
+    const costEstimate = Number(r.totalQty) * Number(r.avgCostPrice)
+    const margin = revenue > 0 ? Math.round(((revenue - costEstimate) / revenue) * 10000) / 100 : 0
+    return {
+      manufacturer: r.manufacturer as string,
+      productCount: Number(r.productCount),
+      totalQty: Number(r.totalQty),
+      totalRevenue: revenue,
+      txCount: Number(r.txCount),
+      avgCostPrice: Number(r.avgCostPrice),
+      avgSellingPrice: Number(r.avgSellingPrice),
+      estimatedCost: Math.round(costEstimate * 100) / 100,
+      estimatedProfit: Math.round((revenue - costEstimate) * 100) / 100,
+      margin,
+      revenueShare: 0, // filled after
+    }
+  })
+
+  // Fill revenue share
+  const totalRevenue = manufacturers.reduce((s, m) => s + m.totalRevenue, 0)
+  for (const m of manufacturers) {
+    m.revenueShare = totalRevenue > 0 ? Math.round((m.totalRevenue / totalRevenue) * 10000) / 100 : 0
+  }
+
+  // 2. Top products per manufacturer (top 5 manufacturers only)
+  const topMfrs = manufacturers.slice(0, 5)
+  const topProductsByMfr: Array<{ manufacturer: string; products: Array<Record<string, unknown>> }> = []
+  for (const mfr of topMfrs) {
+    const prodResult = await turso.execute({
+      sql: `SELECT ti."productName",
+            SUM(ti."quantity") AS totalQty,
+            COALESCE(SUM(ti."subtotal"), 0) AS totalRevenue,
+            COUNT(DISTINCT ti."transactionId") AS txCount
+            FROM "TransactionItem" ti
+            JOIN "Transaction" t ON t."id" = ti."transactionId"
+            LEFT JOIN "Product" p ON p."id" = ti."productId"
+            LEFT JOIN "Manufacturer" m ON m."id" = p."manufacturerId"
+            WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+              AND date(t."createdAt") >= date(?)
+              AND date(t."createdAt") <= date(?)
+              AND COALESCE(m."name", 'Unknown') = ?
+            GROUP BY ti."productName"
+            ORDER BY totalRevenue DESC
+            LIMIT 5`,
+      args: [from, to, mfr.manufacturer],
+    })
+    topProductsByMfr.push({
+      manufacturer: mfr.manufacturer,
+      products: toObjs(prodResult).map((r) => ({
+        productName: r.productName as string,
+        totalQty: Number(r.totalQty),
+        totalRevenue: Number(r.totalRevenue),
+        txCount: Number(r.txCount),
+      })),
+    })
+  }
+
+  // 3. Manufacturer daily trend (top 3)
+  const trendMfrs = manufacturers.slice(0, 3)
+  const mfrNames = trendMfrs.map(m => m.manufacturer)
+  const trendResult = await turso.execute({
+    sql: `SELECT date(t."createdAt") AS day,
+          COALESCE(m."name", 'Unknown') AS manufacturer,
+          COALESCE(SUM(ti."subtotal"), 0) AS revenue
+          FROM "TransactionItem" ti
+          JOIN "Transaction" t ON t."id" = ti."transactionId"
+          LEFT JOIN "Product" p ON p."id" = ti."productId"
+          LEFT JOIN "Manufacturer" m ON m."id" = p."manufacturerId"
+          WHERE t."status" NOT IN ('PENDING', 'VOIDED')
+            AND date(t."createdAt") >= date(?)
+            AND date(t."createdAt") <= date(?)
+            AND COALESCE(m."name", 'Unknown') IN (${mfrNames.map(() => '?').join(',')})
+          GROUP BY day, manufacturer
+          ORDER BY day`,
+    args: [from, to, ...mfrNames],
+  })
+  const trendRows = toObjs(trendResult)
+  const days = [...new Set(trendRows.map(r => r.day as string))].sort()
+  const dailyTrend = days.map((day) => {
+    const row: Record<string, unknown> = { day }
+    for (const mfr of mfrNames) {
+      row[mfr] = trendRows.find(r => r.day === day && r.manufacturer === mfr)?.revenue || 0
+    }
+    return row
+  })
+
+  return NextResponse.json({
+    summary: {
+      totalManufacturers: manufacturers.length,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      topManufacturer: manufacturers[0] ? { name: manufacturers[0].manufacturer, revenue: manufacturers[0].totalRevenue } : null,
+      dateRange: { from, to },
+    },
+    manufacturers,
+    topProductsByMfr,
+    dailyTrend,
+    trendManufacturerNames: mfrNames,
   })
 }
 
