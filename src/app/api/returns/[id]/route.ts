@@ -247,30 +247,46 @@ export async function PUT(
         // Convert selling units → base units for inventory/batch restock
         const baseUnitsToRestock = returnQty * itemsPerUnit
 
-        // 1. Create a Batch record for the returned stock
-        const batchNo = generateBatchNo()
-        const batchId = generateId()
-        // Fetch product cost price for the batch
-        const prodResult = await turso.execute({
-          sql: 'SELECT "costPrice", "expiryDate" FROM "Product" WHERE id = ?',
+        // 1. Add returned stock to the product's existing active batch (nearest expiry)
+        //    Only create a new batch if no active batch exists
+        const existingBatch = await turso.execute({
+          sql: `SELECT id, "batchNumber", quantity
+                FROM "Batch"
+                WHERE "productId" = ? AND quantity > 0
+                ORDER BY
+                  CASE WHEN "expiryDate" IS NULL THEN 1 ELSE 0 END,
+                  "expiryDate" ASC
+                LIMIT 1`,
           args: [productId],
         })
-        const prodRow = prodResult.rows.length > 0 ? toObjs(prodResult)[0] : null
-        const costPrice = prodRow ? Number(prodRow.costPrice) || 0 : 0
 
-        await turso.execute({
-          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
-            batchId, productId, batchNo,
-            prodRow?.expiryDate || null,
-            baseUnitsToRestock,
-            costPrice,
-            now,
-            approvedById || 'system-return',
-            now, now,
-          ],
-        })
+        let restockedBatchNo: string
+        if (existingBatch.rows.length > 0) {
+          const batch = toObjs(existingBatch)[0]
+          restockedBatchNo = batch.batchNumber as string
+          await turso.execute({
+            sql: 'UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?',
+            args: [Number(batch.quantity) + baseUnitsToRestock, now, batch.id],
+          })
+        } else {
+          const prodResult = await turso.execute({
+            sql: 'SELECT "costPrice", "expiryDate" FROM "Product" WHERE id = ?',
+            args: [productId],
+          })
+          const prodRow = prodResult.rows.length > 0 ? toObjs(prodResult)[0] : null
+          restockedBatchNo = generateBatchNo()
+          await turso.execute({
+            sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+              generateId(), productId, restockedBatchNo,
+              prodRow?.expiryDate || null,
+              baseUnitsToRestock,
+              prodRow ? Number(prodRow.costPrice) || 0 : 0,
+              now, approvedById || 'system-return', now, now,
+            ],
+          })
+        }
 
         // 2. Recalculate Inventory.quantity as SUM of all batch quantities (same logic as auto-expiry)
         const sumResult = await turso.execute({
@@ -302,7 +318,7 @@ export async function PUT(
           action: 'UPDATED',
           changedFields: ['quantity', 'returnRestock'],
           previousValues: { quantity: newInvQty - baseUnitsToRestock },
-          newValues: { quantity: newInvQty, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) via return ${(existing as any).returnNo || id}` },
+          newValues: { quantity: newInvQty, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) added to batch ${restockedBatchNo} via return ${(existing as any).returnNo || id}` },
           userId: approvedById || undefined,
         })
 
@@ -476,18 +492,29 @@ export async function PUT(
         const baseUnitsToRestock = returnQty * itemsPerUnit
 
         updated = await db.$transaction(async (tx) => {
-          // 1. Restock via Batch record (if Batch table exists)
+          // 1. Restock into existing batch if possible
           try {
-            await tx.batch.create({
-              data: {
-                productId: existing.productId,
-                batchNumber: 'RTN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0'),
-                quantity: baseUnitsToRestock,
-                costPrice: 0,
-                receivedAt: new Date(),
-                receivedBy: approvedById || 'system-return',
-              },
+            const existingBatch = await tx.batch.findFirst({
+              where: { productId: existing.productId, quantity: { gt: 0 } },
+              orderBy: { expiryDate: 'asc' },
             })
+            if (existingBatch) {
+              await tx.batch.update({
+                where: { id: existingBatch.id },
+                data: { quantity: { increment: baseUnitsToRestock } },
+              })
+            } else {
+              await tx.batch.create({
+                data: {
+                  productId: existing.productId,
+                  batchNumber: 'BN-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Math.floor(Math.random()*10000)).padStart(4,'0'),
+                  quantity: baseUnitsToRestock,
+                  costPrice: 0,
+                  receivedAt: new Date(),
+                  receivedBy: approvedById || 'system-return',
+                },
+              })
+            }
           } catch {
             // Batch table might not exist in Prisma — fall through
           }
