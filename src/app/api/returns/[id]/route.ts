@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
+import { writeProductHistory } from '@/lib/product-history'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,7 +37,9 @@ async function fetchReturnWithJoins(id: string) {
                 ti."id" AS "txItemId", ti."quantity" AS "txItemQty", ti."unitPrice" AS "txItemUnitPrice",
                 ti."subtotal" AS "txItemSubtotal", ti."requiresRx" AS "txItemRequiresRx",
                 ti."productName" AS "txItemProductName", ti."productId" AS "txItemProductId",
-                p."id" AS "prodId", p."name" AS "prodName", p."ndc" AS "prodNdc", p."category" AS "prodCategory"
+                ti."sellingUnit" AS "txItemSellingUnit", ti."itemsPerUnit" AS "txItemItemsPerUnit",
+                p."id" AS "prodId", p."name" AS "prodName", p."ndc" AS "prodNdc", p."category" AS "prodCategory",
+                p."costPrice" AS "prodCostPrice", p."sellingUnit" AS "prodSellingUnit", p."itemsPerUnit" AS "prodItemsPerUnit"
          FROM "Return" r
          LEFT JOIN "User" u ON u."id" = r."userId"
          LEFT JOIN "User" a ON a."id" = r."approvedById"
@@ -96,10 +99,17 @@ async function fetchReturnWithJoins(id: string) {
           unitPrice: Number(row.txItemUnitPrice),
           subtotal: Number(row.txItemSubtotal),
           requiresRx: bool(row.txItemRequiresRx),
+          sellingUnit: (row.txItemSellingUnit as string) || 'EA',
+          itemsPerUnit: Number(row.txItemItemsPerUnit) || 1,
         }
       : null,
     product: row.prodId
-      ? { id: row.prodId, name: row.prodName, ndc: row.prodNdc, category: row.prodCategory }
+      ? {
+          id: row.prodId, name: row.prodName, ndc: row.prodNdc, category: row.prodCategory,
+          costPrice: row.prodCostPrice != null ? Number(row.prodCostPrice) : null,
+          sellingUnit: (row.prodSellingUnit as string) || 'EA',
+          itemsPerUnit: Number(row.prodItemsPerUnit) || 1,
+        }
       : null,
   }
 }
@@ -187,7 +197,7 @@ export async function PUT(
     if (isTurso()) {
       // Fetch existing return
       const existingResult = await turso.execute({
-        sql: `SELECT "id", "status", "userId", "productId", "transactionId", "transactionItemId",
+        sql: `SELECT "id", "returnNo", "status", "userId", "productId", "transactionId", "transactionItemId",
                     "quantity", "notes", "refundMethod"
              FROM "Return" WHERE "id" = ?`,
         args: [id],
@@ -221,20 +231,59 @@ export async function PUT(
           )
         }
 
-        const returnQty = Number(existing.quantity)
+        const returnQty = Number(existing.quantity) // selling units returned
         const productId = existing.productId as string
         const transactionItemId = existing.transactionItemId as string
         const transactionId = existing.transactionId as string
 
-        // 1. Read current inventory quantity (read-modify-write)
-        const invResult = await turso.execute({
-          sql: 'SELECT "quantity" FROM "Inventory" WHERE "productId" = ?',
+        // Fetch original transaction item to get itemsPerUnit for base-unit conversion
+        const txItemResult = await turso.execute({
+          sql: 'SELECT "quantity", "unitPrice", "sellingUnit", "itemsPerUnit" FROM "TransactionItem" WHERE "id" = ?',
+          args: [transactionItemId],
+        })
+        const txItem = txItemResult.rows.length > 0 ? toObjs(txItemResult)[0] : null
+        const itemsPerUnit = txItem ? (Number(txItem.itemsPerUnit) || 1) : 1
+        const sellingUnit = (txItem?.sellingUnit as string) || 'EA'
+        // Convert selling units → base units for inventory/batch restock
+        const baseUnitsToRestock = returnQty * itemsPerUnit
+
+        // 1. Create a Batch record for the returned stock
+        const batchNo = generateBatchNo()
+        const batchId = generateId()
+        // Fetch product cost price for the batch
+        const prodResult = await turso.execute({
+          sql: 'SELECT "costPrice", "expiryDate" FROM "Product" WHERE id = ?',
           args: [productId],
         })
-        const currentQty = invResult.rows.length > 0 ? Number(invResult.rows[0][0]) : 0
-        const newInvQty = currentQty + returnQty
+        const prodRow = prodResult.rows.length > 0 ? toObjs(prodResult)[0] : null
+        const costPrice = prodRow ? Number(prodRow.costPrice) || 0 : 0
 
-        if (invResult.rows.length > 0) {
+        await turso.execute({
+          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            batchId, productId, batchNo,
+            prodRow?.expiryDate || null,
+            baseUnitsToRestock,
+            costPrice,
+            now,
+            approvedById || 'system-return',
+            now, now,
+          ],
+        })
+
+        // 2. Recalculate Inventory.quantity as SUM of all batch quantities (same logic as auto-expiry)
+        const sumResult = await turso.execute({
+          sql: 'SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?',
+          args: [productId],
+        })
+        const newInvQty = Number(sumResult.rows[0][0]) || 0
+
+        const invCheck = await turso.execute({
+          sql: 'SELECT id FROM "Inventory" WHERE "productId" = ?',
+          args: [productId],
+        })
+        if (invCheck.rows.length > 0) {
           await turso.execute({
             sql: 'UPDATE "Inventory" SET "quantity" = ?, "lastCounted" = ?, "updatedAt" = ? WHERE "productId" = ?',
             args: [newInvQty, now, now, productId],
@@ -242,19 +291,23 @@ export async function PUT(
         } else {
           const invId = generateId()
           await turso.execute({
-            sql: `INSERT INTO "Inventory" ("id", "productId", "quantity", "lastCounted", "createdAt", "updatedAt")
-                 VALUES (?, ?, ?, ?, ?, ?)`,
+            sql: `INSERT INTO "Inventory" (id, "productId", quantity, "lastCounted", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?)`,
             args: [invId, productId, newInvQty, now, now, now],
           })
         }
 
-        // 2. Adjust the original transaction item (reduce quantity by returned amount)
-        const txItemResult = await turso.execute({
-          sql: 'SELECT "quantity", "unitPrice" FROM "TransactionItem" WHERE "id" = ?',
-          args: [transactionItemId],
+        // 3. Write ProductHistory entry for the restock
+        writeProductHistory({
+          productId,
+          action: 'UPDATED',
+          changedFields: ['quantity', 'returnRestock'],
+          previousValues: { quantity: newInvQty - baseUnitsToRestock },
+          newValues: { quantity: newInvQty, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) via return ${existingReturnNo || id}` },
+          userId: approvedById || undefined,
         })
-        if (txItemResult.rows.length > 0) {
-          const txItem = toObjs(txItemResult)[0]
+
+        // 4. Adjust the original transaction item (reduce quantity by returned amount)
+        if (txItem) {
           const originalQty = Number(txItem.quantity)
           const unitPrice = Number(txItem.unitPrice)
           const returnedQty = Math.min(returnQty, originalQty)
@@ -267,7 +320,7 @@ export async function PUT(
           })
         }
 
-        // 3. Recalculate and update the original transaction totals
+        // 5. Recalculate and update the original transaction totals
         const allItemsResult = await turso.execute({
           sql: 'SELECT "subtotal" FROM "TransactionItem" WHERE "transactionId" = ?',
           args: [transactionId],
@@ -291,7 +344,7 @@ export async function PUT(
           ],
         })
 
-        // 4. Update Return status to APPROVED
+        // 6. Update Return status to APPROVED
         await turso.execute({
           sql: `UPDATE "Return" SET "status" = ?, "approvedById" = ?, "approvedAt" = ?,
                "restocked" = 1, "notes" = ?, "updatedAt" = ? WHERE "id" = ?`,
@@ -414,13 +467,37 @@ export async function PUT(
 
         const returnQty = Number(existing.quantity)
 
+        // Fetch transaction item for itemsPerUnit conversion
+        const txItem = await db.transactionItem.findUnique({
+          where: { id: existing.transactionItemId },
+        })
+        const itemsPerUnit = txItem ? (Number((txItem as any).itemsPerUnit) || 1) : 1
+        const sellingUnit = (txItem as any)?.sellingUnit || 'EA'
+        const baseUnitsToRestock = returnQty * itemsPerUnit
+
         updated = await db.$transaction(async (tx) => {
-          // 1. Restock the product inventory (read-modify-write for Turso compatibility)
+          // 1. Restock via Batch record (if Batch table exists)
+          try {
+            await tx.batch.create({
+              data: {
+                productId: existing.productId,
+                batchNumber: 'RTN-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0'),
+                quantity: baseUnitsToRestock,
+                costPrice: 0,
+                receivedAt: new Date(),
+                receivedBy: approvedById || 'system-return',
+              },
+            })
+          } catch {
+            // Batch table might not exist in Prisma — fall through
+          }
+
+          // 2. Update inventory
           const existingInv = await tx.inventory.findUnique({
             where: { productId: existing.productId },
           })
           const currentQty = existingInv ? Number(existingInv.quantity) : 0
-          const newInvQty = currentQty + returnQty
+          const newInvQty = currentQty + baseUnitsToRestock
 
           if (existingInv) {
             await tx.inventory.update({
@@ -433,10 +510,7 @@ export async function PUT(
             })
           }
 
-          // 2. Adjust the original transaction item quantity
-          const txItem = await tx.transactionItem.findUnique({
-            where: { id: existing.transactionItemId },
-          })
+          // 3. Adjust the original transaction item quantity
           if (txItem) {
             const originalQty = Number(txItem.quantity)
             const returnedQty = Math.min(returnQty, originalQty)
@@ -449,7 +523,7 @@ export async function PUT(
             })
           }
 
-          // 3. Recalculate and update the original transaction totals
+          // 4. Recalculate and update the original transaction totals
           const allTxItems = await tx.transactionItem.findMany({
             where: { transactionId: existing.transactionId },
           })
@@ -468,7 +542,7 @@ export async function PUT(
             },
           })
 
-          // 4. Mark as approved with restocked flag
+          // 5. Mark as approved with restocked flag
           return await tx.return.update({
             where: { id },
             data: {
@@ -485,6 +559,16 @@ export async function PUT(
               transaction: { select: { transactionNo: true, status: true, subtotal: true, total: true } },
             },
           })
+        })
+
+        // Product history (fire-and-forget)
+        writeProductHistory({
+          productId: existing.productId,
+          action: 'UPDATED',
+          changedFields: ['quantity', 'returnRestock'],
+          previousValues: { quantity: (Number(existing.quantity) || 0) * itemsPerUnit - baseUnitsToRestock },
+          newValues: { quantity: baseUnitsToRestock, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) via return ${existing.returnNo || id}` },
+          userId: approvedById || undefined,
         })
         break
       }
