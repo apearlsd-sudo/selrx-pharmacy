@@ -87,7 +87,16 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
         params.set('search', search.trim())
       }
       const res = await fetch(`/api/transactions?${params}`, { headers: authHeaders() })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        addToast({ title: 'Failed to load receipts', description: errData.error || `Server error (${res.status})`, variant: 'destructive' })
+        return
+      }
       const data = await res.json()
+      if (data.error) {
+        addToast({ title: 'Failed to load receipts', description: data.error, variant: 'destructive' })
+        return
+      }
       if (data.transactions && Array.isArray(data.transactions)) {
         setRecentReceipts(data.transactions)
         setReceiptsPage(pg)
@@ -95,6 +104,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
       }
     } catch (err) {
       console.error('Failed to fetch recent receipts:', err)
+      addToast({ title: 'Network error', description: 'Could not connect to server', variant: 'destructive' })
     } finally {
       setReceiptsLoading(false)
     }
@@ -125,7 +135,17 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
     setFoundTx(null)
     setSelectedItem(null)
     try {
-      const res = await fetch(`/api/transactions?search=${encodeURIComponent(txSearchQuery.trim())}&limit=10&status=COMPLETED`, { headers: authHeaders() })
+      const params = new URLSearchParams({
+        search: txSearchQuery.trim(),
+        limit: '10',
+        status: 'COMPLETED',
+      })
+      const res = await fetch(`/api/transactions?${params}`, { headers: authHeaders() })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        addToast({ title: 'Search failed', description: errData.error || `Server error (${res.status})`, variant: 'destructive' })
+        return
+      }
       const data = await res.json()
       if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
         setRecentReceipts(data.transactions)
@@ -145,7 +165,9 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
   // Submit new return
   const submitReturn = async () => {
     if (!selectedItem || !returnReason || !user || !foundTx) return
-    if (returnQty <= 0 || returnQty > selectedItem.quantity) {
+    const itemQty = Number(selectedItem.quantity)
+    const itemPrice = Number(selectedItem.unitPrice)
+    if (returnQty <= 0 || returnQty > itemQty) {
       addToast({ title: 'Invalid quantity', description: 'Quantity must be between 1 and the purchased amount', variant: 'destructive' })
       return
     }
@@ -166,8 +188,8 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
           productId: selectedItem.productId,
           productName: selectedItem.productName,
           quantity: returnQty,
-          unitPrice: selectedItem.unitPrice,
-          refundAmount: selectedItem.unitPrice * returnQty,
+          unitPrice: itemPrice,
+          refundAmount: itemPrice * returnQty,
           reason: returnReason,
           reasonNote: returnReasonNote || null,
           customerId,
@@ -333,7 +355,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-bold">{formatCurrency(receipt.total)}</p>
+                          <p className="text-sm font-bold">{formatCurrency(Number(receipt.total))}</p>
                           <p className="text-[10px] text-muted-foreground">
                             {receipt.items?.length || 0} item{(receipt.items?.length || 0) !== 1 ? 's' : ''}
                           </p>
@@ -363,7 +385,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{item.productName}</p>
                                 <p className="text-muted-foreground">
-                                  {formatCurrency(item.unitPrice)} × {item.quantity} = {formatCurrency(item.subtotal)}
+                                  {formatCurrency(Number(item.unitPrice))} × {Number(item.quantity)} = {formatCurrency(Number(item.subtotal))}
                                 </p>
                               </div>
                               <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-2" />
@@ -390,7 +412,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Unit Price</Label>
-                  <p className="text-sm font-medium">{formatCurrency(selectedItem.unitPrice)}</p>
+                  <p className="text-sm font-medium">{formatCurrency(Number(selectedItem.unitPrice))}</p>
                 </div>
               </div>
 
@@ -400,19 +422,19 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                   <Input
                     type="number"
                     min={1}
-                    max={selectedItem.quantity}
+                    max={Number(selectedItem.quantity)}
                     value={returnQty}
                     onChange={(e) => setReturnQty(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    Max: {selectedItem.quantity} (purchased quantity)
+                    Max: {Number(selectedItem.quantity)} (purchased quantity)
                   </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Refund Amount</Label>
                   <p className="text-sm font-bold text-emerald-600">
-                    {formatCurrency(selectedItem.unitPrice * returnQty)}
+                    {formatCurrency(Number(selectedItem.unitPrice) * returnQty)}
                   </p>
                 </div>
               </div>

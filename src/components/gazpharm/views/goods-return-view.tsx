@@ -194,7 +194,16 @@ export function GoodsReturnView() {
       if (searchQuery) params.set('search', searchQuery)
 
       const res = await fetch(`/api/returns?${params}`, { headers: authHeaders() })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        addToast({ title: 'Failed to load returns', description: errData.error || `Server error (${res.status})`, variant: 'destructive' })
+        return
+      }
       const data = await res.json()
+      if (data.error) {
+        addToast({ title: 'Error', description: data.error, variant: 'destructive' })
+        return
+      }
       if (data.returns && Array.isArray(data.returns)) {
         setReturns(data.returns)
         setTotalPages(data.pagination ? data.pagination.pages : 1)
@@ -204,6 +213,7 @@ export function GoodsReturnView() {
       }
     } catch (err) {
       console.error('Failed to fetch returns:', err)
+      addToast({ title: 'Network error', description: 'Could not load returns', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
