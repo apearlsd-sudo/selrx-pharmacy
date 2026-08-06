@@ -302,7 +302,7 @@ export async function PUT(
           action: 'UPDATED',
           changedFields: ['quantity', 'returnRestock'],
           previousValues: { quantity: newInvQty - baseUnitsToRestock },
-          newValues: { quantity: newInvQty, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) via return ${existingReturnNo || id}` },
+          newValues: { quantity: newInvQty, returnRestock: `${baseUnitsToRestock} base units (${returnQty} ${sellingUnit}) via return ${(existing as any).returnNo || id}` },
           userId: approvedById || undefined,
         })
 
