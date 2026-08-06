@@ -247,42 +247,64 @@ export async function PUT(
         // Convert selling units → base units for inventory/batch restock
         const baseUnitsToRestock = returnQty * itemsPerUnit
 
-        // 1. Add returned stock to the product's existing active batch (nearest expiry)
-        //    Only create a new batch if no active batch exists
-        const existingBatch = await turso.execute({
+        // 1. Add returned stock to the product's ORIGINAL batch (not create a new one)
+        //    Strategy: match by product + costPrice + expiryDate (most likely original batch)
+        //    Fallback 1: any batch for this product (even qty=0, ordered by most recent receivedAt)
+        //    Fallback 2: only create new batch if no batch exists at all
+        const prodResult = await turso.execute({
+          sql: 'SELECT "costPrice", "expiryDate" FROM "Product" WHERE id = ?',
+          args: [productId],
+        })
+        const prodRow = prodResult.rows.length > 0 ? toObjs(prodResult)[0] : null
+        const prodCostPrice = prodRow ? Number(prodRow.costPrice) || 0 : 0
+        const prodExpiryDate = prodRow?.expiryDate as string | null
+
+        // Try exact match first: same product + same cost price + same expiry
+        const exactBatch = await turso.execute({
           sql: `SELECT id, "batchNumber", quantity
                 FROM "Batch"
-                WHERE "productId" = ? AND quantity > 0
-                ORDER BY
-                  CASE WHEN "expiryDate" IS NULL THEN 1 ELSE 0 END,
-                  "expiryDate" ASC
+                WHERE "productId" = ?
+                  AND "costPrice" = ?
+                  AND (("expiryDate" IS NULL AND ? IS NULL) OR ("expiryDate" = ?))
+                ORDER BY "receivedAt" DESC
+                LIMIT 1`,
+          args: [productId, prodCostPrice, prodExpiryDate, prodExpiryDate],
+        })
+
+        // Fallback: any batch for this product (even qty=0)
+        const anyBatch = await turso.execute({
+          sql: `SELECT id, "batchNumber", quantity
+                FROM "Batch"
+                WHERE "productId" = ?
+                ORDER BY "receivedAt" DESC
                 LIMIT 1`,
           args: [productId],
         })
 
         let restockedBatchNo: string
-        if (existingBatch.rows.length > 0) {
-          const batch = toObjs(existingBatch)[0]
-          restockedBatchNo = batch.batchNumber as string
+        const matchedBatch = exactBatch.rows.length > 0
+          ? toObjs(exactBatch)[0]
+          : anyBatch.rows.length > 0
+            ? toObjs(anyBatch)[0]
+            : null
+
+        if (matchedBatch) {
+          restockedBatchNo = matchedBatch.batchNumber as string
           await turso.execute({
             sql: 'UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?',
-            args: [Number(batch.quantity) + baseUnitsToRestock, now, batch.id],
+            args: [Number(matchedBatch.quantity) + baseUnitsToRestock, now, matchedBatch.id],
           })
         } else {
-          const prodResult = await turso.execute({
-            sql: 'SELECT "costPrice", "expiryDate" FROM "Product" WHERE id = ?',
-            args: [productId],
-          })
-          const prodRow = prodResult.rows.length > 0 ? toObjs(prodResult)[0] : null
+          // Absolute last resort: no batch exists at all for this product
           restockedBatchNo = generateBatchNo()
           await turso.execute({
             sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             args: [
               generateId(), productId, restockedBatchNo,
-              prodRow?.expiryDate || null,
+              prodExpiryDate,
               baseUnitsToRestock,
-              prodRow ? Number(prodRow.costPrice) || 0 : 0,
+              prodCostPrice,
               now, approvedById || 'system-return', now, now,
             ],
           })
@@ -492,24 +514,44 @@ export async function PUT(
         const baseUnitsToRestock = returnQty * itemsPerUnit
 
         updated = await db.$transaction(async (tx) => {
-          // 1. Restock into existing batch if possible
+          // 1. Restock into the original batch (not create a new one)
           try {
-            const existingBatch = await tx.batch.findFirst({
-              where: { productId: existing.productId, quantity: { gt: 0 } },
-              orderBy: { expiryDate: 'asc' },
+            // Fetch product for costPrice/expiryDate matching
+            const product = await tx.product.findUnique({ where: { id: existing.productId } })
+            const prodCostPrice = product ? Number(product.costPrice) || 0 : 0
+            const prodExpiryDate = product?.expiryDate || null
+
+            // Try exact match: same product + costPrice + expiryDate
+            let batch = await tx.batch.findFirst({
+              where: {
+                productId: existing.productId,
+                costPrice: prodCostPrice,
+                ...(prodExpiryDate ? { expiryDate: prodExpiryDate } : { expiryDate: null }),
+              },
+              orderBy: { receivedAt: 'desc' },
             })
-            if (existingBatch) {
+
+            // Fallback: any batch for this product (even qty=0)
+            if (!batch) {
+              batch = await tx.batch.findFirst({
+                where: { productId: existing.productId },
+                orderBy: { receivedAt: 'desc' },
+              })
+            }
+
+            if (batch) {
               await tx.batch.update({
-                where: { id: existingBatch.id },
+                where: { id: batch.id },
                 data: { quantity: { increment: baseUnitsToRestock } },
               })
             } else {
+              // Absolute last resort: no batch at all for this product
               await tx.batch.create({
                 data: {
                   productId: existing.productId,
                   batchNumber: 'BN-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Math.floor(Math.random()*10000)).padStart(4,'0'),
                   quantity: baseUnitsToRestock,
-                  costPrice: 0,
+                  costPrice: prodCostPrice,
                   receivedAt: new Date(),
                   receivedBy: approvedById || 'system-return',
                 },
