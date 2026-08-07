@@ -17,8 +17,6 @@ import {
   ChevronRight,
   MonitorSmartphone,
 } from 'lucide-react'
-import { PageHeader } from '@/components/gazpharm/shared/page-header'
-import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -51,6 +49,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { formatDateTime } from '@/lib/date-utils'
 

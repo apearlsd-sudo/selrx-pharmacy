@@ -6,9 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { PageHeader } from '@/components/gazpharm/shared/page-header'
-import { authHeaders } from '@/lib/auth-headers'
-import { useAppStore } from '@/store/app-store'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +13,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { useAppStore } from '@/store/app-store'
+import { authHeaders } from '@/lib/auth-headers'
 
 interface Workstation {
   id: string

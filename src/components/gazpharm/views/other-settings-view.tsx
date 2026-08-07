@@ -30,10 +30,10 @@ import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { useAppStore, type DateFormatOption, type TimeFormatOption, type ReceiptFontFamily, type ReceiptFontSize } from '@/store/app-store'
 import { CURRENCIES, type CurrencyCode } from '@/lib/currency'
 import { authHeaders } from '@/lib/auth-headers'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 
 // ── Timezone data ─────────────────────────────────────────────────────
 

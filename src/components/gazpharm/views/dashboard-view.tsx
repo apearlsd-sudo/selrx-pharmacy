@@ -11,8 +11,6 @@ import {
   ShoppingCart,
   LayoutDashboard,
 } from 'lucide-react'
-import { PageHeader } from '@/components/gazpharm/shared/page-header'
-import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -33,6 +31,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 
