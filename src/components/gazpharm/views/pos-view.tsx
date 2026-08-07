@@ -194,14 +194,14 @@ export function POSView() {
               {
                 id: product.id,
                 name: product.name,
-                ndc: product.ndc,
+                ndc: product.ndc ?? undefined,
                 sellingPrice: product.sellingPrice,
                 requiresPrescription: product.requiresPrescription,
                 unitOfMeasure: product.unitOfMeasure,
                 sellingUnit: product.sellingUnit || 'EA',
                 itemsPerUnit: product.itemsPerUnit || 1,
-                strength: product.strength,
-                dosageForm: product.dosageForm,
+                strength: product.strength ?? undefined,
+                dosageForm: product.dosageForm ?? undefined,
               },
               1
             )
@@ -311,14 +311,14 @@ export function POSView() {
       {
         id: product.id,
         name: product.name,
-        ndc: product.ndc,
+        ndc: product.ndc ?? undefined,
         sellingPrice: product.sellingPrice,
         requiresPrescription: product.requiresPrescription,
         unitOfMeasure: product.unitOfMeasure,
         sellingUnit: product.sellingUnit || 'EA',
         itemsPerUnit: product.itemsPerUnit || 1,
-        strength: product.strength,
-        dosageForm: product.dosageForm,
+        strength: product.strength ?? undefined,
+        dosageForm: product.dosageForm ?? undefined,
       },
       1
     )
@@ -407,7 +407,7 @@ export function POSView() {
           requiresRx: item.product.requiresPrescription,
           sellingUnit: item.product.sellingUnit || 'EA',
           itemsPerUnit: item.product.itemsPerUnit,
-          barcode: item.product.barcode || null,
+          barcode: (item.product as any).barcode || null,
         })),
         paymentMethod,
         subtotal,
