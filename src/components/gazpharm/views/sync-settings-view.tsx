@@ -38,8 +38,11 @@ import {
   setHubUrl,
   startSync,
   stopSync,
+  getSyncConflicts,
+  resolveConflict,
   type SyncInfo,
   type SyncState,
+  type SyncConflict,
 } from '@/lib/sync-engine'
 import { useAppStore } from '@/store/app-store'
 
@@ -73,6 +76,7 @@ export function SyncSettingsView() {
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [testing, setTesting] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [conflicts, setConflicts] = useState<SyncConflict[]>([])
 
   // ── Persist & listen ───────────────────────────────────────────────
 
@@ -95,6 +99,8 @@ export function SyncSettingsView() {
   useEffect(() => {
  const unsub = onSyncStateChange((_state, newInfo) => {
       setInfo({ ...newInfo })
+      // Refresh conflicts list
+      setConflicts(getSyncConflicts())
     })
     return unsub
   }, [])
@@ -203,6 +209,13 @@ export function SyncSettingsView() {
     navigator.clipboard.writeText(info.deviceId)
     addToast({ title: 'Copied', description: 'Device ID copied to clipboard', variant: 'success' })
   }, [info.deviceId, addToast])
+
+  // ── Resolve conflict ──
+  const handleResolveConflict = useCallback(async (conflictId: string, resolution: 'keep_local' | 'keep_hub') => {
+    await resolveConflict(conflictId, resolution)
+    setConflicts(getSyncConflicts())
+    addToast({ title: 'Conflict Resolved', description: `Kept ${resolution === 'keep_hub' ? 'hub' : 'local'} version`, variant: 'success' })
+  }, [addToast])
 
   // ── Not desktop? Show info only ────────────────────────────────────
 
@@ -540,6 +553,81 @@ export function SyncSettingsView() {
             </div>
           </div>
         </CardContent>
+        </Card>
+      )}
+
+      {/* ── Sync Conflicts ── */}
+      {conflicts.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Sync Conflicts
+              <Badge variant="destructive" className="ml-auto">
+                {conflicts.filter((c) => !c.resolved).length} unresolved
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-xs">
+              These records were modified on both the hub and this device. Choose which version to keep.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {conflicts.map((conflict) => (
+              <div
+                key={conflict.id}
+                className={`rounded-lg border p-3 space-y-2 ${
+                  conflict.resolved
+                    ? 'border-gray-200 bg-gray-50/50 opacity-60'
+                    : 'border-amber-200 bg-amber-50/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] font-mono">{conflict.tableName}</Badge>
+                    <span className="text-xs text-muted-foreground">{conflict.recordId.slice(0, 8)}...</span>
+                  </div>
+                  {conflict.resolved ? (
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">
+                      Kept {conflict.resolution === 'keep_hub' ? 'hub' : 'local'}
+                    </Badge>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] gap-1"
+                        onClick={() => handleResolveConflict(conflict.id, 'keep_hub')}
+                      >
+                        <Server className="h-3 w-3" /> Keep Hub
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] gap-1"
+                        onClick={() => handleResolveConflict(conflict.id, 'keep_local')}
+                      >
+                        <Monitor className="h-3 w-3" /> Keep Local
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded bg-white/80 border p-2">
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase">Hub Version</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5 font-mono truncate">
+                      {JSON.stringify(conflict.hubData).slice(0, 80)}...
+                    </p>
+                  </div>
+                  <div className="rounded bg-white/80 border p-2">
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase">Local Version</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5 font-mono truncate">
+                      {JSON.stringify(conflict.localData).slice(0, 80)}...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
         </Card>
       )}
 

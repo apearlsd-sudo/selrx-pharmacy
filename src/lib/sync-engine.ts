@@ -67,9 +67,22 @@ let pendingCount = 0
 let errorCount = 0
 let lastError: string | null = null
 let deviceId: string = ''
+let conflicts: SyncConflict[] = []
 
 // Listener callbacks
 const listeners = new Set<(state: SyncState, info: SyncInfo) => void>()
+
+export interface SyncConflict {
+  id: string
+  tableName: string
+  recordId: string
+  operation: string
+  localData: Record<string, unknown>
+  hubData: Record<string, unknown>
+ detectedAt: string
+  resolved: boolean
+  resolution?: 'keep_local' | 'keep_hub'
+}
 
 export interface SyncInfo {
   state: SyncState
@@ -80,6 +93,7 @@ export interface SyncInfo {
   errorCount: number
   lastError: string | null
   platform: string
+  conflictCount: number
 }
 
 // ===================================================================
@@ -154,7 +168,39 @@ export function getSyncInfo(): SyncInfo {
     errorCount,
     lastError,
     platform: isDesktop() ? 'tauri' : 'web',
+    conflictCount: conflicts.filter((c) => !c.resolved).length,
   }
+}
+
+/** Get all sync conflicts (unresolved first, then resolved). */
+export function getSyncConflicts(): SyncConflict[] {
+  return [...conflicts].sort((a, b) => {
+    if (a.resolved !== b.resolved) return a.resolved ? 1 : -1
+    return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
+  })
+}
+
+/** Resolve a conflict by choosing which version to keep. */
+export async function resolveConflict(
+  conflictId: string,
+  resolution: 'keep_local' | 'keep_hub'
+): Promise<void> {
+  const conflict = conflicts.find((c) => c.id === conflictId)
+  if (!conflict) return
+
+  if (isDesktop()) {
+    const { dbExecute } = await import('./desktop/tauri-bridge')
+    const data = resolution === 'keep_hub' ? conflict.hubData : conflict.localData
+    const keys = Object.keys(data).filter((k) => k !== 'id')
+    const values = Object.values(data).filter((_, i) => !['id'].includes(Object.keys(data)[i])).map((v) => (v === null ? 'NULL' : String(v)))
+    const sets = keys.map((k) => `"${k}" = ?`).join(', ')
+    values.push(conflict.recordId)
+    await dbExecute(`UPDATE "${conflict.tableName}" SET ${sets} WHERE id = ?`, values)
+  }
+
+  conflict.resolved = true
+  conflict.resolution = resolution
+  setSyncState(syncState) // trigger UI update
 }
 
 /** Subscribe to sync state changes. */
@@ -333,9 +379,38 @@ async function applyPulledRecords(
         const colNames = keys.map((k) => `"${k}"`).join(', ')
         const insertSql = `INSERT OR IGNORE INTO "${tableName}" (${colNames}) VALUES (${placeholders})`
         await dbExecute(insertSql, values, tableName, 'INSERT', id, JSON.stringify(record))
+      } else if (result.affected > 0) {
+        // Record was updated — check if there was a local modification
+        // that could be a conflict (local changed data since last pull)
+        const updatedAt = record.updatedAt as string | undefined
+        if (updatedAt) {
+          // Hub wins for master data — no conflict for pull
+          // Conflicts are tracked for user awareness only on manual review
+        }
       }
     } catch (err) {
       console.error(`[sync] Failed to apply ${tableName} ${id}:`, err)
+      // Record as a conflict
+      const { dbQuery } = await import('./desktop/tauri-bridge')
+      try {
+        const existing = await dbQuery(`SELECT * FROM "${tableName}" WHERE id = ?`, [id])
+        if (existing.length > 0) {
+          const newConflict: SyncConflict = {
+            id: crypto.randomUUID(),
+            tableName,
+            recordId: id,
+            operation: 'UPDATE',
+            localData: existing[0],
+            hubData: record,
+            detectedAt: new Date().toISOString(),
+            resolved: false,
+          }
+          conflicts.push(newConflict)
+          console.warn(`[sync] Conflict detected: ${tableName} ${id}`)
+        }
+      } catch {
+ // Can't read local — just log the error
+      }
     }
   }
 }

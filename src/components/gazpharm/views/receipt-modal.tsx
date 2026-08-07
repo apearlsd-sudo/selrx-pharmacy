@@ -157,17 +157,43 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
           >
             {/* Pharmacy Header */}
             <div className="text-center space-y-1">
-              <div className="flex items-center justify-center gap-1.5">
-                <Store className="h-4 w-4 text-emerald-600" />
-                <span className={`tracking-wide text-gray-800 ${boldHeader ? 'font-bold' : ''}`} style={{ fontSize: getSizeForRole(fontSize, 'header') }}>{company?.name || 'SelRx'}</span>
-              </div>
+              {/* Logo */}
+              {company?.logo ? (
+                <div className="flex justify-center mb-1.5">
+                  <img
+                    src={company.logo}
+                    alt=""
+                    className="h-12 w-12 object-contain rounded"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-1.5">
+                  <Store className="h-4 w-4 text-emerald-600" />
+                  <span className={`tracking-wide text-gray-800 ${boldHeader ? 'font-bold' : ''}`} style={{ fontSize: getSizeForRole(fontSize, 'header') }}>{company?.name || 'SelRx'}</span>
+                </div>
+              )}
+              {company?.logo && (
+                <p className={`tracking-wide text-gray-800 ${boldHeader ? 'font-bold' : ''}`} style={{ fontSize: getSizeForRole(fontSize, 'header') }}>{company.name || 'SelRx'}</p>
+              )}
               {company?.tagline && <p className="text-gray-500 italic" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>{company.tagline}</p>}
               {company?.address && <p className="text-gray-500">{company.address}</p>}
-              {(company?.city || company?.country) && (
-                <p className="text-gray-500">{[company?.city, company?.country].filter(Boolean).join(', ')}</p>
+              {(company?.city || company?.state || company?.country) && (
+                <p className="text-gray-500">{[company?.city, company?.state, company?.country].filter(Boolean).join(', ')}</p>
               )}
               {company?.phone && <p className="text-gray-500">Tel: {company.phone}</p>}
               {company?.email && <p className="text-gray-500">{company.email}</p>}
+              {/* Registration & License Info */}
+              {(company?.registrationNo || company?.pharmacyLicense) && (
+                <div className="pt-1 space-y-0.5" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
+                  {company?.registrationNo && (
+                    <p className="text-gray-500">Reg: {company.registrationNo}</p>
+                  )}
+                  {company?.pharmacyLicense && (
+                    <p className="text-gray-500">Pharm. Lic: {company.pharmacyLicense}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Separator className="border-dashed border-gray-300" />
@@ -271,6 +297,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
               <p className="text-gray-400" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
                 Your health, our priority. Rx questions? Ask our pharmacist.
               </p>
+              {company?.website && (
+                <p className="text-gray-400" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
+                  {company.website}
+                </p>
+              )}
               <p className="text-gray-400 mt-2" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
                 *** End of Receipt ***
               </p>

@@ -26,6 +26,14 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { useAppStore, type CartItem, type PaymentMethodType } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { ReceiptModal } from './receipt-modal'
@@ -71,6 +79,8 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
 
 
 import { formatCurrency, currencySymbol } from '@/lib/currency'
+import { checkDrugInteractions, getSeverityColor, getSeverityLabel, type DrugInteraction } from '@/lib/drug-interactions'
+import { POS_SHORTCUTS, matchesShortcut, formatShortcut } from '@/lib/keyboard-shortcuts'
 
 export function POSView() {
   // Local state
@@ -87,7 +97,12 @@ export function POSView() {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false)
   const [barcodeInput, setBarcodeInput] = useState('')
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
+  const [interactionWarnings, setInteractionWarnings] = useState<DrugInteraction[]>([])
+  const [showInteractionDialog, setShowInteractionDialog] = useState(false)
+  const [pendingAddProduct, setPendingAddProduct] = useState<Product | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const barcodeInputRef = useRef<HTMLInputElement>(null)
 
   // Zustand state
   const cart = useAppStore((s) => s.cart)
@@ -278,6 +293,23 @@ export function POSView() {
   }, [searchQuery, activeCategory, searchProducts])
 
   const handleAddToCart = (product: Product) => {
+    // Drug interaction check
+    const existingGenerics = cart
+      .map((item) => (item.product as any).genericName)
+      .filter(Boolean) as string[]
+    const interactions = checkDrugInteractions((product as any).genericName, existingGenerics)
+
+    if (interactions.length > 0) {
+      setInteractionWarnings(interactions)
+      setPendingAddProduct(product)
+      setShowInteractionDialog(true)
+      return
+    }
+
+    doAddToCart(product)
+  }
+
+  const doAddToCart = (product: Product) => {
     addToCart(
       {
         id: product.id,
@@ -300,6 +332,47 @@ export function POSView() {
       duration: 1500,
     })
   }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in input/textarea/select
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        // Allow Escape and F-keys even in inputs
+        if (e.key !== 'Escape' && !e.key.startsWith('F')) return
+      }
+
+      for (const shortcut of POS_SHORTCUTS) {
+        if (!matchesShortcut(e, shortcut)) continue
+
+        e.preventDefault()
+        switch (shortcut.action) {
+          case 'new-transaction':
+            clearCart()
+            setAmountTendered('')
+            addToast({ title: 'New Transaction', description: 'Cart cleared', variant: 'success', duration: 1500 })
+            break
+          case 'focus-search':
+            searchInputRef.current?.focus()
+            break
+          case 'toggle-barcode':
+            setShowBarcodeInput((v) => !v)
+            setTimeout(() => barcodeInputRef.current?.focus(), 100)
+            break
+          case 'process-payment':
+            handleProcessPayment()
+            break
+          case 'void':
+            handleVoidTransaction()
+            break
+        }
+        break
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [cart, paymentMethod, amountTendered, total, shiftActive])
 
   const handleProcessPayment = async () => {
     if (!shiftActive) {
@@ -439,6 +512,7 @@ export function POSView() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 h-10 bg-gray-50/50 border-gray-200/80 focus:bg-white"
+                    ref={searchInputRef}
                   />
                 </div>
                 <Button
@@ -462,6 +536,7 @@ export function POSView() {
                     }}
                     className="h-9"
                     autoFocus
+                    ref={barcodeInputRef}
                   />
                   <Button
                     size="sm"
@@ -502,6 +577,15 @@ export function POSView() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Keyboard Shortcuts Hint */}
+          <div className="flex items-center gap-2 text-[10px] text-gray-400 px-1">
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F2</span>New
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F4</span>Search
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F5</span>Barcode
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F9</span>Pay
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">Esc</span>Void
+          </div>
 
           {/* Product Results */}
           <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
@@ -973,6 +1057,53 @@ export function POSView() {
         open={returnDialogOpen}
         onOpenChange={setReturnDialogOpen}
       />
+
+      {/* Drug Interaction Warning Dialog */}
+      <Dialog open={showInteractionDialog} onOpenChange={setShowInteractionDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="h-5 w-5" />
+              Drug Interaction Warning
+            </DialogTitle>
+            <DialogDescription>
+              Potential drug interactions detected. Review with the pharmacist before proceeding.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {interactionWarnings.map((interaction, i) => (
+              <div key={i} className={`rounded-lg border p-3 ${getSeverityColor(interaction.severity)}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider">
+                    {getSeverityLabel(interaction.severity)}
+                  </span>
+                  <span className="text-xs font-mono">
+                    {interaction.drug1} + {interaction.drug2}
+                  </span>
+                </div>
+                <p className="text-sm font-medium">{interaction.description}</p>
+                <p className="text-xs mt-1 opacity-80">{interaction.recommendation}</p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowInteractionDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowInteractionDialog(false)
+                if (pendingAddProduct) {
+                  doAddToCart(pendingAddProduct)
+                  setPendingAddProduct(null)
+                }
+              }}
+            >
+              Add Anyway (Pharmacist Approved)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

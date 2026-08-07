@@ -146,6 +146,101 @@ export function OtherSettingsView() {
   const [lastBackup, setLastBackup] = useState<string | null>(null)
   const [lastBackupRows, setLastBackupRows] = useState(0)
 
+  // ── Auto-backup state ──
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false)
+  const [autoBackupFrequency, setAutoBackupFrequency] = useState('daily')
+  const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null)
+  const [nextBackupTime, setNextBackupTime] = useState<number | null>(null)
+  const [isAutoBackingUp, setIsAutoBackingUp] = useState(false)
+  const autoBackupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Load auto-backup settings from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('selrx_auto_backup')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setAutoBackupEnabled(parsed.enabled || false)
+        setAutoBackupFrequency(parsed.frequency || 'daily')
+        setLastAutoBackup(parsed.lastBackup || null)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  // Calculate next backup time
+  useEffect(() => {
+    if (!autoBackupEnabled) {
+      setNextBackupTime(null)
+      return
+    }
+    const intervals: Record<string, number> = {
+      'hourly': 3600_000,
+      '6hours': 6 * 3600_000,
+      'daily': 24 * 3600_000,
+      'weekly': 7 * 24 * 3600_000,
+    }
+    const interval = intervals[autoBackupFrequency] || 24 * 3600_000
+    const base = lastAutoBackup ? new Date(lastAutoBackup).getTime() : Date.now()
+    setNextBackupTime(base + interval)
+  }, [autoBackupEnabled, autoBackupFrequency, lastAutoBackup])
+
+  // Auto-backup timer
+  useEffect(() => {
+    if (autoBackupTimerRef.current) clearInterval(autoBackupTimerRef.current)
+
+    if (!autoBackupEnabled) return
+
+    const intervals: Record<string, number> = {
+      'hourly': 3600_000,
+      '6hours': 6 * 3600_000,
+      'daily': 24 * 3600_000,
+      'weekly': 7 * 24 * 3600_000,
+    }
+    const interval = intervals[autoBackupFrequency] || 24 * 3600_000
+
+    autoBackupTimerRef.current = setInterval(() => {
+      handleRunBackupNow()
+    }, interval)
+
+    return () => {
+      if (autoBackupTimerRef.current) clearInterval(autoBackupTimerRef.current)
+    }
+  }, [autoBackupEnabled, autoBackupFrequency])
+
+  const handleBackupFrequencyChange = (freq: string) => {
+    setAutoBackupFrequency(freq)
+    const saved = JSON.parse(localStorage.getItem('selrx_auto_backup') || '{}')
+    localStorage.setItem('selrx_auto_backup', JSON.stringify({ ...saved, frequency: freq }))
+  }
+
+  const handleRunBackupNow = useCallback(async () => {
+    setIsAutoBackingUp(true)
+    try {
+      const res = await fetch('/api/backup', { headers: authHeaders() })
+      if (!res.ok) throw new Error('Backup failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `selrx-auto-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+
+      const now = new Date().toISOString()
+      setLastAutoBackup(now)
+      localStorage.setItem('selrx_auto_backup', JSON.stringify({
+        enabled: autoBackupEnabled,
+        frequency: autoBackupFrequency,
+        lastBackup: now,
+      }))
+      addToast({ title: 'Auto-Backup Complete', variant: 'success', duration: 3000 })
+    } catch {
+      addToast({ title: 'Auto-Backup Failed', variant: 'destructive', duration: 3000 })
+    } finally {
+      setIsAutoBackingUp(false)
+    }
+  }, [autoBackupEnabled, autoBackupFrequency, addToast])
+
   // ── Restore state ──
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [restorePhase, setRestorePhase] = useState<RestorePhase>('idle')
@@ -959,6 +1054,83 @@ export function OtherSettingsView() {
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Auto-Backup Schedule ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Clock className="h-4 w-4 text-blue-500" />
+            Automatic Backup Schedule
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Automatically back up your data at set intervals. Backups are saved as downloadable files.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Enable Auto-Backup</p>
+              <p className="text-xs text-muted-foreground">Runs backup in the background at the selected interval</p>
+            </div>
+            <Switch
+              checked={autoBackupEnabled}
+              onCheckedChange={setAutoBackupEnabled}
+            />
+          </div>
+
+          {autoBackupEnabled && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Frequency</Label>
+                  <Select value={autoBackupFrequency} onValueChange={handleBackupFrequencyChange}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Every Hour</SelectItem>
+                      <SelectItem value="6hours">Every 6 Hours</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Last Backup</Label>
+                  <div className="h-9 flex items-center text-xs text-muted-foreground px-3 rounded-md border bg-muted/50">
+                    {lastAutoBackup
+                      ? new Date(lastAutoBackup).toLocaleString()
+                      : 'Never'}
+                  </div>
+                </div>
+              </div>
+
+              {nextBackupTime && (
+                <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                  <Clock className="h-4 w-4 text-blue-500 shrink-0" />
+                  <p className="text-xs text-blue-700">
+                    Next backup: <span className="font-medium">{new Date(nextBackupTime).toLocaleString()}</span>
+                  </p>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRunBackupNow}
+                disabled={isAutoBackingUp}
+                className="gap-2 h-8 text-xs"
+              >
+                {isAutoBackingUp ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Backing Up...</>
+                ) : (
+                  <><Download className="h-3.5 w-3.5" /> Backup Now</>
+                )}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 

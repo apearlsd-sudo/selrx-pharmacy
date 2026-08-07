@@ -7,7 +7,7 @@ export async function GET() {
     if (isTurso()) {
       // --- Raw SQL path (Turso / libsql) ---
       const result = await turso.execute({
-        sql: `SELECT "id", "name", "slug", "logo", "tagline", "businessType", "currency", "phone", "email", "address", "city", "country", "postalCode", "timezone" FROM "Company" WHERE "active" = 1 LIMIT 1`,
+        sql: `SELECT "id", "name", "slug", "logo", "tagline", "businessType", "currency", "phone", "email", "address", "city", "state", "country", "postalCode", "timezone", "registrationNo", "pharmacyLicense", "website" FROM "Company" WHERE "active" = 1 LIMIT 1`,
         args: [],
       })
 
@@ -27,9 +27,13 @@ export async function GET() {
             email: (row.email as string) || null,
             address: (row.address as string) || null,
             city: (row.city as string) || null,
+            state: (row.state as string) || null,
             country: (row.country as string) || null,
             postalCode: (row.postalCode as string) || null,
             timezone: (row.timezone as string) || null,
+            registrationNo: (row.registrationNo as string) || null,
+            pharmacyLicense: (row.pharmacyLicense as string) || null,
+            website: (row.website as string) || null,
           },
         })
       }
@@ -53,9 +57,13 @@ export async function GET() {
           email: true,
           address: true,
           city: true,
+          state: true,
           country: true,
           postalCode: true,
           timezone: true,
+          registrationNo: true,
+          pharmacyLicense: true,
+          website: true,
         },
       })
 

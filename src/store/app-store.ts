@@ -147,8 +147,12 @@ export interface CompanyState {
     email: string | null
     address: string | null
     city: string | null
+    state: string | null
     country: string | null
     postalCode: string | null
+    registrationNo: string | null
+    pharmacyLicense: string | null
+    website: string | null
   } | null
   setCompany: (company: CompanyState['company']) => void
   isCompanySetup: boolean
