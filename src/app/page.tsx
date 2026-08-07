@@ -345,9 +345,7 @@ export default function Home() {
   const currentShiftId = useAppStore((s) => s.currentShiftId)
   const setShift = useAppStore((s) => s.setShift)
   const hasPermission = useAppStore((s) => s.hasPermission)
-  const toasts = useAppStore((s) => s.toasts)
   const addToast = useAppStore((s) => s.addToast)
-  const removeToast = useAppStore((s) => s.removeToast)
   const currency = useAppStore((s) => s.currency)
   const setCurrency = useAppStore((s) => s.setCurrency)
 
@@ -948,53 +946,7 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Toast Notifications */}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`animate-in slide-in-from-bottom-2 rounded-lg border px-4 py-3 shadow-lg flex items-start gap-3 bg-white ${
-              toast.variant === 'destructive'
-                ? 'border-red-200 bg-red-50'
-                : toast.variant === 'success'
-                ? 'border-emerald-200 bg-emerald-50'
-                : 'border-gray-200'
-            }`}
-          >
-            <div className="flex-1 min-w-0">
-              {toast.title && (
-                <p className={`text-sm font-medium ${
-                  toast.variant === 'destructive'
-                    ? 'text-red-800'
-                    : toast.variant === 'success'
-                    ? 'text-emerald-800'
-                    : 'text-gray-900'
-                }`}>
-                  {toast.title}
-                </p>
-              )}
-              {toast.description && (
-                <p className={`text-xs mt-0.5 ${
-                  toast.variant === 'destructive'
-                    ? 'text-red-600'
-                    : toast.variant === 'success'
-                    ? 'text-emerald-600'
-                    : 'text-gray-600'
-                }`}>
-                  {toast.description}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="p-1 rounded-md text-muted-foreground hover:text-gray-900 hover:bg-gray-100 shrink-0"
-              aria-label="Dismiss notification"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
+
 
 
     </div>
