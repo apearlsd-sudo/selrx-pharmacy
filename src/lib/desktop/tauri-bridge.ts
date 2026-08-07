@@ -19,10 +19,17 @@ async function loadInvoke(): Promise<TauriInvoke> {
   if (_invoke) return _invoke
   if (_loadPromise) return _loadPromise
 
-  _loadPromise = import('@tauri-apps/api/core').then((mod) => {
-    _invoke = mod.invoke as TauriInvoke
-    return _invoke!
-  })
+  _loadPromise = import('@tauri-apps/api/core')
+    .then((mod) => {
+      _invoke = mod.invoke as TauriInvoke
+      return _invoke!
+    })
+    .catch(() => {
+      throw new Error(
+        '[Tauri Bridge] @tauri-apps/api is only available in the Tauri desktop app. '
+        + 'Call isDesktop() before using any bridge function.'
+      )
+    })
 
   return _loadPromise
 }
