@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Pill, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -88,17 +87,11 @@ export function LoginScreen() {
       <div className="aurora-orb aurora-orb-2" />
       <div className="aurora-orb aurora-orb-3" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+      <div
         className="relative z-10 w-full max-w-md"
       >
         {/* Logo and Branding */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
+        <div
           className="mb-8 text-center"
         >
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-lg shadow-emerald-500/10">
@@ -110,7 +103,7 @@ export function LoginScreen() {
           <p className="mt-1.5 text-emerald-200/70 text-sm font-medium">
             Pharmacy Management System
           </p>
-        </motion.div>
+        </div>
 
         {/* Login Card */}
         <Card className="border-white/15 bg-white/95 shadow-2xl shadow-black/20 backdrop-blur-xl">
@@ -125,13 +118,11 @@ export function LoginScreen() {
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                <div
                   className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
                 >
                   {error}
-                </motion.div>
+                </div>
               )}
 
               <div className="space-y-2">
@@ -199,15 +190,12 @@ export function LoginScreen() {
         </Card>
 
         {/* Footer */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
+        <p
           className="mt-6 text-center text-xs text-emerald-200/60"
         >
           SelRx Pharmacy Management System v1.0
-        </motion.p>
-      </motion.div>
+        </p>
+      </div>
     </div>
   )
 }
