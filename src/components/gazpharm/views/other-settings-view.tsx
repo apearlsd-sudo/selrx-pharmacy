@@ -345,7 +345,7 @@ export function OtherSettingsView() {
         variant: 'success',
       })
     } catch (err: any) {
-      addToast({ title: 'Backup Failed', description: err.message || 'Unknown error', variant: 'error' })
+      addToast({ title: 'Backup Failed', description: err.message || 'Unknown error', variant: 'destructive' })
     } finally {
       setBackup(b => ({ ...b, exporting: false }))
     }
@@ -405,11 +405,11 @@ export function OtherSettingsView() {
       addToast({
         title: 'Restore Complete',
         description: `Processed ${resolved.summary.tablesProcessed} tables: ${resolved.summary.totalInserted} inserted, ${resolved.summary.totalErrors} errors`,
-        variant: resolved.summary.totalErrors > 0 ? 'warning' : 'success',
+        variant: resolved.summary.totalErrors > 0 ? 'destructive' : 'success',
       })
     } catch (err: any) {
       setRestore(r => ({ ...r, phase: 'error', error: err.message || 'Unknown error', progress: '' }))
-      addToast({ title: 'Restore Failed', description: err.message || 'Unknown error', variant: 'error' })
+      addToast({ title: 'Restore Failed', description: err.message || 'Unknown error', variant: 'destructive' })
     }
   }, [restore.selectedFile, addToast])
 
