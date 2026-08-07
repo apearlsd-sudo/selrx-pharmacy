@@ -147,14 +147,14 @@ export function OtherSettingsView() {
   const [lastBackupRows, setLastBackupRows] = useState(0)
   const autoBackupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ── Auto-backup state ──
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false)
-  const [autoBackupFrequency, setAutoBackupFrequency] = useState('daily')
-  const _lab = useState<string | null>(null) // Turbopack TDZ workaround
-  const lastAutoBackup = _lab[0]
-  const setLastAutoBackup = _lab[1]
-  const [nextBackupTime, setNextBackupTime] = useState<number | null>(null)
-  const [isAutoBackingUp, setIsAutoBackingUp] = useState(false)
+  // ── Auto-backup state (single object to avoid Turbopack TDZ bug with long useState chains) ──
+  const [backup, setBackup] = useState({
+    enabled: false,
+    frequency: 'daily',
+    lastBackup: null as string | null,
+    nextBackupTime: null as number | null,
+    isBackingUp: false,
+  })
 
   // Load auto-backup settings from localStorage
   useEffect(() => {
@@ -162,17 +162,20 @@ export function OtherSettingsView() {
       const saved = localStorage.getItem('selrx_auto_backup')
       if (saved) {
         const parsed = JSON.parse(saved)
-        setAutoBackupEnabled(parsed.enabled || false)
-        setAutoBackupFrequency(parsed.frequency || 'daily')
-        setLastAutoBackup(parsed.lastBackup || null)
+        setBackup(b => ({
+          ...b,
+          enabled: parsed.enabled || false,
+          frequency: parsed.frequency || 'daily',
+          lastBackup: parsed.lastBackup || null,
+        }))
       }
     } catch { /* ignore */ }
   }, [])
 
   // Calculate next backup time
   useEffect(() => {
-    if (!autoBackupEnabled) {
-      setNextBackupTime(null)
+    if (!backup.enabled) {
+      setBackup(b => ({ ...b, nextBackupTime: null }))
       return
     }
     const intervals: Record<string, number> = {
@@ -181,16 +184,16 @@ export function OtherSettingsView() {
       'daily': 24 * 3600_000,
       'weekly': 7 * 24 * 3600_000,
     }
-    const interval = intervals[autoBackupFrequency] || 24 * 3600_000
-    const base = lastAutoBackup ? new Date(lastAutoBackup).getTime() : Date.now()
-    setNextBackupTime(base + interval)
-  }, [autoBackupEnabled, autoBackupFrequency, lastAutoBackup])
+    const interval = intervals[backup.frequency] || 24 * 3600_000
+    const base = backup.lastBackup ? new Date(backup.lastBackup).getTime() : Date.now()
+    setBackup(b => ({ ...b, nextBackupTime: base + interval }))
+  }, [backup.enabled, backup.frequency, backup.lastBackup])
 
   // Auto-backup timer
   useEffect(() => {
     if (autoBackupTimerRef.current) clearInterval(autoBackupTimerRef.current)
 
-    if (!autoBackupEnabled) return
+    if (!backup.enabled) return
 
     const intervals: Record<string, number> = {
       'hourly': 3600_000,
@@ -198,7 +201,7 @@ export function OtherSettingsView() {
       'daily': 24 * 3600_000,
       'weekly': 7 * 24 * 3600_000,
     }
-    const interval = intervals[autoBackupFrequency] || 24 * 3600_000
+    const interval = intervals[backup.frequency] || 24 * 3600_000
 
     autoBackupTimerRef.current = setInterval(() => {
       handleRunBackupNow()
@@ -207,16 +210,16 @@ export function OtherSettingsView() {
     return () => {
       if (autoBackupTimerRef.current) clearInterval(autoBackupTimerRef.current)
     }
-  }, [autoBackupEnabled, autoBackupFrequency])
+  }, [backup.enabled, backup.frequency])
 
   const handleBackupFrequencyChange = (freq: string) => {
-    setAutoBackupFrequency(freq)
+    setBackup(b => ({ ...b, frequency: freq }))
     const saved = JSON.parse(localStorage.getItem('selrx_auto_backup') || '{}')
     localStorage.setItem('selrx_auto_backup', JSON.stringify({ ...saved, frequency: freq }))
   }
 
   const handleRunBackupNow = useCallback(async () => {
-    setIsAutoBackingUp(true)
+    setBackup(b => ({ ...b, isBackingUp: true }))
     try {
       const res = await fetch('/api/backup', { headers: authHeaders() })
       if (!res.ok) throw new Error('Backup failed')
@@ -229,19 +232,19 @@ export function OtherSettingsView() {
       URL.revokeObjectURL(url)
 
       const now = new Date().toISOString()
-      setLastAutoBackup(now)
+      setBackup(b => ({ ...b, lastBackup: now }))
       localStorage.setItem('selrx_auto_backup', JSON.stringify({
-        enabled: autoBackupEnabled,
-        frequency: autoBackupFrequency,
+        enabled: backup.enabled,
+        frequency: backup.frequency,
         lastBackup: now,
       }))
       addToast({ title: 'Auto-Backup Complete', variant: 'success', duration: 3000 })
     } catch {
       addToast({ title: 'Auto-Backup Failed', variant: 'destructive', duration: 3000 })
     } finally {
-      setIsAutoBackingUp(false)
+      setBackup(b => ({ ...b, isBackingUp: false }))
     }
-  }, [autoBackupEnabled, autoBackupFrequency, addToast])
+  }, [backup.enabled, backup.frequency, addToast])
 
   // ── Restore state ──
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1077,17 +1080,17 @@ export function OtherSettingsView() {
               <p className="text-xs text-muted-foreground">Runs backup in the background at the selected interval</p>
             </div>
             <Switch
-              checked={autoBackupEnabled}
-              onCheckedChange={setAutoBackupEnabled}
+              checked={backup.enabled}
+              onCheckedChange={(v) => setBackup(b => ({ ...b, enabled: v }))}
             />
           </div>
 
-          {autoBackupEnabled && (
+          {backup.enabled && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Frequency</Label>
-                  <Select value={autoBackupFrequency} onValueChange={handleBackupFrequencyChange}>
+                  <Select value={backup.frequency} onValueChange={handleBackupFrequencyChange}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1102,18 +1105,18 @@ export function OtherSettingsView() {
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Last Backup</Label>
                   <div className="h-9 flex items-center text-xs text-muted-foreground px-3 rounded-md border bg-muted/50">
-                    {lastAutoBackup
-                      ? new Date(lastAutoBackup).toLocaleString()
+                    {backup.lastBackup
+                      ? new Date(backup.lastBackup).toLocaleString()
                       : 'Never'}
                   </div>
                 </div>
               </div>
 
-              {nextBackupTime && (
+              {backup.nextBackupTime && (
                 <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
                   <Clock className="h-4 w-4 text-blue-500 shrink-0" />
                   <p className="text-xs text-blue-700">
-                    Next backup: <span className="font-medium">{new Date(nextBackupTime).toLocaleString()}</span>
+                    Next backup: <span className="font-medium">{new Date(backup.nextBackupTime).toLocaleString()}</span>
                   </p>
                 </div>
               )}
@@ -1122,10 +1125,10 @@ export function OtherSettingsView() {
                 variant="outline"
                 size="sm"
                 onClick={handleRunBackupNow}
-                disabled={isAutoBackingUp}
+                disabled={backup.isBackingUp}
                 className="gap-2 h-8 text-xs"
               >
-                {isAutoBackingUp ? (
+                {backup.isBackingUp ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Backing Up...</>
                 ) : (
                   <><Download className="h-3.5 w-3.5" /> Backup Now</>
