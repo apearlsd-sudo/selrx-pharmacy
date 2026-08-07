@@ -40,12 +40,11 @@ import {
 } from 'recharts'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
-
-const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#047857', '#065f46']
-
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTimeShort, formatDateShort, formatDate as formatDateDMY, getTodayWAT } from '@/lib/date-utils'
 import { exportToPDF } from '@/lib/pdf-export'
+
+const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#047857', '#065f46']
 
 function formatDate(dateStr: string): string {
   return formatDateTimeShort(dateStr)
