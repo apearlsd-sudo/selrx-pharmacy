@@ -21,7 +21,7 @@ export interface PDFExportOptions {
   companyEmail?: string
   dateRange?: string
   columns: PDFColumn[]
-  rows: Record<string, unknown>[][]
+  rows: Record<string, unknown>[]
   summary?: { label: string; value: string | number }[]
   footerText?: string
 }

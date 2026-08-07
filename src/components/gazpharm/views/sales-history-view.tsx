@@ -301,6 +301,10 @@ export function SalesHistoryView() {
     }
   }, [dateFrom, dateTo, selectedUserId, addToast])
 
+  const summary = data?.summary || {}
+  const transactions = data?.transactions || []
+  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
+
   // PDF Export handler
   const handleExportPDF = useCallback(async () => {
     try {
@@ -324,16 +328,16 @@ export function SalesHistoryView() {
         title: 'Sales History Report',
         subtitle: dateRange,
         companyName: company?.name,
-        companyAddress: company?.address,
-        companyPhone: company?.phone,
+        companyAddress: company?.address ?? undefined,
+        companyPhone: company?.phone ?? undefined,
         dateRange,
         columns: [
           { header: 'Txn #', accessor: 'transactionNo', width: '120px' },
-          { header: 'Date', accessor: (r) => formatDateDMY(r.createdAt || ''), width: '100px' },
-          { header: 'Cashier', accessor: (r) => r.user?.name || 'Unknown', width: '120px' },
-          { header: 'Payment', accessor: (r) => (r.paymentMethod || '').replace(/_/g, ' '), width: '90px' },
-          { header: 'Items', accessor: (r) => String(r.items?.length || 0), width: '50px', align: 'center' as const },
-          { header: 'Total', accessor: (r) => formatCurrency(r.total ?? 0), width: '90px', align: 'right' as const },
+          { header: 'Date', accessor: (r: any) => formatDateDMY(r.createdAt || ''), width: '100px' },
+          { header: 'Cashier', accessor: (r: any) => r.user?.name || 'Unknown', width: '120px' },
+          { header: 'Payment', accessor: (r: any) => (r.paymentMethod || '').replace(/_/g, ' '), width: '90px' },
+          { header: 'Items', accessor: (r: any) => String(r.items?.length || 0), width: '50px', align: 'center' as const },
+          { header: 'Total', accessor: (r: any) => formatCurrency(r.total ?? 0), width: '90px', align: 'right' as const },
           { header: 'Status', accessor: 'status', width: '80px' },
         ],
         rows: txns,
@@ -348,10 +352,6 @@ export function SalesHistoryView() {
       addToast({ title: 'PDF Export Failed', variant: 'destructive' })
     }
   }, [dateFrom, dateTo, selectedUserId, addToast, summary])
-
-  const summary = data?.summary || {}
-  const transactions = data?.transactions || []
-  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
 
   return (
     <div className="space-y-4 animate-fade-in">
