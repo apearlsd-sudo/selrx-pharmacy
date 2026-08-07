@@ -145,14 +145,16 @@ export function OtherSettingsView() {
   const [exporting, setExporting] = useState(false)
   const [lastBackup, setLastBackup] = useState<string | null>(null)
   const [lastBackupRows, setLastBackupRows] = useState(0)
+  const autoBackupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ── Auto-backup state ──
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false)
   const [autoBackupFrequency, setAutoBackupFrequency] = useState('daily')
-  const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null)
+  const _lab = useState<string | null>(null) // Turbopack TDZ workaround
+  const lastAutoBackup = _lab[0]
+  const setLastAutoBackup = _lab[1]
   const [nextBackupTime, setNextBackupTime] = useState<number | null>(null)
   const [isAutoBackingUp, setIsAutoBackingUp] = useState(false)
-  const autoBackupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Load auto-backup settings from localStorage
   useEffect(() => {
