@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
-  Download, DollarSign, ShoppingBag, Percent, CalendarDays, ChevronDown,
+  Download, DollarSign, ShoppingBag, Percent, CalendarDays,
   Zap, RotateCcw, Award, FileText, Package, Clock, Activity, TrendingDown,
   CheckCircle2, Tag, Sun, LayoutGrid, LayoutDashboard, Link2,
   Brain, Flame, Target, Factory, Shield, Grid3x3,
@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -103,6 +103,58 @@ const PRESETS = [
   { label: 'This Year', from: `${new Date().getFullYear()}-01-01`, to: todayLocal() },
 ]
 
+// Categorized report groups
+const REPORT_GROUPS = [
+  {
+    label: 'Sales & Finance',
+    items: [
+      { value: 'revenue', label: 'Revenue', icon: TrendingUp },
+      { value: 'profit', label: 'Profit', icon: DollarSign },
+      { value: 'payments', label: 'Payments', icon: CreditCard },
+      { value: 'discount-analysis', label: 'Discounts', icon: Tag },
+      { value: 'tax-compliance', label: 'Tax Compliance', icon: Shield },
+    ],
+  },
+  {
+    label: 'Customers',
+    items: [
+      { value: 'customers', label: 'Customers', icon: Users },
+      { value: 'customer-segmentation', label: 'Segments', icon: Target },
+      { value: 'product-affinity', label: 'Affinity', icon: Link2 },
+    ],
+  },
+  {
+    label: 'Inventory & Stock',
+    items: [
+      { value: 'inventory-valuation', label: 'Stock Value', icon: Package },
+      { value: 'stock-velocity', label: 'Stock Velocity', icon: Zap },
+      { value: 'category-deep-dive', label: 'Categories', icon: LayoutGrid },
+      { value: 'batch-expiry', label: 'Batch Expiry', icon: Flame },
+      { value: 'expiry', label: 'Expiry Alerts', icon: AlertTriangle },
+      { value: 'stock-take-accuracy', label: 'Stock Accuracy', icon: CheckCircle2 },
+    ],
+  },
+  {
+    label: 'Operations & Staff',
+    items: [
+      { value: 'user-performance', label: 'Staff Performance', icon: Award },
+      { value: 'shift-analysis', label: 'Shifts', icon: Sun },
+      { value: 'returns-analysis', label: 'Returns', icon: RotateCcw },
+      { value: 'prescription-analytics', label: 'Prescriptions', icon: FileText },
+    ],
+  },
+  {
+    label: 'Advanced Analytics',
+    items: [
+      { value: 'executive-summary', label: 'Executive Summary', icon: LayoutDashboard },
+      { value: 'comparison', label: 'Period Compare', icon: ArrowLeftRight },
+      { value: 'sales-forecast', label: 'Sales Forecast', icon: Brain },
+      { value: 'hourly-heatmap', label: 'Hourly Heatmap', icon: Grid3x3 },
+      { value: 'manufacturer-performance', label: 'Manufacturers', icon: Factory },
+    ],
+  },
+]
+
 // ========================================================================
 // MAIN COMPONENT
 // ========================================================================
@@ -165,33 +217,31 @@ export function AdvancedReportsView() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
+      {/* Categorized Report Selector */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="revenue"><TrendingUp className="h-3.5 w-3.5 mr-1" /> Revenue</TabsTrigger>
-          <TabsTrigger value="profit"><DollarSign className="h-3.5 w-3.5 mr-1" /> Profit</TabsTrigger>
-          <TabsTrigger value="customers"><Users className="h-3.5 w-3.5 mr-1" /> Customers</TabsTrigger>
-          <TabsTrigger value="expiry"><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Expiry</TabsTrigger>
-          <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" /> Payments</TabsTrigger>
-          <TabsTrigger value="comparison"><ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Compare</TabsTrigger>
-          <TabsTrigger value="stock-velocity"><Zap className="h-3.5 w-3.5 mr-1" /> Stock Velocity</TabsTrigger>
-          <TabsTrigger value="returns-analysis"><RotateCcw className="h-3.5 w-3.5 mr-1" /> Returns</TabsTrigger>
-          <TabsTrigger value="user-performance"><Award className="h-3.5 w-3.5 mr-1" /> Staff</TabsTrigger>
-          <TabsTrigger value="prescription-analytics"><FileText className="h-3.5 w-3.5 mr-1" /> Prescriptions</TabsTrigger>
-          <TabsTrigger value="inventory-valuation"><Package className="h-3.5 w-3.5 mr-1" /> Stock Value</TabsTrigger>
-          <TabsTrigger value="discount-analysis"><Tag className="h-3.5 w-3.5 mr-1" /> Discounts</TabsTrigger>
-          <TabsTrigger value="shift-analysis"><Sun className="h-3.5 w-3.5 mr-1" /> Shifts</TabsTrigger>
-          <TabsTrigger value="category-deep-dive"><LayoutGrid className="h-3.5 w-3.5 mr-1" /> Categories</TabsTrigger>
-          <TabsTrigger value="executive-summary"><LayoutDashboard className="h-3.5 w-3.5 mr-1" /> Executive</TabsTrigger>
-          <TabsTrigger value="product-affinity"><Link2 className="h-3.5 w-3.5 mr-1" /> Affinity</TabsTrigger>
-          <TabsTrigger value="sales-forecast"><Brain className="h-3.5 w-3.5 mr-1" /> Forecast</TabsTrigger>
-          <TabsTrigger value="customer-segmentation"><Target className="h-3.5 w-3.5 mr-1" /> Segments</TabsTrigger>
-          <TabsTrigger value="batch-expiry"><Flame className="h-3.5 w-3.5 mr-1" /> Batch Exp</TabsTrigger>
-          <TabsTrigger value="stock-take-accuracy"><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Accuracy</TabsTrigger>
-          <TabsTrigger value="manufacturer-performance"><Factory className="h-3.5 w-3.5 mr-1" /> Mfr</TabsTrigger>
-          <TabsTrigger value="tax-compliance"><Shield className="h-3.5 w-3.5 mr-1" /> Tax</TabsTrigger>
-          <TabsTrigger value="hourly-heatmap"><Grid3x3 className="h-3.5 w-3.5 mr-1" /> Heatmap</TabsTrigger>
-        </TabsList>
+        <div className="space-y-4">
+          {REPORT_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">{group.label}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
+                {group.items.map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => setActiveTab(item.value)}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-all duration-150 text-xs font-medium border ${
+                      activeTab === item.value
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm shadow-emerald-100'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    <item.icon className={`h-3.5 w-3.5 shrink-0 ${activeTab === item.value ? 'text-emerald-600' : 'text-gray-400'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
 
         {loading ? <Skeleton className="h-96 w-full" /> : (
           <>
