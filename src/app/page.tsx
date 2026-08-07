@@ -12,7 +12,6 @@ import {
   Package,
   ClipboardList,
   Users,
-  UserCog,
   MonitorSmartphone,
   BarChart3,
   Pill,
@@ -29,7 +28,6 @@ import {
   Clock as ClockIcon,
   Monitor,
   ChevronDown,
-  RefreshCw,
 } from 'lucide-react'
 import {
   Select,
@@ -61,7 +59,6 @@ import { POSView } from '@/components/gazpharm/views/pos-view'
 import { InventoryView } from '@/components/gazpharm/views/inventory-view'
 import { PrescriptionsView } from '@/components/gazpharm/views/prescriptions-view'
 import { CustomersView } from '@/components/gazpharm/views/customers-view'
-import { UsersView } from '@/components/gazpharm/views/users-view'
 import { HardwareView } from '@/components/gazpharm/views/hardware-view'
 import { ReportsView } from '@/components/gazpharm/views/reports-view'
 import { AdvancedReportsView } from '@/components/gazpharm/views/advanced-reports-view'
@@ -72,9 +69,7 @@ import { CompanySetupView } from '@/components/gazpharm/company-setup-view'
 import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales-analytics'
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
-import { OtherSettingsView } from '@/components/gazpharm/views/other-settings-view'
-import { WorkstationsView } from '@/components/gazpharm/views/workstations-view'
-import { SyncSettingsView } from '@/components/gazpharm/views/sync-settings-view'
+import { SettingsHubView } from '@/components/gazpharm/views/settings-hub-view'
 
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
@@ -139,10 +134,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos:history' },
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
   { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware:view' },
-  { name: 'users', label: 'User Management', icon: UserCog, permission: 'users:view' },
-  { name: 'settings', label: 'Other Settings', icon: Settings, permission: 'pos:sell' },
-  { name: 'workstations', label: 'Workstations', icon: Monitor, permission: 'users:view' },
-  { name: 'sync-settings', label: 'Device Sync', icon: RefreshCw, permission: 'users:manage' },
+  { name: 'settings', label: 'Settings', icon: Settings, permission: 'pos:sell' },
 ]
 
 // ── Live Clock for Topbar ──────────────────────────────────────────────
@@ -494,6 +486,12 @@ export default function Home() {
               let targetView = savedView && savedView !== 'login' && savedView !== 'company-setup'
                 ? savedView as ViewName
                 : null
+              // Migrate removed view names to settings
+              const rawView = savedView as string
+              if (rawView === 'workstations' || rawView === 'sync-settings' || rawView === 'users') {
+                targetView = 'settings'
+                localStorage.setItem('selrx_view', 'settings')
+              }
               if (targetView) {
                 const perm = NAV_ITEMS.find((n) => n.name === targetView)?.permission
                 const perms = data.user.permissions || []
@@ -572,7 +570,6 @@ export default function Home() {
       case 'inventory': return <InventoryView />
       case 'prescriptions': return <PrescriptionsView />
       case 'customers': return <CustomersView />
-      case 'users': return <UsersView />
       case 'hardware': return <HardwareView />
       case 'reports': return <ReportsView />
       case 'advanced-reports': return <AdvancedReportsView />
@@ -582,9 +579,7 @@ export default function Home() {
       case 'product-sales-analytics': return <ProductSalesAnalytics />
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
       case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportViewWrapper /></ViewErrorBoundary>
-      case 'settings': return <OtherSettingsView />
-      case 'workstations': return <WorkstationsView />
-      case 'sync-settings': return <SyncSettingsView />
+      case 'settings': return <SettingsHubView />
       default: return <DashboardView />
     }
   }
