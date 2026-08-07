@@ -10,7 +10,6 @@
  */
 
 import { formatCurrency } from './currency'
-import { formatDateTime } from './date-utils'
 
 export interface PDFExportOptions {
   title: string
