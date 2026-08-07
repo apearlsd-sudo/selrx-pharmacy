@@ -23,6 +23,7 @@ export type ViewName =
   | 'stock-take-report'
   | 'advanced-reports'
   | 'workstations'
+  | 'sync-settings'
 
 export type PaymentMethodType =
   | 'CASH'

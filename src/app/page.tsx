@@ -29,6 +29,7 @@ import {
   Clock as ClockIcon,
   Monitor,
   ChevronDown,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Select,
@@ -73,6 +74,7 @@ import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import { OtherSettingsView } from '@/components/gazpharm/views/other-settings-view'
 import { WorkstationsView } from '@/components/gazpharm/views/workstations-view'
+import { SyncSettingsView } from '@/components/gazpharm/views/sync-settings-view'
 
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
@@ -140,6 +142,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'users', label: 'User Management', icon: UserCog, permission: 'users:view' },
   { name: 'settings', label: 'Other Settings', icon: Settings, permission: 'pos:sell' },
   { name: 'workstations', label: 'Workstations', icon: Monitor, permission: 'users:view' },
+  { name: 'sync-settings', label: 'Device Sync', icon: RefreshCw, permission: 'users:manage' },
 ]
 
 // ── Live Clock for Topbar ──────────────────────────────────────────────
@@ -583,6 +586,7 @@ export default function Home() {
       case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportViewWrapper /></ViewErrorBoundary>
       case 'settings': return <OtherSettingsView />
       case 'workstations': return <WorkstationsView />
+      case 'sync-settings': return <SyncSettingsView />
       default: return <DashboardView />
     }
   }
