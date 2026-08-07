@@ -140,20 +140,30 @@ type RestorePhase = 'idle' | 'confirming' | 'uploading' | 'processing' | 'done' 
 
 export function OtherSettingsView() {
   const currency = useAppStore((s) => s.currency)
+  const addToast = useAppStore((s) => s.addToast)
 
   // ── Backup state ──
-  const [exporting, setExporting] = useState(false)
-  const [lastBackup, setLastBackup] = useState<string | null>(null)
-  const [lastBackupRows, setLastBackupRows] = useState(0)
+  const [backup, setBackup] = useState({
+    exporting: false,
+    lastBackup: null as string | null,
+    lastBackupRows: 0,
+    autoBackupEnabled: false,
+    autoBackupFrequency: 'daily',
+    autoBackupLastBackup: null as string | null,
+    autoBackupNextTime: null as number | null,
+    autoBackupIsBackingUp: false,
+  })
   const autoBackupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ── Auto-backup state (single object to avoid Turbopack TDZ bug with long useState chains) ──
-  const [backup, setBackup] = useState({
-    enabled: false,
-    frequency: 'daily',
-    lastBackup: null as string | null,
-    nextBackupTime: null as number | null,
-    isBackingUp: false,
+  // ── Restore state ──
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { /* prevents Turbopack TDZ chain from growing too long */ }, [])
+  const [restore, setRestore] = useState({
+    phase: 'idle' as RestorePhase,
+    progress: '',
+    result: null as RestoreResult | null,
+    selectedFile: null as File | null,
+    error: '',
   })
 
   // Load auto-backup settings from localStorage
@@ -164,9 +174,9 @@ export function OtherSettingsView() {
         const parsed = JSON.parse(saved)
         setBackup(b => ({
           ...b,
-          enabled: parsed.enabled || false,
-          frequency: parsed.frequency || 'daily',
-          lastBackup: parsed.lastBackup || null,
+          autoBackupEnabled: parsed.enabled || false,
+          autoBackupFrequency: parsed.frequency || 'daily',
+          autoBackupLastBackup: parsed.lastBackup || null,
         }))
       }
     } catch { /* ignore */ }
@@ -174,8 +184,8 @@ export function OtherSettingsView() {
 
   // Calculate next backup time
   useEffect(() => {
-    if (!backup.enabled) {
-      setBackup(b => ({ ...b, nextBackupTime: null }))
+    if (!backup.autoBackupEnabled) {
+      setBackup(b => ({ ...b, autoBackupNextTime: null }))
       return
     }
     const intervals: Record<string, number> = {
@@ -184,16 +194,16 @@ export function OtherSettingsView() {
       'daily': 24 * 3600_000,
       'weekly': 7 * 24 * 3600_000,
     }
-    const interval = intervals[backup.frequency] || 24 * 3600_000
-    const base = backup.lastBackup ? new Date(backup.lastBackup).getTime() : Date.now()
-    setBackup(b => ({ ...b, nextBackupTime: base + interval }))
-  }, [backup.enabled, backup.frequency, backup.lastBackup])
+    const interval = intervals[backup.autoBackupFrequency] || 24 * 3600_000
+    const base = backup.autoBackupLastBackup ? new Date(backup.autoBackupLastBackup).getTime() : Date.now()
+    setBackup(b => ({ ...b, autoBackupNextTime: base + interval }))
+  }, [backup.autoBackupEnabled, backup.autoBackupFrequency, backup.autoBackupLastBackup])
 
   // Auto-backup timer
   useEffect(() => {
     if (autoBackupTimerRef.current) clearInterval(autoBackupTimerRef.current)
 
-    if (!backup.enabled) return
+    if (!backup.autoBackupEnabled) return
 
     const intervals: Record<string, number> = {
       'hourly': 3600_000,
@@ -201,7 +211,7 @@ export function OtherSettingsView() {
       'daily': 24 * 3600_000,
       'weekly': 7 * 24 * 3600_000,
     }
-    const interval = intervals[backup.frequency] || 24 * 3600_000
+    const interval = intervals[backup.autoBackupFrequency] || 24 * 3600_000
 
     autoBackupTimerRef.current = setInterval(() => {
       handleRunBackupNow()
@@ -210,16 +220,16 @@ export function OtherSettingsView() {
     return () => {
       if (autoBackupTimerRef.current) clearInterval(autoBackupTimerRef.current)
     }
-  }, [backup.enabled, backup.frequency])
+  }, [backup.autoBackupEnabled, backup.autoBackupFrequency])
 
   const handleBackupFrequencyChange = (freq: string) => {
-    setBackup(b => ({ ...b, frequency: freq }))
+    setBackup(b => ({ ...b, autoBackupFrequency: freq }))
     const saved = JSON.parse(localStorage.getItem('selrx_auto_backup') || '{}')
     localStorage.setItem('selrx_auto_backup', JSON.stringify({ ...saved, frequency: freq }))
   }
 
   const handleRunBackupNow = useCallback(async () => {
-    setBackup(b => ({ ...b, isBackingUp: true }))
+    setBackup(b => ({ ...b, autoBackupIsBackingUp: true }))
     try {
       const res = await fetch('/api/backup', { headers: authHeaders() })
       if (!res.ok) throw new Error('Backup failed')
@@ -232,33 +242,25 @@ export function OtherSettingsView() {
       URL.revokeObjectURL(url)
 
       const now = new Date().toISOString()
-      setBackup(b => ({ ...b, lastBackup: now }))
+      setBackup(b => ({ ...b, autoBackupLastBackup: now }))
       localStorage.setItem('selrx_auto_backup', JSON.stringify({
-        enabled: backup.enabled,
-        frequency: backup.frequency,
+        enabled: backup.autoBackupEnabled,
+        frequency: backup.autoBackupFrequency,
         lastBackup: now,
       }))
       addToast({ title: 'Auto-Backup Complete', variant: 'success', duration: 3000 })
     } catch {
       addToast({ title: 'Auto-Backup Failed', variant: 'destructive', duration: 3000 })
     } finally {
-      setBackup(b => ({ ...b, isBackingUp: false }))
+      setBackup(b => ({ ...b, autoBackupIsBackingUp: false }))
     }
-  }, [backup.enabled, backup.frequency, addToast])
+  }, [backup.autoBackupEnabled, backup.autoBackupFrequency, addToast])
 
-  // ── Restore state ──
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [restorePhase, setRestorePhase] = useState<RestorePhase>('idle')
-  const [restoreProgress, setRestoreProgress] = useState('')
-  const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [restoreError, setRestoreError] = useState('')
   const setCurrency = useAppStore((s) => s.setCurrency)
   const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
   const setAutoPrintReceipt = useAppStore((s) => s.setAutoPrintReceipt)
   const showReceiptModal = useAppStore((s) => s.showReceiptModal)
   const setShowReceiptModal = useAppStore((s) => s.setShowReceiptModal)
-  const addToast = useAppStore((s) => s.addToast)
   const company = useAppStore((s) => s.company)
 
   // Receipt print style
@@ -314,7 +316,7 @@ export function OtherSettingsView() {
   // ── Backup handlers ──
 
   const handleBackup = useCallback(async () => {
-    setExporting(true)
+    setBackup(b => ({ ...b, exporting: true }))
     try {
       const res = await fetch('/api/backup', { headers: authHeaders() })
       if (!res.ok) {
@@ -336,8 +338,7 @@ export function OtherSettingsView() {
       a.remove()
       URL.revokeObjectURL(url)
 
-      setLastBackup(meta.exportedAt)
-      setLastBackupRows(meta.totalRows)
+      setBackup(b => ({ ...b, lastBackup: meta.exportedAt, lastBackupRows: meta.totalRows }))
       addToast({
         title: 'Backup Complete',
         description: `Exported ${meta.totalRows} rows across ${meta.tableCount} tables`,
@@ -346,7 +347,7 @@ export function OtherSettingsView() {
     } catch (err: any) {
       addToast({ title: 'Backup Failed', description: err.message || 'Unknown error', variant: 'error' })
     } finally {
-      setExporting(false)
+      setBackup(b => ({ ...b, exporting: false }))
     }
   }, [addToast])
 
@@ -355,32 +356,24 @@ export function OtherSettingsView() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setSelectedFile(file)
-      setRestorePhase('confirming')
-      setRestoreResult(null)
-      setRestoreError('')
+      setRestore(r => ({ ...r, selectedFile: file, phase: 'confirming', result: null, error: '' }))
     }
     // Reset input so same file can be re-selected
     e.target.value = ''
   }
 
   const handleRestoreCancel = () => {
-    setRestorePhase('idle')
-    setSelectedFile(null)
-    setRestoreResult(null)
-    setRestoreError('')
-    setRestoreProgress('')
+    setRestore({ phase: 'idle', progress: '', result: null, selectedFile: null, error: '' })
   }
 
   const handleRestoreConfirm = useCallback(async () => {
-    if (!selectedFile) return
+    if (!restore.selectedFile) return
 
-    setRestorePhase('uploading')
-    setRestoreProgress('Reading backup file...')
+    setRestore(r => ({ ...r, phase: 'uploading', progress: 'Reading backup file...' }))
 
     try {
-      const text = await selectedFile.text()
-      setRestoreProgress('Parsing backup data...')
+      const text = await restore.selectedFile!.text()
+      setRestore(r => ({ ...r, progress: 'Parsing backup data...' }))
       const json = JSON.parse(text)
 
       if (!json.data || typeof json.data !== 'object') {
@@ -391,8 +384,7 @@ export function OtherSettingsView() {
         .filter(([, rows]) => Array.isArray(rows) && rows.length > 0)
         .map(([name, rows]) => `${name} (${(rows as any[]).length})`)
 
-      setRestorePhase('processing')
-      setRestoreProgress(`Restoring ${tablesWithData.length} tables...`)
+      setRestore(r => ({ ...r, phase: 'processing', progress: `Restoring ${tablesWithData.length} tables...` }))
 
       const res = await fetch('/api/backup', {
         method: 'POST',
@@ -408,9 +400,7 @@ export function OtherSettingsView() {
       const result = res.json() as Promise<RestoreResult>
       const resolved = await result
 
-      setRestoreResult(resolved)
-      setRestorePhase('done')
-      setRestoreProgress('')
+      setRestore(r => ({ ...r, result: resolved, phase: 'done', progress: '' }))
 
       addToast({
         title: 'Restore Complete',
@@ -418,12 +408,10 @@ export function OtherSettingsView() {
         variant: resolved.summary.totalErrors > 0 ? 'warning' : 'success',
       })
     } catch (err: any) {
-      setRestorePhase('error')
-      setRestoreError(err.message || 'Unknown error')
-      setRestoreProgress('')
+      setRestore(r => ({ ...r, phase: 'error', error: err.message || 'Unknown error', progress: '' }))
       addToast({ title: 'Restore Failed', description: err.message || 'Unknown error', variant: 'error' })
     }
-  }, [selectedFile, addToast])
+  }, [restore.selectedFile, addToast])
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -857,10 +845,10 @@ export function OtherSettingsView() {
               <Button
                 size="sm"
                 className="h-8 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700"
-                disabled={exporting}
+                disabled={backup.exporting}
                 onClick={handleBackup}
               >
-                {exporting ? (
+                {backup.exporting ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Exporting...</>
                 ) : (
                   <><Download className="h-3.5 w-3.5" /> Download Backup</>
@@ -874,7 +862,7 @@ export function OtherSettingsView() {
                 <div className="text-xs text-emerald-700">
                   <span className="font-medium">Last backup:</span>{' '}
                   {new Date(lastBackup).toLocaleString()}
-                  <span className="text-emerald-600 ml-1.5">({lastBackupRows.toLocaleString()} rows)</span>
+                  <span className="text-emerald-600 ml-1.5">({backup.lastBackupRows.toLocaleString()} rows)</span>
                 </div>
               </div>
             )}
@@ -898,10 +886,10 @@ export function OtherSettingsView() {
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50"
-                disabled={restorePhase === 'uploading' || restorePhase === 'processing'}
+                disabled={restore.phase === 'uploading' || restore.phase === 'processing'}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {restorePhase === 'uploading' || restorePhase === 'processing' ? (
+                {restore.phase === 'uploading' || restore.phase === 'processing' ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing...</>
                 ) : (
                   <><Upload className="h-3.5 w-3.5" /> Upload File</>
@@ -917,15 +905,15 @@ export function OtherSettingsView() {
             </div>
 
             {/* Confirm dialog when file is selected */}
-            {restorePhase === 'confirming' && selectedFile && (
+            {restore.phase === 'confirming' && restore.selectedFile && (
               <div className="ml-11 rounded-lg border border-orange-200 bg-orange-50/50 p-3 space-y-3">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
                   <div className="text-xs text-orange-800">
                     <p className="font-semibold">Confirm Restore</p>
                     <p className="mt-0.5 text-orange-700">
-                      File: <span className="font-medium">{selectedFile.name}</span>{' '}
-                      ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      File: <span className="font-medium">{restore.selectedFile.name}</span>{' '}
+                      ({(restore.selectedFile.size / 1024).toFixed(1)} KB)
                     </p>
                     <p className="mt-1 text-orange-600">
                       This will update existing records and add new ones from the backup.
@@ -951,7 +939,7 @@ export function OtherSettingsView() {
                         </AlertDialogTitle>
                         <AlertDialogDescription className="space-y-2">
                           <p>
-                            You are about to restore data from <span className="font-semibold">{selectedFile.name}</span>.
+                            You are about to restore data from <span className="font-semibold">{restore.selectedFile.name}</span>.
                             This action will update existing records and insert new ones.
                           </p>
                           <p className="font-medium text-foreground">
@@ -983,15 +971,15 @@ export function OtherSettingsView() {
             )}
 
             {/* Processing state */}
-            {(restorePhase === 'uploading' || restorePhase === 'processing') && restoreProgress && (
+            {(restore.phase === 'uploading' || restore.phase === 'processing') && restore.progress && (
               <div className="ml-11 rounded-lg border border-blue-200 bg-blue-50/50 p-3 flex items-center gap-2">
                 <Loader2 className="h-4 w-4 text-blue-500 animate-spin shrink-0" />
-                <p className="text-xs text-blue-700 font-medium">{restoreProgress}</p>
+                <p className="text-xs text-blue-700 font-medium">{restore.progress}</p>
               </div>
             )}
 
             {/* Success state */}
-            {restorePhase === 'done' && restoreResult && (
+            {restore.phase === 'done' && restore.result && (
               <div className="ml-11 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -999,23 +987,23 @@ export function OtherSettingsView() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   <div className="rounded bg-white/80 border p-2 text-center">
-                    <p className="text-lg font-bold text-emerald-700">{restoreResult.summary.tablesProcessed}</p>
+                    <p className="text-lg font-bold text-emerald-700">{restore.result.summary.tablesProcessed}</p>
                     <p className="text-[10px] text-muted-foreground">Tables</p>
                   </div>
                   <div className="rounded bg-white/80 border p-2 text-center">
-                    <p className="text-lg font-bold text-blue-700">{restoreResult.summary.totalInserted}</p>
+                    <p className="text-lg font-bold text-blue-700">{restore.result.summary.totalInserted}</p>
                     <p className="text-[10px] text-muted-foreground">Inserted</p>
                   </div>
                   <div className="rounded bg-white/80 border p-2 text-center">
-                    <p className="text-lg font-bold text-red-600">{restoreResult.summary.totalErrors}</p>
+                    <p className="text-lg font-bold text-red-600">{restore.result.summary.totalErrors}</p>
                     <p className="text-[10px] text-muted-foreground">Errors</p>
                   </div>
                 </div>
                 {/* Per-table details */}
-                {Object.entries(restoreResult.details).some(([, r]) => r.errors.length > 0) && (
+                {Object.entries(restore.result.details).some(([, r]) => r.errors.length > 0) && (
                   <div className="mt-2 space-y-1">
                     <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wider">Tables with errors:</p>
-                    {Object.entries(restoreResult.details)
+                    {Object.entries(restore.result.details)
                       .filter(([, r]) => r.errors.length > 0)
                       .map(([table, r]) => (
                         <div key={table} className="rounded bg-red-50 border border-red-100 p-1.5 text-[10px]">
@@ -1032,13 +1020,13 @@ export function OtherSettingsView() {
             )}
 
             {/* Error state */}
-            {restorePhase === 'error' && restoreError && (
+            {restore.phase === 'error' && restore.error && (
               <div className="ml-11 rounded-lg border border-red-200 bg-red-50/50 p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-500" />
                   <p className="text-xs font-semibold text-red-700">Restore Failed</p>
                 </div>
-                <p className="text-xs text-red-600 ml-6">{restoreError}</p>
+                <p className="text-xs text-red-600 ml-6">{restore.error}</p>
                 <Button size="sm" variant="outline" className="h-7 text-xs ml-6" onClick={handleRestoreCancel}>
                   Dismiss
                 </Button>
@@ -1080,17 +1068,17 @@ export function OtherSettingsView() {
               <p className="text-xs text-muted-foreground">Runs backup in the background at the selected interval</p>
             </div>
             <Switch
-              checked={backup.enabled}
-              onCheckedChange={(v) => setBackup(b => ({ ...b, enabled: v }))}
+              checked={backup.autoBackupEnabled}
+              onCheckedChange={(v) => setBackup(b => ({ ...b, autoBackupEnabled: v }))}
             />
           </div>
 
-          {backup.enabled && (
+          {backup.autoBackupEnabled && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Frequency</Label>
-                  <Select value={backup.frequency} onValueChange={handleBackupFrequencyChange}>
+                  <Select value={backup.autoBackupFrequency} onValueChange={handleBackupFrequencyChange}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1105,18 +1093,18 @@ export function OtherSettingsView() {
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Last Backup</Label>
                   <div className="h-9 flex items-center text-xs text-muted-foreground px-3 rounded-md border bg-muted/50">
-                    {backup.lastBackup
-                      ? new Date(backup.lastBackup).toLocaleString()
+                    {backup.autoBackupLastBackup
+                      ? new Date(backup.autoBackupLastBackup).toLocaleString()
                       : 'Never'}
                   </div>
                 </div>
               </div>
 
-              {backup.nextBackupTime && (
+              {backup.autoBackupNextTime && (
                 <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
                   <Clock className="h-4 w-4 text-blue-500 shrink-0" />
                   <p className="text-xs text-blue-700">
-                    Next backup: <span className="font-medium">{new Date(backup.nextBackupTime).toLocaleString()}</span>
+                    Next backup: <span className="font-medium">{new Date(backup.autoBackupNextTime).toLocaleString()}</span>
                   </p>
                 </div>
               )}
@@ -1125,10 +1113,10 @@ export function OtherSettingsView() {
                 variant="outline"
                 size="sm"
                 onClick={handleRunBackupNow}
-                disabled={backup.isBackingUp}
+                disabled={backup.autoBackupIsBackingUp}
                 className="gap-2 h-8 text-xs"
               >
-                {backup.isBackingUp ? (
+                {backup.autoBackupIsBackingUp ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Backing Up...</>
                 ) : (
                   <><Download className="h-3.5 w-3.5" /> Backup Now</>
