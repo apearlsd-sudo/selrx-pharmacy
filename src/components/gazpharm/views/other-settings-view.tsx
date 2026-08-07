@@ -856,12 +856,12 @@ export function OtherSettingsView() {
               </Button>
             </div>
 
-            {lastBackup && (
+            {backup.lastBackup && (
               <div className="ml-11 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2.5 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                 <div className="text-xs text-emerald-700">
                   <span className="font-medium">Last backup:</span>{' '}
-                  {new Date(lastBackup).toLocaleString()}
+                  {new Date(backup.lastBackup).toLocaleString()}
                   <span className="text-emerald-600 ml-1.5">({backup.lastBackupRows.toLocaleString()} rows)</span>
                 </div>
               </div>
