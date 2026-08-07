@@ -28,7 +28,7 @@ export interface PDFExportOptions {
 
 export interface PDFColumn {
   header: string
-  accessor: string | ((row: Record<string, unknown>) => string)
+  accessor: string | ((row: any) => string)
   width?: string  // CSS width, e.g. '120px', '25%'
   align?: 'left' | 'center' | 'right'
 }
