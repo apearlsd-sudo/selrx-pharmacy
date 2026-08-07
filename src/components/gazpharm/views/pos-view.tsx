@@ -36,6 +36,9 @@ import {
 } from '@/components/ui/dialog'
 import { useAppStore, type CartItem, type PaymentMethodType } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
+import { formatCurrency, currencySymbol } from '@/lib/currency'
+import { checkDrugInteractions, getSeverityColor, getSeverityLabel, type DrugInteraction } from '@/lib/drug-interactions'
+import { POS_SHORTCUTS, matchesShortcut, formatShortcut } from '@/lib/keyboard-shortcuts'
 import { ReceiptModal } from './receipt-modal'
 import { NewReturnDialog } from './new-return-dialog'
 
@@ -75,12 +78,6 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
   { value: 'INSURANCE', label: 'Insurance', icon: Shield },
   { value: 'FSA_HSA', label: 'FSA/HSA', icon: HeartPulse },
 ]
-
-
-
-import { formatCurrency, currencySymbol } from '@/lib/currency'
-import { checkDrugInteractions, getSeverityColor, getSeverityLabel, type DrugInteraction } from '@/lib/drug-interactions'
-import { POS_SHORTCUTS, matchesShortcut, formatShortcut } from '@/lib/keyboard-shortcuts'
 
 export function POSView() {
   // Local state
