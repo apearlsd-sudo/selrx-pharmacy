@@ -21,7 +21,7 @@ import {
 // Configuration
 // ===================================================================
 
-const SYNC_INTERVAL_MS = 5_000 // 5 seconds
+const SYNC_INTERVAL_MS = 10_000 // 10 seconds
 const PULL_BATCH_SIZE = 500
 
 // Tables to sync (master data from hub → terminal)
