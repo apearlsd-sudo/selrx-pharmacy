@@ -81,12 +81,7 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-aurora bg-vignette p-4">
-      {/* 21st.dev-inspired aurora orbs */}
-      <div className="aurora-orb aurora-orb-1" />
-      <div className="aurora-orb aurora-orb-2" />
-      <div className="aurora-orb aurora-orb-3" />
-
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900 p-4">
       <div
         className="relative z-10 w-full max-w-md"
       >
