@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import {
-  Globe, Coins, Printer, Database, UserCog, Monitor, RefreshCw, Info,
+  Globe, Coins, Printer, Database, UserCog, Monitor, RefreshCw, Info, MonitorSmartphone,
 } from 'lucide-react'
 import { UsersView } from './users-view'
 import { WorkstationsView } from './workstations-view'
 import { SyncSettingsView } from './sync-settings-view'
+import { HardwareView } from './hardware-view'
 import {
   RegionalSettingsSection,
   CurrencySettingsSection,
@@ -24,6 +25,7 @@ const SETTINGS_NAV = [
   { key: 'backup', label: 'Data Backup & Restore', icon: Database, description: 'Manual and automatic data backups' },
   { key: 'workstations', label: 'Workstations', icon: Monitor, description: 'Register and manage POS workstations' },
   { key: 'sync', label: 'Device Sync', icon: RefreshCw, description: 'Sync settings across devices' },
+  { key: 'hardware', label: 'Hardware', icon: MonitorSmartphone, description: 'Printers, scanners & peripheral devices' },
   { key: 'system', label: 'System Information', icon: Info, description: 'Application version & pharmacy info' },
 ] as const
 
@@ -46,6 +48,7 @@ export function SettingsHubView() {
       )
       case 'workstations': return <WorkstationsView />
       case 'sync': return <SyncSettingsView />
+      case 'hardware': return <HardwareView />
       case 'system': return <SystemInfoSection />
     }
   }

@@ -8,14 +8,13 @@ import {
   Package,
   FileText,
   Users,
-  UserCog,
-  Printer,
   BarChart3,
   LogOut,
   ChevronLeft,
   ChevronRight,
   Menu,
   X,
+  Settings,
   Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -86,22 +85,16 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
   },
   {
-    label: 'User Management',
-    icon: UserCog,
-    view: 'users',
-    roles: ['SUPER_ADMIN'],
-  },
-  {
-    label: 'Hardware',
-    icon: Printer,
-    view: 'hardware',
-    roles: ['SUPER_ADMIN', 'PHARMACIST'],
-  },
-  {
     label: 'Reports',
     icon: BarChart3,
     view: 'reports',
     roles: ['SUPER_ADMIN', 'PHARMACIST', 'TECHNICIAN', 'CASHIER', 'CLERK'],
+  },
+  {
+    label: 'Settings',
+    icon: Settings,
+    view: 'settings',
+    roles: ['SUPER_ADMIN'],
   },
 ]
 

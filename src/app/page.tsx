@@ -12,7 +12,6 @@ import {
   Package,
   ClipboardList,
   Users,
-  MonitorSmartphone,
   BarChart3,
   Pill,
   Bell,
@@ -59,7 +58,6 @@ import { POSView } from '@/components/gazpharm/views/pos-view'
 import { InventoryView } from '@/components/gazpharm/views/inventory-view'
 import { PrescriptionsView } from '@/components/gazpharm/views/prescriptions-view'
 import { CustomersView } from '@/components/gazpharm/views/customers-view'
-import { HardwareView } from '@/components/gazpharm/views/hardware-view'
 import { ReportsView } from '@/components/gazpharm/views/reports-view'
 import { AdvancedReportsView } from '@/components/gazpharm/views/advanced-reports-view'
 import { MasterDataView } from '@/components/gazpharm/views/master-data-view'
@@ -133,7 +131,6 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory:stocktake' },
   { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos:history' },
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
-  { name: 'hardware', label: 'Hardware', icon: MonitorSmartphone, permission: 'hardware:view' },
   { name: 'settings', label: 'Settings', icon: Settings, permission: 'pos:sell' },
 ]
 
@@ -570,7 +567,6 @@ export default function Home() {
       case 'inventory': return <InventoryView />
       case 'prescriptions': return <PrescriptionsView />
       case 'customers': return <CustomersView />
-      case 'hardware': return <HardwareView />
       case 'reports': return <ReportsView />
       case 'advanced-reports': return <AdvancedReportsView />
       case 'sales-history': return <SalesHistoryView />
