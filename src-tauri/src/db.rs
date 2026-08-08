@@ -463,6 +463,52 @@ impl DbState {
 
             CREATE INDEX IF NOT EXISTS "idx_delta_log_product"
                 ON "InventoryDeltaLog"("productId", "createdAt");
+
+            -- ================================================================
+            -- OFFLINE QUEUE (persisted pending operations — survives restarts)
+            -- ================================================================
+
+            -- Persisted queue for offline operations that haven't been synced yet.
+            -- Unlike the in-memory pendingDeltas array in TypeScript,
+            -- this table survives app restarts, crashes, and power loss.
+            -- Items are removed after successful sync to the hub.
+            CREATE TABLE IF NOT EXISTS "OfflineQueue" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "type" TEXT NOT NULL,
+                "tableName" TEXT NOT NULL DEFAULT '',
+                "recordId" TEXT NOT NULL DEFAULT '',
+                "payload" TEXT NOT NULL,
+                "attemptCount" INTEGER NOT NULL DEFAULT 0,
+                "maxAttempts" INTEGER NOT NULL DEFAULT 10,
+                "lastAttemptAt" TEXT,
+                "nextAttemptAt" TEXT NOT NULL DEFAULT (datetime('now')),
+                "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+                "status" TEXT NOT NULL DEFAULT 'pending'
+            );
+
+            -- Types: 'delta', 'push_record', 'push_batch'
+            -- Statuses: 'pending', 'in_progress', 'failed', 'completed'
+
+            CREATE INDEX IF NOT EXISTS "idx_offline_queue_status"
+                ON "OfflineQueue"("status", "nextAttemptAt");
+
+            CREATE INDEX IF NOT EXISTS "idx_offline_queue_type"
+                ON "OfflineQueue"("type", "createdAt");
+
+            -- ================================================================
+            -- SYNC HEALTH METRICS (for the dashboard)
+            -- ================================================================
+
+            CREATE TABLE IF NOT EXISTS "SyncHealthLog" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "metricType" TEXT NOT NULL,
+                "value" REAL NOT NULL,
+                "details" TEXT,
+                "createdAt" TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS "idx_health_log_type"
+                ON "SyncHealthLog"("metricType", "createdAt");
             "#,
         )
         .map_err(|e| format!("Migration failed: {}", e))?;
@@ -693,6 +739,211 @@ impl DbState {
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         let path = conn.path().to_string_lossy().to_string();
         Ok(path)
+    }
+
+    // ===================================================================
+    // Offline Queue Commands (persisted operations that survive restarts)
+    // ===================================================================
+
+    /// Enqueue an offline operation for later sync.
+    pub fn offline_queue_push(
+        &self,
+        queue_type: String,
+        table_name: String,
+        record_id: String,
+        payload: String,
+    ) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let id = format!("oq_{}", uuid::Uuid::new_v4().simple());
+        conn.execute(
+            r#"INSERT INTO "OfflineQueue" (id, type, tableName, recordId, payload, nextAttemptAt)
+               VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))"#,
+            params![&id, &queue_type, &table_name, &record_id, &payload],
+        )
+        .map_err(|e| format!("OfflineQueue push: {}", e))?;
+        Ok(id)
+    }
+
+    /// Get all pending offline queue items (due for retry).
+    pub fn offline_queue_get_pending(&self) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let sql = r#"SELECT * FROM "OfflineQueue"
+                   WHERE status = 'pending' AND nextAttemptAt <= datetime('now')
+                   ORDER BY createdAt ASC LIMIT 200"#;
+        let mut stmt = conn.prepare(sql).map_err(|e| format!("Prepare: {}", e))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, String>(0)?,
+                    "type": row.get::<_, String>(1)?,
+                    "tableName": row.get::<_, String>(2)?,
+                    "recordId": row.get::<_, String>(3)?,
+                    "payload": row.get::<_, String>(4)?,
+                    "attemptCount": row.get::<_, i64>(5)?,
+                    "maxAttempts": row.get::<_, i64>(6)?,
+                    "lastAttemptAt": row.get::<_, Option<String>>(7)?,
+                    "nextAttemptAt": row.get::<_, String>(8)?,
+                    "createdAt": row.get::<_, String>(9)?,
+                    "status": row.get::<_, String>(10)?,
+                }))
+            })
+            .map_err(|e| format!("Query: {}", e))?;
+
+        let results: Vec<serde_json::Value> = rows.filter_map(|r| r.ok()).collect();
+        serde_json::to_string(&results).map_err(|e| format!("Serialize: {}", e))
+    }
+
+    /// Mark an offline queue item as completed (successfully synced).
+    pub fn offline_queue_complete(&self, ids: Vec<String>) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        for id in &ids {
+            conn.execute(
+                r#"UPDATE "OfflineQueue" SET status = 'completed' WHERE id = ?"#,
+                params![id],
+            )
+            .map_err(|e| format!("Queue complete {}: {}", id, e))?;
+        }
+        Ok(serde_json::json!({ "completed": ids.len() }).to_string())
+    }
+
+    /// Mark an offline queue item as failed and schedule retry with exponential backoff.
+    pub fn offline_queue_fail(&self, id: String) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+
+        // Get current attempt count
+        let attempt: i64 = conn
+            .query_row(
+                r#"SELECT attemptCount FROM "OfflineQueue" WHERE id = ?"#,
+                params![&id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let new_attempt = attempt + 1;
+        // Exponential backoff: 5s, 10s, 20s, 40s, 80s... max 10min
+        let delay_secs = std::cmp::min(5 * (1i64 << new_attempt.saturating_sub(1)), 600);
+
+        if new_attempt >= 10 {
+            // Max attempts reached — mark as permanently failed
+            conn.execute(
+                r#"UPDATE "OfflineQueue" SET status = 'failed', attemptCount = ?1, lastAttemptAt = datetime('now') WHERE id = ?2"#,
+                params![new_attempt, &id],
+            )
+            .map_err(|e| format!("Queue fail {}: {}", id, e))?;
+        } else {
+            conn.execute(
+                r#"UPDATE "OfflineQueue" SET attemptCount = ?1, lastAttemptAt = datetime('now'),
+                   nextAttemptAt = datetime('now', '+" || ?2 || " seconds'),
+                   status = 'pending' WHERE id = ?3"#,
+                params![new_attempt, delay_secs, &id],
+            )
+            .map_err(|e| format!("Queue fail {}: {}", id, e))?;
+        }
+
+        Ok(serde_json::json!({ "attempt": new_attempt, "delay_secs": delay_secs }).to_string())
+    }
+
+    /// Get offline queue statistics.
+    pub fn offline_queue_stats(&self) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let sql = r#"SELECT
+                   COUNT(*) as total,
+               SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+               SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+               SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+               COALESCE(MIN(createdAt), '1970-01-01') as oldest_pending,
+               COALESCE(MAX(createdAt), '1970-01-01') as newest
+               FROM "OfflineQueue""#;
+        let mut stmt = conn.prepare(sql).map_err(|e| format!("Prepare stats: {}", e))?;
+
+        let row = stmt
+            .query_row([], |row| {
+                Ok(serde_json::json!({
+                    "total": row.get::<_, i64>(0)?,
+                    "pending": row.get::<_, i64>(1)?,
+                    "in_progress": row.get::<_, i64>(2)?,
+                    "failed": row.get::<_, i64>(3)?,
+                    "completed": row.get::<_, i64>(4)?,
+                    "oldest_pending": row.get::<_, String>(5)?,
+                    "newest": row.get::<_, String>(6)?,
+                }))
+            })
+            .map_err(|e| format!("Query stats: {}", e))?;
+
+        serde_json::to_string(&row).map_err(|e| format!("Serialize stats: {}", e))
+    }
+
+    /// Purge completed queue items older than 24 hours.
+    pub fn offline_queue_purge(&self) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let affected = conn
+            .execute(
+                r#"DELETE FROM "OfflineQueue" WHERE status = 'completed' AND createdAt < datetime('now', '-24 hours')"#,
+                [],
+            )
+            .map_err(|e| format!("Purge: {}", e))?;
+        Ok(serde_json::json!({ "purged": affected }).to_string())
+    }
+
+    // ===================================================================
+    // Sync Health Metrics
+    // ===================================================================
+
+    /// Record a sync health metric.
+    pub fn log_health_metric(
+        &self,
+        metric_type: String,
+        value: f64,
+        details: String,
+    ) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let id = format!("hm_{}", uuid::Uuid::new_v4().simple());
+        conn.execute(
+            r#"INSERT INTO "SyncHealthLog" (id, metricType, value, details)
+               VALUES (?1, ?2, ?3, ?4)"#,
+            params![&id, &metric_type, value, &details],
+        )
+        .map_err(|e| format!("Health log: {}", e))?;
+        Ok(id)
+    }
+
+    /// Get recent health metrics.
+    pub fn get_health_metrics(
+        &self,
+        metric_type: Option<String>,
+        limit: i64,
+    ) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let sql = if let Some(mt) = metric_type {
+            format!(
+                r#"SELECT * FROM "SyncHealthLog" WHERE metricType = '{}' ORDER BY createdAt DESC LIMIT {}"#,
+                mt, limit
+            )
+        } else {
+            format!(
+                r#"SELECT * FROM "SyncHealthLog" ORDER BY createdAt DESC LIMIT {}"#,
+                limit
+            )
+        };
+        self.query(sql, vec![])
+    }
+
+    /// Get aggregate health stats (avg latency, success rate, etc.).
+    pub fn get_health_summary(&self) -> Result<String, String> {
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        let sql = r#"SELECT
+               metricType,
+               COUNT(*) as count,
+               ROUND(AVG(value), 2) as avg_value,
+               ROUND(MIN(value), 2) as min_value,
+               ROUND(MAX(value), 2) as max_value,
+               MAX(createdAt) as last_recorded
+               FROM "SyncHealthLog"
+               WHERE createdAt > datetime('now', '-1 hour')
+               GROUP BY metricType"#;
+        self.query(sql.to_string(), vec![])
     }
 }
 

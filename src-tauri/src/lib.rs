@@ -1,8 +1,10 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")
 
 pub mod db;
+pub mod mdns_discovery;
 pub mod sync_server;
 pub mod tunnel;
+pub mod ws_server;
 
 use db::DbState;
 use serde::{Deserialize, Serialize};
@@ -24,12 +26,12 @@ pub struct AppState {
     pub role: DeviceRole,
     pub hub_url: Option<String>,
     pub tunnel: Mutex<TunnelState>,
+    /// Handle to the WebSocket broadcast channel (for hub to push notifications)
+    pub ws_broadcaster: Option<std::sync::Mutex<tokio::sync::broadcast::Sender<String>>>,
 }
 
-/// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-
 // ===================================================================
-// Database Commands (called from the frontend via `invoke()`)
+// Database Commands
 // ===================================================================
 
 #[tauri::command]
@@ -127,10 +129,90 @@ fn get_hub_url(state: tauri::State<'_, AppState>) -> Option<String> {
 }
 
 // ===================================================================
+// Offline Queue Commands
+// ===================================================================
+
+#[tauri::command]
+fn offline_queue_push(
+    state: tauri::State<'_, AppState>,
+    queue_type: String,
+    table_name: String,
+    record_id: String,
+    payload: String,
+) -> Result<String, String> {
+    state.db.offline_queue_push(queue_type, table_name, record_id, payload)
+}
+
+#[tauri::command]
+fn offline_queue_get_pending(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    state.db.offline_queue_get_pending()
+}
+
+#[tauri::command]
+fn offline_queue_complete(state: tauri::State<'_, AppState>, ids: Vec<String>) -> Result<String, String> {
+    state.db.offline_queue_complete(ids)
+}
+
+#[tauri::command]
+fn offline_queue_fail(state: tauri::State<'_, AppState>, id: String) -> Result<String, String> {
+    state.db.offline_queue_fail(id)
+}
+
+#[tauri::command]
+fn offline_queue_stats(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    state.db.offline_queue_stats()
+}
+
+#[tauri::command]
+fn offline_queue_purge(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    state.db.offline_queue_purge()
+}
+
+// ===================================================================
+// Sync Health Commands
+// ===================================================================
+
+#[tauri::command]
+fn log_health_metric(
+    state: tauri::State<'_, AppState>,
+    metric_type: String,
+    value: f64,
+    details: String,
+) -> Result<String, String> {
+    state.db.log_health_metric(metric_type, value, details)
+}
+
+#[tauri::command]
+fn get_health_metrics(
+    state: tauri::State<'_, AppState>, metric_type: Option<String>, limit: Option<i64>) -> Result<String, String> {
+    state.db.get_health_metrics(metric_type, limit.unwrap_or(100))
+}
+
+#[tauri::command]
+fn get_health_summary(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    state.db.get_health_summary()
+}
+
+// ===================================================================
+// mDNS Discovery Commands
+// ===================================================================
+
+#[tauri::command]
+fn scan_for_hubs(timeout_secs: Option<u64>) -> Result<String, String> {
+    let hubs = mdns_discovery::scan_for_hubs(timeout_secs.unwrap_or(3))?;
+    serde_json::to_string(&hubs).map_err(|e| format!("Serialize hubs: {}", e))
+}
+
+#[tauri::command]
+fn get_local_ips() -> Result<String, String> {
+    let ips = mdns_discovery::get_local_ips();
+    serde_json::to_string(&ips).map_err(|e| format!("Serialize ips: {}", e))
+}
+
+// ===================================================================
 // Tunnel Commands (Cloudflare Tunnel management)
 // ===================================================================
 
-/// Start the Cloudflare Tunnel. Only works on Hub mode.
 #[tauri::command]
 fn start_tunnel(
     state: tauri::State<'_, AppState>,
@@ -142,7 +224,6 @@ fn start_tunnel(
     tunnel.start(&token, port)
 }
 
-/// Stop the Cloudflare Tunnel.
 #[tauri::command]
 fn stop_tunnel(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let mut tunnel = state.tunnel.lock().map_err(|e| e.to_string())?;
@@ -150,7 +231,6 @@ fn stop_tunnel(state: tauri::State<'_, AppState>) -> Result<String, String> {
     Ok("tunnel_stopped".to_string())
 }
 
-/// Get the current tunnel status.
 #[tauri::command]
 fn get_tunnel_status(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let mut tunnel = state.tunnel.lock().map_err(|e| e.to_string())?;
@@ -158,7 +238,6 @@ fn get_tunnel_status(state: tauri::State<'_, AppState>) -> Result<String, String
     serde_json::to_string(&status).map_err(|e| format!("Serialize tunnel status: {}", e))
 }
 
-/// Manually set the tunnel URL (if auto-detection failed).
 #[tauri::command]
 fn set_tunnel_url(
     state: tauri::State<'_, AppState>,
@@ -169,7 +248,6 @@ fn set_tunnel_url(
     Ok(url)
 }
 
-/// Save tunnel token to persistent storage.
 #[tauri::command]
 fn save_tunnel_token(
     app: tauri::AppHandle,
@@ -185,7 +263,6 @@ fn save_tunnel_token(
     Ok("token_saved".to_string())
 }
 
-/// Load the persisted tunnel token.
 #[tauri::command]
 fn load_tunnel_token(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let app_dir = app
@@ -207,7 +284,7 @@ fn load_tunnel_token(app: tauri::AppHandle) -> Result<Option<String>, String> {
     }
 }
 
-/// Get the full system status (role, sync, tunnel, device info).
+/// Get the full system status including new fields.
 #[tauri::command]
 fn get_system_status(
     state: tauri::State<'_, AppState>,
@@ -239,6 +316,28 @@ fn get_system_status(
         })
         .unwrap_or(0);
 
+    // Get offline queue stats
+    let queue_stats: serde_json::Value = state
+        .db
+        .offline_queue_stats()
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(serde_json::json!({
+            "total": 0, "pending": 0, "in_progress": 0,
+            "failed": 0, "completed": 0
+        }));
+
+    // Get health summary
+    let health_summary: Vec<serde_json::Value> = state
+        .db
+        .get_health_summary()
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+
+    // Get local IPs
+    let local_ips = mdns_discovery::get_local_ips();
+
     let status = serde_json::json!({
         "device_id": device_id,
         "db_path": db_path,
@@ -248,6 +347,9 @@ fn get_system_status(
         "sync_port": 3001u16,
         "pending_syncs": pending_syncs,
         "tunnel": tunnel_status,
+        "offline_queue": queue_stats,
+        "health_summary": health_summary,
+        "local_ips": local_ips,
     });
 
     serde_json::to_string(&status).map_err(|e| format!("Serialize status: {}", e))
@@ -322,13 +424,14 @@ pub fn run() {
                 role: role.clone(),
                 hub_url,
                 tunnel: Mutex::new(tunnel_state),
+                ws_broadcaster: None,
             };
 
-            // If this device is the hub, start the sync server
+            // If this device is the hub, start the sync server with WebSocket support
             if matches!(role, DeviceRole::Hub) {
                 // Read persisted tunnel token and auto-start if configured
                 let tunnel_token_file = app_dir.join("tunnel_token.txt");
-                let tunnel_token = if tunnel_token_file.exists() {
+                let _tunnel_token = if tunnel_token_file.exists() {
                     std::fs::read_to_string(&tunnel_token_file).unwrap_or_default()
                 } else {
                     String::new()
@@ -348,17 +451,21 @@ pub fn run() {
                     port: 3001,
                     tunnel_url: tunnel_url.clone(),
                 };
-                sync_server::start_sync_server(db, config);
-                println!("[gazpharm] Started as HUB (sync server on port 3001)");
+                sync_server::start_sync_server(db.clone(), config);
+                println!("[gazpharm] Started as HUB (sync server + WebSocket on port 3001)");
 
-                // Auto-start tunnel if token is saved
-                if !tunnel_token.trim().is_empty() {
-                    println!("[gazpharm] Auto-starting Cloudflare Tunnel...");
-                    // Tunnel will be started after app is fully set up
-                    // via a background task
-                }
+                // Start mDNS discovery beacon so terminals can find us on LAN
+                let beacon_device_id = device_id.clone();
+                mdns_discovery::start_discovery_beacon(beacon_device_id, 3001);
+                println!("[gazpharm] mDNS discovery beacon started");
+
+                // Purge old offline queue items on startup
+                let _ = db.offline_queue_purge();
             } else {
                 println!("[gazpharm] Started as TERMINAL");
+
+                // Purge old offline queue items on startup
+                let _ = db.offline_queue_purge();
             }
 
             app.manage(app_state);
@@ -378,6 +485,21 @@ pub fn run() {
             get_device_role,
             set_device_role,
             get_hub_url,
+            // Offline queue commands
+            offline_queue_push,
+            offline_queue_get_pending,
+            offline_queue_complete,
+            offline_queue_fail,
+            offline_queue_stats,
+            offline_queue_purge,
+            // Health commands
+            log_health_metric,
+            get_health_metrics,
+            get_health_summary,
+            // mDNS discovery commands
+            scan_for_hubs,
+            get_local_ips,
+            // Tunnel commands
             start_tunnel,
             stop_tunnel,
             get_tunnel_status,

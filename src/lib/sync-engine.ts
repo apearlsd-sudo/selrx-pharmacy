@@ -4,59 +4,61 @@
  * Client-side sync engine for Tauri desktop mode.
  * Handles pushing local changes to the hub and pulling hub changes.
  *
- * This module is a NO-OP on web — all sync functions return immediately.
+ * Features:
+ * - Periodic HTTP sync (10s polling)
+ * - WebSocket real-time sync (instant push notifications)
+ * - Offline queue persistence (survives app restarts)
+ * - Delta-based inventory sync (race-condition safe)
+ * - mDNS auto-discovery for LAN hubs
+ *
+ * This module is a NO-OP on web.
  */
 
 import { isDesktop } from './platform'
-import type { SyncLogEntry, PullResponse, PushResponse } from './desktop/tauri-types'
+import type { SyncLogEntry, PullResponse, PushResponse, OfflineQueueItem, DiscoveredHub, WsEvent } from './desktop/tauri-types'
 import {
   getPendingSyncs,
   markSynced,
   getCheckpoint,
   setCheckpoint,
   getDeviceId,
+  offlineQueuePush,
+  offlineQueueGetPending,
+  offlineQueueComplete,
+  offlineQueueFail,
+  offlineQueueStats,
+  logHealthMetric,
+  scanForHubs,
+  getLocalIps,
 } from './desktop/tauri-bridge'
 
 // ===================================================================
 // Configuration
 // ===================================================================
 
-const SYNC_INTERVAL_MS = 10_000 // 10 seconds
+const SYNC_INTERVAL_MS = 10_000
 const PULL_BATCH_SIZE = 500
+const WS_RECONNECT_DELAY_MS = 3_000
+const WS_PING_INTERVAL_MS = 30_000
+const OFFLINE_QUEUE_DRAIN_INTERVAL_MS = 5_000
 
 // Tables to sync (master data from hub → terminal)
 const PULL_TABLES = [
-  'Product',
-  'Inventory',
-  'Batch',
-  'Customer',
-  'Category',
-  'Manufacturer',
-  'Vendor',
-  'DosageForm',
-  'User',
-  'SystemRole',
-  'Workstation',
-  'Company',
+  'Product', 'Inventory', 'Batch', 'Customer', 'Category',
+  'Manufacturer', 'Vendor', 'DosageForm', 'User', 'SystemRole',
+  'Workstation', 'Company',
 ]
 
 // Tables that terminals push to the hub
 const PUSH_TABLES = [
-  'Transaction',
-  'TransactionItem',
-  'Return',
-  'Prescription',
-  'AuditLog',
-  'ProductHistory',
-  'StockTake',
-  'StockTakeItem',
-  'HardwareLog',
+  'Transaction', 'TransactionItem', 'Return', 'Prescription',
+  'AuditLog', 'ProductHistory', 'StockTake', 'StockTakeItem', 'HardwareLog',
 ]
 
 // Tables that use delta-based sync (quantity changes)
 const DELTA_TABLES = ['Inventory']
 
-// Local queue for inventory deltas (before push)
+// Local queue for inventory deltas (in-memory, backed by OfflineQueue)
 interface PendingDelta {
   batchId: string
   productId: string
@@ -72,7 +74,7 @@ let pendingDeltas: PendingDelta[] = []
 // State
 // ===================================================================
 
-export type SyncState = 'idle' | 'syncing' | 'error' | 'offline'
+export type SyncState = 'idle' | 'syncing' | 'error' | 'offline' | 'ws_connected' | 'discovering'
 
 let syncState: SyncState = 'idle'
 let hubUrl: string = ''
@@ -84,6 +86,22 @@ let lastError: string | null = null
 let deviceId: string = ''
 let conflicts: SyncConflict[] = []
 
+// WebSocket state
+let wsConnection: WebSocket | null = null
+let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
+let wsPingTimer: ReturnType<typeof setInterval> | null = null
+let wsConnectedAt: string | null = null
+
+// Offline queue drain timer
+let queueDrainTimer: ReturnType<typeof setInterval> | null = null
+
+// Discovered hubs
+let discoveredHubs: DiscoveredHub[] = []
+let localIps: string[] = []
+
+// Offline queue stats
+let queueStats = { total: 0, pending: 0, in_progress: 0, failed: 0, completed: 0, oldest_pending: '', newest: '' }
+
 // Listener callbacks
 const listeners = new Set<(state: SyncState, info: SyncInfo) => void>()
 
@@ -94,7 +112,7 @@ export interface SyncConflict {
   operation: string
   localData: Record<string, unknown>
   hubData: Record<string, unknown>
- detectedAt: string
+  detectedAt: string
   resolved: boolean
   resolution?: 'keep_local' | 'keep_hub'
 }
@@ -109,6 +127,12 @@ export interface SyncInfo {
   lastError: string | null
   platform: string
   conflictCount: number
+  // New fields
+  wsConnected: boolean
+  wsConnectedAt: string | null
+  queueStats: typeof queueStats
+  discoveredHubs: DiscoveredHub[]
+  localIps: string[]
 }
 
 // ===================================================================
@@ -121,23 +145,18 @@ export async function startSync(url?: string): Promise<void> {
 
   if (url) hubUrl = url
 
-  // Load persisted hub URL from Tauri if not provided
   if (!hubUrl) {
     try {
       const { getHubUrl } = await import('./desktop/tauri-bridge')
       const stored = await getHubUrl()
       if (stored) hubUrl = stored
-    } catch {
-      // First run — no URL stored yet
-    }
+    } catch { /* First run */ }
   }
 
-  // Get device ID
-  try {
-    deviceId = await getDeviceId()
-  } catch {
-    deviceId = 'unknown'
-  }
+  try { deviceId = await getDeviceId() } catch { deviceId = 'unknown' }
+
+  // Load local IPs
+  try { localIps = await getLocalIps() } catch { /* ignore */ }
 
   if (!hubUrl) {
     setSyncState('idle')
@@ -147,19 +166,27 @@ export async function startSync(url?: string): Promise<void> {
 
   console.log(`[sync] Starting sync loop to ${hubUrl}`)
 
-  // Run an immediate sync
+  // 1. Restore pending deltas from the persisted offline queue
+  await restoreOfflineQueue()
+
+  // 2. Run an immediate sync
   await runFullSync()
 
-  // Then run periodically
+  // 3. Start periodic HTTP sync
   syncTimer = setInterval(() => runFullSync(), SYNC_INTERVAL_MS)
+
+  // 4. Start WebSocket connection for real-time notifications
+  connectWebSocket()
+
+  // 5. Start offline queue drain timer
+  queueDrainTimer = setInterval(() => drainOfflineQueue(), OFFLINE_QUEUE_DRAIN_INTERVAL_MS)
 }
 
-/** Stop the sync loop. */
+/** Stop the sync loop and WebSocket. */
 export function stopSync(): void {
-  if (syncTimer) {
-    clearInterval(syncTimer)
-    syncTimer = null
-  }
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null }
+  if (queueDrainTimer) { clearInterval(queueDrainTimer); queueDrainTimer = null }
+  disconnectWebSocket()
   setSyncState('idle')
 }
 
@@ -184,6 +211,11 @@ export function getSyncInfo(): SyncInfo {
     lastError,
     platform: isDesktop() ? 'tauri' : 'web',
     conflictCount: conflicts.filter((c) => !c.resolved).length,
+    wsConnected: wsConnection?.readyState === WebSocket.OPEN,
+    wsConnectedAt: wsConnectedAt,
+    queueStats: { ...queueStats },
+    discoveredHubs: [...discoveredHubs],
+    localIps: [...localIps],
   }
 }
 
@@ -215,7 +247,7 @@ export async function resolveConflict(
 
   conflict.resolved = true
   conflict.resolution = resolution
-  setSyncState(syncState) // trigger UI update
+  setSyncState(syncState)
 }
 
 /** Subscribe to sync state changes. */
@@ -233,6 +265,44 @@ export async function manualSync(): Promise<void> {
 }
 
 // ===================================================================
+// mDNS Discovery
+// ===================================================================
+
+/** Scan the LAN for SelRx hubs. */
+export async function discoverHubs(timeoutSecs: number = 3): Promise<DiscoveredHub[]> {
+  if (!isDesktop()) return []
+  setSyncState('discovering')
+  try {
+    discoveredHubs = await scanForHubs(timeoutSecs)
+    setSyncState('idle')
+    return discoveredHubs
+  } catch (err) {
+    setSyncState('idle')
+    console.error('[sync] Hub discovery failed:', err)
+    return []
+  }
+}
+
+/** Get cached discovered hubs. */
+export function getDiscoveredHubs(): DiscoveredHub[] {
+  return [...discoveredHubs]
+}
+
+// ===================================================================
+// Offline Queue
+// ===================================================================
+
+/** Get offline queue statistics. */
+export async function refreshQueueStats(): Promise<typeof queueStats> {
+  if (!isDesktop()) return queueStats
+  try {
+    queueStats = await offlineQueueStats()
+    setSyncState(syncState) // trigger UI update
+  } catch { /* ignore */ }
+  return queueStats
+}
+
+// ===================================================================
 // Internal Implementation
 // ===================================================================
 
@@ -240,14 +310,13 @@ function setSyncState(newState: SyncState): void {
   syncState = newState
   const info = getSyncInfo()
   listeners.forEach((cb) => {
-    try { cb(newState, info) } catch { /* ignore listener errors */ }
+    try { cb(newState, info) } catch { /* ignore */ }
   })
 }
 
 async function runFullSync(): Promise<void> {
   if (!hubUrl || syncState === 'syncing') return
 
-  // Check network connectivity
   if (!navigator.onLine) {
     setSyncState('offline')
     return
@@ -256,6 +325,8 @@ async function runFullSync(): Promise<void> {
   setSyncState('syncing')
 
   try {
+    const syncStart = Date.now()
+
     // 1. Push inventory deltas first (race-condition safe)
     await pushDeltasToHub()
 
@@ -265,14 +336,26 @@ async function runFullSync(): Promise<void> {
     // 3. Pull hub changes
     await pullFromHub()
 
+    const syncDuration = Date.now() - syncStart
     lastSyncAt = new Date().toISOString()
     errorCount = 0
     lastError = null
-    setSyncState('idle')
+
+    // Log latency metric
+    try {
+      await logHealthMetric('sync_cycle', syncDuration, `full_sync_completed`)
+    } catch { /* ignore */ }
+
+    // If WebSocket is not connected, state goes back to idle
+    if (syncState === 'syncing') {
+      setSyncState('idle')
+    }
   } catch (err) {
     errorCount++
     lastError = err instanceof Error ? err.message : String(err)
-    setSyncState('error')
+    if (wsConnection?.readyState !== WebSocket.OPEN) {
+      setSyncState('error')
+    }
     console.error('[sync] Sync failed:', lastError)
   }
 }
@@ -285,11 +368,7 @@ async function pushToHub(): Promise<void> {
 
   if (pending.length === 0) return
 
-  // Filter to only push tables that terminals own
-  const toPush = pending.filter((e) =>
-    PUSH_TABLES.includes(e.table_name)
-  )
-
+  const toPush = pending.filter((e) => PUSH_TABLES.includes(e.table_name))
   if (toPush.length === 0) return
 
   const records = toPush.map((e) => ({
@@ -312,15 +391,20 @@ async function pushToHub(): Promise<void> {
   const result: PushResponse = await res.json()
 
   if (result.applied > 0) {
-    // Mark the applied entries as synced
-    const appliedIds = toPush
-      .slice(0, result.applied)
-      .map((e) => e.id)
+    const appliedIds = toPush.slice(0, result.applied).map((e) => e.id)
     await markSynced(appliedIds)
   }
 
   if (result.failed > 0) {
     console.warn(`[sync] ${result.failed} push failures:`, result.errors)
+  }
+
+  // If push included data changes, notify via WS
+  if (result.pushed_tables?.length && wsConnection?.readyState === WebSocket.OPEN) {
+    wsConnection.send(JSON.stringify({
+      type: 'pull_ack',
+      data: { tables: result.pushed_tables },
+    }))
   }
 }
 
@@ -330,8 +414,7 @@ async function pullFromHub(): Promise<void> {
   for (const table of PULL_TABLES) {
     const since = await getCheckpoint(deviceId, table)
 
-    const url = `${hubUrl}/api/sync/pull`
-    const res = await fetch(url, {
+    const res = await fetch(`${hubUrl}/api/sync/pull`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -349,7 +432,6 @@ async function pullFromHub(): Promise<void> {
     const result: PullResponse = await res.json()
 
     if (result.records.length > 0) {
-      // Apply records locally
       await applyPulledRecords(table, result.records)
     }
 
@@ -358,7 +440,6 @@ async function pullFromHub(): Promise<void> {
     }
 
     if (result.has_more) {
-      // Recursive pull for large changesets
       await pullFromHub()
       return
     }
@@ -369,47 +450,30 @@ async function applyPulledRecords(
   tableName: string,
   records: Record<string, unknown>[]
 ): Promise<void> {
-  const { dbExecute } = await import('./desktop/tauri-bridge')
+  const { dbExecute, dbQuery } = await import('./desktop/tauri-bridge')
 
   for (const record of records) {
     const id = record.id as string
     if (!id) continue
 
     const keys = Object.keys(record)
-    const values = Object.values(record).map((v) =>
-      v === null ? 'NULL' : String(v)
-    )
-    const sets = keys
-      .filter((k) => k !== 'id')
-      .map((k) => `"${k}" = ?`)
-      .join(', ')
+    const values = Object.values(record).map((v) => v === null ? 'NULL' : String(v))
+    const sets = keys.filter((k) => k !== 'id').map((k) => `"${k}" = ?`).join(', ')
     const setValues = values.filter((_, i) => keys[i] !== 'id')
 
-    // Try UPDATE first (record might already exist locally)
     const updateSql = `UPDATE "${tableName}" SET ${sets} WHERE id = ?`
     setValues.push(id as string)
 
     try {
       const result = await dbExecute(updateSql, setValues)
       if (result.affected === 0) {
-        // Record doesn't exist — INSERT it
         const placeholders = keys.map(() => '?').join(', ')
         const colNames = keys.map((k) => `"${k}"`).join(', ')
         const insertSql = `INSERT OR IGNORE INTO "${tableName}" (${colNames}) VALUES (${placeholders})`
         await dbExecute(insertSql, values, tableName, 'INSERT', id, JSON.stringify(record))
-      } else if (result.affected > 0) {
-        // Record was updated — check if there was a local modification
-        // that could be a conflict (local changed data since last pull)
-        const updatedAt = record.updatedAt as string | undefined
-        if (updatedAt) {
-          // Hub wins for master data — no conflict for pull
-          // Conflicts are tracked for user awareness only on manual review
-        }
       }
     } catch (err) {
       console.error(`[sync] Failed to apply ${tableName} ${id}:`, err)
-      // Record as a conflict
-      const { dbQuery } = await import('./desktop/tauri-bridge')
       try {
         const existing = await dbQuery(`SELECT * FROM "${tableName}" WHERE id = ?`, [id])
         if (existing.length > 0) {
@@ -426,9 +490,7 @@ async function applyPulledRecords(
           conflicts.push(newConflict)
           console.warn(`[sync] Conflict detected: ${tableName} ${id}`)
         }
-      } catch {
- // Can't read local — just log the error
-      }
+      } catch { /* can't read local */ }
     }
   }
 }
@@ -437,7 +499,7 @@ async function applyPulledRecords(
 // Delta-based Inventory Sync
 // ===================================================================
 
-/** Queue an inventory delta for sync. Call this when selling/restocking items. */
+/** Queue an inventory delta for sync. Persists to OfflineQueue. */
 export function queueInventoryDelta(
   batchId: string,
   productId: string,
@@ -447,18 +509,21 @@ export function queueInventoryDelta(
 ): void {
   if (!isDesktop()) return
 
-  pendingDeltas.push({
-    batchId,
-    productId,
-    delta,
-    transactionId,
-    reason,
+  const deltaItem: PendingDelta = {
+    batchId, productId, delta, transactionId, reason,
     createdAt: new Date().toISOString(),
+  }
+
+  pendingDeltas.push(deltaItem)
+
+  // Persist to offline queue (survives app restarts)
+  offlineQueuePush('delta', 'Inventory', batchId, JSON.stringify(deltaItem)).catch((err) => {
+    console.error('[sync] Failed to persist delta to offline queue:', err)
   })
 
-  // Keep the queue from growing unbounded (max 1000 pending)
+  // Keep the in-memory queue bounded
   if (pendingDeltas.length > 1000) {
-    console.warn('[sync] Delta queue exceeded 1000, dropping oldest entries')
+    console.warn('[sync] Delta queue exceeded 1000, dropping oldest')
     pendingDeltas = pendingDeltas.slice(-500)
   }
 }
@@ -473,14 +538,10 @@ async function pushDeltasToHub(): Promise<void> {
   const res = await fetch(`${hubUrl}/api/sync/push-delta`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workstation_id: deviceId,
-      deltas: deltasToSend,
-    }),
+    body: JSON.stringify({ workstation_id: deviceId, deltas: deltasToSend }),
   })
 
   if (!res.ok) {
-    // Re-queue the deltas on failure
     pendingDeltas = [...deltasToSend, ...pendingDeltas]
     throw new Error(`Delta push failed: ${res.status} ${await res.text().catch(() => '')}`)
   }
@@ -489,7 +550,6 @@ async function pushDeltasToHub(): Promise<void> {
 
   if (result.flagged?.length > 0) {
     console.warn(`[sync] ${result.flagged.length} inventory flags:`, result.flagged)
-    // Could show these in the UI as warnings
   }
 
   if (result.errors?.length > 0) {
@@ -497,9 +557,257 @@ async function pushDeltasToHub(): Promise<void> {
   }
 
   console.log(`[sync] Pushed ${result.applied} inventory deltas`)
+
+  // Broadcast delta via WebSocket if connected
+  if (wsConnection?.readyState === WebSocket.OPEN) {
+    for (const d of deltasToSend) {
+      wsConnection.send(JSON.stringify({
+        type: 'delta_broadcast',
+        data: {
+          product_id: d.productId,
+          batch_id: d.batchId,
+          delta: d.delta,
+          workstation_id: deviceId,
+          reason: d.reason,
+        },
+      }))
+    }
+  }
 }
 
 /** Get the count of pending inventory deltas. */
 export function getPendingDeltaCount(): number {
   return pendingDeltas.length
+}
+
+// ===================================================================
+// Offline Queue Persistence
+// ===================================================================
+
+/** Restore pending deltas from the SQLite offline queue on startup. */
+async function restoreOfflineQueue(): Promise<void> {
+  try {
+    const items = await offlineQueueGetPending()
+    let restored = 0
+    for (const item of items) {
+      if (item.type === 'delta') {
+        try {
+          const delta = JSON.parse(item.payload) as PendingDelta
+          pendingDeltas.push(delta)
+          restored++
+        } catch { /* skip malformed */ }
+      }
+    }
+    if (restored > 0) {
+      console.log(`[sync] Restored ${restored} pending deltas from offline queue`)
+    }
+
+    // Refresh queue stats
+    await refreshQueueStats()
+  } catch (err) {
+    console.error('[sync] Failed to restore offline queue:', err)
+  }
+}
+
+/** Drain the offline queue — retry pending items. */
+async function drainOfflineQueue(): Promise<void> {
+  if (!hubUrl || !navigator.onLine) return
+
+  try {
+    const items = await offlineQueueGetPending()
+    if (items.length === 0) {
+      await refreshQueueStats()
+      return
+    }
+
+    const completedIds: string[] = []
+    for (const item of items) {
+      try {
+        if (item.type === 'delta') {
+          // Deltas are handled by pushDeltasToHub, but if one is stuck here
+          // try pushing it individually
+          const delta = JSON.parse(item.payload)
+          const res = await fetch(`${hubUrl}/api/sync/push-delta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workstation_id: deviceId, deltas: [delta] }),
+          })
+          if (res.ok) {
+            completedIds.push(item.id)
+          } else {
+            await offlineQueueFail(item.id)
+          }
+        } else if (item.type === 'push_record') {
+          const record = JSON.parse(item.payload)
+          const res = await fetch(`${hubUrl}/api/sync/push`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ records: [record], workstation_id: deviceId }),
+          })
+          if (res.ok) {
+            completedIds.push(item.id)
+          } else {
+            await offlineQueueFail(item.id)
+          }
+        }
+      } catch {
+        await offlineQueueFail(item.id)
+      }
+    }
+
+    if (completedIds.length > 0) {
+      await offlineQueueComplete(completedIds)
+      console.log(`[sync] Drained ${completedIds.length} items from offline queue`)
+    }
+
+    await refreshQueueStats()
+  } catch (err) {
+    console.error('[sync] Offline queue drain error:', err)
+  }
+}
+
+// ===================================================================
+// WebSocket Real-time Sync
+// ===================================================================
+
+/** Connect to the hub's WebSocket endpoint for real-time sync notifications. */
+function connectWebSocket(): void {
+  if (!hubUrl) return
+
+  // Convert http(s) to ws(s)
+  const wsUrl = hubUrl.replace(/^http/, 'ws') + '/ws/sync'
+
+  console.log(`[sync] Connecting WebSocket to ${wsUrl}`)
+
+  try {
+    wsConnection = new WebSocket(wsUrl)
+
+    wsConnection.onopen = () => {
+      console.log('[sync] WebSocket connected')
+      wsConnectedAt = new Date().toISOString()
+
+      // Identify ourselves to the hub
+      wsConnection!.send(JSON.stringify({
+        type: 'identify',
+        data: { workstation_id: deviceId },
+      }))
+
+      // Send periodic pings
+      wsPingTimer = setInterval(() => {
+        if (wsConnection?.readyState === WebSocket.OPEN) {
+          wsConnection.send(JSON.stringify({ type: 'ping' }))
+        }
+      }, WS_PING_INTERVAL_MS)
+
+      if (syncState !== 'syncing') {
+        setSyncState('ws_connected')
+      }
+    }
+
+    wsConnection.onmessage = (event) => {
+      try {
+        const wsEvent: WsEvent = JSON.parse(event.data)
+        handleWsEvent(wsEvent)
+      } catch {
+        // Non-JSON message, ignore
+      }
+    }
+
+    wsConnection.onclose = () => {
+      console.log('[sync] WebSocket disconnected')
+      wsConnectedAt = null
+      if (wsPingTimer) { clearInterval(wsPingTimer); wsPingTimer = null }
+
+      if (syncState === 'ws_connected') {
+        setSyncState('idle')
+      }
+
+      // Auto-reconnect after delay
+      if (hubUrl) {
+        wsReconnectTimer = setTimeout(() => connectWebSocket(), WS_RECONNECT_DELAY_MS)
+      }
+    }
+
+    wsConnection.onerror = () => {
+      console.warn('[sync] WebSocket error')
+    }
+  } catch (err) {
+    console.error('[sync] WebSocket creation failed:', err)
+    // Retry connection later
+    wsReconnectTimer = setTimeout(() => connectWebSocket(), WS_RECONNECT_DELAY_MS)
+  }
+}
+
+/** Disconnect the WebSocket. */
+function disconnectWebSocket(): void {
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null }
+  if (wsPingTimer) { clearInterval(wsPingTimer); wsPingTimer = null }
+  if (wsConnection) {
+    wsConnection.onclose = null // prevent auto-reconnect
+    wsConnection.close()
+    wsConnection = null
+  }
+  wsConnectedAt = null
+}
+
+/** Handle an incoming WebSocket event from the hub. */
+function handleWsEvent(event: WsEvent): void {
+  switch (event.type) {
+    case 'welcome':
+      console.log('[sync] WS welcome:', event.data)
+      break
+
+    case 'data_available': {
+      // Hub has new data — trigger an immediate pull
+      const tables = (event.data?.tables as string[]) || []
+      console.log(`[sync] WS: Data available for ${tables.join(', ')} — pulling now`)
+      // Run pull only (don't re-push, we just pushed)
+      if (hubUrl && navigator.onLine) {
+        pullFromHub().catch((err) => console.error('[sync] WS-triggered pull failed:', err))
+      }
+      break
+    }
+
+    case 'inventory_update': {
+      // Another terminal updated inventory — refresh our local view
+      console.log('[sync] WS: Inventory update from', event.data?.source_workstation)
+      // Pull just inventory
+      if (hubUrl && navigator.onLine) {
+        getCheckpoint(deviceId, 'Inventory').then((since) => {
+          fetch(`${hubUrl}/api/sync/pull`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              table_name: 'Inventory',
+              since: since || '1970-01-01T00:00:00Z',
+              workstation_id: deviceId,
+            }),
+          }).then((res) => res.json()).then((result: PullResponse) => {
+            if (result.records.length > 0) {
+              applyPulledRecords('Inventory', result.records)
+            }
+            if (result.server_timestamp) {
+              setCheckpoint(deviceId, 'Inventory', result.server_timestamp)
+            }
+          }).catch(() => { /* ignore */ })
+        })
+      }
+      break
+    }
+
+    case 'terminal_connected':
+      console.log('[sync] WS: Terminal connected:', event.data?.workstation_id)
+      break
+
+    case 'terminal_disconnected':
+      console.log('[sync] WS: Terminal disconnected:', event.data?.workstation_id)
+      break
+
+    case 'pong':
+      // Heartbeat response — connection is alive
+      break
+
+    default:
+      break
+  }
 }
