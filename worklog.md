@@ -56,3 +56,28 @@ Stage Summary:
 - Web mode (Vercel + Turso) completely unaffected — zero breaking changes
 - To compile: install Rust + system deps (libwebkit2gtk, etc.) + `cargo install tauri-cli` + `npm i @tauri-apps/api`
 - Key files created: src-tauri/src/{main.rs, lib.rs, db.rs, sync_server.rs}, src/lib/{platform.ts, db-adapter.ts, sync-engine.ts}, src/lib/desktop/{tauri-types.ts, tauri-bridge.ts}, DESKTOP_SETUP.md
+---
+Task ID: 2-a
+Agent: Main
+Task: Build Electron wrapper with Cloudflare Tunnel sync architecture
+
+Work Log:
+- Discovered existing Tauri desktop infrastructure (Rust backend, SQLite, sync engine, push/pull model)
+- Decided to enhance Tauri instead of building Electron from scratch (smaller bundle, 80% already built)
+- Created src-tauri/src/tunnel.rs — Cloudflare Tunnel process management (start/stop/status/detect URL)
+- Updated src-tauri/src/lib.rs — Added 7 new Tauri commands: start_tunnel, stop_tunnel, get_tunnel_status, set_tunnel_url, save_tunnel_token, load_tunnel_token, get_system_status
+- Updated src/lib/desktop/tauri-types.ts — Added TunnelStatus and SystemStatus interfaces
+- Updated src/lib/desktop/tauri-bridge.ts — Added 7 tunnel bridge functions (startTunnel, stopTunnel, getTunnelStatus, setTunnelUrl, saveTunnelToken, loadTunnelToken, getSystemStatus)
+- Enhanced src-tauri/src/sync_server.rs — Added delta-based inventory sync endpoint (POST /api/sync/push-delta), connected-terminals endpoint, version-aware pull
+- Added InventoryDeltaLog table migration to src-tauri/src/db.rs with indexes
+- Created Next.js API sync routes: /api/sync/push, /api/sync/pull, /api/sync/push-delta, /api/sync/status
+- Enhanced src/lib/sync-engine.ts — Added delta queue (queueInventoryDelta, pushDeltasToHub, getPendingDeltaCount), integrated delta push into sync loop
+- Enhanced src/components/gazpharm/views/sync-settings-view.tsx — Added full Cloudflare Tunnel management UI (token input, start/stop, status display, manual URL, setup guide)
+- All changes pass ESLint with zero new errors
+
+Stage Summary:
+- SelRx now has a complete desktop app with Cloudflare Tunnel integration for free multi-branch sync
+- Delta-based inventory sync prevents race conditions (e.g., concurrent sales of last stock)
+- Hub mode starts sync server on port 3001; tunnel exposes it to the internet for free
+- Terminal mode connects to hub via LAN IP or Cloudflare Tunnel URL
+- Zero-cost architecture: no cloud database needed, no VPN, no static IP

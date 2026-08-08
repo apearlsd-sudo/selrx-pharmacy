@@ -15,6 +15,10 @@ import {
   Shield,
   AlertTriangle,
   Info,
+  Globe,
+  TowerControl,
+  Power,
+  PowerOff,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -77,6 +81,17 @@ export function SyncSettingsView() {
   const [testing, setTesting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [conflicts, setConflicts] = useState<SyncConflict[]>([])
+
+  // ── Tunnel state ──────────────────────────────────────────────────
+  const [tunnelToken, setTunnelToken] = useState('')
+  const [tunnelStatus, setTunnelStatus] = useState<{
+    running: boolean
+    url: string | null
+    uptime_secs: number
+    cloudflared_installed: boolean
+  } | null>(null)
+  const [tunnelLoading, setTunnelLoading] = useState(false)
+  const [manualUrl, setManualUrl] = useState('')
 
   // ── Persist & listen ───────────────────────────────────────────────
 
@@ -209,6 +224,92 @@ export function SyncSettingsView() {
     navigator.clipboard.writeText(info.deviceId)
     addToast({ title: 'Copied', description: 'Device ID copied to clipboard', variant: 'success' })
   }, [info.deviceId, addToast])
+
+  // ── Tunnel management ─────────────────────────────────────────────
+
+  const loadTunnelState = useCallback(async () => {
+    if (!isDesktop()) return
+    try {
+      const { loadTunnelToken, getTunnelStatus } = await import('@/lib/desktop/tauri-bridge')
+      const token = await loadTunnelToken()
+      if (token) setTunnelToken(token)
+      const status = await getTunnelStatus()
+      setTunnelStatus(status)
+    } catch {
+      // Bridge not available (web mode)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (deviceRole === 'hub') {
+      loadTunnelState()
+    }
+  }, [deviceRole, loadTunnelState])
+
+  const handleStartTunnel = useCallback(async () => {
+    if (!tunnelToken.trim()) {
+      addToast({ title: 'Token Required', description: 'Enter a Cloudflare Tunnel token first', variant: 'destructive' })
+      return
+    }
+    setTunnelLoading(true)
+    try {
+      const { startTunnel, saveTunnelToken } = await import('@/lib/desktop/tauri-bridge')
+      await saveTunnelToken(tunnelToken.trim())
+      const url = await startTunnel(tunnelToken.trim(), 3001)
+      if (url && !url.includes('connecting')) {
+        addToast({ title: 'Tunnel Started', description: `Connected at ${url}`, variant: 'success' })
+      } else {
+        addToast({ title: 'Tunnel Starting', description: 'URL detection in progress...', variant: 'default' })
+      }
+      await loadTunnelState()
+    } catch (err) {
+      addToast({ title: 'Tunnel Error', description: err instanceof Error ? err.message : String(err), variant: 'destructive' })
+    } finally {
+      setTunnelLoading(false)
+    }
+  }, [tunnelToken, addToast, loadTunnelState])
+
+  const handleStopTunnel = useCallback(async () => {
+    setTunnelLoading(true)
+    try {
+      const { stopTunnel } = await import('@/lib/desktop/tauri-bridge')
+      await stopTunnel()
+      addToast({ title: 'Tunnel Stopped', variant: 'success' })
+      await loadTunnelState()
+    } catch (err) {
+      addToast({ title: 'Tunnel Error', description: err instanceof Error ? err.message : String(err), variant: 'destructive' })
+    } finally {
+      setTunnelLoading(false)
+    }
+  }, [addToast, loadTunnelState])
+
+  const handleSetManualUrl = useCallback(async () => {
+    if (!manualUrl.trim()) return
+    try {
+      const { setTunnelUrl } = await import('@/lib/desktop/tauri-bridge')
+      await setTunnelUrl(manualUrl.trim())
+      addToast({ title: 'Tunnel URL Set', description: manualUrl.trim(), variant: 'success' })
+      await loadTunnelState()
+      setManualUrl('')
+    } catch (err) {
+      addToast({ title: 'Error', description: err instanceof Error ? err.message : String(err), variant: 'destructive' })
+    }
+  }, [manualUrl, addToast, loadTunnelState])
+
+  const copyTunnelUrl = useCallback(() => {
+    if (tunnelStatus?.url) {
+      navigator.clipboard.writeText(tunnelStatus.url)
+      addToast({ title: 'Copied', description: 'Tunnel URL copied to clipboard', variant: 'success' })
+    }
+  }, [tunnelStatus?.url, addToast])
+
+  const formatUptime = (secs: number) => {
+    if (secs < 60) return `${secs}s`
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ${secs % 60}s`
+    const h = Math.floor(secs / 3600)
+    const m = Math.floor((secs % 3600) / 60)
+    return `${h}h ${m}m`
+  }
 
   // ── Resolve conflict ──
   const handleResolveConflict = useCallback(async (conflictId: string, resolution: 'keep_local' | 'keep_hub') => {
@@ -556,6 +657,165 @@ export function SyncSettingsView() {
         </Card>
       )}
 
+      {/* ── Cloudflare Tunnel (Hub mode only) ── */}
+      {deviceRole === 'hub' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Globe className="h-4 w-4 text-orange-500" />
+              Cloudflare Tunnel
+              {tunnelStatus?.running && (
+                <Badge className="bg-emerald-100 text-emerald-700 text-[10px] ml-auto">Live</Badge>
+              )}
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Expose your hub to the internet for free. No port forwarding or static IP needed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Tunnel status display */}
+            {tunnelStatus && (
+              <div className={`flex items-center gap-3 rounded-lg border p-3 ${
+                tunnelStatus.running
+                  ? 'border-emerald-200 bg-emerald-50/50'
+                  : 'border-gray-200 bg-gray-50/50'
+              }`}>
+                {tunnelStatus.running ? (
+                  <TowerControl className="h-5 w-5 text-emerald-500 shrink-0" />
+                ) : (
+                  <TowerControl className="h-5 w-5 text-gray-400 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${tunnelStatus.running ? 'text-emerald-700' : 'text-gray-500'}`}>
+                    {tunnelStatus.running ? 'Tunnel Active' : 'Tunnel Inactive'}
+                  </p>
+                  {tunnelStatus.running && tunnelStatus.url && (
+                    <p className="text-xs font-mono text-emerald-600 mt-0.5 flex items-center gap-1">
+                      {tunnelStatus.url}
+                      <button onClick={copyTunnelUrl} className="text-emerald-400 hover:text-emerald-700">
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </p>
+                  )}
+                  {tunnelStatus.running && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Uptime: {formatUptime(tunnelStatus.uptime_secs)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Cloudflared installed check */}
+            {tunnelStatus && !tunnelStatus.cloudflared_installed && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50/50 p-3">
+                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-amber-700">cloudflared not found</p>
+                  <p className="text-[10px] text-amber-600">
+                    Download from{' '}
+                    <span className="underline">cloudflare.com/cloudflare-one/connections/connect-networks/downloads/</span>{' '}
+                    and place the binary next to the app, or add it to your system PATH.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Token input */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Tunnel Token</Label>
+              <Input
+                type="password"
+                value={tunnelToken}
+                onChange={(e) => setTunnelToken(e.target.value)}
+                placeholder="Paste your Cloudflare Tunnel token here"
+                className="h-9 text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Run <code className="bg-muted px-1 py-0.5 rounded font-mono">cloudflared tunnel create selrx-hub</code> to get a token.
+              </p>
+            </div>
+
+            {/* Manual URL input (if auto-detection fails) */}
+            {tunnelStatus?.running && !tunnelStatus?.url && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Manual URL (if auto-detection failed)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={manualUrl}
+                    onChange={(e) => setManualUrl(e.target.value)}
+                    placeholder="https://abc-xyz.trycloudflare.com"
+                    className="h-9 text-xs font-mono"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSetManualUrl()}
+                  />
+                  <Button size="sm" onClick={handleSetManualUrl} className="h-9 shrink-0">
+                    Set
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Start/Stop buttons */}
+            <div className="flex gap-2">
+              {!tunnelStatus?.running ? (
+                <Button
+                  size="sm"
+                  onClick={handleStartTunnel}
+                  disabled={tunnelLoading || !tunnelToken.trim()}
+                  className="gap-2 bg-orange-600 hover:bg-orange-700"
+                >
+                  {tunnelLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                  Start Tunnel
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleStopTunnel}
+                  disabled={tunnelLoading}
+                  className="gap-2"
+                >
+                  {tunnelLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PowerOff className="h-4 w-4" />}
+                  Stop Tunnel
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={loadTunnelState}
+                disabled={tunnelLoading}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh Status
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Setup guide */}
+            <div className="rounded-lg border border-orange-100 bg-orange-50/30 p-4 space-y-3">
+              <p className="text-xs font-semibold text-orange-700 flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5" />
+                Setup Guide
+              </p>
+              <ol className="space-y-1.5 text-xs text-orange-600 list-decimal list-inside">
+                <li>Install <span className="font-semibold">cloudflared</span> on this PC</li>
+                <li>Run <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-[11px]">cloudflared tunnel create selrx-hub</code></li>
+                <li>Copy the token from the output and paste above</li>
+                <li>Click <span className="font-semibold">Start Tunnel</span> — share the URL with terminals</li>
+              </ol>
+              <p className="text-[10px] text-orange-500 mt-2">
+                Terminals enter this tunnel URL as their Hub Connection address.
+                No port forwarding, no VPN, no static IP required. Completely free.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Sync Conflicts ── */}
       {conflicts.length > 0 && (
         <Card>
@@ -659,7 +919,7 @@ export function SyncSettingsView() {
           <div className="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50/30 p-3">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-amber-700">
-              Sync runs automatically every 30 seconds when online. The hub's data always wins in conflicts for master data (products, prices). Transaction data from terminals is never overwritten.
+              Sync runs automatically every 10 seconds when online. Inventory uses delta-based sync (quantity changes, not absolute values) to prevent race conditions. The hub's data wins for master data conflicts.
             </p>
           </div>
         </CardContent>

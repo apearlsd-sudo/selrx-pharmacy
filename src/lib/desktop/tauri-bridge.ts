@@ -6,7 +6,7 @@
  * dynamically imports the Tauri invoke function and caches it.
  */
 
-import type { TauriInvoke, BatchStmt, SyncLogEntry, PullResponse, PushResponse, SyncStatus } from './tauri-types'
+import type { TauriInvoke, BatchStmt, SyncLogEntry, PullResponse, PushResponse, SyncStatus, TunnelStatus, SystemStatus } from './tauri-types'
 
 let _invoke: TauriInvoke | null = null
 let _loadPromise: Promise<TauriInvoke> | null = null
@@ -131,4 +131,52 @@ export async function setDeviceRole(role: string): Promise<string> {
 export async function getHubUrl(): Promise<string | null> {
   const invoke = await loadInvoke()
   return invoke<string | null>('get_hub_url')
+}
+
+// ===================================================================
+// Tunnel Commands (Cloudflare Tunnel)
+// ===================================================================
+
+/** Start the Cloudflare Tunnel with the given token. */
+export async function startTunnel(token: string, localPort?: number): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('start_tunnel', { token, localPort })
+}
+
+/** Stop the Cloudflare Tunnel. */
+export async function stopTunnel(): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('stop_tunnel')
+}
+
+/** Get the current tunnel status. */
+export async function getTunnelStatus(): Promise<TunnelStatus> {
+  const invoke = await loadInvoke()
+  const result = await invoke<string>('get_tunnel_status')
+  return JSON.parse(result)
+}
+
+/** Manually set the tunnel URL (if auto-detection failed). */
+export async function setTunnelUrl(url: string): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('set_tunnel_url', { url })
+}
+
+/** Save tunnel token to persistent storage. */
+export async function saveTunnelToken(token: string): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('save_tunnel_token', { token })
+}
+
+/** Load the persisted tunnel token. */
+export async function loadTunnelToken(): Promise<string | null> {
+  const invoke = await loadInvoke()
+  return invoke<string | null>('load_tunnel_token')
+}
+
+/** Get the full system status (role, sync, tunnel, device info). */
+export async function getSystemStatus(): Promise<SystemStatus> {
+  const invoke = await loadInvoke()
+  const result = await invoke<string>('get_system_status')
+  return JSON.parse(result)
 }

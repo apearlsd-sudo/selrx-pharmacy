@@ -53,6 +53,21 @@ const PUSH_TABLES = [
   'HardwareLog',
 ]
 
+// Tables that use delta-based sync (quantity changes)
+const DELTA_TABLES = ['Inventory']
+
+// Local queue for inventory deltas (before push)
+interface PendingDelta {
+  batchId: string
+  productId: string
+  delta: number
+  transactionId: string
+  reason: string
+  createdAt: string
+}
+
+let pendingDeltas: PendingDelta[] = []
+
 // ===================================================================
 // State
 // ===================================================================
@@ -241,10 +256,13 @@ async function runFullSync(): Promise<void> {
   setSyncState('syncing')
 
   try {
-    // 1. Push local changes to hub
+    // 1. Push inventory deltas first (race-condition safe)
+    await pushDeltasToHub()
+
+    // 2. Push local changes to hub
     await pushToHub()
 
-    // 2. Pull hub changes
+    // 3. Pull hub changes
     await pullFromHub()
 
     lastSyncAt = new Date().toISOString()
@@ -413,4 +431,75 @@ async function applyPulledRecords(
       }
     }
   }
+}
+
+// ===================================================================
+// Delta-based Inventory Sync
+// ===================================================================
+
+/** Queue an inventory delta for sync. Call this when selling/restocking items. */
+export function queueInventoryDelta(
+  batchId: string,
+  productId: string,
+  delta: number,
+  transactionId: string,
+  reason: string = 'sale'
+): void {
+  if (!isDesktop()) return
+
+  pendingDeltas.push({
+    batchId,
+    productId,
+    delta,
+    transactionId,
+    reason,
+    createdAt: new Date().toISOString(),
+  })
+
+  // Keep the queue from growing unbounded (max 1000 pending)
+  if (pendingDeltas.length > 1000) {
+    console.warn('[sync] Delta queue exceeded 1000, dropping oldest entries')
+    pendingDeltas = pendingDeltas.slice(-500)
+  }
+}
+
+/** Push inventory deltas to the hub (race-condition safe). */
+async function pushDeltasToHub(): Promise<void> {
+  if (pendingDeltas.length === 0) return
+
+  const deltasToSend = [...pendingDeltas]
+  pendingDeltas = []
+
+  const res = await fetch(`${hubUrl}/api/sync/push-delta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workstation_id: deviceId,
+      deltas: deltasToSend,
+    }),
+  })
+
+  if (!res.ok) {
+    // Re-queue the deltas on failure
+    pendingDeltas = [...deltasToSend, ...pendingDeltas]
+    throw new Error(`Delta push failed: ${res.status} ${await res.text().catch(() => '')}`)
+  }
+
+  const result = await res.json()
+
+  if (result.flagged?.length > 0) {
+    console.warn(`[sync] ${result.flagged.length} inventory flags:`, result.flagged)
+    // Could show these in the UI as warnings
+  }
+
+  if (result.errors?.length > 0) {
+    console.warn(`[sync] ${result.errors.length} delta errors:`, result.errors)
+  }
+
+  console.log(`[sync] Pushed ${result.applied} inventory deltas`)
+}
+
+/** Get the count of pending inventory deltas. */
+export function getPendingDeltaCount(): number {
+  return pendingDeltas.length
 }

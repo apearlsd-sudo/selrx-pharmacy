@@ -438,6 +438,31 @@ impl DbState {
                 "key" TEXT NOT NULL PRIMARY KEY,
                 "value" TEXT NOT NULL
             );
+
+            -- ================================================================
+            -- INVENTORY DELTA LOG (delta-based sync for race-condition safety)
+            -- ================================================================
+
+            -- Tracks every inventory quantity change with deltas
+            -- This prevents race conditions when multiple terminals sell the same item
+            CREATE TABLE IF NOT EXISTS "InventoryDeltaLog" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "batchId" TEXT NOT NULL REFERENCES "Inventory"("batchId"),
+                "productId" TEXT NOT NULL,
+                "delta" INTEGER NOT NULL,
+                "currentQty" INTEGER NOT NULL,
+                "newQty" INTEGER NOT NULL,
+                "reason" TEXT NOT NULL,
+                "workstationId" TEXT NOT NULL,
+                "transactionId" TEXT NOT NULL,
+                "createdAt" TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS "idx_delta_log_batch"
+                ON "InventoryDeltaLog"("batchId", "createdAt");
+
+            CREATE INDEX IF NOT EXISTS "idx_delta_log_product"
+                ON "InventoryDeltaLog"("productId", "createdAt");
             "#,
         )
         .map_err(|e| format!("Migration failed: {}", e))?;

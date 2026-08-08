@@ -51,3 +51,25 @@ export interface DeviceRole {
   Terminal: 'Terminal'
   Hub: 'Hub'
 }
+
+// ===================================================================
+// Tunnel types (Cloudflare Tunnel)
+// ===================================================================
+
+export interface TunnelStatus {
+  running: boolean
+  url: string | null
+  uptime_secs: number
+  cloudflared_installed: boolean
+}
+
+export interface SystemStatus {
+  device_id: string
+  db_path: string
+  app_dir: string
+  role: 'hub' | 'terminal'
+  hub_url: string | null
+  sync_port: number
+  pending_syncs: number
+  tunnel: TunnelStatus
+}
