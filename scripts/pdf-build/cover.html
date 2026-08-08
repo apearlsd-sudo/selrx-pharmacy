@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --c-bg: #f0f0ef;
+    --c-accent: #375ccb;
+    --c-accent-muted: #5a73d6;
+    --c-text: #272623;
+    --c-muted: #807d76;
+    --c-mid: #6b6141;
+    --c-surface: #ecebe8;
+    --c-border: #c6c1b0;
+    --c-icon: #998957;
+  }
+
+  @page {
+    size: 794px 1123px;
+    margin: 0;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 794px;
+    height: 1123px;
+    background: var(--c-bg);
+    font-family: 'Inter', 'Liberation Sans', sans-serif;
+  }
+
+  .cover {
+    position: relative;
+    width: 794px;
+    height: 1123px;
+    background: var(--c-bg);
+  }
+
+  /* Layer 1 - Background */
+  .cover-bg-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .grid-pattern {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(39, 38, 35, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(39, 38, 35, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .accent-block {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 45%;
+    height: 30%;
+    background: linear-gradient(135deg, var(--c-accent) 0%, var(--c-accent-muted) 100%);
+    opacity: 0.05;
+  }
+
+  /* Layer 2 - Structure */
+  .cover-structure {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .anchor-line {
+    position: absolute;
+    left: 75px;
+    top: 112px;
+    bottom: 112px;
+    width: 6px;
+    background: var(--c-accent);
+    border-radius: 3px;
+  }
+
+  /* Layer 3 - Content */
+  .cover-content {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+  }
+
+  .kicker {
+    position: absolute;
+    top: 168px;
+    left: 135px;
+    max-width: 520px;
+    font-size: 11pt;
+    font-weight: 500;
+    letter-spacing: 3pt;
+    text-transform: uppercase;
+    color: var(--c-muted);
+    opacity: 0.7;
+    line-height: 1.4;
+  }
+
+  .hero-title {
+    position: absolute;
+    top: 320px;
+    left: 135px;
+    max-width: 440px;
+    font-family: 'Playfair Display', serif;
+    font-size: 50pt;
+    font-weight: 900;
+    color: var(--c-text);
+    line-height: 1.15;
+    letter-spacing: -0.5pt;
+  }
+
+  .summary {
+    position: absolute;
+    top: 580px;
+    left: 135px;
+    max-width: 440px;
+    font-size: 13pt;
+    font-weight: 400;
+    color: var(--c-text);
+    opacity: 0.75;
+    line-height: 1.7;
+  }
+
+  .meta-block {
+    position: absolute;
+    top: 770px;
+    left: 135px;
+    max-width: 440px;
+  }
+
+  .meta-line {
+    font-size: 11pt;
+    font-weight: 400;
+    color: var(--c-muted);
+    line-height: 2.0;
+    letter-spacing: 0.3pt;
+  }
+
+  .meta-line strong {
+    color: var(--c-text);
+    font-weight: 600;
+  }
+
+  /* Right side stat column */
+  .stat-group {
+    position: absolute;
+    top: 320px;
+    right: 55px;
+    width: 155px;
+  }
+
+  .stat-box {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--c-surface);
+    border-left: 3px solid var(--c-accent);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .stat-number {
+    font-size: 24pt;
+    font-weight: 900;
+    color: var(--c-accent);
+    line-height: 1.1;
+  }
+
+  .stat-label {
+    font-size: 7.5pt;
+    font-weight: 500;
+    letter-spacing: 1.2pt;
+    text-transform: uppercase;
+    color: var(--c-muted);
+    margin-top: 3px;
+    line-height: 1.3;
+  }
+
+  .footer-tag {
+    position: absolute;
+    bottom: 60px;
+    left: 135px;
+    font-size: 9pt;
+    font-weight: 500;
+    letter-spacing: 2.5pt;
+    text-transform: uppercase;
+    color: var(--c-muted);
+    opacity: 0.5;
+  }
+
+  @media screen {
+    .cover {
+      transform-origin: top left;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="cover">
+  <!-- Layer 1: Background -->
+  <div class="cover-bg-layer">
+    <div class="grid-pattern"></div>
+    <div class="accent-block"></div>
+  </div>
+
+  <!-- Layer 2: Structure -->
+  <div class="cover-structure">
+    <div class="anchor-line"></div>
+  </div>
+
+  <!-- Layer 3: Content -->
+  <div class="cover-content">
+    <div class="kicker">Competitive Landscape Analysis</div>
+
+    <div class="hero-title">SelRx vs.<br>Market Leaders</div>
+
+    <div class="summary">
+      A comprehensive analysis comparing SelRx Pharmacy POS against eight leading POS and pharmacy management systems across Africa and global markets, evaluating feature depth, pricing architecture, and strategic positioning.
+    </div>
+
+    <div class="stat-group">
+      <div class="stat-box">
+        <div class="stat-number">8</div>
+        <div class="stat-label">Competitors Analyzed</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">70%</div>
+        <div class="stat-label">Avg. TCO Advantage</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">16</div>
+        <div class="stat-label">African Currencies</div>
+      </div>
+    </div>
+
+    <div class="meta-block">
+      <div class="meta-line"><strong>Prepared by</strong> &nbsp; SelRx Product Strategy Team</div>
+      <div class="meta-line"><strong>Date</strong> &nbsp; August 2026</div>
+      <div class="meta-line"><strong>Scope</strong> &nbsp; 8 Competitors, 6 Markets, 50+ Features</div>
+    </div>
+
+    <div class="footer-tag">SelRx Product Strategy &nbsp; | &nbsp; August 2026</div>
+  </div>
+</div>
+</body>
+</html>
