@@ -22,6 +22,7 @@ export type ViewName =
   | 'stock-take'
   | 'stock-take-report'
   | 'advanced-reports'
+  | 'drug-interactions'
 
 export type PaymentMethodType =
   | 'CASH'

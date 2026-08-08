@@ -24,6 +24,7 @@ import {
   Clock,
   AlertTriangle,
   PackageX,
+  ShieldCheck,
   Clock as ClockIcon,
   Monitor,
   ChevronDown,
@@ -68,6 +69,7 @@ import { ProductSalesAnalytics } from '@/components/gazpharm/views/product-sales
 import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section'
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import { SettingsHubView } from '@/components/gazpharm/views/settings-hub-view'
+import { DrugInteractionsView } from '@/components/gazpharm/views/drug-interactions-view'
 
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
@@ -131,6 +133,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory:stocktake' },
   { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos:history' },
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
+  { name: 'drug-interactions', label: 'Drug Interactions', icon: ShieldCheck, permission: 'prescriptions:view' },
   { name: 'settings', label: 'Settings', icon: Settings, permission: 'pos:sell' },
 ]
 
@@ -571,6 +574,7 @@ export default function Home() {
       case 'advanced-reports': return <AdvancedReportsView />
       case 'sales-history': return <SalesHistoryView />
       case 'returns': return <GoodsReturnView />
+      case 'drug-interactions': return <DrugInteractionsView />
       case 'master-data': return <MasterDataView />
       case 'product-sales-analytics': return <ProductSalesAnalytics />
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>

@@ -37,7 +37,8 @@ import {
 import { useAppStore, type CartItem, type PaymentMethodType } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency, currencySymbol } from '@/lib/currency'
-import { checkDrugInteractions, getSeverityColor, getSeverityLabel, type DrugInteraction } from '@/lib/drug-interactions'
+import { checkDrugInteractions as checkLocalInteractions, getSeverityColor as getLocalSeverityColor, getSeverityLabel as getLocalSeverityLabel, type DrugInteraction } from '@/lib/drug-interactions'
+import { AlertCircle, Copy, ShieldAlert } from 'lucide-react'
 import { POS_SHORTCUTS, matchesShortcut, formatShortcut } from '@/lib/keyboard-shortcuts'
 import { ReceiptModal } from './receipt-modal'
 import { NewReturnDialog } from './new-return-dialog'
@@ -97,6 +98,10 @@ export function POSView() {
   const [interactionWarnings, setInteractionWarnings] = useState<DrugInteraction[]>([])
   const [showInteractionDialog, setShowInteractionDialog] = useState(false)
   const [pendingAddProduct, setPendingAddProduct] = useState<Product | null>(null)
+  const [cartInteractions, setCartInteractions] = useState<any[]>([])
+  const [cartAllergyAlerts, setCartAllergyAlerts] = useState<Array<{drug: string; allergen: string}>>([])
+  const [cartDuplicates, setCartDuplicates] = useState<Array<{drugClass: string; drugs: string[]}>>([])
+  const [checkingInteractions, setCheckingInteractions] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
@@ -289,15 +294,80 @@ export function POSView() {
     return () => clearInterval(interval)
   }, [searchQuery, activeCategory, searchProducts])
 
+  const checkCartInteractions = useCallback(async () => {
+    if (cart.length < 2) {
+      setCartInteractions([])
+      setCartAllergyAlerts([])
+      setCartDuplicates([])
+      return
+    }
+    setCheckingInteractions(true)
+    try {
+      const drugs = cart.map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        genericName: (item.product as any).genericName || item.product.name,
+      }))
+      const allergies = selectedCustomer?.allergies
+        ? selectedCustomer.allergies.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : []
+
+      const res = await fetch('/api/drug-interactions?action=check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ drugs, allergies }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setCartInteractions(data.interactions || [])
+        setCartAllergyAlerts(data.allergyAlerts || [])
+        setCartDuplicates(data.duplicates || [])
+      }
+    } catch {
+      // Fallback to local check
+      const generics = cart.map((i) => (i.product as any).genericName).filter(Boolean) as string[]
+      const localResults: DrugInteraction[] = []
+      for (let i = 0; i < cart.length; i++) {
+        const existing = generics.slice(0, i)
+        const found = checkLocalInteractions(generics[i], existing)
+        localResults.push(...found)
+      }
+      setCartInteractions(localResults)
+    } finally {
+      setCheckingInteractions(false)
+    }
+  }, [cart, selectedCustomer])
+
+  // Auto-recheck when cart or customer changes
+  useEffect(() => {
+    const timer = setTimeout(checkCartInteractions, 300)
+    return () => clearTimeout(timer)
+  }, [cart, selectedCustomer, checkCartInteractions])
+
+  const getApiSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'contraindicated': return 'bg-red-600 text-white'
+      case 'critical': return 'bg-red-100 text-red-800 border-red-200'
+      case 'severe': return 'bg-orange-100 text-orange-800 border-orange-200'
+      case 'moderate': return 'bg-amber-100 text-amber-800 border-amber-200'
+      case 'mild': return 'bg-blue-100 text-blue-800 border-blue-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getApiSeverityLabel = (severity: string) => {
+    return severity.charAt(0).toUpperCase() + severity.slice(1)
+  }
+
   const handleAddToCart = (product: Product) => {
-    // Drug interaction check
+    // Quick local check for immediate dialog feedback
     const existingGenerics = cart
       .map((item) => (item.product as any).genericName)
       .filter(Boolean) as string[]
-    const interactions = checkDrugInteractions((product as any).genericName, existingGenerics)
+    const localInteractions = checkLocalInteractions((product as any).genericName, existingGenerics)
 
-    if (interactions.length > 0) {
-      setInteractionWarnings(interactions)
+    if (localInteractions.length > 0) {
+      setInteractionWarnings(localInteractions)
       setPendingAddProduct(product)
       setShowInteractionDialog(true)
       return
@@ -745,6 +815,46 @@ export function POSView() {
 
               <Separator />
 
+              {/* Persistent Drug Interaction Warnings */}
+              {(cartInteractions.length > 0 || cartAllergyAlerts.length > 0 || cartDuplicates.length > 0) && (
+                <div className="px-3 py-2.5 space-y-2 border-b border-amber-200 bg-amber-50/50">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                    {checkingInteractions ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+                    Interaction Alerts ({cartInteractions.length + cartAllergyAlerts.length + cartDuplicates.length})
+                  </div>
+                  {cartInteractions.slice(0, 3).map((int: any, i: number) => (
+                    <div key={`int-${i}`} className={`rounded-md border p-2 text-[11px] ${getApiSeverityColor(int.severity)}`}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="font-semibold">{getApiSeverityLabel(int.severity)}</span>
+                        <span className="font-mono opacity-70">{int.drug1} + {int.drug2}</span>
+                      </div>
+                      <p className="opacity-90">{int.description}</p>
+                    </div>
+                  ))}
+                  {cartAllergyAlerts.length > 0 && (
+                    <div className="rounded-md border p-2 text-[11px] bg-red-50 text-red-800 border-red-200">
+                      <div className="flex items-center gap-1 mb-0.5"><ShieldAlert className="h-3 w-3" /><span className="font-semibold">Allergy Alert</span></div>
+                      {cartAllergyAlerts.slice(0, 2).map((a, i) => (
+                        <p key={i} className="opacity-90">{a.drug} — patient allergy: {a.allergen}</p>
+                      ))}
+                    </div>
+                  )}
+                  {cartDuplicates.length > 0 && (
+                    <div className="rounded-md border p-2 text-[11px] bg-purple-50 text-purple-800 border-purple-200">
+                      <div className="flex items-center gap-1 mb-0.5"><Copy className="h-3 w-3" /><span className="font-semibold">Duplicate Therapy</span></div>
+                      {cartDuplicates.slice(0, 2).map((d, i) => (
+                        <p key={i} className="opacity-90">{d.drugClass}: {d.drugs.join(', ')}</p>
+                      ))}
+                    </div>
+                  )}
+                  {(cartInteractions.length > 3 || cartAllergyAlerts.length > 2 || cartDuplicates.length > 2) && (
+                    <button onClick={checkCartInteractions} className="text-[10px] text-amber-700 underline hover:no-underline">
+                      +{(cartInteractions.length - 3) + (cartAllergyAlerts.length - 2) + Math.max(0, cartDuplicates.length - 2)} more — click to recheck
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Cart Items */}
               <div className="max-h-[260px] overflow-y-auto">
                 {cart.length === 0 ? (
@@ -1067,19 +1177,21 @@ export function POSView() {
               Potential drug interactions detected. Review with the pharmacist before proceeding.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-3 max-h-72 overflow-y-auto">
             {interactionWarnings.map((interaction, i) => (
-              <div key={i} className={`rounded-lg border p-3 ${getSeverityColor(interaction.severity)}`}>
+              <div key={i} className={`rounded-lg border p-3 ${getLocalSeverityColor(interaction.severity)}`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold uppercase tracking-wider">
-                    {getSeverityLabel(interaction.severity)}
+                    {getLocalSeverityLabel(interaction.severity)}
                   </span>
                   <span className="text-xs font-mono">
                     {interaction.drug1} + {interaction.drug2}
                   </span>
                 </div>
                 <p className="text-sm font-medium">{interaction.description}</p>
-                <p className="text-xs mt-1 opacity-80">{interaction.recommendation}</p>
+                {interaction.recommendation && (
+                  <p className="text-xs mt-1 opacity-80">{interaction.recommendation}</p>
+                )}
               </div>
             ))}
           </div>
