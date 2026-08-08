@@ -103,7 +103,7 @@ export function SyncHealthDashboard({ hubUrl }: { hubUrl: string | null }) {
 
   return (
     <div className="space-y-4">
-      {/* Header */
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-emerald-500" />
