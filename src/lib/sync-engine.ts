@@ -10,6 +10,9 @@
  * - Offline queue persistence (survives app restarts)
  * - Delta-based inventory sync (race-condition safe)
  * - mDNS auto-discovery for LAN hubs
+ * - Online/offline event listeners for instant state transitions
+ * - Fetch timeouts to prevent hanging on unreachable hub
+ * - Exponential backoff on WebSocket reconnection
  *
  * This module is a NO-OP on web.
  */
@@ -30,6 +33,7 @@ import {
   logHealthMetric,
   scanForHubs,
   getLocalIps,
+  setHubUrl as persistHubUrl,
 } from './desktop/tauri-bridge'
 
 // ===================================================================
@@ -37,10 +41,13 @@ import {
 // ===================================================================
 
 const SYNC_INTERVAL_MS = 10_000
-const PULL_BATCH_SIZE = 500
-const WS_RECONNECT_DELAY_MS = 3_000
+const WS_BASE_RECONNECT_DELAY_MS = 3_000
+const WS_MAX_RECONNECT_DELAY_MS = 60_000
 const WS_PING_INTERVAL_MS = 30_000
 const OFFLINE_QUEUE_DRAIN_INTERVAL_MS = 5_000
+const FETCH_TIMEOUT_MS = 15_000
+const MAX_PULL_RECURSION_DEPTH = 10
+const MAX_CONFLICTS = 200
 
 // Tables to sync (master data from hub → terminal)
 const PULL_TABLES = [
@@ -91,6 +98,7 @@ let wsConnection: WebSocket | null = null
 let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
 let wsPingTimer: ReturnType<typeof setInterval> | null = null
 let wsConnectedAt: string | null = null
+let wsReconnectAttempt = 0
 
 // Offline queue drain timer
 let queueDrainTimer: ReturnType<typeof setInterval> | null = null
@@ -104,6 +112,9 @@ let queueStats = { total: 0, pending: 0, in_progress: 0, failed: 0, completed: 0
 
 // Listener callbacks
 const listeners = new Set<(state: SyncState, info: SyncInfo) => void>()
+
+// Track whether online/offline listeners are registered
+let networkListenersRegistered = false
 
 export interface SyncConflict {
   id: string
@@ -127,7 +138,6 @@ export interface SyncInfo {
   lastError: string | null
   platform: string
   conflictCount: number
-  // New fields
   wsConnected: boolean
   wsConnectedAt: string | null
   queueStats: typeof queueStats
@@ -158,6 +168,12 @@ export async function startSync(url?: string): Promise<void> {
   // Load local IPs
   try { localIps = await getLocalIps() } catch { /* ignore */ }
 
+  // Register online/offline event listeners (once)
+  if (!networkListenersRegistered) {
+    registerNetworkListeners()
+    networkListenersRegistered = true
+  }
+
   if (!hubUrl) {
     setSyncState('idle')
     console.warn('[sync] No hub URL configured. Sync is paused.')
@@ -176,6 +192,7 @@ export async function startSync(url?: string): Promise<void> {
   syncTimer = setInterval(() => runFullSync(), SYNC_INTERVAL_MS)
 
   // 4. Start WebSocket connection for real-time notifications
+   wsReconnectAttempt = 0
   connectWebSocket()
 
   // 5. Start offline queue drain timer
@@ -190,12 +207,20 @@ export function stopSync(): void {
   setSyncState('idle')
 }
 
-/** Configure the hub URL (called from settings UI). */
-export function setHubUrl(url: string): void {
+/** Configure the hub URL (called from settings UI). Persists to disk. */
+export async function setHubUrl(url: string): Promise<void> {
   hubUrl = url
+
+  // Persist so it survives app restarts
+  try {
+    await persistHubUrl(url)
+  } catch {
+    console.warn('[sync] Could not persist hub URL to disk')
+  }
+
   if (syncTimer) {
     stopSync()
-    startSync(url)
+    await startSync(url)
   }
 }
 
@@ -230,7 +255,7 @@ export function getSyncConflicts(): SyncConflict[] {
 /** Resolve a conflict by choosing which version to keep. */
 export async function resolveConflict(
   conflictId: string,
-  resolution: 'keep_local' | 'keep_hub'
+  resolution: 'keep_local' | 'keep_hub',
 ): Promise<void> {
   const conflict = conflicts.find((c) => c.id === conflictId)
   if (!conflict) return
@@ -239,7 +264,9 @@ export async function resolveConflict(
     const { dbExecute } = await import('./desktop/tauri-bridge')
     const data = resolution === 'keep_hub' ? conflict.hubData : conflict.localData
     const keys = Object.keys(data).filter((k) => k !== 'id')
-    const values = Object.values(data).filter((_, i) => !['id'].includes(Object.keys(data)[i])).map((v) => (v === null ? 'NULL' : String(v)))
+    const values = Object.values(data)
+      .filter((_, i) => !['id'].includes(Object.keys(data)[i]))
+      .map((v) => (v === null ? 'NULL' : String(v)))
     const sets = keys.map((k) => `"${k}" = ?`).join(', ')
     values.push(conflict.recordId)
     await dbExecute(`UPDATE "${conflict.tableName}" SET ${sets} WHERE id = ?`, values)
@@ -252,7 +279,7 @@ export async function resolveConflict(
 
 /** Subscribe to sync state changes. */
 export function onSyncStateChange(
-  callback: (state: SyncState, info: SyncInfo) => void
+  callback: (state: SyncState, info: SyncInfo) => void,
 ): () => void {
   listeners.add(callback)
   return () => listeners.delete(callback)
@@ -303,6 +330,32 @@ export async function refreshQueueStats(): Promise<typeof queueStats> {
 }
 
 // ===================================================================
+// Network Event Listeners (online/offline)
+// ===================================================================
+
+function registerNetworkListeners(): void {
+  if (typeof window === 'undefined') return
+
+  window.addEventListener('online', () => {
+    console.log('[sync] Network came online — triggering immediate sync')
+    setSyncState('idle')
+    // Immediately try to sync and drain queue
+    runFullSync().catch((err) => console.error('[sync] Post-online sync failed:', err))
+    drainOfflineQueue().catch(() => {})
+    // Reset WS reconnect backoff since network is back
+    wsReconnectAttempt = 0
+    connectWebSocket()
+  })
+
+  window.addEventListener('offline', () => {
+    console.log('[sync] Network went offline')
+    setSyncState('offline')
+    // Stop WebSocket — it will reconnect when back online
+    disconnectWebSocket()
+  })
+}
+
+// ===================================================================
 // Internal Implementation
 // ===================================================================
 
@@ -311,6 +364,14 @@ function setSyncState(newState: SyncState): void {
   const info = getSyncInfo()
   listeners.forEach((cb) => {
     try { cb(newState, info) } catch { /* ignore */ }
+  })
+}
+
+/** Helper: fetch with timeout to prevent hanging on unreachable hub. */
+function syncFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   })
 }
 
@@ -333,8 +394,8 @@ async function runFullSync(): Promise<void> {
     // 2. Push local changes to hub
     await pushToHub()
 
-    // 3. Pull hub changes
-    await pullFromHub()
+    // 3. Pull hub changes (with recursion guard)
+    await pullFromHub(0)
 
     const syncDuration = Date.now() - syncStart
     lastSyncAt = new Date().toISOString()
@@ -348,7 +409,7 @@ async function runFullSync(): Promise<void> {
 
     // If WebSocket is not connected, state goes back to idle
     if (syncState === 'syncing') {
-      setSyncState('idle')
+      setSyncState(wsConnection?.readyState === WebSocket.OPEN ? 'ws_connected' : 'idle')
     }
   } catch (err) {
     errorCount++
@@ -378,7 +439,7 @@ async function pushToHub(): Promise<void> {
     data: JSON.parse(e.data),
   }))
 
-  const res = await fetch(`${hubUrl}/api/sync/push`, {
+  const res = await syncFetch(`${hubUrl}/api/sync/push`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ records, workstation_id: deviceId }),
@@ -408,13 +469,13 @@ async function pushToHub(): Promise<void> {
   }
 }
 
-// ---- PULL: Get hub changes ----
+// ---- PULL: Get hub changes (with recursion guard) ----
 
-async function pullFromHub(): Promise<void> {
+async function pullFromHub(depth: number = 0): Promise<void> {
   for (const table of PULL_TABLES) {
     const since = await getCheckpoint(deviceId, table)
 
-    const res = await fetch(`${hubUrl}/api/sync/pull`, {
+    const res = await syncFetch(`${hubUrl}/api/sync/pull`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -439,16 +500,18 @@ async function pullFromHub(): Promise<void> {
       await setCheckpoint(deviceId, table, result.server_timestamp)
     }
 
-    if (result.has_more) {
-      await pullFromHub()
+    if (result.has_more && depth < MAX_PULL_RECURSION_DEPTH) {
+      await pullFromHub(depth + 1)
       return
+    } else if (result.has_more) {
+    console.warn(`[sync] Pull recursion depth exceeded (${MAX_PULL_RECURSION_DEPTH}) for ${table}`)
     }
   }
 }
 
 async function applyPulledRecords(
   tableName: string,
-  records: Record<string, unknown>[]
+  records: Record<string, unknown>[],
 ): Promise<void> {
   const { dbExecute, dbQuery } = await import('./desktop/tauri-bridge')
 
@@ -457,7 +520,7 @@ async function applyPulledRecords(
     if (!id) continue
 
     const keys = Object.keys(record)
-    const values = Object.values(record).map((v) => v === null ? 'NULL' : String(v))
+    const values = Object.values(record).map((v) => (v === null ? 'NULL' : String(v)))
     const sets = keys.filter((k) => k !== 'id').map((k) => `"${k}" = ?`).join(', ')
     const setValues = values.filter((_, i) => keys[i] !== 'id')
 
@@ -477,6 +540,10 @@ async function applyPulledRecords(
       try {
         const existing = await dbQuery(`SELECT * FROM "${tableName}" WHERE id = ?`, [id])
         if (existing.length > 0) {
+          // Cap conflict list to prevent unbounded memory growth
+          if (conflicts.length >= MAX_CONFLICTS) {
+            conflicts = conflicts.filter((c) => !c.resolved).slice(-MAX_CONFLICTS / 2)
+          }
           const newConflict: SyncConflict = {
             id: crypto.randomUUID(),
             tableName,
@@ -505,7 +572,7 @@ export function queueInventoryDelta(
   productId: string,
   delta: number,
   transactionId: string,
-  reason: string = 'sale'
+  reason: string = 'sale',
 ): void {
   if (!isDesktop()) return
 
@@ -535,43 +602,52 @@ async function pushDeltasToHub(): Promise<void> {
   const deltasToSend = [...pendingDeltas]
   pendingDeltas = []
 
-  const res = await fetch(`${hubUrl}/api/sync/push-delta`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ workstation_id: deviceId, deltas: deltasToSend }),
-  })
+  try {
+    const res = await syncFetch(`${hubUrl}/api/sync/push-delta`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workstation_id: deviceId, deltas: deltasToSend }),
+    })
 
-  if (!res.ok) {
-    pendingDeltas = [...deltasToSend, ...pendingDeltas]
-    throw new Error(`Delta push failed: ${res.status} ${await res.text().catch(() => '')}`)
-  }
-
-  const result = await res.json()
-
-  if (result.flagged?.length > 0) {
-    console.warn(`[sync] ${result.flagged.length} inventory flags:`, result.flagged)
-  }
-
-  if (result.errors?.length > 0) {
-    console.warn(`[sync] ${result.errors.length} delta errors:`, result.errors)
-  }
-
-  console.log(`[sync] Pushed ${result.applied} inventory deltas`)
-
-  // Broadcast delta via WebSocket if connected
-  if (wsConnection?.readyState === WebSocket.OPEN) {
-    for (const d of deltasToSend) {
-      wsConnection.send(JSON.stringify({
-        type: 'delta_broadcast',
-        data: {
-          product_id: d.productId,
-          batch_id: d.batchId,
-          delta: d.delta,
-          workstation_id: deviceId,
-          reason: d.reason,
-        },
-      }))
+    if (!res.ok) {
+      // Restore deltas to the front of the queue
+      pendingDeltas = [...deltasToSend, ...pendingDeltas]
+      throw new Error(`Delta push failed: ${res.status} ${await res.text().catch(() => '')}`)
     }
+
+    const result = await res.json()
+
+    if (result.flagged?.length > 0) {
+      console.warn(`[sync] ${result.flagged.length} inventory flags:`, result.flagged)
+    }
+
+    if (result.errors?.length > 0) {
+      console.warn(`[sync] ${result.errors.length} delta errors:`, result.errors)
+    }
+
+    console.log(`[sync] Pushed ${result.applied} inventory deltas`)
+
+    // Broadcast delta via WebSocket if connected
+    if (wsConnection?.readyState === WebSocket.OPEN) {
+      for (const d of deltasToSend) {
+        wsConnection.send(JSON.stringify({
+          type: 'delta_broadcast',
+          data: {
+            product_id: d.productId,
+            batch_id: d.batchId,
+            delta: d.delta,
+            workstation_id: deviceId,
+            reason: d.reason,
+          },
+        }))
+      }
+    }
+  } catch (err) {
+    // If it was a timeout/abort, deltas are already restored above
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new Error(`Delta push timed out after ${FETCH_TIMEOUT_MS}ms`)
+    }
+    throw err
   }
 }
 
@@ -588,18 +664,27 @@ export function getPendingDeltaCount(): number {
 async function restoreOfflineQueue(): Promise<void> {
   try {
     const items = await offlineQueueGetPending()
+    const restoredDeltaIds = new Set<string>()
     let restored = 0
     for (const item of items) {
       if (item.type === 'delta') {
         try {
           const delta = JSON.parse(item.payload) as PendingDelta
           pendingDeltas.push(delta)
+          restoredDeltaIds.add(item.id)
           restored++
         } catch { /* skip malformed */ }
       }
     }
     if (restored > 0) {
       console.log(`[sync] Restored ${restored} pending deltas from offline queue`)
+    }
+
+    // Mark restored delta items as completed in the queue since they're
+    // now in the in-memory pendingDeltas array. This prevents duplicate
+    // processing by drainOfflineQueue.
+    if (restoredDeltaIds.size > 0) {
+      await offlineQueueComplete([...restoredDeltaIds])
     }
 
     // Refresh queue stats
@@ -624,10 +709,8 @@ async function drainOfflineQueue(): Promise<void> {
     for (const item of items) {
       try {
         if (item.type === 'delta') {
-          // Deltas are handled by pushDeltasToHub, but if one is stuck here
-          // try pushing it individually
           const delta = JSON.parse(item.payload)
-          const res = await fetch(`${hubUrl}/api/sync/push-delta`, {
+          const res = await syncFetch(`${hubUrl}/api/sync/push-delta`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ workstation_id: deviceId, deltas: [delta] }),
@@ -639,7 +722,7 @@ async function drainOfflineQueue(): Promise<void> {
           }
         } else if (item.type === 'push_record') {
           const record = JSON.parse(item.payload)
-          const res = await fetch(`${hubUrl}/api/sync/push`, {
+          const res = await syncFetch(`${hubUrl}/api/sync/push`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ records: [record], workstation_id: deviceId }),
@@ -667,8 +750,17 @@ async function drainOfflineQueue(): Promise<void> {
 }
 
 // ===================================================================
-// WebSocket Real-time Sync
+// WebSocket Real-time Sync (with exponential backoff)
 // ===================================================================
+
+/** Calculate reconnect delay with exponential backoff. */
+function getWsReconnectDelay(): number {
+  const delay = Math.min(
+    WS_BASE_RECONNECT_DELAY_MS * Math.pow(2, wsReconnectAttempt),
+    WS_MAX_RECONNECT_DELAY_MS,
+  )
+  return delay
+}
 
 /** Connect to the hub's WebSocket endpoint for real-time sync notifications. */
 function connectWebSocket(): void {
@@ -677,7 +769,7 @@ function connectWebSocket(): void {
   // Convert http(s) to ws(s)
   const wsUrl = hubUrl.replace(/^http/, 'ws') + '/ws/sync'
 
-  console.log(`[sync] Connecting WebSocket to ${wsUrl}`)
+  console.log(`[sync] Connecting WebSocket to ${wsUrl} (attempt ${wsReconnectAttempt + 1})`)
 
   try {
     wsConnection = new WebSocket(wsUrl)
@@ -685,6 +777,7 @@ function connectWebSocket(): void {
     wsConnection.onopen = () => {
       console.log('[sync] WebSocket connected')
       wsConnectedAt = new Date().toISOString()
+      wsReconnectAttempt = 0 // Reset backoff on successful connect
 
       // Identify ourselves to the hub
       wsConnection!.send(JSON.stringify({
@@ -722,9 +815,12 @@ function connectWebSocket(): void {
         setSyncState('idle')
       }
 
-      // Auto-reconnect after delay
-      if (hubUrl) {
-        wsReconnectTimer = setTimeout(() => connectWebSocket(), WS_RECONNECT_DELAY_MS)
+      // Auto-reconnect with exponential backoff
+      if (hubUrl && navigator.onLine) {
+        const delay = getWsReconnectDelay()
+        wsReconnectAttempt++
+        console.log(`[sync] WS reconnect in ${delay}ms (attempt ${wsReconnectAttempt})`)
+        wsReconnectTimer = setTimeout(() => connectWebSocket(), delay)
       }
     }
 
@@ -733,8 +829,10 @@ function connectWebSocket(): void {
     }
   } catch (err) {
     console.error('[sync] WebSocket creation failed:', err)
-    // Retry connection later
-    wsReconnectTimer = setTimeout(() => connectWebSocket(), WS_RECONNECT_DELAY_MS)
+    // Retry connection later with backoff
+    const delay = getWsReconnectDelay()
+    wsReconnectAttempt++
+    wsReconnectTimer = setTimeout(() => connectWebSocket(), delay)
   }
 }
 
@@ -761,9 +859,8 @@ function handleWsEvent(event: WsEvent): void {
       // Hub has new data — trigger an immediate pull
       const tables = (event.data?.tables as string[]) || []
       console.log(`[sync] WS: Data available for ${tables.join(', ')} — pulling now`)
-      // Run pull only (don't re-push, we just pushed)
       if (hubUrl && navigator.onLine) {
-        pullFromHub().catch((err) => console.error('[sync] WS-triggered pull failed:', err))
+        pullFromHub(0).catch((err) => console.error('[sync] WS-triggered pull failed:', err))
       }
       break
     }
@@ -771,10 +868,9 @@ function handleWsEvent(event: WsEvent): void {
     case 'inventory_update': {
       // Another terminal updated inventory — refresh our local view
       console.log('[sync] WS: Inventory update from', event.data?.source_workstation)
-      // Pull just inventory
       if (hubUrl && navigator.onLine) {
         getCheckpoint(deviceId, 'Inventory').then((since) => {
-          fetch(`${hubUrl}/api/sync/pull`, {
+          syncFetch(`${hubUrl}/api/sync/pull`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

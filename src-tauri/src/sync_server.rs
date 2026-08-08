@@ -12,6 +12,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::db::DbState;
 use crate::ws_server;
+use tokio::sync::broadcast;
 
 /// Configuration for the sync hub server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,23 +36,24 @@ impl Default for SyncConfig {
 pub struct SyncServerState {
     pub db: Arc<DbState>,
     pub config: SyncConfig,
+    /// Broadcaster for notifying WebSocket clients when new data arrives
+    pub ws_tx: broadcast::Sender<String>,
 }
 
 /// Start the sync hub server in a background tokio task.
 /// Now includes WebSocket support for real-time sync notifications.
 pub fn start_sync_server(db: Arc<DbState>, config: SyncConfig) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
+        // Create WebSocket state — separate from HTTP state
+        let ws_state = ws_server::new_ws_state(db.clone());
+        let ws_broadcaster = ws_server::get_broadcaster(&ws_state);
+
         let state = Arc::new(RwLock::new(SyncServerState {
             db: db.clone(),
             config: config.clone(),
+            ws_tx: ws_broadcaster.clone(),
         }));
 
-        // Create WebSocket state — separate from HTTP state
-        let ws_state = ws_server::new_ws_state(db);
-        let ws_broadcaster = ws_server::get_broadcaster(&ws_state);
-
-        // Store the broadcaster in the server state for push notifications
-        // (used by sync_push and sync_push_delta to notify terminals)
         let http_state = state.clone();
 
         // Build HTTP routes with their own state
@@ -280,6 +282,16 @@ async fn sync_push(
         }
     }
 
+    // Notify WebSocket clients that new data is available
+    if !pushed_tables.is_empty() {
+        let _ = state.ws_tx.send(
+            serde_json::to_string(&ws_server::WsEvent::DataAvailable {
+                tables: pushed_tables.iter().cloned().collect(),
+                server_timestamp: chrono::Utc::now().to_rfc3339(),
+            }).unwrap_or_default(),
+        );
+    }
+
     Json(serde_json::json!({
         "applied": applied,
         "failed": failed,
@@ -400,6 +412,16 @@ async fn sync_push_delta(
                 errors.push(format!("Query batch {}: {}", delta.batch_id, e));
             }
         }
+    }
+
+    // Notify WebSocket clients that inventory changed
+    if applied > 0 {
+        let _ = state.ws_tx.send(
+            serde_json::to_string(&ws_server::WsEvent::DataAvailable {
+                tables: vec!["Inventory".to_string()],
+                server_timestamp: chrono::Utc::now().to_rfc3339(),
+            }).unwrap_or_default(),
+        );
     }
 
     Json(serde_json::json!({

@@ -124,6 +124,11 @@ export async function getHubUrl(): Promise<string | null> {
   return invoke<string | null>('get_hub_url')
 }
 
+export async function setHubUrl(url: string): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('set_hub_url_persist', { url })
+}
+
 // ===================================================================
 // Offline Queue Commands
 // ===================================================================

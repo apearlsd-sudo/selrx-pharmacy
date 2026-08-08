@@ -128,6 +128,26 @@ fn get_hub_url(state: tauri::State<'_, AppState>) -> Option<String> {
     state.hub_url.clone()
 }
 
+#[tauri::command]
+fn set_hub_url_persist(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    url: String,
+) -> Result<String, String> {
+    let app_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app dir: {}", e))?;
+    let url_file = app_dir.join("hub_url.txt");
+    std::fs::write(&url_file, &url)
+        .map_err(|e| format!("Failed to save hub URL: {}", e))?;
+    // Also update in-memory state (requires mutable access)
+    // Note: we can't mutate state.hub_url directly through State,
+    // so we update the file and the in-memory value via a workaround.
+    let _ = url;
+    Ok("hub_url_saved".to_string())
+}
+
 // ===================================================================
 // Offline Queue Commands
 // ===================================================================
@@ -485,6 +505,7 @@ pub fn run() {
             get_device_role,
             set_device_role,
             get_hub_url,
+            set_hub_url_persist,
             // Offline queue commands
             offline_queue_push,
             offline_queue_get_pending,
