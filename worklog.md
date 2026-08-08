@@ -105,3 +105,32 @@ Stage Summary:
 - Body: 7 chapters with TOC, 8 comparison tables, SWOT analysis, 5-priority strategic roadmap
 - Competitor set expanded from 5 pharmacy-only to 8 mixed-basket (3 pharmacy + 3 Africa POS + 2 global)
 - Key finding: SelRx offers 55-90% lower TCO with pharmacy-specific features at general POS pricing
+
+---
+Task ID: 3
+Agent: Main
+Task: Fix 'Failed to create transaction' error on sell
+
+Work Log:
+- Analyzed POST /api/transactions handler (617 lines) to trace error origin
+- Found 4 root causes:
+  1. Shift and Batch tables queried without ensuring they exist (no auto-create like shifts route has)
+  2. Catch block returns generic 'Failed to create transaction' with no detail — real error only in server console
+  3. Direct turso.execute()/turso.batch() calls without retry wrappers — transient failures cause immediate 500
+  4. FEFO batch deduction has no try-catch — missing Batch table crashes entire sale
+- Fixed: added ensureTransactionTables() that auto-creates Shift + Batch tables with indexes
+- Fixed: shift gate now calls ensureTransactionTables() before querying Shift
+- Fixed: FEFO batch deduction wrapped in try-catch (non-fatal, falls back to simple inventory deduction)
+- Fixed: all 10+ turso.execute() calls replaced with tursoExecute() retry wrapper
+- Fixed: turso.batch() replaced with tursoBatch() retry wrapper
+- Fixed: catch block now returns error detail field to client
+- Fixed: frontend pos-view.tsx now shows error detail in toast notification
+- Added: validation for zero/NaN effectiveQty before inventory check
+- Verified: Next.js build passes successfully
+
+Stage Summary:
+- The primary root cause was missing Shift/Batch tables — ensureTransactionTables() auto-creates them
+- Error messages are now descriptive (client sees the actual DB error, e.g. 'no such table: Batch')
+- All Turso DB calls now have automatic retry on transient network failures
+- FEFO batch deduction is fault-tolerant (gracefully skips if Batch table unavailable)
+- Files modified: src/app/api/transactions/route.ts, src/components/gazpharm/views/pos-view.tsx

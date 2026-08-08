@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateTransactionNo, safeArgs } from '@/lib/turso'
+import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -17,6 +17,49 @@ function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> })
 }
 
 const bool = (v: unknown): boolean => v === 1 || v === true
+
+// ---------------------------------------------------------------------------
+// Auto-ensure tables that the transaction handler depends on
+// ---------------------------------------------------------------------------
+
+async function ensureTransactionTables() {
+  // Shift table (same as in /api/shifts/route.ts)
+  await turso.execute(`CREATE TABLE IF NOT EXISTS "Shift" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "userName" TEXT,
+    "startedAt" TEXT NOT NULL,
+    "endedAt" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "totalSales" REAL NOT NULL DEFAULT 0,
+    "totalTransactions" INTEGER NOT NULL DEFAULT 0,
+    "totalItemsSold" INTEGER NOT NULL DEFAULT 0,
+    "cashAtStart" REAL,
+    "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TEXT NOT NULL
+  )`)
+  try { await turso.execute(`ALTER TABLE "Shift" ADD COLUMN "cashAtEnd" REAL`) } catch { /* column exists */ }
+  try { await turso.execute(`ALTER TABLE "Shift" ADD COLUMN "expectedCash" REAL`) } catch { /* column exists */ }
+  try { await turso.execute(`ALTER TABLE "Shift" ADD COLUMN "cashDiscrepancy" REAL`) } catch { /* column exists */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Shift_userId_idx" ON "Shift"("userId")`) } catch { /* */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Shift_status_idx" ON "Shift"("status")`) } catch { /* */ }
+
+  // Batch table (same as in /api/setup/ensure-batches/route.ts)
+  await turso.execute(`CREATE TABLE IF NOT EXISTS "Batch" (
+    id            TEXT PRIMARY KEY,
+    "productId"   TEXT NOT NULL REFERENCES "Product"(id),
+    "batchNumber" TEXT,
+    "expiryDate"  TEXT,
+    quantity      INTEGER NOT NULL DEFAULT 0,
+    "costPrice"   REAL,
+    "receivedAt"  TEXT NOT NULL,
+    "receivedBy"  TEXT,
+    "createdAt"   TEXT NOT NULL,
+    "updatedAt"   TEXT NOT NULL
+  )`)
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Batch_productId_idx" ON "Batch"("productId")`) } catch { /* */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Batch_expiryDate_idx" ON "Batch"("expiryDate")`) } catch { /* */ }
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/transactions
@@ -350,7 +393,10 @@ export async function POST(request: NextRequest) {
 
     // ── Shift gate: require an active shift to create a transaction ──
     if (isTurso()) {
-      const shiftCheck = await turso.execute({
+      try { await ensureTransactionTables() } catch (e) {
+        console.error('[tx] Table ensure failed (non-fatal):', e)
+      }
+      const shiftCheck = await tursoExecute({
         sql: `SELECT id FROM "Shift" WHERE "userId" = ? AND status = 'ACTIVE' LIMIT 1`,
         args: [userId],
       })
@@ -391,14 +437,20 @@ export async function POST(request: NextRequest) {
       // 1. Check inventory for all items (read-modify-write pre-check)
       for (const item of items) {
         const effectiveQty = (item.quantity as number) * ((item.itemsPerUnit as number) || 1)
-        const invResult = await turso.execute({
+        if (!effectiveQty || effectiveQty <= 0) {
+          return NextResponse.json(
+            { error: `Invalid quantity for ${item.productName || 'product'}: quantity=${item.quantity}, itemsPerUnit=${item.itemsPerUnit}` },
+            { status: 400 },
+          )
+        }
+        const invResult = await tursoExecute({
           sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
           args: [item.productId],
         })
         const availableQty = invResult.rows.length > 0 ? (invResult.rows[0][0] as number) : 0
         if (availableQty < effectiveQty) {
           // Fetch product name for error message
-          const prodResult = await turso.execute({
+          const prodResult = await tursoExecute({
             sql: 'SELECT name FROM Product WHERE id = ?',
             args: [item.productId],
           })
@@ -419,7 +471,7 @@ export async function POST(request: NextRequest) {
       const now = new Date().toISOString()
 
       // 3. Insert Transaction
-      await turso.execute({
+      await tursoExecute({
         sql: `INSERT INTO "Transaction"
               (id, transactionNo, customerId, userId, workstationId, subtotal, tax, discount, total,
                paymentMethod, paymentAmount, changeAmount, status, prescriptionId, notes, createdAt, updatedAt)
@@ -447,7 +499,7 @@ export async function POST(request: NextRequest) {
           now,
         ],
       }))
-      await turso.batch(itemStmts)
+      await tursoBatch(itemStmts)
 
       // 5. Decrement inventory for all items — FEFO (First Expired, First Out)
       for (const item of items) {
@@ -456,40 +508,46 @@ export async function POST(request: NextRequest) {
         const now2 = new Date().toISOString()
 
         // Try FEFO: deduct from active (non-expired) batches with earliest expiry first
-        const batchResult = await turso.execute({
-          sql: `SELECT id, quantity FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND ("expiryDate" IS NULL OR date("expiryDate") > date('now')) ORDER BY "expiryDate" ASC NULLS LAST`,
-          args: [pid],
-        })
+        // If the Batch table doesn't exist or query fails, skip FEFO and only deduct Inventory
+        try {
+          const batchResult = await tursoExecute({
+            sql: `SELECT id, quantity FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND ("expiryDate" IS NULL OR date("expiryDate") > date('now')) ORDER BY "expiryDate" ASC NULLS LAST`,
+            args: [pid],
+          })
 
-        if (batchResult.rows.length > 0) {
-          let remaining = itemQty
-          for (const brow of batchResult.rows) {
-            if (remaining <= 0) break
-            const bId = brow[0] as string
-            const bQty = brow[1] as number
-            const deduct = Math.min(remaining, bQty)
-            await turso.execute({
-              sql: 'UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ? AND "productId" = ?',
-              args: [bQty - deduct, now2, bId, pid],
-            })
-            remaining -= deduct
+          if (batchResult.rows.length > 0) {
+            let remaining = itemQty
+            for (const brow of batchResult.rows) {
+              if (remaining <= 0) break
+              const bId = brow[0] as string
+              const bQty = brow[1] as number
+              const deduct = Math.min(remaining, bQty)
+              await tursoExecute({
+                sql: 'UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ? AND "productId" = ?',
+                args: [bQty - deduct, now2, bId, pid],
+              })
+              remaining -= deduct
+            }
           }
+        } catch (batchErr) {
+          // FEFO deduction failed (e.g. Batch table missing) — non-fatal, log and continue
+          console.warn('[tx] FEFO batch deduction skipped:', batchErr instanceof Error ? batchErr.message : batchErr)
         }
 
         // Update Inventory total (denormalized)
-        const invResult = await turso.execute({
+        const invResult = await tursoExecute({
           sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
           args: [pid],
         })
         const currentQty = invResult.rows.length > 0 ? (invResult.rows[0][0] as number) : 0
-        await turso.execute({
+        await tursoExecute({
           sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
           args: [currentQty - itemQty, now2, now2, pid],
         })
       }
 
       // 6. Return created transaction with user/customer/items
-      const txnResult = await turso.execute({
+      const txnResult = await tursoExecute({
         sql: `SELECT t.id as t_id, t.transactionNo as t_transactionNo, t.customerId as t_customerId,
                       t.userId as t_userId, t.subtotal as t_subtotal, t.tax as t_tax,
                       t.discount as t_discount, t.total as t_total, t.paymentMethod as t_paymentMethod,
@@ -506,7 +564,7 @@ export async function POST(request: NextRequest) {
       })
       const txnRow = toObjs(txnResult)[0]
 
-      const itemsResult = await turso.execute({
+      const itemsResult = await tursoExecute({
         sql: `SELECT id, transactionId, productId, productName, quantity, unitPrice, subtotal,
                        requiresRx, dispensedQty, sellingUnit, itemsPerUnit, createdAt
                 FROM TransactionItem WHERE transactionId = ?`,
@@ -611,6 +669,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(transaction, { status: 201 })
   } catch (error) {
     console.error('Error creating transaction:', error)
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Failed to create transaction', detail: msg }, { status: 500 })
   }
 }

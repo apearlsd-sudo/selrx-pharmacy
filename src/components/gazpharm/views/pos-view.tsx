@@ -425,7 +425,7 @@ export function POSView() {
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Transaction failed')
+        throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Transaction failed'))
       }
 
       const transaction = await res.json()
