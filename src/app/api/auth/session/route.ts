@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ALL_PERMISSION_KEYS, ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
 
 /**
- * Session validation route — uses raw libsql SQL to bypass Prisma entirely.
- * Same reason as login route: Prisma + LibSQL adapter causing runtime errors.
+ * Session validation route — uses the middleware-injected x-user-id header.
+ * No longer accepts userId from the request body (IDOR fix).
  */
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await req.json()
+    // Use the middleware-verified user ID, NOT client-supplied userId
+    const userId = req.headers.get('x-user-id')
 
     if (!userId) {
       return NextResponse.json({ valid: false }, { status: 401 })

@@ -24,6 +24,12 @@ function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> })
 
 export async function GET(request: NextRequest) {
   try {
+    // Authorization check — only SUPER_ADMIN and PHARMACIST can view shift financials
+    const role = request.headers.get('x-user-role')
+    if (role !== 'SUPER_ADMIN' && role !== 'PHARMACIST') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    }
+
     if (!isTurso()) {
       return NextResponse.json({ error: 'Requires cloud database' }, { status: 400 })
     }

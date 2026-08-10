@@ -4,18 +4,19 @@ import { verifyToken } from '@/lib/security'
 /**
  * Next.js middleware — runs on every request.
  *
- * 1. Verifies JWT on /api/* routes (except login, company-setup, health, and setup)
+ * 1. Verifies JWT on /api/* routes (except login, company-setup, and health)
  * 2. Attaches verified user info to request headers for downstream routes
  * 3. Rejects unauthenticated/unauthorized requests with 401
  */
 
 // Routes that don't require authentication
+// NOTE: /api/setup/ and /api/auth/session were removed — they now require JWT.
+//       Setup routes should only run during initial deployment (protected by SETUP_TOKEN on company-setup).
+//       Session validation must use the middleware-injected x-user-id, not client-sent userId.
 const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/company-setup',
   '/api/health',
-  '/api/setup/',
-  '/api/auth/session',
   // Static assets and Next.js internals
   '/_next/',
   '/favicon.ico',

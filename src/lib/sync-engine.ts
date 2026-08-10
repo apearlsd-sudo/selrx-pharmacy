@@ -85,6 +85,7 @@ export type SyncState = 'idle' | 'syncing' | 'error' | 'offline' | 'ws_connected
 
 let syncState: SyncState = 'idle'
 let hubUrl: string = ''
+let syncSecret: string = ''
 let syncTimer: ReturnType<typeof setInterval> | null = null
 let lastSyncAt: string | null = null
 let pendingCount = 0
@@ -208,8 +209,9 @@ export function stopSync(): void {
 }
 
 /** Configure the hub URL (called from settings UI). Persists to disk. */
-export async function setHubUrl(url: string): Promise<void> {
+export async function setHubUrl(url: string, secret?: string): Promise<void> {
   hubUrl = url
+  if (secret) syncSecret = secret
 
   // Persist so it survives app restarts
   try {
@@ -367,10 +369,16 @@ function setSyncState(newState: SyncState): void {
   })
 }
 
-/** Helper: fetch with timeout to prevent hanging on unreachable hub. */
+/** Helper: fetch with timeout to prevent hanging on unreachable hub.
+ *  Automatically includes SYNC_SECRET Authorization header. */
 function syncFetch(url: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers)
+  if (syncSecret && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${syncSecret}`)
+  }
   return fetch(url, {
     ...init,
+    headers,
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   })
 }
@@ -766,8 +774,8 @@ function getWsReconnectDelay(): number {
 function connectWebSocket(): void {
   if (!hubUrl) return
 
-  // Convert http(s) to ws(s)
-  const wsUrl = hubUrl.replace(/^http/, 'ws') + '/ws/sync'
+  // Convert http(s) to ws(s) and append auth token
+  const wsUrl = hubUrl.replace(/^http/, 'ws') + '/ws/sync' + (syncSecret ? `?token=${encodeURIComponent(syncSecret)}` : '')
 
   console.log(`[sync] Connecting WebSocket to ${wsUrl} (attempt ${wsReconnectAttempt + 1})`)
 

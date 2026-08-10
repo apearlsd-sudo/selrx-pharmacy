@@ -17,15 +17,22 @@ export async function hashPassword(plain: string): Promise<string> {
 
 /** Compare a plaintext password against a bcrypt hash.
  *  Supports transparent migration: if the stored hash is NOT bcrypt
- *  (i.e. legacy plaintext), it returns true and signals rehash needed. */
+ *  (i.e. legacy plaintext), it returns true and signals rehash needed.
+ *  Uses timing-safe comparison for legacy plaintext to prevent timing attacks. */
 export async function verifyPassword(plain: string, stored: string): Promise<{ valid: boolean; needsRehash: boolean }> {
   // If stored value looks like a bcrypt hash ($2a$/$2b$), verify normally
   if (stored.startsWith('$2')) {
     const valid = await bcrypt.compare(plain, stored)
     return { valid, needsRehash: false }
   }
-  // Legacy plaintext comparison — valid but needs rehash
-  return { valid: plain === stored, needsRehash: true }
+  // Legacy plaintext comparison — use timing-safe comparison
+  const a = Buffer.from(plain, 'utf-8')
+  const b = Buffer.from(stored, 'utf-8')
+  if (a.length !== b.length) {
+    return { valid: false, needsRehash: true }
+  }
+  const valid = crypto.timingSafeEqual(a, b)
+  return { valid, needsRehash: true }
 }
 
 // ── JWT ──
