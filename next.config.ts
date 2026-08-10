@@ -1,3 +1,4 @@
+import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from "next";
 
 const isTauri = !!process.env.TAURI_ENV_PLATFORM;
@@ -30,7 +31,7 @@ const nextConfig: NextConfig = {
           // Content-Security-Policy for web deployment
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; connect-src 'self' https://*.turso.tech https://*.vercel.app https://*.space-z.ai https://vercel.live",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; connect-src 'self' https://*.turso.tech https://*.vercel.app https://*.space-z.ai https://vercel.live https://*.sentry.io",
           },
         ],
       },
@@ -72,4 +73,12 @@ const nextConfig: NextConfig = {
       }),
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Disable Sentry during build to avoid needing DSN at build time
+  disableLogger: true,
+  // Don't bundle Sentry server-side in Tauri builds
+  disableServerWebpackPlugin: !!process.env.TAURI_ENV_PLATFORM,
+  disableClientWebpackPlugin: !!process.env.TAURI_ENV_PLATFORM,
+  // Suppress source map upload warnings
+  silent: true,
+})
