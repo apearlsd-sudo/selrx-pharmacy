@@ -92,6 +92,8 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   const boldHeader = useAppStore((s) => s.boldHeader)
   const boldItems = useAppStore((s) => s.boldItems)
   const boldTotals = useAppStore((s) => s.boldTotals)
+  const receiptHeader = useAppStore((s) => s.receiptHeader)
+  const receiptFooter = useAppStore((s) => s.receiptFooter)
 
   const receiptStyle: React.CSSProperties = {
     fontFamily: getFontCSS(fontFamily),
@@ -192,6 +194,14 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                   {company?.pharmacyLicense && (
                     <p className="text-gray-500">Pharm. Lic: {company.pharmacyLicense}</p>
                   )}
+                </div>
+              )}
+              {/* Custom header lines */}
+              {receiptHeader && (
+                <div className="pt-1 space-y-0.5" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
+                  {receiptHeader.split('\n').filter(Boolean).map((line, i) => (
+                    <p key={i} className="text-gray-500">{line}</p>
+                  ))}
                 </div>
               )}
             </div>
@@ -297,6 +307,14 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
               <p className="text-gray-400" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
                 Your health, our priority. Rx questions? Ask our pharmacist.
               </p>
+              {/* Custom footer lines */}
+              {receiptFooter && (
+                <div className="space-y-0.5 pt-1" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
+                  {receiptFooter.split('\n').filter(Boolean).map((line, i) => (
+                    <p key={i} className="text-gray-500">{line}</p>
+                  ))}
+                </div>
+              )}
               {company?.website && (
                 <p className="text-gray-400" style={{ fontSize: getSizeForRole(fontSize, 'small') }}>
                   {company.website}

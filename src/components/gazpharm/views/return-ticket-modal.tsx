@@ -36,6 +36,7 @@ const REASON_LABELS: Record<string, string> = {
 export function ReturnTicketModal({ returnData, open, onClose }: ReturnTicketModalProps) {
   const addToast = useAppStore((s) => s.addToast)
   const company = useAppStore((s) => s.company)
+  const receiptFooter = useAppStore((s) => s.receiptFooter)
 
   if (!returnData) return null
 
@@ -183,9 +184,12 @@ export function ReturnTicketModal({ returnData, open, onClose }: ReturnTicketMod
           </div>
 
           {/* Footer */}
-          <div className="text-center pt-2">
+          <div className="text-center pt-2 space-y-0.5">
             <p className="text-muted-foreground text-[10px]">Thank you for choosing {company?.name || 'SelRx'}</p>
             <p className="text-muted-foreground text-[10px]">This return ticket serves as proof of goods returned.</p>
+            {receiptFooter && receiptFooter.split('\n').filter(Boolean).map((line, i) => (
+              <p key={i} className="text-muted-foreground text-[10px]">{line}</p>
+            ))}
           </div>
         </div>
 

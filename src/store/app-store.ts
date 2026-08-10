@@ -182,6 +182,12 @@ export interface ReceiptPrintStyle {
   /** Whether totals section is bold */
   boldTotals: boolean
   setBoldTotals: (val: boolean) => void
+  /** Custom header lines displayed below pharmacy info (newline-separated) */
+  receiptHeader: string
+  setReceiptHeader: (val: string) => void
+  /** Custom footer lines displayed above "End of Receipt" (newline-separated) */
+  receiptFooter: string
+  setReceiptFooter: (val: string) => void
 }
 
 export interface ReceiptSettingsState {
@@ -253,6 +259,22 @@ export type AppState = NavigationState &
   UIState
 
 // ============ STORE ============
+
+/** Persist all receipt settings to localStorage in one place */
+function persistReceiptSettings(s: AppState) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('selrx_receipt_settings', JSON.stringify({
+    autoPrintReceipt: s.autoPrintReceipt,
+    showReceiptModal: s.showReceiptModal,
+    fontFamily: s.fontFamily,
+    fontSize: s.fontSize,
+    boldHeader: s.boldHeader,
+    boldItems: s.boldItems,
+    boldTotals: s.boldTotals,
+    receiptHeader: s.receiptHeader,
+    receiptFooter: s.receiptFooter,
+  }))
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   // ---- Navigation ----
@@ -466,109 +488,50 @@ export const useAppStore = create<AppState>((set, get) => ({
   autoPrintReceipt: false,
   setAutoPrintReceipt: (val) => {
     set({ autoPrintReceipt: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: val,
-        showReceiptModal: get().showReceiptModal,
-        fontFamily: get().fontFamily,
-        fontSize: get().fontSize,
-        boldHeader: get().boldHeader,
-        boldItems: get().boldItems,
-        boldTotals: get().boldTotals,
-      }))
-    }
+    persistReceiptSettings(get())
   },
   showReceiptModal: true,
   setShowReceiptModal: (val) => {
     set({ showReceiptModal: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: get().autoPrintReceipt,
-        showReceiptModal: val,
-        fontFamily: get().fontFamily,
-        fontSize: get().fontSize,
-        boldHeader: get().boldHeader,
-        boldItems: get().boldItems,
-        boldTotals: get().boldTotals,
-      }))
-    }
+    persistReceiptSettings(get())
   },
 
   // ---- Receipt Print Style (persisted to localStorage) ----
   fontFamily: 'mono' as ReceiptFontFamily,
   setFontFamily: (val) => {
     set({ fontFamily: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: get().autoPrintReceipt,
-        showReceiptModal: get().showReceiptModal,
-        fontFamily: val,
-        fontSize: get().fontSize,
-        boldHeader: get().boldHeader,
-        boldItems: get().boldItems,
-        boldTotals: get().boldTotals,
-      }))
-    }
+    persistReceiptSettings(get())
   },
   fontSize: 'small' as ReceiptFontSize,
   setFontSize: (val) => {
     set({ fontSize: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: get().autoPrintReceipt,
-        showReceiptModal: get().showReceiptModal,
-        fontFamily: get().fontFamily,
-        fontSize: val,
-        boldHeader: get().boldHeader,
-        boldItems: get().boldItems,
-        boldTotals: get().boldTotals,
-      }))
-    }
+    persistReceiptSettings(get())
   },
   boldHeader: true,
   setBoldHeader: (val) => {
     set({ boldHeader: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: get().autoPrintReceipt,
-        showReceiptModal: get().showReceiptModal,
-        fontFamily: get().fontFamily,
-        fontSize: get().fontSize,
-        boldHeader: val,
-        boldItems: get().boldItems,
-        boldTotals: get().boldTotals,
-      }))
-    }
+    persistReceiptSettings(get())
   },
   boldItems: false,
   setBoldItems: (val) => {
     set({ boldItems: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: get().autoPrintReceipt,
-        showReceiptModal: get().showReceiptModal,
-        fontFamily: get().fontFamily,
-        fontSize: get().fontSize,
-        boldHeader: get().boldHeader,
-        boldItems: val,
-        boldTotals: get().boldTotals,
-      }))
-    }
+    persistReceiptSettings(get())
   },
   boldTotals: true,
   setBoldTotals: (val) => {
     set({ boldTotals: val })
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selrx_receipt_settings', JSON.stringify({
-        autoPrintReceipt: get().autoPrintReceipt,
-        showReceiptModal: get().showReceiptModal,
-        fontFamily: get().fontFamily,
-        fontSize: get().fontSize,
-        boldHeader: get().boldHeader,
-        boldItems: get().boldItems,
-        boldTotals: val,
-      }))
-    }
+    persistReceiptSettings(get())
+  },
+
+  receiptHeader: '',
+  setReceiptHeader: (val) => {
+    set({ receiptHeader: val })
+    persistReceiptSettings(get())
+  },
+  receiptFooter: '',
+  setReceiptFooter: (val) => {
+    set({ receiptFooter: val })
+    persistReceiptSettings(get())
   },
 
   // ---- Regional Settings (persisted to localStorage) ----

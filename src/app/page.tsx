@@ -420,6 +420,8 @@ export default function Home() {
           if (typeof rs.boldHeader === 'boolean') store.setBoldHeader(rs.boldHeader)
           if (typeof rs.boldItems === 'boolean') store.setBoldItems(rs.boldItems)
           if (typeof rs.boldTotals === 'boolean') store.setBoldTotals(rs.boldTotals)
+          if (typeof rs.receiptHeader === 'string') store.setReceiptHeader(rs.receiptHeader)
+          if (typeof rs.receiptFooter === 'string') store.setReceiptFooter(rs.receiptFooter)
         }
       } catch { /* corrupted receipt settings — ignore */ }
 

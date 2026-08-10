@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -327,6 +328,10 @@ export function ReceiptSettingsSection() {
   const setBoldItems = useAppStore((s) => s.setBoldItems)
   const boldTotals = useAppStore((s) => s.boldTotals)
   const setBoldTotals = useAppStore((s) => s.setBoldTotals)
+  const receiptHeader = useAppStore((s) => s.receiptHeader)
+  const setReceiptHeader = useAppStore((s) => s.setReceiptHeader)
+  const receiptFooter = useAppStore((s) => s.receiptFooter)
+  const setReceiptFooter = useAppStore((s) => s.setReceiptFooter)
   const company = useAppStore((s) => s.company)
 
   return (
@@ -431,6 +436,40 @@ export function ReceiptSettingsSection() {
 
           <Separator />
 
+          {/* Custom Header & Footer */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-blue-500" />
+              <p className="text-xs font-semibold text-foreground">Custom Receipt Header & Footer</p>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Receipt Header</Label>
+                <p className="text-[10px] text-muted-foreground">Additional text printed below pharmacy info. Use one line per entry.</p>
+                <Textarea
+                  value={receiptHeader}
+                  onChange={(e) => setReceiptHeader(e.target.value)}
+                  placeholder="e.g. VAT Reg No: GH1234567890&#10;Operated by: Dr. Kwame Asante RPh"
+                  rows={3}
+                  className="text-xs resize-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Receipt Footer</Label>
+                <p className="text-[10px] text-muted-foreground">Custom message printed above &quot;End of Receipt&quot;. Use one line per entry.</p>
+                <Textarea
+                  value={receiptFooter}
+                  onChange={(e) => setReceiptFooter(e.target.value)}
+                  placeholder="e.g. Goods once sold cannot be returned&#10;For enquiries call: 0302-123456"
+                  rows={3}
+                  className="text-xs resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
           <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2">
             <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5" />
@@ -443,6 +482,9 @@ export function ReceiptSettingsSection() {
               <div className="text-center space-y-0.5">
                 <p className={boldHeader ? 'font-bold tracking-wide' : 'tracking-wide'} style={{ fontSize: fontSize === 'large' ? '16px' : fontSize === 'medium' ? '13px' : '11px' }}>{company?.name || 'SelRx Pharmacy'}</p>
                 <p className="text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px', fontStyle: 'italic' }}>{company?.tagline || 'Your health, our priority'}</p>
+                {receiptHeader && receiptHeader.split('\n').filter(Boolean).map((line, i) => (
+                  <p key={i} className="text-gray-500" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>{line}</p>
+                ))}
               </div>
               <div className="border-t border-dashed border-gray-300" />
               <div className="flex justify-between"><span className="text-gray-500">Paracetamol 500mg</span><span className={boldItems ? 'font-bold' : ''}>2 x GHS 5.00</span></div>
@@ -450,7 +492,12 @@ export function ReceiptSettingsSection() {
               <div className="border-t border-dashed border-gray-300" />
               <div className="flex justify-between"><span className="text-gray-500">Total:</span><span className={boldTotals ? 'font-bold' : ''}>GHS 22.50</span></div>
               <div className="border-t border-dashed border-gray-300" />
-              <p className="text-center text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>Thank you for choosing us!</p>
+              <div className="text-center space-y-0.5">
+                {receiptFooter && receiptFooter.split('\n').filter(Boolean).map((line, i) => (
+                  <p key={i} className="text-gray-500" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>{line}</p>
+                ))}
+                <p className="text-center text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>Thank you for choosing us!</p>
+              </div>
             </div>
           </div>
         </div>
