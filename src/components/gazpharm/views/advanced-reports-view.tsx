@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -273,31 +273,31 @@ export function AdvancedReportsView() {
 
       {/* Report Content */}
       {loading ? <Skeleton className="h-96 w-full" /> : (
-        <>
-          <TabsContent value="revenue"><RevenueTab data={data} /></TabsContent>
-          <TabsContent value="profit"><ProfitTab data={data} /></TabsContent>
-          <TabsContent value="customers"><CustomerTab data={data} /></TabsContent>
-          <TabsContent value="expiry"><ExpiryTab data={data} /></TabsContent>
-          <TabsContent value="payments"><PaymentTab data={data} /></TabsContent>
-          <TabsContent value="comparison"><ComparisonTab data={data} /></TabsContent>
-          <TabsContent value="stock-velocity"><StockVelocityTab data={data} /></TabsContent>
-          <TabsContent value="returns-analysis"><ReturnsAnalysisTab data={data} /></TabsContent>
-          <TabsContent value="user-performance"><UserPerformanceTab data={data} /></TabsContent>
-          <TabsContent value="prescription-analytics"><PrescriptionAnalyticsTab data={data} /></TabsContent>
-          <TabsContent value="inventory-valuation"><InventoryValuationTab data={data} /></TabsContent>
-          <TabsContent value="discount-analysis"><DiscountAnalysisTab data={data} /></TabsContent>
-          <TabsContent value="shift-analysis"><ShiftAnalysisTab data={data} /></TabsContent>
-          <TabsContent value="category-deep-dive"><CategoryDeepDiveTab data={data} /></TabsContent>
-          <TabsContent value="executive-summary"><ExecutiveSummaryTab data={data} /></TabsContent>
-          <TabsContent value="product-affinity"><ProductAffinityTab data={data} /></TabsContent>
-          <TabsContent value="sales-forecast"><SalesForecastTab data={data} /></TabsContent>
-          <TabsContent value="customer-segmentation"><CustomerSegmentationTab data={data} /></TabsContent>
-          <TabsContent value="batch-expiry"><BatchExpiryTab data={data} /></TabsContent>
-          <TabsContent value="stock-take-accuracy"><StockTakeAccuracyTab data={data} /></TabsContent>
-          <TabsContent value="manufacturer-performance"><ManufacturerPerformanceTab data={data} /></TabsContent>
-          <TabsContent value="tax-compliance"><TaxComplianceTab data={data} /></TabsContent>
-          <TabsContent value="hourly-heatmap"><HourlyHeatmapTab data={data} /></TabsContent>
-        </>
+        <div className="space-y-6">
+          {activeTab === 'revenue' && <RevenueTab data={data} />}
+          {activeTab === 'profit' && <ProfitTab data={data} />}
+          {activeTab === 'customers' && <CustomerTab data={data} />}
+          {activeTab === 'expiry' && <ExpiryTab data={data} />}
+          {activeTab === 'payments' && <PaymentTab data={data} />}
+          {activeTab === 'comparison' && <ComparisonTab data={data} />}
+          {activeTab === 'stock-velocity' && <StockVelocityTab data={data} />}
+          {activeTab === 'returns-analysis' && <ReturnsAnalysisTab data={data} />}
+          {activeTab === 'user-performance' && <UserPerformanceTab data={data} />}
+          {activeTab === 'prescription-analytics' && <PrescriptionAnalyticsTab data={data} />}
+          {activeTab === 'inventory-valuation' && <InventoryValuationTab data={data} />}
+          {activeTab === 'discount-analysis' && <DiscountAnalysisTab data={data} />}
+          {activeTab === 'shift-analysis' && <ShiftAnalysisTab data={data} />}
+          {activeTab === 'category-deep-dive' && <CategoryDeepDiveTab data={data} />}
+          {activeTab === 'executive-summary' && <ExecutiveSummaryTab data={data} />}
+          {activeTab === 'product-affinity' && <ProductAffinityTab data={data} />}
+          {activeTab === 'sales-forecast' && <SalesForecastTab data={data} />}
+          {activeTab === 'customer-segmentation' && <CustomerSegmentationTab data={data} />}
+          {activeTab === 'batch-expiry' && <BatchExpiryTab data={data} />}
+          {activeTab === 'stock-take-accuracy' && <StockTakeAccuracyTab data={data} />}
+          {activeTab === 'manufacturer-performance' && <ManufacturerPerformanceTab data={data} />}
+          {activeTab === 'tax-compliance' && <TaxComplianceTab data={data} />}
+          {activeTab === 'hourly-heatmap' && <HourlyHeatmapTab data={data} />}
+        </div>
       )}
     </div>
   )
