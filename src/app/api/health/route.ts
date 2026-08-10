@@ -13,7 +13,7 @@ export async function GET() {
       const { createClient } = await import('@libsql/client')
       const turso = createClient({
         url: process.env.TURSO_DATABASE_URL,
-        authToken: process.env.TURSO_API_TOKEN || undefined,
+        authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
       })
       await turso.execute('SELECT 1')
       dbOk = true

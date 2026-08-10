@@ -6,7 +6,7 @@
  *   npx tsx prisma/seed.mts export
  *
  *   # Import JSON into Turso (set DATABASE_URL to your Turso URL first)
- *   DATABASE_URL=libsql://your-db.turso.io TURSO_API_TOKEN=xxx npx tsx prisma/seed.mts import
+ *   DATABASE_URL=libsql://your-db.turso.io DATABASE_AUTH_TOKEN=xxx npx tsx prisma/seed.mts import
  */
 
 import { PrismaClient } from '@prisma/client'

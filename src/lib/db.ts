@@ -29,7 +29,7 @@ function createPrismaClient(): PrismaClient {
     try {
       const adapter = new PrismaLibSQL({
         url: tursoUrl,
-        authToken: process.env.TURSO_API_TOKEN || undefined,
+        authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
       })
       return new PrismaClient({ adapter, log: ['error', 'warn'] })
     } catch (error) {
