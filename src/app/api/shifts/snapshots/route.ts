@@ -135,47 +135,82 @@ export async function GET(request: NextRequest) {
       hasCashData: cashAccounting.some((c) => c.cashAtEnd !== null),
     }
 
-    // 5b. Fetch previous day's last shift inventory as baseline
+    // 5b. Fetch today's DAY_OPENING snapshot as baseline (created automatically
+    //     from the previous day's last ended shift when the first shift starts)
     const prevDate = new Date(dateParam + 'T00:00:00.000Z')
     prevDate.setDate(prevDate.getDate() - 1)
-    const prevDayStart = new Date(prevDate.toISOString().split('T')[0] + 'T00:00:00.000Z').toISOString()
-    const prevDayEnd = new Date(prevDate.toISOString().split('T')[0] + 'T23:59:59.999Z').toISOString()
 
     let previousDayBaseline: { shiftId: string; userName: string; endedAt: string; items: any[] } | null = null
     try {
-      const prevShiftsResult = await turso.execute({
+      // First try: use today's DAY_OPENING snapshot (authoritative baseline)
+      const dayOpenResult = await turso.execute({
         sql: `SELECT id, "userName", "endedAt"
              FROM "Shift"
-             WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
-             ORDER BY "endedAt" DESC
+             WHERE status = 'DAY_OPENING' AND "startedAt" >= ? AND "startedAt" <= ?
              LIMIT 1`,
-        args: [prevDayStart, prevDayEnd],
+        args: [dayStart, dayEnd],
       })
-      const prevShifts = toObjs(prevShiftsResult)
-      if (prevShifts.length > 0) {
-        const lastPrevShift = prevShifts[0]
-        const prevInvResult = await turso.execute({
+      const dayOpenShifts = toObjs(dayOpenResult)
+
+      if (dayOpenShifts.length > 0) {
+        const dayOpen = dayOpenShifts[0]
+        const dayOpenInvResult = await turso.execute({
           sql: `SELECT si."productId", si."productName", si.quantity, si."sellingPrice", si."costPrice",
                        p.category
                 FROM "ShiftInventory" si
                 LEFT JOIN "Product" p ON si."productId" = p.id
                 WHERE si."shiftId" = ?
                 ORDER BY si."productName" ASC`,
-          args: [lastPrevShift.id],
+          args: [dayOpen.id],
         })
-        const prevItems = toObjs(prevInvResult)
-        if (prevItems.length > 0) {
+        const dayOpenItems = toObjs(dayOpenInvResult)
+        if (dayOpenItems.length > 0) {
           previousDayBaseline = {
-            shiftId: lastPrevShift.id as string,
-            userName: (lastPrevShift.userName as string) || 'Previous Day',
-            endedAt: (lastPrevShift.endedAt as string) || '',
-            items: prevItems,
+            shiftId: dayOpen.id as string,
+            userName: 'Day Opening (auto)',
+            endedAt: (dayOpen.endedAt as string) || '',
+            items: dayOpenItems,
+          }
+        }
+      } else {
+        // Fallback: look for the previous day's last ended shift
+        const prevDayStart = new Date(prevDate.toISOString().split('T')[0] + 'T00:00:00.000Z').toISOString()
+        const prevDayEnd = new Date(prevDate.toISOString().split('T')[0] + 'T23:59:59.999Z').toISOString()
+
+        const prevShiftsResult = await turso.execute({
+          sql: `SELECT id, "userName", "endedAt"
+               FROM "Shift"
+               WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
+               ORDER BY "endedAt" DESC
+               LIMIT 1`,
+          args: [prevDayStart, prevDayEnd],
+        })
+        const prevShifts = toObjs(prevShiftsResult)
+        if (prevShifts.length > 0) {
+          const lastPrevShift = prevShifts[0]
+          const prevInvResult = await turso.execute({
+            sql: `SELECT si."productId", si."productName", si.quantity, si."sellingPrice", si."costPrice",
+                         p.category
+                  FROM "ShiftInventory" si
+                  LEFT JOIN "Product" p ON si."productId" = p.id
+                  WHERE si."shiftId" = ?
+                  ORDER BY si."productName" ASC`,
+            args: [lastPrevShift.id],
+          })
+          const prevItems = toObjs(prevInvResult)
+          if (prevItems.length > 0) {
+            previousDayBaseline = {
+              shiftId: lastPrevShift.id as string,
+              userName: (lastPrevShift.userName as string) || 'Previous Day',
+              endedAt: (lastPrevShift.endedAt as string) || '',
+              items: prevItems,
+            }
           }
         }
       }
     } catch (e) {
       // Non-critical — log but don't fail the whole request
-      console.warn('Could not fetch previous day baseline:', e)
+      console.warn('Could not fetch day opening baseline:', e)
     }
 
     // 5c. Detect products that expired between previous day snapshot and today
@@ -361,7 +396,7 @@ export async function GET(request: NextRequest) {
       // Adjust variance: if the drop matches expired quantity, remove it from variance
       let adjustedVariance = rawVariance
       let adjustedDayChange = rawDayChange
-      if (isExpiredRelated && prevDayBaseline) {
+      if (isExpiredRelated && previousDayBaseline) {
         // For dayChange: if we had prevDayQty and now have less, the drop explained by expiry shouldn't count
         if (rawDayChange < 0) {
           const drop = Math.abs(rawDayChange)

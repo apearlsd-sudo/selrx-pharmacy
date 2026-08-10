@@ -56,13 +56,13 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 async function analyseDayHandoffs(dayStart: string, dayEnd: string, dateStr: string) {
-  // Get all ended shifts for the day, ordered chronologically
+  // Get all ended shifts for the day + DAY_OPENING baseline, ordered chronologically
   const shiftsResult = await turso.execute({
     sql: `SELECT id, "userId", "userName", "startedAt", "endedAt",
                  "totalSales", "totalTransactions", "totalItemsSold",
                  "cashAtStart", "cashAtEnd", "expectedCash", "cashDiscrepancy"
           FROM "Shift"
-          WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
+          WHERE (status = 'ENDED' OR status = 'DAY_OPENING') AND "startedAt" >= ? AND "startedAt" <= ?
           ORDER BY "startedAt" ASC`,
     args: [dayStart, dayEnd],
   })
@@ -157,7 +157,7 @@ async function analyseSingleHandoff(shiftId: string) {
     sql: `SELECT id, "userId", "userName", "startedAt", "endedAt",
                  "totalSales", "totalTransactions", "totalItemsSold",
                  "cashAtStart", "cashAtEnd", "expectedCash", "cashDiscrepancy"
-          FROM "Shift" WHERE status = 'ENDED' AND "endedAt" <= ?
+          FROM "Shift" WHERE (status = 'ENDED' OR status = 'DAY_OPENING') AND "endedAt" <= ?
           ORDER BY "endedAt" DESC LIMIT 1`,
     args: [currentShift.startedAt as string],
   })

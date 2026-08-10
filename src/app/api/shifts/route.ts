@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
       if (userId) { shiftWhere.push('"userId" = ?'); shiftArgs.push(userId) }
       if (from) { shiftWhere.push('"startedAt" >= ?'); shiftArgs.push(new Date(from).toISOString()) }
       if (to) { shiftWhere.push('"startedAt" <= ?'); shiftArgs.push(new Date(to).toISOString()) }
-      const shiftClause = shiftWhere.length > 0 ? 'WHERE ' + shiftWhere.join(' AND ') : ''
+      const shiftClause = shiftWhere.length > 0 ? 'WHERE ' + shiftWhere.join(' AND ') + " AND status != 'DAY_OPENING'" : "WHERE status != 'DAY_OPENING'"
 
       const shiftListResult = await turso.execute({
         sql: `SELECT id, "userId", "userName", "startedAt", "endedAt", status,
@@ -241,6 +241,103 @@ export async function GET(request: NextRequest) {
 // POST /api/shifts  –  start or end a shift
 // ---------------------------------------------------------------------------
 
+async function ensureDayOpeningSnapshot(nowIso: string) {
+  const today = nowIso.split('T')[0] // YYYY-MM-DD
+  const dayStart = today + 'T00:00:00.000Z'
+  const dayEnd = today + 'T23:59:59.999Z'
+
+  // Check if a DAY_OPENING snapshot already exists for today
+  const existing = await turso.execute({
+    sql: `SELECT id FROM "Shift" WHERE status = 'DAY_OPENING' AND "startedAt" >= ? AND "startedAt" <= ?`,
+    args: [dayStart, dayEnd],
+  })
+  if (existing.rows.length > 0) return // Already exists for today
+
+  // Find the previous day's last ended shift (go back up to 7 days to handle weekends/holidays)
+  let sourceShiftId: string | null = null
+  let sourceEndedAt: string | null = null
+  let sourceUserName: string | null = null
+
+  for (let daysBack = 1; daysBack <= 7; daysBack++) {
+    const prevDate = new Date(nowIso)
+    prevDate.setDate(prevDate.getDate() - daysBack)
+    const prevDateStr = prevDate.toISOString().split('T')[0]
+    const prevStart = prevDateStr + 'T00:00:00.000Z'
+    const prevEnd = prevDateStr + 'T23:59:59.999Z'
+
+    const prevShiftResult = await turso.execute({
+      sql: `SELECT id, "userName", "endedAt" FROM "Shift"
+            WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
+            ORDER BY "endedAt" DESC LIMIT 1`,
+      args: [prevStart, prevEnd],
+    })
+    if (prevShiftResult.rows.length > 0) {
+      sourceShiftId = prevShiftResult.rows[0][0] as string
+      sourceUserName = prevShiftResult.rows[0][1] as string
+      sourceEndedAt = prevShiftResult.rows[0][2] as string
+      break
+    }
+  }
+
+  // Create the DAY_OPENING shift record
+  const openingId = generateId()
+  const openingNow = new Date().toISOString()
+  await turso.execute({
+    sql: `INSERT INTO "Shift" (id, "userId", "userName", "startedAt", "endedAt", status, "createdAt", "updatedAt")
+          VALUES (?, '__system__', 'Day Opening', ?, ?, 'DAY_OPENING', ?, ?)`,
+    args: [openingId, dayStart, sourceEndedAt || openingNow, openingNow, openingNow],
+  })
+
+  // Copy inventory from source shift, or snapshot current live inventory
+  if (sourceShiftId) {
+    // Copy from previous day's last shift snapshot
+    const srcInvResult = await turso.execute({
+      sql: `SELECT "productId", "productName", quantity, "sellingPrice", "costPrice", category
+            FROM "ShiftInventory" WHERE "shiftId" = ?`,
+      args: [sourceShiftId],
+    })
+    const srcRows = toObjs(srcInvResult)
+    if (srcRows.length > 0) {
+      const stmts = srcRows.map((r) => ({
+        sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          generateId(), openingId,
+          r.productId, r.productName,
+          (r.quantity as number) || 0,
+          r.sellingPrice, r.costPrice, r.category || null,
+          openingNow,
+        ],
+      }))
+      await turso.batch(stmts)
+    }
+  } else {
+    // No previous shift found — snapshot current live inventory as fallback
+    const liveInvResult = await turso.execute({
+      sql: `SELECT i."productId", p.name as "productName", i.quantity,
+                   p."sellingPrice", p."costPrice", p.category
+            FROM Inventory i JOIN "Product" p ON i."productId" = p.id
+            WHERE i.quantity > 0`,
+      args: [],
+    })
+    const liveRows = toObjs(liveInvResult)
+    if (liveRows.length > 0) {
+      const stmts = liveRows.map((r) => ({
+        sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          generateId(), openingId,
+          r.productId, r.productName,
+          (r.quantity as number) || 0,
+          r.sellingPrice, r.costPrice, r.category || null,
+          openingNow,
+        ],
+      }))
+      await turso.batch(stmts)
+    }
+  }
+}
+
 async function ensureShiftTables() {
   await turso.execute(`CREATE TABLE IF NOT EXISTS "Shift" (
     "id" TEXT NOT NULL PRIMARY KEY,
@@ -314,6 +411,10 @@ export async function POST(request: NextRequest) {
           warning: `Your previous shift (started ${new Date(stuckStartedAt).toLocaleTimeString()}) was not properly ended. It has been auto-closed. Please start a new shift.`,
         }, { status: 200 })
       }
+
+      // ── Ensure day opening snapshot exists for today ──
+      await ensureDayOpeningSnapshot(now)
+
       const id = generateId()
       await turso.execute({
         sql: `INSERT INTO "Shift" (id, "userId", "userName", "startedAt", status, "cashAtStart", "createdAt", "updatedAt")
