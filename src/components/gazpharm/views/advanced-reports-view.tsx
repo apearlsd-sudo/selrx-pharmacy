@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays,
   Zap, RotateCcw, Award, FileText, Package, Clock, Activity, TrendingDown,
   CheckCircle2, Tag, Sun, LayoutGrid, LayoutDashboard, Link2,
-  Brain, Flame, Target, Factory, Shield, Grid3x3,
+  Brain, Flame, Target, Factory, Shield, Grid3x3, ChevronDown,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,10 +14,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import {
-  NavigationMenu, NavigationMenuList, NavigationMenuItem,
-  NavigationMenuContent, NavigationMenuTrigger, NavigationMenuLink,
-} from '@/components/ui/navigation-menu'
 import { Badge } from '@/components/ui/badge'
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -156,6 +152,78 @@ const REPORT_GROUPS = [
 ]
 
 // ========================================================================
+// CUSTOM HOVER NAVBAR DROPDOWN
+// ========================================================================
+function NavbarDropdown({
+  group, activeTab, onSelect,
+}: {
+  group: typeof REPORT_GROUPS[number]; activeTab: string; onSelect: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isActiveGroup = group.items.some((i) => i.value === activeTab)
+  const GroupIcon = group.items[0].icon
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    setOpen(true)
+  }
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setOpen(false), 150)
+  }
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Trigger */}
+      <button
+        type="button"
+        className={`flex items-center gap-1.5 h-10 px-3 text-xs font-medium rounded-none border-b-2 transition-colors whitespace-nowrap ${
+          isActiveGroup
+            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
+            : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+        }`}
+      >
+        <GroupIcon className="h-4 w-4" />
+        {group.label}
+        <ChevronDown className={`h-3 w-3 ml-0.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {/* Dropdown — positioned directly beneath the trigger */}
+      {open && (
+        <div
+          className="absolute top-full left-0 z-50 mt-0 w-52 bg-white rounded-b-lg border border-t-0 border-gray-200 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {group.items.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              className={`flex items-center gap-2.5 w-full px-3 py-2.5 text-xs text-left transition-colors ${
+                activeTab === item.value
+                  ? 'bg-emerald-50 text-emerald-700 font-medium'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+              onClick={() => {
+                onSelect(item.value)
+                setOpen(false)
+              }}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span>{item.label}</span>
+              {activeTab === item.value && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========================================================================
 // MAIN COMPONENT
 // ========================================================================
 
@@ -205,49 +273,16 @@ export function AdvancedReportsView() {
         <CardContent className="p-0">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-0">
             {/* Category Navbar with hover dropdowns */}
-            <NavigationMenu className="w-full lg:w-auto">
-              <NavigationMenuList className="gap-0">
-                {REPORT_GROUPS.map((group) => {
-                  const GroupIcon = group.items[0].icon
-                  const isActive = activeGroup?.label === group.label
-                  return (
-                    <NavigationMenuItem key={group.label}>
-                      <NavigationMenuTrigger
-                        className={`h-10 px-3 text-xs font-medium gap-1.5 rounded-none border-b-2 transition-colors ${
-                          isActive
-                            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
-                            : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                        onPointerDown={(e) => e.preventDefault()}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <GroupIcon className="h-4 w-4" />
-                        {group.label}
-                      </NavigationMenuTrigger>
-                      <NavigationMenuContent>
-                        <ul className="w-[200px] p-1">
-                          {group.items.map((item) => (
-                            <li key={item.value}>
-                              <NavigationMenuLink
-                                className={`flex items-center gap-2.5 rounded-md px-3 py-2.5 text-xs cursor-pointer transition-colors ${
-                                  activeTab === item.value
-                                    ? 'bg-emerald-50 text-emerald-700 font-medium'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                                onSelect={() => selectReport(item.value)}
-                              >
-                                <item.icon className="h-4 w-4 shrink-0" />
-                                <span>{item.label}</span>
-                              </NavigationMenuLink>
-                            </li>
-                          ))}
-                        </ul>
-                      </NavigationMenuContent>
-                    </NavigationMenuItem>
-                  )
-                })}
-              </NavigationMenuList>
-            </NavigationMenu>
+            <div className="flex items-center gap-0">
+              {REPORT_GROUPS.map((group) => (
+                <NavbarDropdown
+                  key={group.label}
+                  group={group}
+                  activeTab={activeTab}
+                  onSelect={selectReport}
+                />
+              ))}
+            </div>
 
             {/* Date Range + Presets — right side */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3 border-t lg:border-t-0 lg:border-l border-gray-100">
