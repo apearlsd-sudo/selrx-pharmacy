@@ -59,6 +59,12 @@ async function ensureTransactionTables() {
   )`)
   try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Batch_productId_idx" ON "Batch"("productId")`) } catch { /* */ }
   try { await turso.execute(`CREATE INDEX IF NOT EXISTS "Batch_expiryDate_idx" ON "Batch"("expiryDate")`) } catch { /* */ }
+
+  // Ensure Transaction table has workstationId column (added after initial schema)
+  try { await turso.execute(`ALTER TABLE "Transaction" ADD COLUMN "workstationId" TEXT`) } catch { /* column exists */ }
+  // Ensure TransactionItem table has sellingUnit/itemsPerUnit columns
+  try { await turso.execute(`ALTER TABLE "TransactionItem" ADD COLUMN "sellingUnit" TEXT DEFAULT 'EA'`) } catch { /* column exists */ }
+  try { await turso.execute(`ALTER TABLE "TransactionItem" ADD COLUMN "itemsPerUnit" INTEGER DEFAULT 1`) } catch { /* column exists */ }
 }
 
 // ---------------------------------------------------------------------------
