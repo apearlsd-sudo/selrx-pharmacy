@@ -275,8 +275,10 @@ export function POSView() {
   }, [customerSearch, searchCustomers])
 
   // Re-search products when inventory changes (stock count, adjust, etc.)
+  // Only re-trigger if there's an active search or category filter
   const prevInventoryVersion = useRef(inventoryVersion)
   useEffect(() => {
+    if (!searchQuery && !activeCategory) return
     if (prevInventoryVersion.current !== inventoryVersion) {
       prevInventoryVersion.current = inventoryVersion
       searchProducts(searchQuery, activeCategory)
