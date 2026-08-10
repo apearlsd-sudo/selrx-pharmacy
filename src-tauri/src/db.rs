@@ -3,6 +3,19 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::path::PathBuf;
 
+/// Convert a rusqlite Value to a serde_json Value.
+fn rusqlite_value_to_json(val: &rusqlite::types::Value) -> serde_json::Value {
+    match val {
+        rusqlite::types::Value::Null => serde_json::Value::Null,
+        rusqlite::types::Value::Integer(n) => serde_json::json!(*n),
+        rusqlite::types::Value::Real(f) => serde_json::json!(*f),
+        rusqlite::types::Value::Text(s) => serde_json::json!(s),
+        rusqlite::types::Value::Blob(b) => {
+            serde_json::json!(String::from_utf8_lossy(b).to_string())
+        }
+    }
+}
+
 /// The application's database state, wrapped in a Mutex for thread safety.
 pub struct DbState(pub Mutex<Connection>);
 
@@ -916,18 +929,34 @@ impl DbState {
         limit: i64,
     ) -> Result<String, String> {
         let conn = self.0.lock().map_err(|e| e.to_string())?;
-        let sql = if let Some(mt) = metric_type {
-            format!(
-                r#"SELECT * FROM "SyncHealthLog" WHERE metricType = '{}' ORDER BY createdAt DESC LIMIT {}"#,
-                mt, limit
-            )
+        if let Some(mt) = metric_type {
+            // Use parameterized query to prevent SQL injection
+            let mut stmt = conn
+                .prepare(r#"SELECT * FROM "SyncHealthLog" WHERE metricType = ?1 ORDER BY createdAt DESC LIMIT ?2"#)
+                .map_err(|e| format!("Prepare failed: {}", e))?;
+            let rows: Vec<serde_json::Value> = stmt
+                .query_map(params![mt, limit], |row| {
+                    let cols = row.as_ref().column_count();
+                    let mut map = serde_json::Map::new();
+                    for i in 0..cols {
+                        let name = row.as_ref().column_name(i).unwrap_or("?").to_string();
+                        let val: rusqlite::types::Value = row.get(i).unwrap_or(rusqlite::types::Value::Null);
+                        map.insert(name, rusqlite_value_to_json(&val));
+                    }
+                    Ok(serde_json::Value::Object(map))
+                })
+                .map_err(|e| format!("Query failed: {}", e))?
+                .filter_map(|r| r.ok())
+                .collect();
+            serde_json::to_string(&rows).map_err(|e| format!("Serialize: {}", e))
         } else {
-            format!(
+            // No metric_type filter — limit is a trusted i64, safe to interpolate
+            let sql = format!(
                 r#"SELECT * FROM "SyncHealthLog" ORDER BY createdAt DESC LIMIT {}"#,
                 limit
-            )
-        };
-        self.query(sql, vec![])
+            );
+            self.query(sql, vec![])
+        }
     }
 
     /// Get aggregate health stats (avg latency, success rate, etc.).

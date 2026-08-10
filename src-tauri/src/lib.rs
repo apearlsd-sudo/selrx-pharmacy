@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod db;
 pub mod mdns_discovery;
@@ -8,7 +8,7 @@ pub mod ws_server;
 
 use db::DbState;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tauri::Manager;
 use tunnel::TunnelState;
 
@@ -23,16 +23,65 @@ pub enum DeviceRole {
 /// App state shared across all Tauri commands.
 pub struct AppState {
     pub db: Arc<DbState>,
-    pub role: DeviceRole,
-    pub hub_url: Option<String>,
+    pub role: RwLock<DeviceRole>,
+    pub hub_url: RwLock<Option<String>>,
     pub tunnel: Mutex<TunnelState>,
     /// Handle to the WebSocket broadcast channel (for hub to push notifications)
     pub ws_broadcaster: Option<std::sync::Mutex<tokio::sync::broadcast::Sender<String>>>,
 }
 
 // ===================================================================
-// Database Commands
+// Database Commands — SQL whitelist enforcement
 // ===================================================================
+
+/// Only allow SELECT statements through db_query.
+/// Destructive operations (DROP, ALTER, DELETE without WHERE, etc.) are blocked.
+fn is_safe_query(sql: &str) -> bool {
+    let trimmed = sql.trim().to_uppercase();
+    // Must start with SELECT
+    if !trimmed.starts_with("SELECT") {
+        return false;
+    }
+    // Block dangerous keywords anywhere in the query
+    let blocked = ["DROP", "ALTER", "CREATE", "INSERT", "UPDATE", "DELETE", "ATTACH", "DETACH"];
+    for kw in &blocked {
+        if trimmed.contains(kw) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Only allow INSERT/UPDATE/DELETE through db_execute.
+/// DDL and destructive operations are blocked.
+fn is_safe_execute(sql: &str, table_name: &str) -> bool {
+    let trimmed = sql.trim().to_uppercase();
+    // Must be INSERT, UPDATE, or DELETE
+    if !(trimmed.starts_with("INSERT") || trimmed.starts_with("UPDATE") || trimmed.starts_with("DELETE")) {
+        return false;
+    }
+    // Block DDL
+    let blocked = ["DROP", "ALTER", "CREATE", "ATTACH", "DETACH"];
+    for kw in &blocked {
+        if trimmed.contains(kw) {
+            return false;
+        }
+    }
+    // Validate table name against whitelist
+    let allowed_tables = [
+        "Product", "Inventory", "Batch", "Customer", "User",
+        "Transaction", "TransactionItem", "Return", "Prescription",
+        "Company", "Manufacturer", "Vendor", "Category",
+        "StockTake", "StockTakeItem", "AuditLog", "ProductHistory",
+        "HardwareLog", "Shift", "ShiftInventory", "Workstation",
+        "SyncLog", "SyncCheckpoint", "SyncHealthLog", "OfflineQueue",
+        "InventoryDeltaLog", "_CategoryToProduct", "SystemRole",
+    ];
+    if !allowed_tables.iter().any(|&t| t == table_name) {
+        return false;
+    }
+    true
+}
 
 #[tauri::command]
 fn db_query(
@@ -40,6 +89,9 @@ fn db_query(
     sql: String,
     params: Vec<String>,
 ) -> Result<String, String> {
+    if !is_safe_query(&sql) {
+        return Err(format!("SQL blocked: only SELECT statements are permitted"));
+    }
     state.db.query(sql, params)
 }
 
@@ -53,6 +105,9 @@ fn db_execute(
     record_id: String,
     record_data: String,
 ) -> Result<String, String> {
+    if !is_safe_execute(&sql, &table_name) {
+        return Err(format!("SQL blocked: operation not permitted for table '{}'", table_name));
+    }
     state
         .db
         .execute(sql, params, table_name, operation, record_id, record_data)
@@ -63,6 +118,21 @@ fn db_batch(
     state: tauri::State<'_, AppState>,
     statements: Vec<db::BatchStmt>,
 ) -> Result<String, String> {
+    // Validate each statement in the batch
+    for stmt in &statements {
+        let trimmed = stmt.sql.trim().to_uppercase();
+        let is_query = trimmed.starts_with("SELECT");
+        let is_mutation = trimmed.starts_with("INSERT") || trimmed.starts_with("UPDATE") || trimmed.starts_with("DELETE");
+        if !is_query && !is_mutation {
+            return Err(format!("Batch SQL blocked: only SELECT/INSERT/UPDATE/DELETE permitted, got: {}", &stmt.sql[..stmt.sql.len().min(50)]));
+        }
+        let blocked = ["DROP", "ALTER", "CREATE", "ATTACH", "DETACH"];
+        for kw in &blocked {
+            if trimmed.contains(kw) {
+                return Err(format!("Batch SQL blocked: DDL keyword '{}' not permitted", kw));
+            }
+        }
+    }
     state.db.batch(statements)
 }
 
@@ -110,22 +180,36 @@ fn get_db_path(state: tauri::State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn get_device_role(state: tauri::State<'_, AppState>) -> DeviceRole {
-    state.role.clone()
-}
-
-#[tauri::command]
-fn set_device_role(state: tauri::State<'_, AppState>, role: String) -> Result<String, String> {
-    match role.as_str() {
-        "hub" => Ok("role_set_to_hub".to_string()),
-        "terminal" => Ok("role_set_to_terminal".to_string()),
-        _ => Err(format!("Unknown role: {}", role)),
+fn get_device_role(state: tauri::State<'_, AppState>) -> String {
+    match state.role.read().map(|r| r.clone()) {
+        Ok(DeviceRole::Hub) => "hub".to_string(),
+        _ => "terminal".to_string(),
     }
 }
 
 #[tauri::command]
+fn set_device_role(app: tauri::AppHandle, state: tauri::State<'_, AppState>, role: String) -> Result<String, String> {
+    let new_role = match role.as_str() {
+        "hub" => DeviceRole::Hub,
+        "terminal" => DeviceRole::Terminal,
+        _ => return Err(format!("Unknown role: {}", role)),
+    };
+    // Update in-memory state
+    {
+        let mut guard = state.role.write().map_err(|e| e.to_string())?;
+        *guard = new_role.clone();
+    }
+    // Persist to disk
+    let app_dir = app.path().app_data_dir().map_err(|e| format!("Failed to get app dir: {}", e))?;
+    let role_file = app_dir.join("device_role.txt");
+    std::fs::write(&role_file, role.as_str())
+        .map_err(|e| format!("Failed to persist role: {}", e))?;
+    Ok(format!("role_set_to_{}", role))
+}
+
+#[tauri::command]
 fn get_hub_url(state: tauri::State<'_, AppState>) -> Option<String> {
-    state.hub_url.clone()
+    state.hub_url.read().ok().and_then(|g| g.clone())
 }
 
 #[tauri::command]
@@ -141,10 +225,10 @@ fn set_hub_url_persist(
     let url_file = app_dir.join("hub_url.txt");
     std::fs::write(&url_file, &url)
         .map_err(|e| format!("Failed to save hub URL: {}", e))?;
-    // Also update in-memory state (requires mutable access)
-    // Note: we can't mutate state.hub_url directly through State,
-    // so we update the file and the in-memory value via a workaround.
-    let _ = url;
+    // Update in-memory state
+    if let Ok(mut guard) = state.hub_url.write() {
+        *guard = Some(url.clone());
+    }
     Ok("hub_url_saved".to_string())
 }
 
@@ -321,9 +405,9 @@ fn get_system_status(
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    let role_str = match state.role {
-        DeviceRole::Hub => "hub",
-        DeviceRole::Terminal => "terminal",
+    let role_str = match state.role.read().map(|r| r.clone()) {
+        Ok(DeviceRole::Hub) => "hub",
+        _ => "terminal",
     };
 
     let pending_syncs = state
@@ -363,7 +447,7 @@ fn get_system_status(
         "db_path": db_path,
         "app_dir": app_dir,
         "role": role_str,
-        "hub_url": state.hub_url,
+        "hub_url": state.hub_url.read().ok().and_then(|g| g.clone()),
         "sync_port": 3001u16,
         "pending_syncs": pending_syncs,
         "tunnel": tunnel_status,
@@ -382,12 +466,11 @@ fn get_system_status(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
+        // Only load plugins that are actually needed — minimize attack surface
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_notification::init())
+        // shell: needed for tunnel (cloudflared process management)
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             // Resolve the app data directory
             let app_dir = app
@@ -441,8 +524,8 @@ pub fn run() {
 
             let app_state = AppState {
                 db: db.clone(),
-                role: role.clone(),
-                hub_url,
+                role: RwLock::new(role.clone()),
+                hub_url: RwLock::new(hub_url),
                 tunnel: Mutex::new(tunnel_state),
                 ws_broadcaster: None,
             };

@@ -85,8 +85,22 @@ export async function GET() {
 }
 
 // POST /api/company-setup — create company + owner user account
+// Requires a SETUP_TOKEN to prevent unauthorized initial account creation
 export async function POST(req: NextRequest) {
   try {
+    // Verify setup token — prevents unauthorized account creation
+    const setupToken = process.env.SETUP_TOKEN
+    if (setupToken) {
+      const body = await req.clone().json().catch(() => ({}))
+      const providedToken = (body as Record<string, unknown>).setupToken
+      if (providedToken !== setupToken) {
+        return NextResponse.json(
+          { error: 'Invalid or missing setup token' },
+          { status: 403 }
+        )
+      }
+    } // If no SETUP_TOKEN env var is set, allow setup (first-run convenience)
+
     const body = await req.json()
 
     const {

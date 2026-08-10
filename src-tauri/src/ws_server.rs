@@ -145,13 +145,49 @@ pub fn get_broadcaster(state: &Arc<WsState>) -> broadcast::Sender<String> {
     state.tx.clone()
 }
 
-/// WebSocket upgrade handler
+/// Verify sync secret from the WebSocket upgrade request.
+/// Reads the Authorization header or a `token` query param.
+fn verify_ws_auth(req: &axum::http::request::Parts) -> bool {
+    // Try Authorization header first
+    if let Some(auth) = req.headers.get("authorization").and_then(|v| v.to_str().ok()) {
+        let expected = match std::env::var("SYNC_SECRET") {
+            Ok(s) if !s.is_empty() => s,
+            _ => return false,
+        };
+        return auth == format!("Bearer {}", expected);
+    }
+    // Fallback: token query parameter (for WebSocket clients that can't set headers)
+    if let Some(query) = req.uri.query() {
+        for pair in query.split('&') {
+            if let Some(token) = pair.strip_prefix("token=") {
+                let expected = match std::env::var("SYNC_SECRET") {
+                    Ok(s) if !s.is_empty() => s,
+                    _ => return false,
+                };
+                return token == expected;
+            }
+        }
+    }
+    false
+}
+
+/// WebSocket upgrade handler — requires authentication
 async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<WsState>>,
-) -> impl IntoResponse {
+    req: axum::http::Request<axum::body::Body>,
+) -> Response {
+    if !verify_ws_auth(&req.into_parts().0) {
+        return (
+            axum::http::StatusCode::UNAUTHORIZED,
+            serde_json::json!({"error": "Unauthorized"}).to_string(),
+        );
+    }
     ws.on_upgrade(move |socket| handle_socket(socket, state))
+        .into_response()
 }
+
+type Response = axum::response::Response<axum::body::Body>;
 
 /// Handle an individual WebSocket connection
 async fn handle_socket(socket: WebSocket, state: Arc<WsState>) {

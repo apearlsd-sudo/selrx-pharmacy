@@ -46,13 +46,20 @@ fn validate_table_name(name: &str) -> Result<&'static str, (StatusCode, Json<ser
 }
 
 /// Simple auth check: require Authorization header with bearer token
-/// that matches SYNC_SECRET env var (or a default for dev).
+/// that matches SYNC_SECRET env var.
+/// CRITICAL: No fallback default — SYNC_SECRET must be set.
 fn verify_sync_auth(headers: &axum::http::HeaderMap) -> bool {
+    let expected = match std::env::var("SYNC_SECRET") {
+        Ok(s) if !s.is_empty() => s,
+        _ => {
+            eprintln!("[security] SYNC_SECRET environment variable is not set. Sync authentication is DISABLED.");
+            return false;
+        }
+    };
     let auth = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    let expected = std::env::var("SYNC_SECRET").unwrap_or_else(|_| "selrx-sync-dev-key".to_string());
     auth == format!("Bearer {}", expected)
 }
 
@@ -115,9 +122,12 @@ pub fn start_sync_server(db: Arc<DbState>, config: SyncConfig) -> tokio::task::J
         // Build WebSocket routes with their own state
         let ws_routes = ws_server::ws_routes(ws_state);
 
-        // Combine with CORS layer
+        // CORS: restrict to known origins in production, allow localhost in dev
+        let allowed_origin = std::env::var("CORS_ALLOWED_ORIGIN")
+            .unwrap_or_else(|_| "http://localhost:1420,http://localhost:3000,tauri://localhost".to_string());
+        let origins: Vec<&str> = allowed_origin.split(',').map(|s| s.trim()).collect();
         let cors = CorsLayer::new()
-            .allow_origin(tower_http::cors::Any)
+            .allow_origin(origins)
             .allow_methods([
                 Method::GET,
                 Method::POST,
@@ -125,7 +135,11 @@ pub fn start_sync_server(db: Arc<DbState>, config: SyncConfig) -> tokio::task::J
                 Method::DELETE,
                 Method::OPTIONS,
             ])
-            .allow_headers(tower_http::cors::Any);
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::ACCEPT,
+            ]);
 
         let app = Router::new()
             .merge(http_routes)
@@ -260,15 +274,26 @@ async fn sync_push(
     let mut pushed_tables: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for record in &body.records {
-        // Validate table name
-        let safe_table = match validate_table_name(&safe_table) {
+        // Validate table name for EACH record (not just the first)
+        let safe_table = match validate_table_name(&record.table_name) {
             Ok(t) => t,
-            Err(e) => {
+            Err(_) => {
                 failed += 1;
-                errors.push(format!("Table not allowed: {}", safe_table));
+                errors.push(format!("Table not allowed: {}", record.table_name));
                 continue;
             }
         };
+
+        // Also validate column names in record.data to prevent SQL injection via column names
+        if let Ok(data_map) = record.data.as_object() {
+            for key in data_map.keys() {
+                if !key.chars().all(|c| c.is_alphanumeric() || c == '_') || key.is_empty() {
+                    failed += 1;
+                    errors.push(format!("Invalid column name: {}", key));
+                    continue;
+                }
+            }
+        }
         pushed_tables.insert(safe_table.to_string());
 
         match record.operation.as_str() {
@@ -400,8 +425,13 @@ struct DeltaFlag {
 
 async fn sync_push_delta(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<DeltaPushRequest>,
-) -> Json<serde_json::Value> {
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
+
     let state = state.read().await;
     let db = &state.db;
 
@@ -493,28 +523,36 @@ async fn sync_push_delta(
         );
     }
 
-    Json(serde_json::json!({
+    (Json(serde_json::json!({
         "applied": applied,
         "flagged": flagged,
         "errors": errors
-    }))
+    }))).into_response()
 }
 
 /// Get pending sync entries from the hub.
 async fn sync_pending(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
-) -> Json<serde_json::Value> {
+    headers: axum::http::HeaderMap,
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
     let state = state.read().await;
     match state.db.get_pending_syncs() {
-        Ok(entries) => Json(serde_json::from_str(&entries).unwrap_or(serde_json::json!([]))),
-        Err(e) => Json(serde_json::json!({ "error": e })),
+        Ok(entries) => Json(serde_json::from_str(&entries).unwrap_or(serde_json::json!([]))).into_response(),
+        Err(e) => Json(serde_json::json!({ "error": e })).into_response(),
     }
 }
 
 /// Get the sync server status.
 async fn sync_status(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
-) -> Json<serde_json::Value> {
+    headers: axum::http::HeaderMap,
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
     let state = state.read().await;
     let device_id = state.db.get_device_id().unwrap_or_default();
     let db_path = state.db.get_db_path().unwrap_or_default();
@@ -526,13 +564,17 @@ async fn sync_status(
         "db_path": db_path,
         "tunnel_url": state.config.tunnel_url,
         "role": "hub"
-    }))
+    })).into_response()
 }
 
 /// Get list of connected terminals (from sync checkpoints).
 async fn connected_terminals(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
-) -> Json<serde_json::Value> {
+    headers: axum::http::HeaderMap,
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
     let state = state.read().await;
 
     let sql = r#"SELECT DISTINCT workstation_id, MIN(last_sync_timestamp) as first_seen, MAX(last_sync_timestamp) as last_sync, COUNT(DISTINCT table_name) as tables_synced
@@ -541,8 +583,8 @@ async fn connected_terminals(
                ORDER BY last_sync DESC"#.to_string();
 
     match state.db.query(sql, vec![]) {
-        Ok(entries) => Json(serde_json::from_str(&entries).unwrap_or(serde_json::json!([]))),
-        Err(e) => Json(serde_json::json!({ "error": e })),
+        Ok(entries) => Json(serde_json::from_str(&entries).unwrap_or(serde_json::json!([]))).into_response(),
+        Err(e) => Json(serde_json::json!({ "error": e })).into_response(),
     }
 }
 
@@ -559,7 +601,11 @@ async fn health_check() -> Json<serde_json::Value> {
 /// This is the data source for the Sync Health Dashboard UI.
 async fn health_dashboard(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
-) -> Json<serde_json::Value> {
+    headers: axum::http::HeaderMap,
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
     let state = state.read().await;
     let db = &state.db;
     let device_id = db.get_device_id().unwrap_or_default();
@@ -618,7 +664,7 @@ async fn health_dashboard(
         "pending_syncs": pending_count,
         "recent_deltas": recent_flags,
         "server_time": chrono::Utc::now().to_rfc3339(),
-    }))
+    })).into_response()
 }
 
 // ===================================================================

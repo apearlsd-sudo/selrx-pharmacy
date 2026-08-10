@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS, PERMISSION_CATEGORIES, ALL_PERMISSION_KEYS } from '@/lib/permissions'
 
-// In-memory store for custom roles (persists only for the lifetime of the serverless function)
-// Since SystemRole table may not exist in the DB, we use in-code defaults + any custom overrides
+// In-memory store for custom roles.
+// NOTE: This resets on serverless cold start (Vercel).
+// TODO: Migrate custom roles to a database table (e.g. SystemRole) for persistence.
+// For now, custom roles must be recreated after each deployment.
 let customRoles: Record<string, {
   id: string
   name: string

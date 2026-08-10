@@ -82,7 +82,13 @@ function getAesKey(): Uint8Array {
   // Key must be exactly 32 bytes (256 bits) for AES-256
   const raw = new TextEncoder().encode(key)
   if (raw.length !== 32) {
+    console.error(
+      `[security] AES_ENCRYPTION_KEY is ${raw.length} bytes but must be exactly 32 bytes (256 bits). ` +
+      `Deriving via SHA-256 — this may break decryption of data encrypted with a different-length key. ` +
+      `Set AES_ENCRYPTION_KEY to a 32-character string to avoid this warning.`
+    )
     // Derive a 32-byte key using SHA-256 if the provided key is wrong length
+    // NOTE: This is a compatibility fallback. In production, always use a 32-byte key.
     return crypto.subtle.digest('SHA-256', raw).then(b => new Uint8Array(b)) as unknown as Uint8Array
   }
   return raw

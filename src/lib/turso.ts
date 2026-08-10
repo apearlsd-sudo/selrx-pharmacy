@@ -142,12 +142,12 @@ export async function tursoBatch(
 
 /**
  * Generate a CUID-like ID (compatible with existing Prisma-generated IDs).
+ * Uses crypto.randomUUID() for cryptographic randomness.
  */
 export function generateId(): string {
   const timestamp = Date.now().toString(36)
-  const random = Math.random().toString(36).substring(2, 15)
-  const random2 = Math.random().toString(36).substring(2, 10)
-  return `${timestamp}${random}${random2}`
+  const uuid = crypto.randomUUID().replace(/-/g, '')
+  return `${timestamp}${uuid.substring(0, 13)}${uuid.substring(13, 21)}`
 }
 
 /**
@@ -158,7 +158,7 @@ export function generateTransactionNo(): string {
   const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
     d.getFullYear().toString()
-  const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  const seq = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
   return `TXN-${date}-${seq}`
 }
 
@@ -170,7 +170,7 @@ export function generateReturnNo(): string {
   const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
     d.getFullYear().toString()
-  const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  const seq = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
   return `RTN-${date}-${seq}`
 }
 
@@ -178,7 +178,8 @@ export function generateReturnNo(): string {
  * Rx number generator: RX-XXXXXXXX format
  */
 export function generateRxNumber(): string {
-  const seq = String(Math.floor(Math.random() * 100000000)).padStart(8, '0')
+  const val = crypto.getRandomValues(new Uint32Array(1))[0]
+  const seq = String(val % 100000000).padStart(8, '0')
   return `RX-${seq}`
 }
 
@@ -190,7 +191,7 @@ export function generateBatchNo(): string {
   const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
     d.getFullYear().toString()
-  const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  const seq = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
   return `BN-${date}-${seq}`
 }
 
@@ -202,6 +203,6 @@ export function generateStockTakeRef(): string {
   const date = String(d.getDate()).padStart(2, '0') +
     String(d.getMonth() + 1).padStart(2, '0') +
     d.getFullYear().toString()
-  const seq = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+  const seq = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
   return `ST-${date}-${seq}`
 }

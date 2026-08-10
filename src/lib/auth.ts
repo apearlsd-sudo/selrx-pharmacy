@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import { verifyPassword } from '@/lib/security'
 
 /**
  * NextAuth configuration — safe for Vercel + Turso.
@@ -42,7 +43,8 @@ export const authOptions: NextAuthOptions = {
           const row = result.rows[0]
 
           if (!row.active || Number(row.active) !== 1) return null
-          if (row.password !== credentials.password) return null
+          const { valid } = await verifyPassword(credentials.password, row.password as string)
+          if (!valid) return null
 
           // Update last login
           await client.execute({
@@ -64,7 +66,8 @@ export const authOptions: NextAuthOptions = {
         const user = await db.user.findUnique({ where: { email: credentials.email } })
         if (!user) return null
         if (!user.active) return null
-        if (credentials.password !== user.password) return null
+        const { valid } = await verifyPassword(credentials.password, user.password)
+        if (!valid) return null
 
         await db.user.update({
           where: { id: user.id },
@@ -102,5 +105,11 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET || 'selrx-demo-secret-key',
+  secret: (() => {
+    const s = process.env.NEXTAUTH_SECRET
+    if (!s || s.length < 16) {
+      throw new Error('NEXTAUTH_SECRET environment variable must be set and at least 16 characters')
+    }
+    return s
+  })(),
 }

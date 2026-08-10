@@ -34,15 +34,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Extract JWT from Authorization header
+  // Extract JWT from Authorization header — required for ALL API requests
   const authHeader = req.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
   if (!token) {
-    // Allow GET requests to proceed but without auth headers
-    // (legacy support — individual routes still check x-user-role)
-    // TODO: Remove this fallback after all routes are migrated to JWT
-    return NextResponse.next()
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 
   try {
