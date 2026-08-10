@@ -500,6 +500,7 @@ export function POSView() {
 
       const transaction = await res.json()
       clearCart()
+      setSearchQuery('')
       setAmountTendered('')
       addToast({
         title: 'Payment Successful',
