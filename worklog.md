@@ -181,3 +181,28 @@ Stage Summary:
 - Uses INSERT...ON CONFLICT(productId) DO UPDATE for upsert semantics
 - Products not in snapshot are left untouched (safe for between-shift restocking)
 - Files modified: src/app/api/shifts/route.ts, src/app/page.tsx, src/app/api/categories/route.ts, src/app/api/categories/[id]/route.ts, src/components/gazpharm/views/master-data-view.tsx, src/components/gazpharm/views/pos-view.tsx
+---
+Task ID: 1
+Agent: Main Agent
+Task: Ensure previous day's ended shift inventory snapshot is always used at the beginning of each new day
+
+Work Log:
+- Investigated shift management and inventory snapshot data model thoroughly
+- Identified 3 critical gaps in the existing ensureDayOpeningSnapshot() implementation:
+  1. Auto-ended shifts (stuck shifts) in GET active check didn't capture inventory snapshots
+  2. Auto-ended shifts in POST start action didn't capture inventory snapshots  
+  3. Source shift selection picked the last ENDED shift even if it had no ShiftInventory records
+- Extracted captureInventorySnapshot() as a reusable function from the shift end logic
+- Added snapshot capture to GET active check auto-close path (24h+ stuck shifts)
+- Added snapshot capture to POST start auto-end path (stuck shift on new start attempt)
+- Improved source shift selection to verify ShiftInventory records exist before selecting a source
+- Source selection now iterates all ENDED shifts per day (not just the first) and picks the first with actual snapshot data
+- Falls back to live inventory only when no valid source shift with snapshot data is found
+- Verified Next.js build succeeds with no new errors
+
+Stage Summary:
+- File modified: src/app/api/shifts/route.ts
+- New function: captureInventorySnapshot(shiftId, nowIso) - reusable snapshot capture
+- 3 auto-end paths now all capture snapshots (previously 0 did)
+- Source selection now guarantees snapshot data exists before using a shift as source
+- The snapshot chain is now unbreakable: every ENDED shift has inventory data for day-opening reconciliation

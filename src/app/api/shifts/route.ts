@@ -42,11 +42,17 @@ export async function GET(request: NextRequest) {
         const shiftAge = Date.now() - new Date(startedAt).getTime()
         if (shiftAge > 24 * 60 * 60 * 1000) {
           const now = new Date().toISOString()
+          const closedId = row[0] as string
           await turso.execute({
             sql: `UPDATE "Shift" SET status = 'ENDED', "endedAt" = ?, "updatedAt" = ? WHERE id = ?`,
-            args: [now, now, row[0]],
+            args: [now, now, closedId],
           })
-          return NextResponse.json({ active: false, autoClosed: true, closedShiftId: row[0] })
+          // Capture inventory snapshot for the auto-closed shift so the
+          // day-opening chain is never broken (no gap without snapshot data).
+          try { await captureInventorySnapshot(closedId, now) } catch (e) {
+            console.error(`[ShiftAutoClose] Failed to capture snapshot for ${closedId}:`, e)
+          }
+          return NextResponse.json({ active: false, autoClosed: true, closedShiftId: closedId })
         }
         return NextResponse.json({
           active: true,
@@ -249,6 +255,38 @@ interface DayOpeningResult {
   productsUpdated: number
 }
 
+/**
+ * Captures a point-in-time inventory snapshot into ShiftInventory for a given shift.
+ * Used at normal shift end AND when auto-ending stuck shifts so that the
+ * snapshot chain is never broken for day-opening reconciliation.
+ */
+async function captureInventorySnapshot(shiftId: string, nowIso: string): Promise<number> {
+  const invResult = await turso.execute({
+    sql: `SELECT i."productId", p.name as "productName", i.quantity,
+                 p."sellingPrice", p."costPrice", p.category
+          FROM Inventory i JOIN "Product" p ON i."productId" = p.id
+          WHERE i.quantity > 0`,
+    args: [],
+  })
+  const rows = toObjs(invResult)
+  if (rows.length > 0) {
+    const stmts = rows.map((r) => ({
+      sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        generateId(), shiftId,
+        r.productId, r.productName,
+        (r.quantity as number) || 0,
+        r.sellingPrice, r.costPrice, r.category || null,
+        nowIso,
+      ],
+    }))
+    await turso.batch(stmts)
+  }
+  console.log(`[ShiftSnapshot] Captured ${rows.length} products for shift ${shiftId}`)
+  return rows.length
+}
+
 async function ensureDayOpeningSnapshot(nowIso: string): Promise<DayOpeningResult> {
   const today = nowIso.split('T')[0] // YYYY-MM-DD
   const dayStart = today + 'T00:00:00.000Z'
@@ -262,7 +300,10 @@ async function ensureDayOpeningSnapshot(nowIso: string): Promise<DayOpeningResul
   })
   if (existing.rows.length > 0) return { ...defaultResult, created: true } // Already exists for today
 
-  // Find the previous day's last ended shift (go back up to 7 days to handle weekends/holidays)
+  // Find the previous day's last ended shift that has actual inventory snapshot data.
+  // Go back up to 7 days to handle weekends/holidays. Skip shifts with empty
+  // snapshots (e.g. auto-ended shifts that predated snapshot capture) so we
+  // always find a reliable source.
   let sourceShiftId: string | null = null
   let sourceEndedAt: string | null = null
   let sourceUserName: string | null = null
@@ -275,19 +316,31 @@ async function ensureDayOpeningSnapshot(nowIso: string): Promise<DayOpeningResul
     const prevStart = prevDateStr + 'T00:00:00.000Z'
     const prevEnd = prevDateStr + 'T23:59:59.999Z'
 
+    // Find all ENDED shifts for this day, ordered by most recent first
     const prevShiftResult = await turso.execute({
       sql: `SELECT id, "userName", "endedAt" FROM "Shift"
             WHERE status = 'ENDED' AND "startedAt" >= ? AND "startedAt" <= ?
-            ORDER BY "endedAt" DESC LIMIT 1`,
+            ORDER BY "endedAt" DESC`,
       args: [prevStart, prevEnd],
     })
-    if (prevShiftResult.rows.length > 0) {
-      sourceShiftId = prevShiftResult.rows[0][0] as string
-      sourceUserName = prevShiftResult.rows[0][1] as string
-      sourceEndedAt = prevShiftResult.rows[0][2] as string
-      sourceDate = prevDateStr
-      break
+    const prevShifts = toObjs(prevShiftResult)
+
+    // Pick the first shift that actually has ShiftInventory records
+    for (const ps of prevShifts) {
+      const snapCheck = await turso.execute({
+        sql: `SELECT COUNT(*) as cnt FROM "ShiftInventory" WHERE "shiftId" = ?`,
+        args: [ps.id],
+      })
+      const snapCount = (snapCheck.rows[0][0] as number) || 0
+      if (snapCount > 0) {
+        sourceShiftId = ps.id as string
+        sourceUserName = ps.userName as string
+        sourceEndedAt = ps.endedAt as string
+        sourceDate = prevDateStr
+        break
+      }
     }
+    if (sourceShiftId) break
   }
 
   // Create the DAY_OPENING shift record
@@ -308,7 +361,12 @@ async function ensureDayOpeningSnapshot(nowIso: string): Promise<DayOpeningResul
       args: [sourceShiftId],
     })
     const srcRows = toObjs(srcInvResult)
-    if (srcRows.length > 0) {
+    // (sourceShiftId is guaranteed to have ShiftInventory records due to
+    //  the count-check during source selection above, but guard anyway)
+    if (srcRows.length === 0) {
+      console.warn(`[DayOpening] Source shift ${sourceShiftId} unexpectedly has no ShiftInventory; falling back to live inventory`)
+      // Fall through to live inventory snapshot below
+    } else {
       // 1. Copy snapshot into ShiftInventory for reporting
       const snapStmts = srcRows.map((r) => ({
         sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
@@ -343,36 +401,33 @@ async function ensureDayOpeningSnapshot(nowIso: string): Promise<DayOpeningResul
       console.log(`[DayOpening] Synced ${srcRows.length} products from ${sourceDate} shift ${sourceShiftId} to live Inventory`)
       return { created: true, inventorySynced: true, sourceShiftId, sourceDate, productsUpdated: srcRows.length }
     }
-
-    // Source shift had empty inventory snapshot — still record the sync attempt
-    return { created: true, inventorySynced: true, sourceShiftId, sourceDate, productsUpdated: 0 }
-  } else {
-    // No previous shift found — snapshot current live inventory as fallback
-    const liveInvResult = await turso.execute({
-      sql: `SELECT i."productId", p.name as "productName", i.quantity,
-                   p."sellingPrice", p."costPrice", p.category
-            FROM Inventory i JOIN "Product" p ON i."productId" = p.id
-            WHERE i.quantity > 0`,
-      args: [],
-    })
-    const liveRows = toObjs(liveInvResult)
-    if (liveRows.length > 0) {
-      const stmts = liveRows.map((r) => ({
-        sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [
-          generateId(), openingId,
-          r.productId, r.productName,
-          (r.quantity as number) || 0,
-          r.sellingPrice, r.costPrice, r.category || null,
-          openingNow,
-        ],
-      }))
-      await turso.batch(stmts)
-    }
-    console.log('[DayOpening] No previous shift found; used current live inventory as baseline')
-    return { ...defaultResult, created: true, inventorySynced: false }
   }
+
+  // No valid source shift found (or source had empty snapshot) — snapshot current live inventory as fallback
+  const liveInvResult = await turso.execute({
+    sql: `SELECT i."productId", p.name as "productName", i.quantity,
+                 p."sellingPrice", p."costPrice", p.category
+          FROM Inventory i JOIN "Product" p ON i."productId" = p.id
+          WHERE i.quantity > 0`,
+    args: [],
+  })
+  const liveRows = toObjs(liveInvResult)
+  if (liveRows.length > 0) {
+    const stmts = liveRows.map((r) => ({
+      sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        generateId(), openingId,
+        r.productId, r.productName,
+        (r.quantity as number) || 0,
+        r.sellingPrice, r.costPrice, r.category || null,
+        openingNow,
+      ],
+    }))
+    await turso.batch(stmts)
+  }
+  console.log('[DayOpening] No valid source shift with snapshot data found; used current live inventory as baseline')
+  return { ...defaultResult, created: true, inventorySynced: false }
 }
 
 async function ensureShiftTables() {
@@ -440,6 +495,10 @@ export async function POST(request: NextRequest) {
           sql: `UPDATE "Shift" SET status = 'ENDED', "endedAt" = ?, "updatedAt" = ? WHERE id = ?`,
           args: [now, now, stuckId],
         })
+        // Capture inventory snapshot so the day-opening chain is never broken
+        try { await captureInventorySnapshot(stuckId, now) } catch (e) {
+          console.error(`[ShiftAutoEnd] Failed to capture snapshot for ${stuckId}:`, e)
+        }
         // Return a warning but still allow starting fresh
         return NextResponse.json({
           id: stuckId, userId, userName,
@@ -519,28 +578,7 @@ export async function POST(request: NextRequest) {
       })
 
       // ── Capture inventory snapshot at shift end ──
-      const invSnapshotResult = await turso.execute({
-        sql: `SELECT i."productId", p.name as "productName", i.quantity,
-                     p."sellingPrice", p."costPrice", p.category
-              FROM Inventory i JOIN "Product" p ON i."productId" = p.id
-              WHERE i.quantity > 0`,
-        args: [],
-      })
-      const invRows = toObjs(invSnapshotResult)
-      if (invRows.length > 0) {
-        const snapStmts = invRows.map((r) => ({
-          sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
-            generateId(), sid,
-            r.productId, r.productName,
-            (r.quantity as number) || 0,
-            r.sellingPrice, r.costPrice, r.category || null,
-            now,
-          ],
-        }))
-        await turso.batch(snapStmts)
-      }
+      await captureInventorySnapshot(sid, now)
 
       return NextResponse.json({
         id: sid, userId, userName, startedAt, endedAt: now,
