@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays,
@@ -14,9 +14,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -188,89 +188,117 @@ export function AdvancedReportsView() {
 
   const applyPreset = (p: { from: string; to: string }) => { setFrom(p.from); setTo(p.to) }
 
+  // Derive the active category group from the current activeTab
+  const activeGroup = REPORT_GROUPS.find((g) => g.items.some((i) => i.value === activeTab))
+  const activeGroupLabel = activeGroup?.label || ''
+
+  // When user switches category tab, pick the first item in that group
+  const handleGroupChange = (groupLabel: string) => {
+    const group = REPORT_GROUPS.find((g) => g.label === groupLabel)
+    if (group) setActiveTab(group.items[0].value)
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader icon={BarChart3} title="Advanced Reports" description="Deep analytics and insights" />
 
-      {/* Date Range Controls */}
+      {/* Date Range + Report Selector Controls */}
       <Card className="border-none shadow-sm">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Period:</span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                className="h-9 w-[140px] text-xs border rounded-md px-2 bg-white" />
-              <span className="text-xs text-muted-foreground">to</span>
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                className="h-9 w-[140px] text-xs border rounded-md px-2 bg-white" />
-            </div>
-            <div className="flex items-center gap-1 flex-wrap">
-              {PRESETS.map((p) => (
-                <Button key={p.label} variant="outline" size="sm" className="h-7 text-xs"
-                  onClick={() => applyPreset(p)}>{p.label}</Button>
-              ))}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            {/* Category Tabs */}
+            <Tabs value={activeGroupLabel} onValueChange={handleGroupChange}>
+              <TabsList className="h-8">
+                {REPORT_GROUPS.map((group) => {
+                  const GroupIcon = group.items[0].icon
+                  return (
+                    <TabsTrigger key={group.label} value={group.label} className="h-7 px-3 text-xs gap-1.5 data-[state=active]:text-emerald-700 data-[state=active]:bg-emerald-50">
+                      <GroupIcon className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{group.label}</span>
+                    </TabsTrigger>
+                  )
+                })}
+              </TabsList>
+            </Tabs>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+              {/* Sub-report Dropdown */}
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="h-8 w-full sm:w-[220px] text-xs border-gray-200">
+                  <SelectValue placeholder="Select report..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_GROUPS.map((group, gi) => (
+                    <Fragment key={group.label}>
+                      {gi > 0 && <SelectSeparator />}
+                      <SelectGroup>
+                        <SelectLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</SelectLabel>
+                        {group.items.map((item) => (
+                          <SelectItem key={item.value} value={item.value} className="text-xs gap-2">
+                            <span className="flex items-center gap-2">
+                              <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                              {item.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </Fragment>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Date Range */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                    className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
+                </div>
+                <span className="text-[10px] text-muted-foreground">to</span>
+                <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
+              </div>
+
+              {/* Presets */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {PRESETS.map((p) => (
+                  <Button key={p.label} variant="outline" size="sm" className="h-7 text-[11px] px-2"
+                    onClick={() => applyPreset(p)}>{p.label}</Button>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Categorized Report Selector */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="space-y-4">
-          {REPORT_GROUPS.map((group) => (
-            <div key={group.label}>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">{group.label}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
-                {group.items.map((item) => (
-                  <button
-                    key={item.value}
-                    onClick={() => setActiveTab(item.value)}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-all duration-150 text-xs font-medium border ${
-                      activeTab === item.value
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm shadow-emerald-100'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
-                    }`}
-                  >
-                    <item.icon className={`h-3.5 w-3.5 shrink-0 ${activeTab === item.value ? 'text-emerald-600' : 'text-gray-400'}`} />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {loading ? <Skeleton className="h-96 w-full" /> : (
-          <>
-            <TabsContent value="revenue"><RevenueTab data={data} /></TabsContent>
-            <TabsContent value="profit"><ProfitTab data={data} /></TabsContent>
-            <TabsContent value="customers"><CustomerTab data={data} /></TabsContent>
-            <TabsContent value="expiry"><ExpiryTab data={data} /></TabsContent>
-            <TabsContent value="payments"><PaymentTab data={data} /></TabsContent>
-            <TabsContent value="comparison"><ComparisonTab data={data} /></TabsContent>
-            <TabsContent value="stock-velocity"><StockVelocityTab data={data} /></TabsContent>
-            <TabsContent value="returns-analysis"><ReturnsAnalysisTab data={data} /></TabsContent>
-            <TabsContent value="user-performance"><UserPerformanceTab data={data} /></TabsContent>
-            <TabsContent value="prescription-analytics"><PrescriptionAnalyticsTab data={data} /></TabsContent>
-            <TabsContent value="inventory-valuation"><InventoryValuationTab data={data} /></TabsContent>
-            <TabsContent value="discount-analysis"><DiscountAnalysisTab data={data} /></TabsContent>
-            <TabsContent value="shift-analysis"><ShiftAnalysisTab data={data} /></TabsContent>
-            <TabsContent value="category-deep-dive"><CategoryDeepDiveTab data={data} /></TabsContent>
-            <TabsContent value="executive-summary"><ExecutiveSummaryTab data={data} /></TabsContent>
-            <TabsContent value="product-affinity"><ProductAffinityTab data={data} /></TabsContent>
-            <TabsContent value="sales-forecast"><SalesForecastTab data={data} /></TabsContent>
-            <TabsContent value="customer-segmentation"><CustomerSegmentationTab data={data} /></TabsContent>
-            <TabsContent value="batch-expiry"><BatchExpiryTab data={data} /></TabsContent>
-            <TabsContent value="stock-take-accuracy"><StockTakeAccuracyTab data={data} /></TabsContent>
-            <TabsContent value="manufacturer-performance"><ManufacturerPerformanceTab data={data} /></TabsContent>
-            <TabsContent value="tax-compliance"><TaxComplianceTab data={data} /></TabsContent>
-            <TabsContent value="hourly-heatmap"><HourlyHeatmapTab data={data} /></TabsContent>
-          </>
-        )}
-      </Tabs>
+      {/* Report Content */}
+      {loading ? <Skeleton className="h-96 w-full" /> : (
+        <>
+          <TabsContent value="revenue"><RevenueTab data={data} /></TabsContent>
+          <TabsContent value="profit"><ProfitTab data={data} /></TabsContent>
+          <TabsContent value="customers"><CustomerTab data={data} /></TabsContent>
+          <TabsContent value="expiry"><ExpiryTab data={data} /></TabsContent>
+          <TabsContent value="payments"><PaymentTab data={data} /></TabsContent>
+          <TabsContent value="comparison"><ComparisonTab data={data} /></TabsContent>
+          <TabsContent value="stock-velocity"><StockVelocityTab data={data} /></TabsContent>
+          <TabsContent value="returns-analysis"><ReturnsAnalysisTab data={data} /></TabsContent>
+          <TabsContent value="user-performance"><UserPerformanceTab data={data} /></TabsContent>
+          <TabsContent value="prescription-analytics"><PrescriptionAnalyticsTab data={data} /></TabsContent>
+          <TabsContent value="inventory-valuation"><InventoryValuationTab data={data} /></TabsContent>
+          <TabsContent value="discount-analysis"><DiscountAnalysisTab data={data} /></TabsContent>
+          <TabsContent value="shift-analysis"><ShiftAnalysisTab data={data} /></TabsContent>
+          <TabsContent value="category-deep-dive"><CategoryDeepDiveTab data={data} /></TabsContent>
+          <TabsContent value="executive-summary"><ExecutiveSummaryTab data={data} /></TabsContent>
+          <TabsContent value="product-affinity"><ProductAffinityTab data={data} /></TabsContent>
+          <TabsContent value="sales-forecast"><SalesForecastTab data={data} /></TabsContent>
+          <TabsContent value="customer-segmentation"><CustomerSegmentationTab data={data} /></TabsContent>
+          <TabsContent value="batch-expiry"><BatchExpiryTab data={data} /></TabsContent>
+          <TabsContent value="stock-take-accuracy"><StockTakeAccuracyTab data={data} /></TabsContent>
+          <TabsContent value="manufacturer-performance"><ManufacturerPerformanceTab data={data} /></TabsContent>
+          <TabsContent value="tax-compliance"><TaxComplianceTab data={data} /></TabsContent>
+          <TabsContent value="hourly-heatmap"><HourlyHeatmapTab data={data} /></TabsContent>
+        </>
+      )}
     </div>
   )
 }
