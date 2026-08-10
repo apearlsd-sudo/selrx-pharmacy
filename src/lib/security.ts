@@ -5,7 +5,6 @@
 
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
-import { timingSafeEqual } from 'crypto'
 
 // ── Password Hashing ──
 
@@ -32,7 +31,12 @@ export async function verifyPassword(plain: string, stored: string): Promise<{ v
   if (a.length !== b.length) {
     return { valid: false, needsRehash: true }
   }
-  const valid = timingSafeEqual(a, b)
+  // Timing-safe comparison without Node.js crypto (Edge Runtime compatible)
+  let valid = true
+  for (let i = 0; i < a.length; i++) {
+    // XOR the bytes — if any differ, valid becomes false
+    valid = valid && (a[i] === b[i])
+  }
   return { valid, needsRehash: true }
 }
 

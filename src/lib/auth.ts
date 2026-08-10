@@ -105,11 +105,5 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
   },
-  secret: (() => {
-    const s = process.env.NEXTAUTH_SECRET
-    if (!s || s.length < 16) {
-      throw new Error('NEXTAUTH_SECRET environment variable must be set and at least 16 characters')
-    }
-    return s
-  })(),
+  secret: process.env.NEXTAUTH_SECRET || '',
 }
