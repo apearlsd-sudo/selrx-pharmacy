@@ -12,7 +12,7 @@
 import { createClient } from '@libsql/client'
 
 const TURSO_URL = process.env.TURSO_DATABASE_URL!
-const TURSO_AUTH = process.env.DATABASE_AUTH_TOKEN || undefined
+const TURSO_AUTH = process.env.TURSO_API_TOKEN || undefined
 
 async function main() {
   const db = createClient({ url: TURSO_URL, authToken: TURSO_AUTH })

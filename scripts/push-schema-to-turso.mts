@@ -4,14 +4,14 @@
  * Then seeds data from seed-data.json.
  *
  * Usage:
- *   DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." npx tsx scripts/push-schema-to-turso.mts
+ *   DATABASE_URL="libsql://..." TURSO_API_TOKEN="..." npx tsx scripts/push-schema-to-turso.mts
  */
 
 import { createClient, type Client } from '@libsql/client'
 import { readFileSync } from 'fs'
 
 const DB_URL = process.env.DATABASE_URL!
-const AUTH_TOKEN = process.env.DATABASE_AUTH_TOKEN
+const AUTH_TOKEN = process.env.TURSO_API_TOKEN
 
 async function main() {
   console.log(`Connecting to ${DB_URL}...`)

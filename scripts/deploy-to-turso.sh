@@ -37,24 +37,24 @@ DB_URL=$(turso db show "$DB_NAME" --url 2>&1)
 AUTH_TOKEN=$(turso db tokens create "$DB_NAME" 2>&1)
 
 echo "DATABASE_URL=$DB_URL"
-echo "DATABASE_AUTH_TOKEN=$AUTH_TOKEN"
+echo "TURSO_API_TOKEN=$AUTH_TOKEN"
 echo ""
 
 echo "=== Step 3: Pushing Prisma schema to Turso ==="
 DATABASE_URL="$DB_URL" \
-DATABASE_AUTH_TOKEN="$AUTH_TOKEN" \
+TURSO_API_TOKEN="$AUTH_TOKEN" \
 npx prisma db push 2>&1
 
 echo ""
 echo "=== Step 4: Seeding data into Turso ==="
 DATABASE_URL="$DB_URL" \
-DATABASE_AUTH_TOKEN="$AUTH_TOKEN" \
+TURSO_API_TOKEN="$AUTH_TOKEN" \
 npx tsx prisma/seed.mts import 2>&1
 
 echo ""
 echo "=== Step 5: Verifying ==="
 DATABASE_URL="$DB_URL" \
-DATABASE_AUTH_TOKEN="$AUTH_TOKEN" \
+TURSO_API_TOKEN="$AUTH_TOKEN" \
 npx prisma db execute --stdin <<'SQL'
 SELECT 'SystemRole: ' || COUNT(*) FROM SystemRole;
 SELECT 'User: ' || COUNT(*) FROM User;
@@ -68,7 +68,7 @@ echo ""
 echo " Set these environment variables on Vercel:"
 echo ""
 echo "   DATABASE_URL=$DB_URL"
-echo "   DATABASE_AUTH_TOKEN=$AUTH_TOKEN"
+echo "   TURSO_API_TOKEN=$AUTH_TOKEN"
 echo ""
 echo " Then deploy via Vercel dashboard or CLI."
 echo "============================================================"

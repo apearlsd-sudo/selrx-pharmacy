@@ -11,7 +11,7 @@
 import { createClient } from '@libsql/client'
 
 const TURSO_URL = process.env.TURSO_DATABASE_URL
-const AUTH_TOKEN = process.env.DATABASE_AUTH_TOKEN
+const AUTH_TOKEN = process.env.TURSO_API_TOKEN
 
 if (!TURSO_URL) {
   console.log('ℹ️  No TURSO_DATABASE_URL — skipping Turso schema sync (using local SQLite)')

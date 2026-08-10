@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const { createClient } = await import('@libsql/client')
 
     const tursoUrl = process.env.TURSO_DATABASE_URL
-    const authToken = process.env.DATABASE_AUTH_TOKEN
+    const authToken = process.env.TURSO_API_TOKEN
 
     if (tursoUrl) {
       // ── REMOTE: Turso cloud via libsql ──

@@ -29,7 +29,7 @@ const globalForTurso = globalThis as unknown as {
  */
 function createTursoClient(): Client {
   const tursoUrl = process.env.TURSO_DATABASE_URL
-  const authToken = process.env.DATABASE_AUTH_TOKEN
+  const authToken = process.env.TURSO_API_TOKEN
 
   if (!tursoUrl) {
     // Dead client — module loads safely, but any actual use throws immediately
