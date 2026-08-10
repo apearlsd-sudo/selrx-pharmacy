@@ -1467,15 +1467,15 @@ export function UsersView() {
 
           {/* Create Role Dialog */}
           <Dialog open={createRoleDialog} onOpenChange={setCreateRoleDialog}>
-            <DialogContent className="max-w-3xl max-h-[85vh] rounded-xl">
-              <DialogHeader>
+            <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col rounded-xl overflow-hidden">
+              <DialogHeader className="shrink-0">
                 <DialogTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5 text-emerald-600" />
                   Create New Role
                 </DialogTitle>
                 <DialogDescription>Define a new role with custom permissions and access levels.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Role Name (Code) <span className="text-red-500">*</span></Label>
@@ -1493,7 +1493,7 @@ export function UsersView() {
                 </div>
                 <PermissionGrid permissions={roleFormPermissions} onChange={setRoleFormPermissions} />
               </div>
-              <DialogFooter>
+              <DialogFooter className="shrink-0 pt-2 border-t">
                 <Button variant="outline" onClick={() => setCreateRoleDialog(false)}>Cancel</Button>
                 <Button onClick={handleCreateRole} className="bg-emerald-600 hover:bg-emerald-700" disabled={!roleForm.name || !roleForm.label || saving}>
                   {saving ? 'Creating...' : 'Create Role'}
@@ -1504,14 +1504,14 @@ export function UsersView() {
 
           {/* Edit Role Dialog */}
           <Dialog open={editRoleDialog} onOpenChange={setEditRoleDialog}>
-            <DialogContent className="max-w-3xl max-h-[85vh] rounded-xl">
-              <DialogHeader>
+            <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col rounded-xl overflow-hidden">
+              <DialogHeader className="shrink-0">
                 <DialogTitle className="flex items-center gap-2">
                   <Edit className="h-5 w-5 text-teal-600" />
                   Edit Role: {selectedRole?.label}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto flex-1 pr-1">
                 <div className="bg-muted rounded-lg p-3 flex items-center gap-3">
                   <Badge className={`text-xs px-2 py-0.5 border ${ROLE_METADATA[selectedRole?.name || '']?.color || selectedRole?.color || ''}`}>
                     {ROLE_METADATA[selectedRole?.name || '']?.label || selectedRole?.label}
@@ -1534,7 +1534,7 @@ export function UsersView() {
                 </div>
                 <PermissionGrid permissions={editRolePermissions} onChange={setEditRolePermissions} />
               </div>
-              <DialogFooter>
+              <DialogFooter className="shrink-0 pt-2 border-t">
                 <Button variant="outline" onClick={() => setEditRoleDialog(false)}>Cancel</Button>
                 <Button onClick={handleUpdateRole} className="bg-emerald-600 hover:bg-emerald-700" disabled={saving}>
                   {saving ? 'Saving...' : 'Save Changes'}
