@@ -501,6 +501,11 @@ export function POSView() {
       const transaction = await res.json()
       clearCart()
       setSearchQuery('')
+      setProducts([])
+      setActiveCategory('')
+      setCustomerSearch('')
+      setCustomerOptions([])
+      setInteractionWarnings([])
       setAmountTendered('')
       addToast({
         title: 'Payment Successful',
