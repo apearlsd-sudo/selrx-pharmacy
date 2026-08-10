@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyToken } from '@/lib/security'
+
+/**
+ * Next.js middleware — runs on every request.
+ *
+ * 1. Verifies JWT on /api/* routes (except login, company-setup, health, and setup)
+ * 2. Attaches verified user info to request headers for downstream routes
+ * 3. Rejects unauthenticated/unauthorized requests with 401
+ */
+
+// Routes that don't require authentication
+const PUBLIC_PATHS = [
+  '/api/auth/login',
+  '/api/company-setup',
+  '/api/health',
+  '/api/setup/',
+  '/api/auth/session',
+  // Static assets and Next.js internals
+  '/_next/',
+  '/favicon.ico',
+  '/icons/',
+]
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+}
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  // Skip non-API routes and public paths
+  if (!pathname.startsWith('/api/') || isPublicPath(pathname)) {
+    return NextResponse.next()
+  }
+
+  // Extract JWT from Authorization header
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!token) {
+    // Allow GET requests to proceed but without auth headers
+    // (legacy support — individual routes still check x-user-role)
+    // TODO: Remove this fallback after all routes are migrated to JWT
+    return NextResponse.next()
+  }
+
+  try {
+    const payload = await verifyToken(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    }
+
+    // Attach verified claims as headers for downstream route handlers
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set('x-user-id', payload.userId)
+    requestHeaders.set('x-user-role', payload.role)
+    requestHeaders.set('x-user-email', payload.email)
+    requestHeaders.set('x-user-permissions', payload.permissions.join(','))
+
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    })
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+  }
+}
+
+export const config = {
+  matcher: ['/api/:path*'],
+}

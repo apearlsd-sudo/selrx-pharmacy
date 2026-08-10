@@ -94,7 +94,9 @@ export interface NavigationState {
 export interface AuthState {
   user: UserState | null
   isAuthenticated: boolean
+  authToken: string | null
   setUser: (user: UserState | null) => void
+  setAuthToken: (token: string | null) => void
   logout: () => void
   hasPermission: (requiredRoles: string[]) => boolean
 }
@@ -294,6 +296,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ---- Auth ----
   user: null,
   isAuthenticated: false,
+  authToken: null,
   setUser: (user) => {
     set({
       user,
@@ -302,7 +305,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Persist session to localStorage
     if (typeof window !== 'undefined') {
       if (user) {
-        localStorage.setItem('selrx_session', JSON.stringify({ user }))
+        localStorage.setItem('selrx_session', JSON.stringify({ user, token: get().authToken }))
         localStorage.setItem('selrx_view', 'dashboard')
       } else {
         localStorage.removeItem('selrx_session')
@@ -310,10 +313,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
   },
+  setAuthToken: (token) => {
+    set({ authToken: token })
+    if (typeof window !== 'undefined') {
+      const sessionData = localStorage.getItem('selrx_session')
+      if (sessionData && token) {
+        try {
+          const parsed = JSON.parse(sessionData)
+          parsed.token = token
+          localStorage.setItem('selrx_session', JSON.stringify(parsed))
+        } catch { /* ignore */ }
+      }
+    }
+  },
   logout: () => {
     set({
       user: null,
       isAuthenticated: false,
+      authToken: null,
       currentView: 'login',
       cart: [],
       selectedCustomer: null,

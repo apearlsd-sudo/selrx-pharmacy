@@ -1,6 +1,6 @@
 use axum::{
     extract::Json,
-    http::{Cors, Method},
+    http::{Cors, Method, StatusCode},
     routing::{get, post},
     Router,
 };
@@ -13,6 +13,50 @@ use tower_http::cors::CorsLayer;
 use crate::db::DbState;
 use crate::ws_server;
 use tokio::sync::broadcast;
+
+// ── Security: Allowed table names for sync operations ──
+
+const ALLOWED_TABLES: &[&str] = &[
+    "Product", "Inventory", "Batch", "Customer", "User",
+    "Transaction", "TransactionItem", "Return", "Prescription",
+    "Company", "Manufacturer", "Vendor", "Category",
+    "StockTake", "StockTakeItem", "AuditLog", "ProductHistory",
+    "HardwareLog", "Shift", "ShiftInventory", "Workstation",
+    "_CategoryToProduct", "SystemRole",
+];
+
+/// Validate a table name against the whitelist.
+/// Returns a 400 JSON response if invalid.
+fn validate_table_name(name: &str) -> Result<&'static str, (StatusCode, Json<serde_json::Value>)> {
+    // Only allow alphanumeric + underscore, no SQL metacharacters
+    if !name.chars().all(|c| c.is_alphanumeric() || c == '_') || name.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": format!("Invalid table name: {}", name) })),
+        ));
+    }
+    ALLOWED_TABLES
+        .iter()
+        .find(|&&t| t == name)
+        .copied()
+        .ok_or_else(|| (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": format!("Table not allowed: {}", name) })),
+        ))
+}
+
+/// Simple auth check: require Authorization header with bearer token
+/// that matches SYNC_SECRET env var (or a default for dev).
+fn verify_sync_auth(headers: &axum::http::HeaderMap) -> bool {
+    let auth = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let expected = std::env::var("SYNC_SECRET").unwrap_or_else(|_| "selrx-sync-dev-key".to_string());
+    auth == format!("Bearer {}", expected)
+}
+
+type Response = axum::response::Response<axum::body::Body>;
 
 /// Configuration for the sync hub server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,22 +167,33 @@ struct PullResponse {
 
 async fn sync_pull(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<PullRequest>,
-) -> Json<serde_json::Value> {
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
+
+    // Validate table name against whitelist
+    let safe_table = match validate_table_name(&body.table_name) {
+        Ok(t) => t,
+        Err(e) => return e.into_response(),
+    };
+
     let state = state.read().await;
     let db = &state.db;
 
-    let has_version = table_has_version(&body.table_name);
+    let has_version = table_has_version(safe_table);
 
     let sql = if has_version {
         format!(
             r#"SELECT *, rowid as _rowid FROM "{}" WHERE "updatedAt" > ? ORDER BY "updatedAt" ASC LIMIT 500"#,
-            body.table_name
+            safe_table
         )
     } else {
         format!(
             r#"SELECT * FROM "{}" WHERE "updatedAt" > ? ORDER BY "updatedAt" ASC LIMIT 500"#,
-            body.table_name
+            safe_table
         )
     };
 
@@ -150,7 +205,7 @@ async fn sync_pull(
 
             let _ = db.set_checkpoint(
                 body.workstation_id,
-                body.table_name,
+                safe_table.to_string(),
                 now.clone(),
             );
 
@@ -158,7 +213,7 @@ async fn sync_pull(
                 "records": rows,
                 "server_timestamp": now,
                 "has_more": rows.len() >= 500
-            }))
+            })).into_response()
         }
         Err(e) => {
             Json(serde_json::json!({
@@ -166,7 +221,7 @@ async fn sync_pull(
                 "records": [],
                 "server_timestamp": "",
                 "has_more": false
-            }))
+            })).into_response()
         }
     }
 }
@@ -189,8 +244,13 @@ struct PushRecord {
 
 async fn sync_push(
     axum::extract::State(state): axum::extract::State<Arc<RwLock<SyncServerState>>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<PushRequest>,
-) -> Json<serde_json::Value> {
+) -> Response {
+    if !verify_sync_auth(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": "Unauthorized" }))).into_response();
+    }
+
     let state = state.read().await;
     let db = &state.db;
 
@@ -200,7 +260,16 @@ async fn sync_push(
     let mut pushed_tables: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for record in &body.records {
-        pushed_tables.insert(record.table_name.clone());
+        // Validate table name
+        let safe_table = match validate_table_name(&safe_table) {
+            Ok(t) => t,
+            Err(e) => {
+                failed += 1;
+                errors.push(format!("Table not allowed: {}", safe_table));
+                continue;
+            }
+        };
+        pushed_tables.insert(safe_table.to_string());
 
         match record.operation.as_str() {
             "INSERT" => {
@@ -222,7 +291,7 @@ async fn sync_push(
 
                     let sql = format!(
                         r#"INSERT OR IGNORE INTO "{}" ({}) VALUES ({})"#,
-                        record.table_name,
+                        safe_table,
                         keys.iter().map(|k| format!("\"{}\"", k)).collect::<Vec<_>>().join(", "),
                         placeholders.join(", ")
                     );
@@ -231,7 +300,7 @@ async fn sync_push(
                         Ok(_) => applied += 1,
                         Err(e) => {
                             failed += 1;
-                            errors.push(format!("INSERT {} {}: {}", record.table_name, record.record_id, e));
+                            errors.push(format!("INSERT {} {}: {}", safe_table, record.record_id, e));
                         }
                     }
                 }
@@ -253,25 +322,25 @@ async fn sync_push(
 
                     let sql = format!(
                         r#"UPDATE "{}" SET {} WHERE id = ?"#,
-                        record.table_name, sets.join(", ")
+                        safe_table, sets.join(", ")
                     );
 
                     match db.execute(sql, all_values, String::new(), String::new(), String::new(), String::new()) {
                         Ok(_) => applied += 1,
                         Err(e) => {
                             failed += 1;
-                            errors.push(format!("UPDATE {} {}: {}", record.table_name, record.record_id, e));
+                            errors.push(format!("UPDATE {} {}: {}", safe_table, record.record_id, e));
                         }
                     }
                 }
             }
             "DELETE" => {
-                let sql = format!(r#"DELETE FROM "{}" WHERE id = ?"#, record.table_name);
+                let sql = format!(r#"DELETE FROM "{}" WHERE id = ?"#, safe_table);
                 match db.execute(sql, vec![record.record_id.clone()], String::new(), String::new(), String::new(), String::new()) {
                     Ok(_) => applied += 1,
                     Err(e) => {
                         failed += 1;
-                        errors.push(format!("DELETE {} {}: {}", record.table_name, record.record_id, e));
+                        errors.push(format!("DELETE {} {}: {}", safe_table, record.record_id, e));
                     }
                 }
             }

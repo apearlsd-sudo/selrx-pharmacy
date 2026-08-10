@@ -450,7 +450,8 @@ export default function Home() {
       const savedView = localStorage.getItem('selrx_view')
 
       if (sessionData) {
-        const { user: savedUser } = JSON.parse(sessionData)
+        const { user: savedUser, token: savedToken } = JSON.parse(sessionData)
+        if (savedToken) store.setAuthToken(savedToken)
         fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

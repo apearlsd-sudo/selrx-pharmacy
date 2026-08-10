@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { hashPassword } from '@/lib/security'
 
 // GET /api/company-setup — check if a company has been set up
 export async function GET() {
@@ -121,12 +122,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (ownerPassword.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
-      )
-    }
+    // Hash the password with bcrypt before storing
+    const hashedPassword = await hashPassword(ownerPassword)
 
     if (isTurso()) {
       // --- Raw SQL path (Turso / libsql) ---
@@ -173,7 +170,7 @@ export async function POST(req: NextRequest) {
         args: [
           ownerId,
           ownerEmail,
-          ownerPassword,
+          hashedPassword,
           ownerName,
           ownerPhone || null,
           JSON.stringify([
@@ -273,7 +270,7 @@ export async function POST(req: NextRequest) {
           data: {
             name: ownerName,
             email: ownerEmail,
-            password: ownerPassword,
+            password: hashedPassword,
             phone: ownerPhone || null,
             role: 'SUPER_ADMIN',
             active: true,

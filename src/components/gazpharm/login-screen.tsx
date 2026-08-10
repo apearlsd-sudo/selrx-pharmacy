@@ -22,6 +22,7 @@ export function LoginScreen() {
   const [error, setError] = useState('')
 
   const setUser = useAppStore((s) => s.setUser)
+  const setAuthToken = useAppStore((s) => s.setAuthToken)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
   const setShift = useAppStore((s) => s.setShift)
   const addToast = useAppStore((s) => s.addToast)
@@ -46,6 +47,7 @@ export function LoginScreen() {
 
       const user: UserState = data.user
       setUser(user)
+      if (data.token) setAuthToken(data.token)
 
       // Clear any leftover shift state from a previous user on the same browser,
       // then ask the server whether THIS user has an active shift.

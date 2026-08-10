@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ALL_PERMISSION_KEYS, ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
+import { hashPassword, verifyPassword, signToken, checkRateLimit, getRetryAfter } from '@/lib/security'
 
 /**
  * Login route — uses raw libsql SQL to bypass Prisma entirely.
  *
- * Prisma + LibSQL adapter was causing unhandled runtime errors on Vercel
- * (likely schema validation or adapter initialization failure).
- * Raw SQL via @libsql/client is the most reliable path for auth.
+ * Security: bcrypt password hashing, JWT issuance, rate limiting,
+ * automatic rehash of legacy plaintext passwords.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +16,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Username and password are required' },
         { status: 400 }
+      )
+    }
+
+    // Rate limiting: 10 attempts per 15 minutes per email
+    const rlKey = `login:${email}`
+    if (!checkRateLimit(rlKey, 10, 15 * 60 * 1000)) {
+      const retryAfter = getRetryAfter(rlKey)
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.', retryAfter },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
       )
     }
 
@@ -39,8 +49,21 @@ export async function POST(req: NextRequest) {
       }
 
       const row = result.rows[0]
-      if (row.password !== password) {
+      const storedPw = row.password as string
+
+      // Verify password (supports legacy plaintext → bcrypt migration)
+      const { valid, needsRehash } = await verifyPassword(password, storedPw)
+      if (!valid) {
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      }
+
+      // Auto-rehash legacy plaintext passwords to bcrypt
+      if (needsRehash) {
+        const hashed = await hashPassword(password)
+        await turso.execute({
+          sql: `UPDATE "User" SET "password" = ? WHERE id = ?`,
+          args: [hashed, row.id as string],
+        })
       }
 
       // Update last login
@@ -49,10 +72,9 @@ export async function POST(req: NextRequest) {
         args: [row.id as string],
       })
 
+      // Resolve permissions
       const userRole = row.role as string
       const userPerms = row.permissions as string | null
-
-      // Resolve permissions
       let permissions: string[] = []
       if (userRole === 'SUPER_ADMIN') {
         permissions = [...ALL_PERMISSION_KEYS]
@@ -66,9 +88,18 @@ export async function POST(req: NextRequest) {
         permissions = DEFAULT_ROLE_PERMISSIONS[userRole] ?? []
       }
 
+      // Issue JWT
+      const token = await signToken({
+        userId: row.id as string,
+        email: row.email as string,
+        role: userRole,
+        permissions,
+      })
+
       const roleLabel = ROLE_METADATA[userRole]?.label || userRole
 
       return NextResponse.json({
+        token,
         user: {
           id: row.id as string,
           name: row.name as string,
@@ -83,8 +114,19 @@ export async function POST(req: NextRequest) {
       const { db } = await import('@/lib/db')
 
       const user = await db.user.findUnique({ where: { email } })
-      if (!user || user.password !== password || !user.active) {
+      if (!user || !user.active) {
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      }
+
+      const { valid, needsRehash } = await verifyPassword(password, user.password)
+      if (!valid) {
+        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      }
+
+      // Auto-rehash
+      if (needsRehash) {
+        const hashed = await hashPassword(password)
+        await db.user.update({ where: { id: user.id }, data: { password: hashed } })
       }
 
       await db.user.update({
@@ -105,9 +147,17 @@ export async function POST(req: NextRequest) {
         permissions = DEFAULT_ROLE_PERMISSIONS[user.role] ?? []
       }
 
+      const token = await signToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        permissions,
+      })
+
       const roleLabel = ROLE_METADATA[user.role]?.label || user.role
 
       return NextResponse.json({
+        token,
         user: {
           id: user.id,
           name: user.name,

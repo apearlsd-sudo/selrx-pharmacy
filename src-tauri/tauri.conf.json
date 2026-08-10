@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.turso.tech https://*.vercel.app http://localhost:* https://*.space-z.ai; font-src 'self' data:"
     }
   },
   "bundle": {
@@ -58,11 +58,6 @@
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": ""
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": true
     }
   }
 }

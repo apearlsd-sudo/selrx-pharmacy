@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
+import { hashPassword, verifyToken } from '@/lib/security'
 
 // ── Schema introspection ─────────────────────────────────────────────────
 // On Vercel/Turso the User table may have been created from an older schema
@@ -231,6 +232,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Hash password with bcrypt
+    const hashedPassword = await hashPassword(password)
+
     if (isTurso()) {
       // Check for duplicate email/username
       const existing = await turso.execute({
@@ -267,7 +271,7 @@ export async function POST(request: NextRequest) {
       const colEntries: Array<[string, unknown]> = [
         ['id', id],
         ['email', email],
-        ['password', password],
+        ['password', hashedPassword],
         ['name', name],
         ['role', resolvedRole],
         ['phone', phone || null],
@@ -317,7 +321,7 @@ export async function POST(request: NextRequest) {
       const user = await db.user.create({
         data: {
           email,
-          password, // Demo mode: plain text password
+          password: hashedPassword,
           name,
           role: userRole || 'CLERK',
           phone,
