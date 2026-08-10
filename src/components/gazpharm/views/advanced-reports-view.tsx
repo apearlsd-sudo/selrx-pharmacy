@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays,
@@ -14,10 +14,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+  NavigationMenu, NavigationMenuList, NavigationMenuItem,
+  NavigationMenuContent, NavigationMenuTrigger, NavigationMenuLink,
+} from '@/components/ui/navigation-menu'
 import { Badge } from '@/components/ui/badge'
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -188,78 +188,77 @@ export function AdvancedReportsView() {
 
   const applyPreset = (p: { from: string; to: string }) => { setFrom(p.from); setTo(p.to) }
 
-  // Derive the active category group from the current activeTab
+  // Find current report label for display
+  const activeReport = REPORT_GROUPS.flatMap((g) => g.items).find((i) => i.value === activeTab)
   const activeGroup = REPORT_GROUPS.find((g) => g.items.some((i) => i.value === activeTab))
-  const activeGroupLabel = activeGroup?.label || ''
 
-  // When user switches category tab, pick the first item in that group
-  const handleGroupChange = (groupLabel: string) => {
-    const group = REPORT_GROUPS.find((g) => g.label === groupLabel)
-    if (group) setActiveTab(group.items[0].value)
+  const selectReport = (value: string) => {
+    setActiveTab(value)
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader icon={BarChart3} title="Advanced Reports" description="Deep analytics and insights" />
 
-      {/* Date Range + Report Selector Controls */}
+      {/* Navigation Bar + Date Range Controls */}
       <Card className="border-none shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            {/* Category Tabs */}
-            <Tabs value={activeGroupLabel} onValueChange={handleGroupChange}>
-              <TabsList className="h-8">
+        <CardContent className="p-0">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-0">
+            {/* Category Navbar with hover dropdowns */}
+            <NavigationMenu className="w-full lg:w-auto">
+              <NavigationMenuList className="gap-0">
                 {REPORT_GROUPS.map((group) => {
                   const GroupIcon = group.items[0].icon
+                  const isActive = activeGroup?.label === group.label
                   return (
-                    <TabsTrigger key={group.label} value={group.label} className="h-7 px-3 text-xs gap-1.5 data-[state=active]:text-emerald-700 data-[state=active]:bg-emerald-50">
-                      <GroupIcon className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">{group.label}</span>
-                    </TabsTrigger>
+                    <NavigationMenuItem key={group.label}>
+                      <NavigationMenuTrigger
+                        className={`h-10 px-3 text-xs font-medium gap-1.5 rounded-none border-b-2 transition-colors ${
+                          isActive
+                            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
+                            : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
+                        onPointerDown={(e) => e.preventDefault()}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <GroupIcon className="h-4 w-4" />
+                        {group.label}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className="w-[200px] p-1">
+                          {group.items.map((item) => (
+                            <li key={item.value}>
+                              <NavigationMenuLink
+                                className={`flex items-center gap-2.5 rounded-md px-3 py-2.5 text-xs cursor-pointer transition-colors ${
+                                  activeTab === item.value
+                                    ? 'bg-emerald-50 text-emerald-700 font-medium'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
+                                onSelect={() => selectReport(item.value)}
+                              >
+                                <item.icon className="h-4 w-4 shrink-0" />
+                                <span>{item.label}</span>
+                              </NavigationMenuLink>
+                            </li>
+                          ))}
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
                   )
                 })}
-              </TabsList>
-            </Tabs>
+              </NavigationMenuList>
+            </NavigationMenu>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
-              {/* Sub-report Dropdown */}
-              <Select value={activeTab} onValueChange={setActiveTab}>
-                <SelectTrigger className="h-8 w-full sm:w-[220px] text-xs border-gray-200">
-                  <SelectValue placeholder="Select report..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {REPORT_GROUPS.map((group, gi) => (
-                    <Fragment key={group.label}>
-                      {gi > 0 && <SelectSeparator />}
-                      <SelectGroup>
-                        <SelectLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</SelectLabel>
-                        {group.items.map((item) => (
-                          <SelectItem key={item.value} value={item.value} className="text-xs gap-2">
-                            <span className="flex items-center gap-2">
-                              <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                              {item.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </Fragment>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Date Range */}
+            {/* Date Range + Presets — right side */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3 border-t lg:border-t-0 lg:border-l border-gray-100">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                  <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                    className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
-                </div>
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
                 <span className="text-[10px] text-muted-foreground">to</span>
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
                   className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
               </div>
-
-              {/* Presets */}
               <div className="flex items-center gap-1 flex-wrap">
                 {PRESETS.map((p) => (
                   <Button key={p.label} variant="outline" size="sm" className="h-7 text-[11px] px-2"
@@ -267,6 +266,14 @@ export function AdvancedReportsView() {
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Active report indicator bar */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 border-t border-gray-100">
+            {activeReport && <activeReport.icon className="h-3.5 w-3.5 text-emerald-600" />}
+            <span className="text-xs font-medium text-gray-700">
+              {activeGroup?.label && <span className="text-muted-foreground mr-1.5">{activeGroup.label} /</span>}
+              {activeReport?.label || 'Select a report'}</span>
           </div>
         </CardContent>
       </Card>
