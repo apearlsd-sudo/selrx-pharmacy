@@ -1232,30 +1232,40 @@ function CategorySection() {
               ) : (
                 filtered.map((cat) => {
                   const prodCount = cat._count?.products || 0
+                  const isVirtual = cat.id.startsWith('__product_cat__')
                   return (
-                    <TableRow key={cat.id}>
+                    <TableRow key={cat.id} className={isVirtual ? 'bg-gray-50/50' : ''}>
                       <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">{cat.name.replace(/_/g, ' ')}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-mono text-xs">{cat.name.replace(/_/g, ' ')}</Badge>
+                          {isVirtual && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-200">Auto-detected</Badge>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{cat.description || '—'}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{cat.description || (isVirtual ? 'Derived from product data' : '—')}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary" className="text-xs">{prodCount}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(cat)}>
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm" variant="ghost"
-                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
-                            onClick={() => handleDelete(cat)}
-                            disabled={prodCount > 0}
-                            title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {isVirtual ? (
+                          <span className="text-[11px] text-muted-foreground italic">Manage via products</span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(cat)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                              onClick={() => handleDelete(cat)}
+                              disabled={prodCount > 0}
+                              title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

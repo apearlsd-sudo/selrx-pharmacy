@@ -17,6 +17,10 @@ export async function PUT(
 
     if (isTurso()) {
       // Raw SQL path
+      // Block virtual categories (derived from Product table)
+      if (id.startsWith('__product_cat__')) {
+        return NextResponse.json({ error: 'Cannot edit a product-derived category. Create it formally in Settings > Master Data > Categories.' }, { status: 400 })
+      }
       // Check if category exists
       const existing = await turso.execute({
         sql: `SELECT id FROM "Category" WHERE id = ?`,

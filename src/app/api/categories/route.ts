@@ -5,8 +5,7 @@ import { turso, isTurso, generateId } from '@/lib/turso'
 export async function GET() {
   try {
     if (isTurso()) {
-      // Raw SQL path - fetch categories with product count via subquery
-      // Note: category is a string field on Product, not a foreign key
+      // Raw SQL path - fetch categories from Category table
       const result = await turso.execute({
         sql: `
           SELECT
@@ -29,6 +28,32 @@ export async function GET() {
         },
       }))
 
+      // Also fetch distinct category values from Product table
+      // that may not exist in the Category table, with product counts
+      const productCatsResult = await turso.execute({
+        sql: `SELECT category, COUNT(*) as cnt FROM "Product" WHERE category IS NOT NULL AND category != '' GROUP BY category ORDER BY category ASC`,
+        args: [],
+      })
+      const tableCategoryNames = new Set(categories.map((c) => c.name))
+
+      // Add product-only categories (not already in Category table)
+      for (const row of productCatsResult.rows) {
+        const catName = row.category as string
+        if (!tableCategoryNames.has(catName)) {
+          categories.push({
+            id: `__product_cat__${catName}`,
+            name: catName,
+            description: null,
+            createdAt: '',
+            updatedAt: '',
+            _count: { products: Number(row.cnt) },
+          })
+        }
+      }
+
+      // Re-sort after merging
+      categories.sort((a, b) => a.name.localeCompare(b.name))
+
       return NextResponse.json(categories)
     } else {
       // Prisma fallback for local dev
@@ -42,6 +67,29 @@ export async function GET() {
           },
         },
       })
+
+      // Also fetch distinct category values from Product table with counts
+      const productCats = await db.product.groupBy({
+        by: ['category'],
+        where: { category: { notIn: [''] } },
+        _count: { id: true },
+        orderBy: { category: 'asc' },
+      })
+      const tableCatNames = new Set(categories.map((c) => c.name))
+      for (const pc of productCats) {
+        if (pc.category && pc.category !== '' && !tableCatNames.has(pc.category)) {
+          categories.push({
+            id: `__product_cat__${pc.category}`,
+            name: pc.category,
+            description: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            _count: { products: pc._count.id ?? 0 },
+          })
+        }
+      }
+      categories.sort((a, b) => a.name.localeCompare(b.name))
+
       return NextResponse.json(categories)
     }
   } catch (error) {
