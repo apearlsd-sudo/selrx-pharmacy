@@ -54,7 +54,7 @@ export function LoginScreen() {
       setShift(null)
       try {
         const shiftRes = await fetch('/api/shifts?action=active', {
-          headers: { 'x-user-id': user.id },
+          headers: { 'Authorization': `Bearer ${data.token}` },
         })
         const shiftData = await shiftRes.json()
         if (shiftData.active && shiftData.shift) {

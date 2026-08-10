@@ -71,6 +71,25 @@ import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-ta
 import { SettingsHubView } from '@/components/gazpharm/views/settings-hub-view'
 import { DrugInteractionsView } from '@/components/gazpharm/views/drug-interactions-view'
 
+// ── Global fetch interceptor: auto-attach JWT to all /api/ requests ──
+if (typeof window !== 'undefined') {
+  const origFetch = window.fetch
+  window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
+    if (url.startsWith('/api/') || url.includes('/api/')) {
+      const token = useAppStore.getState().authToken
+      if (token) {
+        const headers = new Headers(init?.headers)
+        if (!headers.has('Authorization')) {
+          headers.set('Authorization', `Bearer ${token}`)
+        }
+        return origFetch.call(this, input, { ...init, headers })
+      }
+    }
+    return origFetch.call(this, input, init)
+  }
+}
+
 
 // ── Error Boundary to prevent client-side crash from taking down the whole app ──
 interface ErrorBoundaryProps { children: ReactNode; fallback?: ReactNode }
@@ -454,7 +473,7 @@ export default function Home() {
         if (savedToken) store.setAuthToken(savedToken)
         fetch('/api/auth/session', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${savedToken}` },
           body: JSON.stringify({ userId: savedUser.id }),
         })
           .then((res) => {
@@ -469,7 +488,7 @@ export default function Home() {
               // Only the server check (using the authenticated user's ID) is authoritative.
               try {
                 fetch('/api/shifts?action=active', {
-                  headers: { 'x-user-id': data.user.id },
+                  headers: { Authorization: `Bearer ${savedToken}` },
                 }).then((r) => r.json()).then((r) => {
                   if (!r.active) {
                     store.setShift(null)
