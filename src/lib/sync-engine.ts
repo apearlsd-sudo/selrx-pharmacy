@@ -416,7 +416,8 @@ async function runFullSync(): Promise<void> {
     } catch { /* ignore */ }
 
     // If WebSocket is not connected, state goes back to idle
-    if (syncState === 'syncing') {
+    // Type assertion: async code (WebSocket handlers) may have changed syncState
+    if ((syncState as string) === 'syncing') {
       setSyncState(wsConnection?.readyState === WebSocket.OPEN ? 'ws_connected' : 'idle')
     }
   } catch (err) {

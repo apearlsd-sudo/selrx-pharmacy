@@ -5,6 +5,7 @@
 
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
+import { timingSafeEqual } from 'crypto'
 
 // ── Password Hashing ──
 
@@ -31,7 +32,7 @@ export async function verifyPassword(plain: string, stored: string): Promise<{ v
   if (a.length !== b.length) {
     return { valid: false, needsRehash: true }
   }
-  const valid = crypto.timingSafeEqual(a, b)
+  const valid = timingSafeEqual(a, b)
   return { valid, needsRehash: true }
 }
 
@@ -141,7 +142,13 @@ export async function aesDecrypt(encrypted: string): Promise<string> {
 /** Async version of getAesKey using Web Crypto API */
 async function getAesKeyAsync(): Promise<CryptoKey> {
   const rawKey = getAesKey()
-  return crypto.subtle.importKey('raw', rawKey, { name: AES_ALGO }, false, ['encrypt', 'decrypt'])
+  return crypto.subtle.importKey(
+    'raw',
+    rawKey.buffer as ArrayBuffer,
+    { name: AES_ALGO, length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  )
 }
 
 // ── Rate Limiting (in-memory, per-endpoint) ──
