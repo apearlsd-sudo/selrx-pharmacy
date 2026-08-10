@@ -241,22 +241,32 @@ export async function GET(request: NextRequest) {
 // POST /api/shifts  –  start or end a shift
 // ---------------------------------------------------------------------------
 
-async function ensureDayOpeningSnapshot(nowIso: string) {
+interface DayOpeningResult {
+  created: boolean
+  inventorySynced: boolean
+  sourceShiftId: string | null
+  sourceDate: string | null
+  productsUpdated: number
+}
+
+async function ensureDayOpeningSnapshot(nowIso: string): Promise<DayOpeningResult> {
   const today = nowIso.split('T')[0] // YYYY-MM-DD
   const dayStart = today + 'T00:00:00.000Z'
   const dayEnd = today + 'T23:59:59.999Z'
+  const defaultResult: DayOpeningResult = { created: false, inventorySynced: false, sourceShiftId: null, sourceDate: null, productsUpdated: 0 }
 
   // Check if a DAY_OPENING snapshot already exists for today
   const existing = await turso.execute({
     sql: `SELECT id FROM "Shift" WHERE status = 'DAY_OPENING' AND "startedAt" >= ? AND "startedAt" <= ?`,
     args: [dayStart, dayEnd],
   })
-  if (existing.rows.length > 0) return // Already exists for today
+  if (existing.rows.length > 0) return { ...defaultResult, created: true } // Already exists for today
 
   // Find the previous day's last ended shift (go back up to 7 days to handle weekends/holidays)
   let sourceShiftId: string | null = null
   let sourceEndedAt: string | null = null
   let sourceUserName: string | null = null
+  let sourceDate: string | null = null
 
   for (let daysBack = 1; daysBack <= 7; daysBack++) {
     const prevDate = new Date(nowIso)
@@ -275,6 +285,7 @@ async function ensureDayOpeningSnapshot(nowIso: string) {
       sourceShiftId = prevShiftResult.rows[0][0] as string
       sourceUserName = prevShiftResult.rows[0][1] as string
       sourceEndedAt = prevShiftResult.rows[0][2] as string
+      sourceDate = prevDateStr
       break
     }
   }
@@ -298,7 +309,8 @@ async function ensureDayOpeningSnapshot(nowIso: string) {
     })
     const srcRows = toObjs(srcInvResult)
     if (srcRows.length > 0) {
-      const stmts = srcRows.map((r) => ({
+      // 1. Copy snapshot into ShiftInventory for reporting
+      const snapStmts = srcRows.map((r) => ({
         sql: `INSERT INTO "ShiftInventory" (id, "shiftId", "productId", "productName", quantity, "sellingPrice", "costPrice", category, "createdAt")
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
@@ -309,8 +321,31 @@ async function ensureDayOpeningSnapshot(nowIso: string) {
           openingNow,
         ],
       }))
-      await turso.batch(stmts)
+      await turso.batch(snapStmts)
+
+      // 2. Sync live Inventory table to match the previous day's ended shift snapshot.
+      //    This ensures the POS starts each new day with the exact stock levels
+      //    recorded at the end of the previous day's last shift, correcting any
+      //    discrepancies that may have occurred (manual edits, system errors, etc.).
+      //    Products NOT in the snapshot are left untouched (they had 0 stock at
+      //    shift end but may have been restocked between shifts).
+      const syncStmts = srcRows.map((r) => {
+        const qty = (r.quantity as number) || 0
+        return {
+          sql: `INSERT INTO Inventory (id, "productId", quantity, "lastCounted", "createdAt", "updatedAt")
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT("productId") DO UPDATE SET quantity = excluded.quantity, "lastCounted" = excluded."lastCounted", "updatedAt" = excluded."updatedAt"`,
+          args: [generateId(), r.productId, qty, openingNow, openingNow, openingNow],
+        }
+      })
+      await turso.batch(syncStmts)
+
+      console.log(`[DayOpening] Synced ${srcRows.length} products from ${sourceDate} shift ${sourceShiftId} to live Inventory`)
+      return { created: true, inventorySynced: true, sourceShiftId, sourceDate, productsUpdated: srcRows.length }
     }
+
+    // Source shift had empty inventory snapshot — still record the sync attempt
+    return { created: true, inventorySynced: true, sourceShiftId, sourceDate, productsUpdated: 0 }
   } else {
     // No previous shift found — snapshot current live inventory as fallback
     const liveInvResult = await turso.execute({
@@ -335,6 +370,8 @@ async function ensureDayOpeningSnapshot(nowIso: string) {
       }))
       await turso.batch(stmts)
     }
+    console.log('[DayOpening] No previous shift found; used current live inventory as baseline')
+    return { ...defaultResult, created: true, inventorySynced: false }
   }
 }
 
@@ -413,7 +450,7 @@ export async function POST(request: NextRequest) {
       }
 
       // ── Ensure day opening snapshot exists for today ──
-      await ensureDayOpeningSnapshot(now)
+      const dayOpening = await ensureDayOpeningSnapshot(now)
 
       const id = generateId()
       await turso.execute({
@@ -421,7 +458,15 @@ export async function POST(request: NextRequest) {
               VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?)`,
         args: [id, userId, userName, now, cashAtStart || null, now, now],
       })
-      return NextResponse.json({ id, userId, userName, startedAt: now, cashAtStart, status: 'ACTIVE' }, { status: 201 })
+      const response: Record<string, unknown> = { id, userId, userName, startedAt: now, cashAtStart, status: 'ACTIVE' }
+      if (dayOpening.inventorySynced) {
+        response.dayOpening = {
+          inventorySynced: true,
+          sourceDate: dayOpening.sourceDate,
+          productsUpdated: dayOpening.productsUpdated,
+        }
+      }
+      return NextResponse.json(response, { status: 201 })
     }
 
     if (action === 'end') {

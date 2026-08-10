@@ -160,3 +160,24 @@ Stage Summary:
 - Allergy alerts automatically appear when selected customer has allergies
 - Files created: src/app/api/drug-interactions/route.ts, src/lib/drug-interaction-seed.ts, src/components/gazpharm/views/drug-interactions-view.tsx
 - Files modified: src/components/gazpharm/views/pos-view.tsx, src/store/app-store.ts, src/app/page.tsx
+
+---
+Task ID: 5
+Agent: Main
+Task: Make POS category list variable + add quantity input dialog + sync inventory from previous day's ended shift
+
+Work Log:
+- Made POS category list dynamic by merging Category table rows with distinct Product.category values (virtual categories prefixed with __product_cat__ ID)
+- Added quantity dialog to POS: intercepts add-to-cart, shows +/- stepper with live price summary, supports Enter/Escape keyboard
+- Implemented inventory sync from previous day's ended shift snapshot to live Inventory table at new day start
+- ensureDayOpeningSnapshot() now returns DayOpeningResult with sync metadata
+- Shift start API response includes dayOpening object when inventory was synced
+- Frontend toast shows "Inventory synced from YYYY-MM-DD closing (N products)" on shift start
+
+Stage Summary:
+- Category list on POS now pulls dynamically from product data, not hardcoded
+- Quantity dialog appears before adding items to cart (with interaction warning compatibility)
+- Previous day's ended shift inventory snapshot now syncs to live Inventory table on first shift start of each new day
+- Uses INSERT...ON CONFLICT(productId) DO UPDATE for upsert semantics
+- Products not in snapshot are left untouched (safe for between-shift restocking)
+- Files modified: src/app/api/shifts/route.ts, src/app/page.tsx, src/app/api/categories/route.ts, src/app/api/categories/[id]/route.ts, src/components/gazpharm/views/master-data-view.tsx, src/components/gazpharm/views/pos-view.tsx

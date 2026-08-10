@@ -782,11 +782,24 @@ export default function Home() {
                       if (!retry.ok) { const err = await retry.json(); throw new Error(err.error || 'Failed to start shift') }
                       const retryResult = await retry.json()
                       setShift({ id: retryResult.id, startedAt: retryResult.startedAt })
-                      addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+                      if (retryResult.dayOpening?.inventorySynced) {
+                        addToast({ title: 'Shift Started', description: `Inventory synced from ${retryResult.dayOpening.sourceDate} closing (${retryResult.dayOpening.productsUpdated} products). Your shift has begun.`, variant: 'success' })
+                      } else {
+                        addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+                      }
                       return
                     }
                     setShift({ id: result.id, startedAt: result.startedAt })
-                    addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+                    // Show inventory sync info if day opening synced from previous shift
+                    if (result.dayOpening?.inventorySynced) {
+                      addToast({
+                        title: 'Shift Started',
+                        description: `Inventory synced from ${result.dayOpening.sourceDate} closing (${result.dayOpening.productsUpdated} products). Your shift has begun.`,
+                        variant: 'success',
+                      })
+                    } else {
+                      addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+                    }
                   } catch (err: any) {
                     addToast({ title: 'Error Starting Shift', description: err.message || 'Unknown error. Check your connection and try again.', variant: 'destructive' })
                   }
