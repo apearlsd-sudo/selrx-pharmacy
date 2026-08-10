@@ -17,6 +17,7 @@ import {
   Loader2,
   User,
   PackageX,
+  Package,
   RotateCcw,
   AlertTriangle,
 } from 'lucide-react'
@@ -98,6 +99,8 @@ export function POSView() {
   const [interactionWarnings, setInteractionWarnings] = useState<DrugInteraction[]>([])
   const [showInteractionDialog, setShowInteractionDialog] = useState(false)
   const [pendingAddProduct, setPendingAddProduct] = useState<Product | null>(null)
+  const [showQuantityDialog, setShowQuantityDialog] = useState(false)
+  const [quantityInput, setQuantityInput] = useState('1')
   const [cartInteractions, setCartInteractions] = useState<any[]>([])
   const [cartAllergyAlerts, setCartAllergyAlerts] = useState<Array<{drug: string; allergen: string}>>([])
   const [cartDuplicates, setCartDuplicates] = useState<Array<{drugClass: string; drugs: string[]}>>([])
@@ -105,6 +108,7 @@ export function POSView() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const quantityInputRef = useRef<HTMLInputElement>(null)
 
   // Zustand state
   const cart = useAppStore((s) => s.cart)
@@ -375,10 +379,22 @@ export function POSView() {
       return
     }
 
-    doAddToCart(product)
+    // Show quantity dialog
+    setPendingAddProduct(product)
+    setQuantityInput('1')
+    setShowQuantityDialog(true)
+    setTimeout(() => quantityInputRef.current?.select(), 50)
   }
 
-  const doAddToCart = (product: Product) => {
+  const confirmAddToCart = () => {
+    if (!pendingAddProduct) return
+    const qty = Math.max(1, parseInt(quantityInput) || 1)
+    doAddToCart(pendingAddProduct, qty)
+    setShowQuantityDialog(false)
+    setPendingAddProduct(null)
+  }
+
+  const doAddToCart = (product: Product, quantity: number = 1) => {
     addToCart(
       {
         id: product.id,
@@ -392,11 +408,11 @@ export function POSView() {
         strength: product.strength ?? undefined,
         dosageForm: product.dosageForm ?? undefined,
       },
-      1
+      quantity
     )
     addToast({
       title: 'Added',
-      description: `${product.name} added to cart`,
+      description: `${product.name} x${quantity} added to cart`,
       variant: 'success',
       duration: 1500,
     })
@@ -1204,19 +1220,99 @@ export function POSView() {
             ))}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowInteractionDialog(false)}>
+            <Button variant="outline" onClick={() => { setShowInteractionDialog(false); setPendingAddProduct(null) }}>
               Cancel
             </Button>
             <Button
               onClick={() => {
                 setShowInteractionDialog(false)
                 if (pendingAddProduct) {
-                  doAddToCart(pendingAddProduct)
-                  setPendingAddProduct(null)
+                  setQuantityInput('1')
+                  setShowQuantityDialog(true)
+                  setTimeout(() => quantityInputRef.current?.select(), 50)
                 }
               }}
             >
               Add Anyway (Pharmacist Approved)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quantity Selection Dialog */}
+      <Dialog open={showQuantityDialog} onOpenChange={(open) => {
+        if (!open) { setShowQuantityDialog(false); setPendingAddProduct(null) }
+      }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-800">
+              <Package className="h-5 w-5 text-emerald-600" />
+              Set Quantity
+            </DialogTitle>
+            <DialogDescription>
+              {pendingAddProduct?.name}
+              {pendingAddProduct?.strength && ` — ${pendingAddProduct.strength}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Quantity to sell</label>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => setQuantityInput(String(Math.max(1, (parseInt(quantityInput) || 1) - 1)))}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  ref={quantityInputRef}
+                  type="number"
+                  min={1}
+                  value={quantityInput}
+                  onChange={(e) => setQuantityInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); confirmAddToCart() }
+                    if (e.key === 'Escape') { setShowQuantityDialog(false); setPendingAddProduct(null) }
+                  }}
+                  className="h-10 text-center text-lg font-semibold"
+                  autoFocus
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => setQuantityInput(String((parseInt(quantityInput) || 1) + 1))}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {pendingAddProduct && (
+              <div className="rounded-lg bg-gray-50 p-3 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Unit price</span>
+                  <span className="font-medium">{formatCurrency(pendingAddProduct.sellingPrice)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Quantity</span>
+                  <span className="font-medium">x{Math.max(1, parseInt(quantityInput) || 1)} {pendingAddProduct.sellingUnit && pendingAddProduct.sellingUnit !== 'EA' ? pendingAddProduct.sellingUnit.toLowerCase() + (Math.max(1, parseInt(quantityInput) || 1) > 1 ? 's' : '') : pendingAddProduct.unitOfMeasure.toLowerCase() + (Math.max(1, parseInt(quantityInput) || 1) > 1 ? 's' : '')}</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span className="text-emerald-600">{formatCurrency(pendingAddProduct.sellingPrice * (parseInt(quantityInput) || 1))}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowQuantityDialog(false); setPendingAddProduct(null) }}>
+              Cancel
+            </Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={confirmAddToCart}>
+              Add to Cart
             </Button>
           </DialogFooter>
         </DialogContent>
