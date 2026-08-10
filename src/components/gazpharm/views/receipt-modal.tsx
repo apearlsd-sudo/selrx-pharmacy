@@ -135,9 +135,9 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md !p-0 !gap-0 overflow-hidden" showCloseButton={false}>
+      <DialogContent className="sm:max-w-md !p-0 !gap-0 max-h-[90vh] flex flex-col" showCloseButton={false}>
         {/* Receipt Header - Green stripe */}
-        <div className="bg-emerald-600 px-6 py-3 flex items-center gap-3">
+        <div className="bg-emerald-600 px-6 py-3 flex items-center gap-3 shrink-0">
           <CheckCircle2 className="h-5 w-5 text-white" />
           <div>
             <DialogTitle className="text-white text-base font-semibold">
@@ -150,7 +150,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
         </div>
 
         {/* Receipt Content */}
-        <div className="p-6">
+        <div className="px-6 py-4 overflow-y-auto flex-1">
           <div
             className="bg-white border-2 border-dashed border-gray-200 rounded-lg p-5 space-y-4"
             style={receiptStyle}
@@ -235,7 +235,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                 {transaction.items.map((item) => (
                   <div key={item.id} className="flex justify-between">
                     <div className="flex-1 min-w-0">
-                      <p className={`truncate pr-2 ${boldItems ? 'font-bold' : ''}`}>{item.productName}</p>
+                      <p className={`${boldItems ? 'font-bold' : ''}`}>{item.productName}</p>
                       {item.barcode && (
                         <div className="mt-0.5">
                           <BarcodeSVG value={item.barcode} width={1} height={28} fontSize={7} margin={1} />
@@ -310,7 +310,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
         </div>
 
         {/* Actions */}
-        <DialogFooter className="px-6 pb-6 gap-2">
+        <DialogFooter className="px-6 pb-5 pt-2 border-t shrink-0 gap-2">
           <Button
             variant="outline"
             onClick={onClose}
