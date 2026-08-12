@@ -107,6 +107,7 @@ const EMPTY_FORM: CompanyFormData = {
 export function CompanyProfileSection() {
   const addToast = useAppStore((s) => s.addToast)
   const setCompany = useAppStore((s) => s.setCompany)
+  const setTimezone = useAppStore((s) => s.setTimezone)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -196,6 +197,7 @@ export function CompanyProfileSection() {
       }
 
       // Update Zustand store
+      const tz = data.timezone || form.timezone
       setCompany({
         id: data.id,
         name: data.name,
@@ -204,6 +206,7 @@ export function CompanyProfileSection() {
         tagline: data.tagline || null,
         businessType: data.businessType,
         currency: data.currency,
+        timezone: tz,
         phone: data.phone || null,
         email: data.email || null,
         address: data.address || null,
@@ -215,6 +218,9 @@ export function CompanyProfileSection() {
         pharmacyLicense: data.pharmacyLicense || null,
         website: data.website || null,
       })
+
+      // Sync timezone to live regional settings immediately
+      setTimezone(tz)
 
       addToast({ title: 'Company Updated', description: 'Company profile has been saved successfully', variant: 'success' })
     } catch {

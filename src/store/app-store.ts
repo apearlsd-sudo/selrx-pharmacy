@@ -147,6 +147,7 @@ export interface CompanyState {
     tagline: string | null
     businessType: string
     currency: string
+    timezone: string
     phone: string | null
     email: string | null
     address: string | null

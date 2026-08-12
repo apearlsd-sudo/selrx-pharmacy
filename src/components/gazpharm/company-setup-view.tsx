@@ -208,6 +208,7 @@ export function CompanySetupView() {
         tagline: tagline || null,
         businessType: data.company.businessType,
         currency: data.company.currency,
+        timezone,
         phone: phone || null,
         email: ownerEmail,
         city,
