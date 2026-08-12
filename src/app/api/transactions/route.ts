@@ -66,6 +66,72 @@ async function ensureTransactionTables() {
   // Ensure TransactionItem table has sellingUnit/itemsPerUnit columns
   try { await turso.execute(`ALTER TABLE "TransactionItem" ADD COLUMN "sellingUnit" TEXT DEFAULT 'EA'`) } catch { /* column exists */ }
   try { await turso.execute(`ALTER TABLE "TransactionItem" ADD COLUMN "itemsPerUnit" INTEGER DEFAULT 1`) } catch { /* column exists */ }
+
+  // SuspendedCart table — holds parked POS transactions for later recall
+  await turso.execute(`CREATE TABLE IF NOT EXISTS "SuspendedCart" (
+    id            TEXT PRIMARY KEY,
+    "userId"      TEXT NOT NULL,
+    "workstationId" TEXT,
+    "customerId"  TEXT,
+    "customerName" TEXT,
+    "items"       TEXT NOT NULL,
+    "subtotal"    REAL NOT NULL DEFAULT 0,
+    "tax"         REAL NOT NULL DEFAULT 0,
+    "total"       REAL NOT NULL DEFAULT 0,
+    "note"        TEXT,
+    "createdAt"   TEXT NOT NULL DEFAULT (datetime('now')),
+    "updatedAt"   TEXT NOT NULL DEFAULT (datetime('now'))
+  )`)
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "SuspendedCart_userId_idx" ON "SuspendedCart"("userId")`) } catch { /* */ }
+  try { await turso.execute(`CREATE INDEX IF NOT EXISTS "SuspendedCart_created_idx" ON "SuspendedCart"("createdAt")`) } catch { /* */ }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/transactions?action=suspend  –  park current cart for later recall
+// ---------------------------------------------------------------------------
+async function handleSuspendCart(
+  request: NextRequest,
+  userId: string,
+  workstationId: string | null,
+) {
+  try {
+    const body = await request.json()
+    const { items, customerId, customerName, subtotal, tax, total, note } = body
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'Cart items are required to suspend' }, { status: 400 })
+    }
+
+    const id = generateId()
+    const now = new Date().toISOString()
+
+    if (isTurso()) {
+      try { await ensureTransactionTables() } catch { /* non-fatal */ }
+      await tursoExecute({
+        sql: `INSERT INTO "SuspendedCart" (id, "userId", "workstationId", "customerId", "customerName", items, subtotal, tax, total, note, "createdAt", "updatedAt")
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, userId, workstationId || null, customerId || null, customerName || null,
+          JSON.stringify(items), subtotal || 0, tax || 0, total || 0, note || null, now, now],
+      })
+    } else {
+      const { db } = await import('@/lib/db')
+      await db.$executeRawUnsafe(
+        `INSERT INTO "SuspendedCart" (id, "userId", "workstationId", "customerId", "customerName", items, subtotal, tax, total, note, "createdAt", "updatedAt")
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, userId, workstationId || null, customerId || null, customerName || null,
+        JSON.stringify(items), subtotal || 0, tax || 0, total || 0, note || null, now, now,
+      )
+    }
+
+    const { ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId, action: 'CART_SUSPENDED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
+      details: { itemCount: items.length, total, note: note || undefined }, ipAddress, userAgent })
+
+    return NextResponse.json({ id, message: 'Cart suspended successfully' }, { status: 201 })
+  } catch (error) {
+    console.error('Error suspending cart:', error)
+    return NextResponse.json({ error: 'Failed to suspend cart', detail: error instanceof Error ? error.message : String(error) }, { status: 500 })
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +462,13 @@ export async function POST(request: NextRequest) {
         { error: 'User authentication required. Please log in and try again.' },
         { status: 401 },
       )
+    }
+
+    // ── Suspend cart (no shift required) ──
+    const { searchParams: postParams } = new URL(request.url)
+    const postAction = postParams.get('action')
+    if (postAction === 'suspend') {
+      return handleSuspendCart(request, userId, workstationId)
     }
 
     // ── Shift gate: require an active shift to create a transaction ──

@@ -324,6 +324,27 @@ async function main() {
   await run(turso, `CREATE INDEX IF NOT EXISTS "POItem_order_idx" ON "PurchaseOrderItem"("orderId")`)
   await run(turso, `CREATE INDEX IF NOT EXISTS "POItem_product_idx" ON "PurchaseOrderItem"("productId")`)
 
+  // ── SuspendedCart table (POS park/recall) ──
+  console.log('📦 Syncing SuspendedCart table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "SuspendedCart" (
+      id              TEXT PRIMARY KEY,
+      "userId"        TEXT NOT NULL,
+      "workstationId" TEXT,
+      "customerId"    TEXT,
+      "customerName"  TEXT,
+      items           TEXT NOT NULL,
+      subtotal        REAL NOT NULL DEFAULT 0,
+      tax             REAL NOT NULL DEFAULT 0,
+      total           REAL NOT NULL DEFAULT 0,
+      note            TEXT,
+      "createdAt"     TEXT NOT NULL DEFAULT (datetime('now')),
+      "updatedAt"     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "SuspendedCart_userId_idx" ON "SuspendedCart"("userId")`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "SuspendedCart_created_idx" ON "SuspendedCart"("createdAt")`)
+
   // ── Migrations for existing tables (add missing columns) ──
   console.log('🔄 Running migrations for existing tables...')
   const migrations = [

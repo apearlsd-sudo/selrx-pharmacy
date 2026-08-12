@@ -119,3 +119,42 @@ Stage Summary:
 - 20+ medium-priority features implemented
 - All pre-existing TS errors unchanged (325 in non-modified files)
 - Build compatible (ignoreBuildErrors: true)
+---
+Task ID: 3
+Agent: Super Z (main)
+Task: Implement Suspend (Hold) and Recall for POS transactions
+
+Work Log:
+- Designed SuspendedCart table schema (id, userId, workstationId, customerId, customerName, items JSON, subtotal, tax, total, note, timestamps)
+- Added SuspendedCart DDL to ensureTransactionTables() in transactions/route.ts
+- Added SuspendedCart DDL to turso-sync-schema.mjs for production deployments
+- Created POST /api/transactions?action=suspend handler (handleSuspendCart) with Turso + Prisma dual-path
+- Created GET /api/transactions/suspended — lists user's suspended carts (SUPER_ADMIN sees all)
+- Created DELETE /api/transactions/suspended?id= — deletes a suspended cart
+- Created POST /api/transactions/suspended/[id] — recalls cart (returns items + deletes from suspended)
+- Created GET /api/transactions/suspended/[id] — fetches single suspended cart
+- Added SuspendedCartState to Zustand store (suspendedCartVersion, bumpSuspendedCartVersion)
+- Added F7 keyboard shortcut for suspend/recall toggle
+- Added Suspend button (blue, Pause icon) and Recall button (violet, Play icon) to POS action area
+- Created Suspend Note Dialog with item count, total, customer display, and optional note input
+- Created Recall Dialog listing all suspended carts with item count, total, customer, note, timestamp, recall and delete buttons
+- Added audit logging: CART_SUSPENDED, CART_RECALLED, SUSPENDED_CART_DELETED
+- Updated keyboard shortcut hints bar to include F7
+
+Files Modified:
+- src/app/api/transactions/route.ts — SuspendedCart table ensure, handleSuspendCart function
+- src/app/api/transactions/suspended/route.ts — NEW: GET (list), DELETE (remove)
+- src/app/api/transactions/suspended/[id]/route.ts — NEW: GET (single), POST (recall)
+- scripts/turso-sync-schema.mjs — SuspendedCart table DDL + indexes
+- src/store/app-store.ts — SuspendedCartState interface + store implementation
+- src/lib/keyboard-shortcuts.ts — F7 suspend-recall shortcut
+- src/components/gazpharm/views/pos-view.tsx — Suspend/Recall UI, dialogs, handlers, shortcut
+
+Stage Summary:
+- Full suspend/recall workflow implemented
+- Suspend: F7 or button → optional note → saves cart to DB → clears POS
+- Recall: F7 or button (when cart empty) → dialog with all suspended carts → one-click restore
+- Works across browser refreshes (persisted in DB, not localStorage)
+- Per-user isolation (non-admin users see only their own)
+- All mutations audit-logged
+- Dual DB path (Turso + Prisma)

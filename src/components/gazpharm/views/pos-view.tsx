@@ -20,6 +20,10 @@ import {
   Package,
   RotateCcw,
   AlertTriangle,
+  Pause,
+  Play,
+  Clock,
+  StickyNote,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -106,6 +110,13 @@ export function POSView() {
   const [cartDuplicates, setCartDuplicates] = useState<Array<{drugClass: string; drugs: string[]}>>([])
   const [checkingInteractions, setCheckingInteractions] = useState(false)
   const [taxRate, setTaxRate] = useState<number>(0)
+  // Suspended cart state
+  const [showRecallDialog, setShowRecallDialog] = useState(false)
+  const [showSuspendNoteDialog, setShowSuspendNoteDialog] = useState(false)
+  const [suspendNote, setSuspendNote] = useState('')
+  const [suspendedCarts, setSuspendedCarts] = useState<any[]>([])
+  const [loadingSuspended, setLoadingSuspended] = useState(false)
+  const [recallingId, setRecallingId] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
@@ -129,6 +140,8 @@ export function POSView() {
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
   const showReceiptModal = useAppStore((s) => s.showReceiptModal)
   const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
+  const bumpSuspendedCartVersion = useAppStore((s) => s.bumpSuspendedCartVersion)
+  const suspendedCartVersion = useAppStore((s) => s.suspendedCartVersion)
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0)
   // Items that deduct more than 1 base unit per selling unit need stock check multiplied
@@ -464,6 +477,13 @@ export function POSView() {
           case 'void':
             handleVoidTransaction()
             break
+          case 'suspend-recall':
+            if (cart.length > 0) {
+              handleSuspendCart()
+            } else {
+              handleOpenRecallDialog()
+            }
+            break
         }
         break
       }
@@ -584,6 +604,141 @@ export function POSView() {
     setAmountTendered('')
   }
 
+  // ── Suspend / Recall handlers ──
+
+  const fetchSuspendedCarts = useCallback(async () => {
+    setLoadingSuspended(true)
+    try {
+      const res = await fetch('/api/transactions/suspended', { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setSuspendedCarts(data.carts || [])
+      }
+    } catch { /* silent */ }
+    setLoadingSuspended(false)
+  }, [])
+
+  // Open recall dialog and fetch suspended carts
+  const handleOpenRecallDialog = useCallback(() => {
+    if (cart.length > 0) {
+      addToast({ title: 'Cart Not Empty', description: 'Clear or suspend the current cart first', variant: 'destructive' })
+      return
+    }
+    setShowRecallDialog(true)
+    fetchSuspendedCarts()
+  }, [cart.length, addToast, fetchSuspendedCarts])
+
+  // Recall a suspended cart into POS
+  const handleRecallCart = useCallback(async (cartId: string) => {
+    setRecallingId(cartId)
+    try {
+      const res = await fetch(`/api/transactions/suspended/${cartId}`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Recall failed')
+      }
+      const data = await res.json()
+      // Restore items to cart
+      for (const item of (data.items || []) as Array<Record<string, unknown>>) {
+        addToCart({
+          id: item.productId as string,
+          name: item.productName as string,
+          ndc: (item.ndc as string) || undefined,
+          sellingPrice: item.unitPrice as number,
+          requiresPrescription: (item.requiresRx as boolean) || false,
+          unitOfMeasure: (item.unitOfMeasure as string) || 'EA',
+          sellingUnit: (item.sellingUnit as string) || 'EA',
+          itemsPerUnit: (item.itemsPerUnit as number) || 1,
+          strength: (item.strength as string) || undefined,
+          dosageForm: (item.dosageForm as string) || undefined,
+        }, item.quantity as number)
+      }
+      // Restore customer
+      if (data.customerId && data.customerName) {
+        const parts = String(data.customerName).split(' ')
+        setSelectedCustomer({
+          id: data.customerId,
+          firstName: parts[0] || '',
+          lastName: parts.slice(1).join(' ') || '',
+        } as any)
+      }
+      bumpSuspendedCartVersion()
+      setShowRecallDialog(false)
+      addToast({ title: 'Cart Recalled', description: `${(data.items || []).length} item(s) restored`, variant: 'success' })
+    } catch (err) {
+      addToast({ title: 'Recall Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
+    } finally {
+      setRecallingId(null)
+    }
+  }, [addToCart, setSelectedCustomer, bumpSuspendedCartVersion, addToast])
+
+  // Delete a suspended cart
+  const handleDeleteSuspended = useCallback(async (cartId: string) => {
+    try {
+      await fetch(`/api/transactions/suspended?id=${cartId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      setSuspendedCarts((prev) => prev.filter((c: any) => c.id !== cartId))
+      bumpSuspendedCartVersion()
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete suspended cart', variant: 'destructive' })
+    }
+  }, [addToast, bumpSuspendedCartVersion])
+
+  // Suspend current cart
+  const handleSuspendCart = useCallback(async () => {
+    if (cart.length === 0) return
+    setShowSuspendNoteDialog(true)
+  }, [cart.length])
+
+  const confirmSuspendCart = useCallback(async () => {
+    try {
+      const payload = {
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          quantity: item.quantity,
+          unitPrice: item.product.sellingPrice,
+          subtotal: item.product.sellingPrice * item.quantity,
+          requiresRx: item.product.requiresPrescription,
+          sellingUnit: item.product.sellingUnit || 'EA',
+          itemsPerUnit: item.product.itemsPerUnit,
+          ndc: item.product.ndc || null,
+          unitOfMeasure: item.product.unitOfMeasure,
+          strength: item.product.strength || null,
+          dosageForm: item.product.dosageForm || null,
+        })),
+        customerId: selectedCustomer?.id || null,
+        customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}`.trim() : null,
+        subtotal,
+        tax,
+        total,
+        note: suspendNote.trim() || null,
+      }
+      const res = await fetch('/api/transactions?action=suspend', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Suspend failed')
+      }
+      clearCart()
+      setAmountTendered('')
+      setSuspendNote('')
+      setShowSuspendNoteDialog(false)
+      bumpSuspendedCartVersion()
+      addToast({ title: 'Cart Suspended', description: 'Transaction parked. Press Recall or F7 to restore.', variant: 'success', duration: 3000 })
+    } catch (err) {
+      addToast({ title: 'Suspend Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' })
+    }
+  }, [cart, selectedCustomer, subtotal, tax, total, suspendNote, clearCart, bumpSuspendedCartVersion, addToast])
+
   const changeAmount =
     paymentMethod === 'CASH' && parseFloat(amountTendered) > 0
       ? parseFloat(amountTendered) - total
@@ -687,6 +842,7 @@ export function POSView() {
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F2</span>New
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F4</span>Search
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F5</span>Barcode
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F7</span>Suspend/Recall
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F9</span>Pay
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">Esc</span>Void
           </div>
@@ -1187,6 +1343,30 @@ export function POSView() {
                     Clear Cart
                   </Button>
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-blue-200/80 text-blue-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                    onClick={handleSuspendCart}
+                    disabled={cart.length === 0}
+                  >
+                    <Pause className="h-3.5 w-3.5 mr-1" />
+                    Suspend
+                    <span className="font-mono bg-blue-50 px-1 py-0.5 rounded ml-1 text-[10px]">F7</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-violet-200/80 text-violet-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300"
+                    onClick={handleOpenRecallDialog}
+                    disabled={cart.length > 0}
+                  >
+                    <Play className="h-3.5 w-3.5 mr-1" />
+                    Recall
+                    <span className="font-mono bg-violet-50 px-1 py-0.5 rounded ml-1 text-[10px]">F7</span>
+                  </Button>
+                </div>
                 <Button
                   variant="outline"
                   className="w-full h-10 border-amber-200/80 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 text-sm font-medium"
@@ -1340,6 +1520,147 @@ export function POSView() {
             <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={confirmAddToCart}>
               Add to Cart
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspend Note Dialog */}
+      <Dialog open={showSuspendNoteDialog} onOpenChange={(open) => { if (!open) { setShowSuspendNoteDialog(false); setSuspendNote('') } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-700">
+              <Pause className="h-5 w-5" />
+              Suspend Transaction
+            </DialogTitle>
+            <DialogDescription>
+              Park this transaction to recall it later. Optionally add a note.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <div className="rounded-lg bg-blue-50 p-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Items</span>
+                <span className="font-medium">{cart.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold text-blue-700">{formatCurrency(total)}</span>
+              </div>
+              {selectedCustomer && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Customer</span>
+                  <span className="font-medium">{selectedCustomer.firstName} {selectedCustomer.lastName}</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <StickyNote className="h-3.5 w-3.5" />
+                Note (optional)
+              </label>
+              <Input
+                value={suspendNote}
+                onChange={(e) => setSuspendNote(e.target.value)}
+                placeholder="e.g. Waiting for insurance approval"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmSuspendCart() } }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowSuspendNoteDialog(false); setSuspendNote('') }}>
+              Cancel
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={confirmSuspendCart}>
+              <Pause className="h-4 w-4 mr-1" />
+              Suspend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recall Suspended Carts Dialog */}
+      <Dialog open={showRecallDialog} onOpenChange={setShowRecallDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-violet-700">
+              <Play className="h-5 w-5" />
+              Recall Suspended Transaction
+            </DialogTitle>
+            <DialogDescription>
+              Select a parked transaction to restore into the POS.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {loadingSuspended ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : suspendedCarts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Pause className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No suspended transactions</p>
+              </div>
+            ) : (
+              suspendedCarts.map((sc: any) => (
+                <div
+                  key={sc.id}
+                  className="rounded-lg border border-violet-100 p-3 hover:bg-violet-50/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Package className="h-4 w-4 text-violet-500 shrink-0" />
+                        <span className="font-medium text-sm">{(sc.items || []).length} item(s)</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {formatCurrency(sc.total)}
+                        </Badge>
+                      </div>
+                      {sc.customerName && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 ml-6">
+                          <User className="h-3 w-3" />{sc.customerName}
+                        </p>
+                      )}
+                      {sc.note && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 ml-6 mt-0.5">
+                          <StickyNote className="h-3 w-3" />{sc.note}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 ml-6 mt-0.5">
+                        <Clock className="h-2.5 w-2.5" />
+                        {new Date(sc.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs bg-violet-600 hover:bg-violet-700"
+                        onClick={() => handleRecallCart(sc.id)}
+                        disabled={recallingId === sc.id}
+                      >
+                        {recallingId === sc.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Recall
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-600"
+                        onClick={() => handleDeleteSuspended(sc.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecallDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

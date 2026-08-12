@@ -22,6 +22,7 @@ export const POS_SHORTCUTS: KeyboardShortcut[] = [
   { key: 'F4',            label: 'Focus Search',         action: 'focus-search' },
   { key: 'F5',            label: 'Toggle Barcode',       action: 'toggle-barcode' },
   { key: 'F9',            label: 'Process Payment',      action: 'process-payment' },
+  { key: 'F7',            label: 'Suspend / Recall',     action: 'suspend-recall' },
   { key: 'F12',           label: 'Open Settings',        action: 'open-settings' },
   { key: 'Escape',        label: 'Void / Close',         action: 'void' },
   { key: 'Delete',        label: 'Remove Selected',      action: 'remove-selected' },

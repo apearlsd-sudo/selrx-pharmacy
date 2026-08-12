@@ -254,6 +254,12 @@ export interface POState {
   setPendingPOItems: (items: { productId: string; productName: string; quantity: number; unitCost: number; vendorId: string | null; vendorName: string | null }[] | null) => void
 }
 
+export interface SuspendedCartState {
+  /** Monotonic counter bumped whenever a cart is suspended/recalled/deleted */
+  suspendedCartVersion: number
+  bumpSuspendedCartVersion: () => void
+}
+
 export type AppState = NavigationState &
   AuthState &
   POSState &
@@ -261,6 +267,7 @@ export type AppState = NavigationState &
   ShiftState &
   WorkstationState &
   POState &
+  SuspendedCartState &
   CompanyState &
   CurrencyState &
   ReceiptSettingsState &
@@ -445,6 +452,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPendingPOItems: (items) => {
     set({ pendingPOItems: items })
   },
+
+  // ---- Suspended Cart ----
+  suspendedCartVersion: 0,
+  bumpSuspendedCartVersion: () => set((s) => ({ suspendedCartVersion: s.suspendedCartVersion + 1 })),
 
   // ---- Shift ----
   currentShiftId: null,
