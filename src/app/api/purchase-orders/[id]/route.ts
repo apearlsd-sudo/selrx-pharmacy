@@ -247,9 +247,6 @@ export async function DELETE(
         return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
       }
       const po = toObjs(existing)[0]
-      if (po.status !== 'DRAFT') {
-        return NextResponse.json({ error: 'Only draft purchase orders can be deleted' }, { status: 400 })
-      }
 
       // Delete items first (cascade should handle, but be explicit)
       await turso.execute({ sql: `DELETE FROM "PurchaseOrderItem" WHERE "orderId" = ?`, args: [id] })
@@ -271,10 +268,6 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
     }
-    if (existing.status !== 'DRAFT') {
-      return NextResponse.json({ error: 'Only draft purchase orders can be deleted' }, { status: 400 })
-    }
-
     await db.purchaseOrder.delete({ where: { id } })
 
     writeAuditLog({

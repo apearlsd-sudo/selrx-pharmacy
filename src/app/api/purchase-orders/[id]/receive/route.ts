@@ -53,7 +53,7 @@ export async function POST(
     if (isTurso()) await ensurePOTables()
 
     if (isTurso()) {
-      // Verify PO exists and is in SENT or PARTIALLY_RECEIVED status
+      // Verify PO exists and is not cancelled
       const poResult = await turso.execute({
         sql: `SELECT id, status FROM "PurchaseOrder" WHERE id = ?`,
         args: [id],
@@ -62,8 +62,8 @@ export async function POST(
         return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
       }
       const poStatus = poResult.rows[0].status as string
-      if (poStatus !== 'SENT' && poStatus !== 'PARTIALLY_RECEIVED') {
-        return NextResponse.json({ error: `Cannot receive against a PO with status ${poStatus}` }, { status: 400 })
+      if (poStatus === 'CANCELLED') {
+        return NextResponse.json({ error: `Cannot receive against a cancelled PO` }, { status: 400 })
       }
 
       let totalReceivedAmount = 0
@@ -217,8 +217,8 @@ export async function POST(
     if (!po) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
     }
-    if (po.status !== 'SENT' && po.status !== 'PARTIALLY_RECEIVED') {
-      return NextResponse.json({ error: `Cannot receive against a PO with status ${po.status}` }, { status: 400 })
+    if (po.status === 'CANCELLED') {
+      return NextResponse.json({ error: 'Cannot receive against a cancelled PO' }, { status: 400 })
     }
 
     let totalReceivedAmount = 0

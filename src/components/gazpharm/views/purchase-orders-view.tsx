@@ -695,28 +695,23 @@ export function PurchaseOrdersView() {
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-2 pt-2">
                     {detailOrder.status === 'DRAFT' && (
-                      <>
-                        <Button size="sm" onClick={() => handleSendToVendor(detailOrder)}>
-                          <Send className="h-4 w-4 mr-1" /> Send to Vendor
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => setCancelTarget(detailOrder)}>
-                          <XCircle className="h-4 w-4 mr-1" /> Cancel
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-red-600 dark:text-red-400" onClick={() => setDeleteTarget(detailOrder)}>
-                          <Trash2 className="h-4 w-4 mr-1" /> Delete
-                        </Button>
-                      </>
-                    )}
-                    {(detailOrder.status === 'SENT' || detailOrder.status === 'PARTIALLY_RECEIVED') && (
-                      <Button size="sm" onClick={() => openReceiveDialog(detailOrder)}>
-                        <PackageCheck className="h-4 w-4 mr-1" /> Receive Stock
+                      <Button size="sm" onClick={() => handleSendToVendor(detailOrder)}>
+                        <Send className="h-4 w-4 mr-1" /> Send to Vendor
                       </Button>
                     )}
-                    {(detailOrder.status === 'SENT') && (
+                    {detailOrder.status !== 'CANCELLED' && (
+                      <Button size="sm" variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700" onClick={() => openReceiveDialog(detailOrder)}>
+                        <PackageCheck className="h-4 w-4 mr-1" /> {detailOrder.status === 'RECEIVED' ? 'Add to Inventory' : 'Receive Stock'}
+                      </Button>
+                    )}
+                    {(detailOrder.status !== 'CANCELLED') && (
                       <Button size="sm" variant="destructive" onClick={() => setCancelTarget(detailOrder)}>
                         <XCircle className="h-4 w-4 mr-1" /> Cancel
                       </Button>
                     )}
+                    <Button size="sm" variant="outline" className="text-red-600 dark:text-red-400" onClick={() => setDeleteTarget(detailOrder)}>
+                      <Trash2 className="h-4 w-4 mr-1" /> Delete
+                    </Button>
                   </div>
                 </div>
               </ScrollArea>
@@ -1001,7 +996,7 @@ export function PurchaseOrdersView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Purchase Order?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this draft purchase order for <strong>{deleteTarget?.vendorName}</strong>. This action cannot be undone.
+              This will permanently delete the purchase order for <strong>{deleteTarget?.vendorName}</strong> and all its items. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
