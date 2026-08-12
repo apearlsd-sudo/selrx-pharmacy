@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // Helper: map a raw Customer row to a plain object
 function rowToCustomer(row: Record<string, unknown>) {
@@ -354,6 +355,8 @@ export async function PUT(
         args: [id],
       })
 
+      const { userId: aUid1, ipAddress: aIp1, userAgent: aUa1 } = getRequestContext(request)
+      writeAuditLog({ userId: aUid1, action: 'CUSTOMER_UPDATED', category: 'customer', entity: 'Customer', entityId: id, ipAddress: aIp1, userAgent: aUa1 })
       return NextResponse.json(rowToCustomer(updatedResult.rows[0] as Record<string, unknown>))
     } else {
       // --- Prisma fallback (local dev) ---
@@ -397,6 +400,8 @@ export async function PUT(
         },
       })
 
+      const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(request)
+      writeAuditLog({ userId: aUid2, action: 'CUSTOMER_UPDATED', category: 'customer', entity: 'Customer', entityId: id, ipAddress: aIp2, userAgent: aUa2 })
       return NextResponse.json(customer)
     }
   } catch (error) {

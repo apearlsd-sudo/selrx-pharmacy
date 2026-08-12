@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -406,6 +407,8 @@ export async function PUT(
         })
 
         const updated = await fetchReturnWithJoins(id)
+        const { userId: aUid1, ipAddress: aIp1, userAgent: aUa1 } = getRequestContext(req)
+        writeAuditLog({ userId: aUid1, action: 'RETURN_APPROVED', category: 'return', entity: 'Return', entityId: id, ipAddress: aIp1, userAgent: aUa1 })
         return NextResponse.json({ return: updated })
       }
 
@@ -432,6 +435,8 @@ export async function PUT(
         })
 
         const updated = await fetchReturnWithJoins(id)
+        const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(req)
+        writeAuditLog({ userId: aUid2, action: 'RETURN_REJECTED', category: 'return', entity: 'Return', entityId: id, ipAddress: aIp2, userAgent: aUa2 })
         return NextResponse.json({ return: updated })
       }
 
@@ -570,6 +575,8 @@ export async function PUT(
         })
 
         const updated = await fetchReturnWithJoins(id)
+        const { userId: aUid3, ipAddress: aIp3, userAgent: aUa3 } = getRequestContext(req)
+        writeAuditLog({ userId: aUid3, action: action === 'cancel' ? 'RETURN_CANCELLED' : 'RETURN_APPROVED', category: 'return', entity: 'Return', entityId: id, ipAddress: aIp3, userAgent: aUa3 })
         return NextResponse.json({ return: updated })
       }
 
@@ -588,6 +595,8 @@ export async function PUT(
         })
 
         const updated = await fetchReturnWithJoins(id)
+        const { userId: aUid4, ipAddress: aIp4, userAgent: aUa4 } = getRequestContext(req)
+        writeAuditLog({ userId: aUid4, action: 'RETURN_CANCELLED', category: 'return', entity: 'Return', entityId: id, ipAddress: aIp4, userAgent: aUa4 })
         return NextResponse.json({ return: updated })
       }
 
@@ -902,6 +911,9 @@ export async function PUT(
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
+    const auditAction = action === 'approve' ? 'RETURN_APPROVED' : action === 'reject' ? 'RETURN_REJECTED' : action === 'cancel' ? 'RETURN_CANCELLED' : 'RETURN_UPDATED'
+    const { userId: aUid5, ipAddress: aIp5, userAgent: aUa5 } = getRequestContext(req)
+    writeAuditLog({ userId: aUid5, action: auditAction, category: 'return', entity: 'Return', entityId: id, ipAddress: aIp5, userAgent: aUa5 })
     return NextResponse.json({ return: updated })
   } catch (error) {
     console.error('PUT /api/returns/[id] error:', error)

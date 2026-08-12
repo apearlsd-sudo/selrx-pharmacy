@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { writeProductHistory } from '@/lib/product-history'
 
 // GET /api/products/[id] - Get single product
@@ -403,6 +404,8 @@ export async function PUT(
           : null,
       }
 
+      const { userId: aUid1, ipAddress: aIp1, userAgent: aUa1 } = getRequestContext(request)
+      writeAuditLog({ userId: aUid1, action: 'PRODUCT_UPDATED', category: 'product', entity: 'Product', entityId: id, ipAddress: aIp1, userAgent: aUa1 })
       return NextResponse.json(product)
     } else {
       // Prisma fallback for local dev
@@ -458,6 +461,8 @@ export async function PUT(
         userId: request.headers.get('x-user-id') || '',
       })
 
+      const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(request)
+      writeAuditLog({ userId: aUid2, action: 'PRODUCT_UPDATED', category: 'product', entity: 'Product', entityId: id, ipAddress: aIp2, userAgent: aUa2 })
       return NextResponse.json(product)
     }
   } catch (error) {
@@ -589,6 +594,8 @@ export async function DELETE(
         updatedAt: row.updatedAt as string,
       }
 
+      const { userId: aUid3, ipAddress: aIp3, userAgent: aUa3 } = getRequestContext(request)
+      writeAuditLog({ userId: aUid3, action: 'PRODUCT_DELETED', category: 'product', entity: 'Product', entityId: id, ipAddress: aIp3, userAgent: aUa3 })
       return NextResponse.json({ message: `Product discontinued. Inventory and batches zeroed (${prevStock} units adjusted).`, product })
     } else {
       // Prisma fallback for local dev
@@ -627,6 +634,8 @@ export async function DELETE(
         userId: request.headers.get('x-user-id') || '',
       })
 
+      const { userId: aUid4, ipAddress: aIp4, userAgent: aUa4 } = getRequestContext(request)
+      writeAuditLog({ userId: aUid4, action: 'PRODUCT_DELETED', category: 'product', entity: 'Product', entityId: id, ipAddress: aIp4, userAgent: aUa4 })
       return NextResponse.json({ message: `Product discontinued. Inventory zeroed (${prevStock} units adjusted).`, product })
     }
   } catch (error) {

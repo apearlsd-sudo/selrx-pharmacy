@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -606,6 +607,8 @@ export async function POST(request: NextRequest) {
         })),
       }
 
+      const { ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transactionId, details: { totalAmount: total, paymentMethod }, ipAddress, userAgent })
       return NextResponse.json(transaction, { status: 201 })
     }
 
@@ -672,6 +675,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const { ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transaction.id, details: { totalAmount: transaction.total, paymentMethod: transaction.paymentMethod }, ipAddress, userAgent })
     return NextResponse.json(transaction, { status: 201 })
   } catch (error) {
     console.error('Error creating transaction:', error)

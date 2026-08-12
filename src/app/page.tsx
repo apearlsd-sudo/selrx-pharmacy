@@ -28,6 +28,7 @@ import {
   Clock as ClockIcon,
   Monitor,
   ChevronDown,
+  FileText,
 } from 'lucide-react'
 import {
   Select,
@@ -70,6 +71,8 @@ import { StockTakeSection } from '@/components/gazpharm/views/stock-take-section
 import { StockTakeReportViewWrapper } from '@/components/gazpharm/views/stock-take-report-view'
 import { SettingsHubView } from '@/components/gazpharm/views/settings-hub-view'
 import { DrugInteractionsView } from '@/components/gazpharm/views/drug-interactions-view'
+import { PurchaseOrdersView } from '@/components/gazpharm/views/purchase-orders-view'
+import { AuditLogView } from '@/components/gazpharm/views/audit-log-view'
 
 // ── Global fetch interceptor: auto-attach JWT to all /api/ requests ──
 if (typeof window !== 'undefined') {
@@ -152,7 +155,9 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory:stocktake' },
   { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos:history' },
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
+  { name: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, permission: 'inventory:manage' },
   { name: 'drug-interactions', label: 'Drug Interactions', icon: ShieldCheck, permission: 'prescriptions:view' },
+  { name: 'audit-logs', label: 'Audit Log', icon: FileText, permission: 'audit:view' },
   { name: 'settings', label: 'Settings', icon: Settings, permission: 'pos:sell' },
 ]
 
@@ -597,6 +602,8 @@ export default function Home() {
       case 'sales-history': return <SalesHistoryView />
       case 'returns': return <GoodsReturnView />
       case 'drug-interactions': return <DrugInteractionsView />
+      case 'purchase-orders': return <PurchaseOrdersView />
+      case 'audit-logs': return <AuditLogView />
       case 'master-data': return <MasterDataView />
       case 'product-sales-analytics': return <ProductSalesAnalytics />
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>

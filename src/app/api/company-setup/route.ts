@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { hashPassword } from '@/lib/security'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/company-setup — check if a company has been set up
 export async function GET() {
@@ -227,6 +228,8 @@ export async function POST(req: NextRequest) {
         ],
       })
 
+      const { userId: aUid, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: aUid, action: 'COMPANY_SETUP_COMPLETED', category: 'company', details: { companyName }, ipAddress, userAgent })
       return NextResponse.json(
         {
           message: 'Company created successfully!',
@@ -325,6 +328,8 @@ export async function POST(req: NextRequest) {
         return { company, owner: ownerUser }
       })
 
+      const { userId: aUid2, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: aUid2, action: 'COMPANY_SETUP_COMPLETED', category: 'company', details: { companyName }, ipAddress, userAgent })
       return NextResponse.json(
         {
           message: 'Company created successfully!',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateReturnNo } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -375,6 +376,8 @@ export async function POST(req: NextRequest) {
         product: row.prodId ? { id: row.prodId, name: row.prodName } : null,
       }
 
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: auditUserId, action: 'RETURN_CREATED', category: 'return', entity: 'Return', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ return: returnRecord }, { status: 201 })
     }
 
@@ -426,6 +429,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
+    writeAuditLog({ userId: auditUserId, action: 'RETURN_CREATED', category: 'return', entity: 'Return', entityId: returnRecord.id, ipAddress, userAgent })
     return NextResponse.json({ return: returnRecord }, { status: 201 })
   } catch (error) {
     console.error('POST /api/returns error:', error)

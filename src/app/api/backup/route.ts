@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, tursoExecute, tursoBatch, generateId } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ── Table definitions (order matters for foreign-key constraints) ──
 
@@ -346,6 +347,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const { userId, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId, action: 'BACKUP_RESTORED', category: 'backup', details: { totalInserted, totalUpdated, totalErrors, tablesProcessed: Object.keys(results).length }, ipAddress, userAgent })
     return NextResponse.json({
       success: true,
       summary: {

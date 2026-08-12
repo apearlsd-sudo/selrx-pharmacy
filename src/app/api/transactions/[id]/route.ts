@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -328,6 +329,8 @@ export async function POST(
         })),
       }
 
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'TRANSACTION_VOIDED', category: 'transaction', entity: 'Transaction', entityId: id, ipAddress, userAgent })
       return NextResponse.json({
         message: 'Transaction voided successfully',
         transaction: voided,
@@ -383,6 +386,8 @@ export async function POST(
       },
     })
 
+    const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId: auditUserId, action: 'TRANSACTION_VOIDED', category: 'transaction', entity: 'Transaction', entityId: id, ipAddress, userAgent })
     return NextResponse.json({
       message: 'Transaction voided successfully',
       transaction: voided,

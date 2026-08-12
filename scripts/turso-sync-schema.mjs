@@ -259,6 +259,67 @@ async function main() {
   await run(turso, `CREATE INDEX IF NOT EXISTS "ShiftInventory_productId_idx" ON "ShiftInventory"("productId");`)
   await addColumn(turso, 'ShiftInventory', 'category', 'TEXT')
 
+  // ── AuditLog table (enhanced with category/entity) ──
+  console.log('📦 Syncing AuditLog table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "AuditLog" (
+      id TEXT PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      action TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general',
+      entity TEXT,
+      "entityId" TEXT,
+      details TEXT,
+      "ipAddress" TEXT,
+      "userAgent" TEXT,
+      "createdAt" TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "idx_auditlog_category" ON "AuditLog"(category)`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "idx_auditlog_user" ON "AuditLog"("userId")`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "idx_auditlog_created" ON "AuditLog"("createdAt")`)
+  await addColumn(turso, 'AuditLog', 'entity', 'TEXT')
+  await addColumn(turso, 'AuditLog', 'entityId', 'TEXT')
+  await addColumn(turso, 'AuditLog', 'userAgent', 'TEXT')
+
+  // ── PurchaseOrder table ──
+  console.log('📦 Syncing PurchaseOrder table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "PurchaseOrder" (
+      id TEXT PRIMARY KEY,
+      "vendorId" TEXT,
+      vendorName TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'DRAFT',
+      notes TEXT,
+      "expectedDate" TEXT,
+      "totalAmount" REAL NOT NULL DEFAULT 0,
+      "receivedAmount" REAL NOT NULL DEFAULT 0,
+      "createdBy" TEXT NOT NULL,
+      "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+      "updatedAt" TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "PurchaseOrder_status_idx" ON "PurchaseOrder"(status)`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "PurchaseOrder_vendor_idx" ON "PurchaseOrder"("vendorId")`)
+
+  // ── PurchaseOrderItem table ──
+  console.log('📦 Syncing PurchaseOrderItem table...')
+  await run(turso, `
+    CREATE TABLE IF NOT EXISTS "PurchaseOrderItem" (
+      id TEXT PRIMARY KEY,
+      "orderId" TEXT NOT NULL,
+      "productId" TEXT NOT NULL,
+      productName TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      "receivedQty" INTEGER NOT NULL DEFAULT 0,
+      "unitCost" REAL NOT NULL DEFAULT 0,
+      "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY ("orderId") REFERENCES "PurchaseOrder"(id) ON DELETE CASCADE
+    );
+  `)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "POItem_order_idx" ON "PurchaseOrderItem"("orderId")`)
+  await run(turso, `CREATE INDEX IF NOT EXISTS "POItem_product_idx" ON "PurchaseOrderItem"("productId")`)
+
   console.log('✅ Turso schema sync complete!')
 }
 

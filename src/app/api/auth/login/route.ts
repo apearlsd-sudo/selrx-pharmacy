@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ALL_PERMISSION_KEYS, ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
 import { hashPassword, verifyPassword, signToken, checkRateLimit, getRetryAfter } from '@/lib/security'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 /**
  * Login route — uses raw libsql SQL to bypass Prisma entirely.
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
       // Verify password (supports legacy plaintext → bcrypt migration)
       const { valid, needsRehash } = await verifyPassword(password, storedPw)
       if (!valid) {
+        const { ipAddress, userAgent } = getRequestContext(req)
+        writeAuditLog({ userId: '', action: 'LOGIN_FAILED', category: 'auth', details: { email, reason: 'invalid_credentials' }, ipAddress, userAgent })
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
       }
 
@@ -98,6 +101,8 @@ export async function POST(req: NextRequest) {
 
       const roleLabel = ROLE_METADATA[userRole]?.label || userRole
 
+      const { ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: row.id, action: 'LOGIN_SUCCESS', category: 'auth', entity: 'User', entityId: row.id, details: { email }, ipAddress, userAgent })
       return NextResponse.json({
         token,
         user: {
@@ -120,6 +125,8 @@ export async function POST(req: NextRequest) {
 
       const { valid, needsRehash } = await verifyPassword(password, user.password)
       if (!valid) {
+        const { ipAddress, userAgent } = getRequestContext(req)
+        writeAuditLog({ userId: '', action: 'LOGIN_FAILED', category: 'auth', details: { email, reason: 'invalid_credentials' }, ipAddress, userAgent })
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
       }
 
@@ -156,6 +163,8 @@ export async function POST(req: NextRequest) {
 
       const roleLabel = ROLE_METADATA[user.role]?.label || user.role
 
+      const { ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: user.id, action: 'LOGIN_SUCCESS', category: 'auth', entity: 'User', entityId: user.id, details: { email }, ipAddress, userAgent })
       return NextResponse.json({
         token,
         user: {

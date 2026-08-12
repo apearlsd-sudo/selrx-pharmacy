@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
 import { hashPassword, verifyToken } from '@/lib/security'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ── Schema introspection ─────────────────────────────────────────────────
 // On Vercel/Turso the User table may have been created from an older schema
@@ -305,6 +306,8 @@ export async function POST(request: NextRequest) {
         args: [id],
       })
 
+      const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid, action: 'USER_CREATED', category: 'user', entity: 'User', entityId: id, details: { email, name, role: resolvedRole }, ipAddress, userAgent })
       return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>), { status: 201 })
     } else {
       const { db } = await import('@/lib/db')
@@ -339,6 +342,8 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      const { userId: aUid2, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid2, action: 'USER_CREATED', category: 'user', entity: 'User', entityId: user.id, details: { email, name, role: user.role }, ipAddress, userAgent })
       return NextResponse.json(user, { status: 201 })
     }
   } catch (error) {

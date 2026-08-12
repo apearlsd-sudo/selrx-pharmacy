@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -447,6 +448,8 @@ export async function PUT(request: NextRequest) {
           args: pIds,
         })
 
+        const { ipAddress, userAgent } = getRequestContext(request)
+        writeAuditLog({ userId, action: 'STOCK_RECEIVED', category: 'inventory', details: { itemCount: items.length }, ipAddress, userAgent })
         return NextResponse.json({
           message: 'Stock received successfully',
           updatedItems: toObjs(result).map(mapInventoryRow),
@@ -473,6 +476,8 @@ export async function PUT(request: NextRequest) {
           results.push(created)
         }
       }
+      const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid, action: 'STOCK_RECEIVED', category: 'inventory', details: { itemCount: items.length }, ipAddress, userAgent })
       return NextResponse.json({ message: 'Stock received successfully', updatedItems: results })
     }
 
@@ -749,6 +754,8 @@ export async function PUT(request: NextRequest) {
 
       console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}${batchSynced ? ' (batches synced)' : ''}${expiryUpdated && !batchCreated ? ' (expiry updated)' : ''}`)
 
+      const { ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'INVENTORY_ADJUSTMENT', category: 'inventory', entity: 'Inventory', entityId: productId, details: { productId, newQuantity, reason }, ipAddress, userAgent })
       return NextResponse.json({
         success: true,
         newQuantity,
@@ -806,6 +813,8 @@ export async function PUT(request: NextRequest) {
 
     console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${updated.quantity}`)
 
+    const { userId: aUid2, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId: aUid2, action: 'INVENTORY_ADJUSTMENT', category: 'inventory', entity: 'Inventory', entityId: productId, details: { productId, newQuantity: updated.quantity, reason }, ipAddress, userAgent })
     return NextResponse.json({
       success: true,
       newQuantity: updated.quantity,
@@ -904,6 +913,8 @@ export async function POST(request: NextRequest) {
 
       const results = toObjs(result).map(mapInventoryRow)
 
+      const { userId: aUid3, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid3, action: 'INVENTORY_ADJUSTMENT', category: 'inventory', details: { itemCount: results.length }, ipAddress, userAgent })
       return NextResponse.json({
         message: 'Stock received successfully',
         receivedItems: results,
@@ -935,6 +946,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const { userId: aUid4, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId: aUid4, action: 'INVENTORY_ADJUSTMENT', category: 'inventory', details: { itemCount: results.length }, ipAddress, userAgent })
     return NextResponse.json({
       message: 'Stock received successfully',
       receivedItems: results,

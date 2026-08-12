@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/products - List all products with search, filter, pagination
 export async function GET(request: NextRequest) {
@@ -401,6 +402,8 @@ export async function POST(request: NextRequest) {
         userId,
       })
 
+      const { ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'PRODUCT_CREATED', category: 'product', entity: 'Product', entityId: id, details: { name: body.name }, ipAddress, userAgent })
       return NextResponse.json(product, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -453,6 +456,8 @@ export async function POST(request: NextRequest) {
         userId,
       })
 
+      const { ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'PRODUCT_CREATED', category: 'product', entity: 'Product', entityId: product.id, details: { name: body.name }, ipAddress, userAgent })
       return NextResponse.json(product, { status: 201 })
     }
   } catch (error) {

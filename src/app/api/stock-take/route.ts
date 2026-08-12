@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateStockTakeRef } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/stock-take — list stock takes or generate report for a completed stock take
 export async function GET(req: NextRequest) {
@@ -373,6 +374,8 @@ export async function POST(req: NextRequest) {
 
       const stockTake = { id, reference: ref, status: 'IN_PROGRESS', notes: notes || null, countedBy: countedBy || null, startedAt: now, createdAt: now, updatedAt: now }
       console.log(`[StockTake Create] success id=${id}`)
+      const { userId, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId, action: 'STOCK_TAKE_CREATED', category: 'stocktake', entity: 'StockTake', entityId: id, details: { reference: ref }, ipAddress, userAgent })
       return NextResponse.json(stockTake, { status: 201 })
     } else {
       const { db } = await import('@/lib/db')
