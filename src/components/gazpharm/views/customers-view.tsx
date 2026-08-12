@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Users, Search, Plus, Edit, Eye, Phone, Mail, Shield, X
+  Users, Search, Plus, Edit, Eye, Phone, Mail, Shield, X,
+  Download, Loader2, ShoppingBag, ClipboardList, DollarSign,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,9 +18,14 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAppStore } from '@/store/app-store'
+import { formatDate, formatDateTime } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { authHeaders } from '@/lib/auth-headers'
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 interface Customer {
   id: string
@@ -36,6 +42,50 @@ interface Customer {
   notes: string | null
 }
 
+interface Transaction {
+  id: string
+  transactionNumber: string
+  itemsCount: number
+  total: number
+  status: string
+  createdAt: string
+}
+
+interface Prescription {
+  id: string
+  rxNumber: string
+  productName: string
+  status: string
+  createdAt: string
+}
+
+interface CustomerDetail {
+  customer: Customer
+  transactions: Transaction[]
+  prescriptions: Prescription[]
+}
+
+// ── Status badge colours ──────────────────────────────────────────────────
+
+const TXN_STATUS_COLORS: Record<string, string> = {
+  COMPLETED: 'bg-green-100 text-green-700 border-green-200',
+  VOIDED: 'bg-red-100 text-red-700 border-red-200',
+  PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
+  REFUNDED: 'bg-gray-100 text-gray-700 border-gray-200',
+ PARTIAL_REFUND: 'bg-orange-100 text-orange-700 border-orange-200',
+}
+
+const RX_STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
+  IN_PROGRESS: 'bg-sky-100 text-sky-700 border-sky-200',
+  READY: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  DISPENSED: 'bg-green-100 text-green-700 border-green-200',
+  EXPIRED: 'bg-gray-100 text-gray-700 border-gray-200',
+  CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
 export function CustomersView() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,12 +101,21 @@ export function CustomersView() {
   })
   const addToast = useAppStore((s) => s.addToast)
 
+  // TASK 3: Customer detail state
+  const [customerDetail, setCustomerDetail] = useState<CustomerDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  // TASK 4: CSV export state
+  const [exporting, setExporting] = useState(false)
+
+  // ── Fetch customers list ────────────────────────────────────────────────
+
   const fetchCustomers = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.set('search', searchQuery)
-      const res = await fetch(`/api/customers?${params}`)
+      const res = await fetch(`/api/customers?${params}`, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setCustomers(Array.isArray(data) ? data : data.customers || [])
@@ -69,6 +128,30 @@ export function CustomersView() {
   }, [searchQuery, addToast])
 
   useEffect(() => { fetchCustomers() }, [fetchCustomers])
+
+  // ── TASK 3: Fetch customer detail with transactions & prescriptions ─────
+
+  const openDetailDialog = async (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setDetailDialog(true)
+    setDetailLoading(true)
+    setCustomerDetail(null)
+    try {
+      const res = await fetch(`/api/customers/${customer.id}?include=transactions,prescriptions`, {
+        headers: authHeaders(),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setCustomerDetail(data)
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load customer details', variant: 'destructive' })
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  // ── Form dialogs ───────────────────────────────────────────────────────
 
   const openCreateDialog = () => {
     setEditingCustomer(null)
@@ -95,14 +178,14 @@ export function CustomersView() {
       if (editingCustomer) {
         await fetch(`/api/customers/${editingCustomer.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
         addToast({ title: 'Updated', description: 'Customer updated', variant: 'success' })
       } else {
         await fetch('/api/customers', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
         addToast({ title: 'Created', description: 'New customer added', variant: 'success' })
@@ -114,9 +197,82 @@ export function CustomersView() {
     }
   }
 
+  // ── TASK 4: CSV Export ─────────────────────────────────────────────────
+
+  const handleExportCSV = async () => {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/customers?limit=1000', {
+        headers: authHeaders(),
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const data = await res.json()
+      const exportCustomers: Customer[] = Array.isArray(data) ? data : data.customers || []
+
+      const headers = ['Name', 'Email', 'Phone', 'DOB', 'Gender', 'Insurance Provider', 'Policy No', 'Allergies', 'Created']
+      const rows = exportCustomers.map((c) => [
+        `${c.firstName} ${c.lastName}`,
+        c.email ?? '',
+        c.phone ?? '',
+        c.dateOfBirth ?? '',
+        c.gender ?? '',
+        c.insuranceProvider ?? '',
+        c.insurancePolicyNo ?? '',
+        (c.allergies ?? '').replace(/"/g, '""'),
+        c.createdAt ?? '',
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((r) => r.map((v) => `"${v}"`).join(',')),
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to export customers', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // ── TASK 3: Derived values for detail dialog ───────────────────────────
+
+  const txns = customerDetail?.transactions || []
+  const rxs = customerDetail?.prescriptions || []
+  const totalSpent = txns.reduce((sum, t) => sum + (t.total || 0), 0)
+  const purchaseCount = txns.length
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <PageHeader icon={Users} title="Customers" description="Manage your customer records and information" />
+      {/* TASK 4: PageHeader with Export CSV action */}
+      <PageHeader
+        icon={Users}
+        title="Customers"
+        description="Manage your customer records and information"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={exporting}
+            className="gap-2"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Export CSV
+          </Button>
+        }
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
         <Card className="card-hover">
@@ -248,7 +404,8 @@ export function CustomersView() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedCustomer(customer); setDetailDialog(true) }}>
+                        {/* TASK 3: View button fetches full detail with transactions/prescriptions */}
+                        <Button size="sm" variant="ghost" onClick={() => openDetailDialog(customer)}>
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => openEditDialog(customer)}>
@@ -264,46 +421,163 @@ export function CustomersView() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
-      <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="max-w-lg">
+      {/* TASK 3: Customer Detail Dialog with Tabs */}
+      <Dialog open={detailDialog} onOpenChange={(open) => { if (!open) { setDetailDialog(false); setCustomerDetail(null) } }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Customer Details</DialogTitle>
           </DialogHeader>
           {selectedCustomer && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Customer Info Header */}
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-bold text-emerald-700">
                   {selectedCustomer.firstName[0]}{selectedCustomer.lastName[0]}
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-lg font-semibold">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
-                  <p className="text-sm text-muted-foreground">{selectedCustomer.gender || ''} {selectedCustomer.dateOfBirth ? `· DOB: ${selectedCustomer.dateOfBirth}` : ''}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedCustomer.gender || ''}{selectedCustomer.dateOfBirth ? ` · DOB: ${selectedCustomer.dateOfBirth}` : ''}
+                  </p>
                 </div>
               </div>
+
+              {/* Contact & Insurance Info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Email:</span><p className="font-medium">{selectedCustomer.email || '—'}</p></div>
                 <div><span className="text-muted-foreground">Phone:</span><p className="font-medium">{selectedCustomer.phone || '—'}</p></div>
-                <div className="col-span-2"><span className="text-muted-foreground">Address:</span><p className="font-medium">{selectedCustomer.address || '—'}</p></div>
                 <div><span className="text-muted-foreground">Insurance:</span><p className="font-medium">{selectedCustomer.insuranceProvider || '—'}</p></div>
                 <div><span className="text-muted-foreground">Policy #:</span><p className="font-medium">{selectedCustomer.insurancePolicyNo || '—'}</p></div>
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Allergies:</span>
-                  {selectedCustomer.allergies ? (
+                {selectedCustomer.allergies && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Allergies:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {selectedCustomer.allergies.split(',').map((a, i) => (
                         <Badge key={i} className="bg-red-100 text-red-700 border-red-200">{a.trim()}</Badge>
                       ))}
                     </div>
-                  ) : <p className="font-medium">None recorded</p>}
-                </div>
-                {selectedCustomer.notes && (
-                  <div className="col-span-2 bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                    <p className="text-sm">{selectedCustomer.notes}</p>
                   </div>
                 )}
               </div>
+
+              {/* Spending Summary */}
+              {!detailLoading && customerDetail && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-emerald-700">${totalSpent.toFixed(2)}</p>
+                      <p className="text-xs text-emerald-600">Total Spent</p>
+                    </div>
+                  </div>
+                  <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center">
+                      <ShoppingBag className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-sky-700">{purchaseCount}</p>
+                      <p className="text-xs text-sky-600">Purchases</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabs: Purchase History | Prescriptions */}
+              {!detailLoading && customerDetail && (
+                <Tabs defaultValue="purchases">
+                  <TabsList>
+                    <TabsTrigger value="purchases" className="gap-1.5">
+                      <ShoppingBag className="h-3.5 w-3.5" />
+                      Purchase History
+                    </TabsTrigger>
+                    <TabsTrigger value="prescriptions" className="gap-1.5">
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      Prescriptions
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Purchase History Tab */}
+                  <TabsContent value="purchases">
+                    {txns.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">No purchase history</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Date</TableHead>
+                              <TableHead className="text-xs">Txn #</TableHead>
+                              <TableHead className="text-xs text-right">Items</TableHead>
+                              <TableHead className="text-xs text-right">Total</TableHead>
+                              <TableHead className="text-xs">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {txns.map((t) => (
+                              <TableRow key={t.id}>
+                                <TableCell className="text-xs whitespace-nowrap">{formatDate(t.createdAt)}</TableCell>
+                                <TableCell className="text-xs font-mono">{t.transactionNumber}</TableCell>
+                                <TableCell className="text-xs text-right">{t.itemsCount}</TableCell>
+                                <TableCell className="text-xs text-right font-medium">${(t.total || 0).toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <Badge className={`text-[10px] ${TXN_STATUS_COLORS[t.status] || 'bg-gray-100 text-gray-700'}`}>
+                                    {t.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Prescriptions Tab */}
+                  <TabsContent value="prescriptions">
+                    {rxs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">No prescriptions</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Date</TableHead>
+                              <TableHead className="text-xs">Rx #</TableHead>
+                              <TableHead className="text-xs">Medication</TableHead>
+                              <TableHead className="text-xs">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rxs.map((r) => (
+                              <TableRow key={r.id}>
+                                <TableCell className="text-xs whitespace-nowrap">{formatDate(r.createdAt)}</TableCell>
+                                <TableCell className="text-xs font-mono">{r.rxNumber}</TableCell>
+                                <TableCell className="text-xs">{r.productName}</TableCell>
+                                <TableCell>
+                                  <Badge className={`text-[10px] ${RXN_STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-700'}`}>
+                                    {r.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              )}
+
+              {/* Detail Loading State */}
+              {detailLoading && (
+                <div className="space-y-3 py-4">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-3/4" />
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

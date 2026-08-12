@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
-  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil
+  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil, Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,7 @@ import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
 import { generateBarcode } from '@/lib/barcode'
 import { formatDate, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
+import { authHeaders } from '@/lib/auth-headers'
 
 interface InventoryItem {
   id: string
@@ -150,6 +151,7 @@ export function InventoryView() {
   const [addDfName, setAddDfName] = useState('')
   const [dosageForms, setDosageForms] = useState<string[]>([])
   const [savingProduct, setSavingProduct] = useState(false)
+  const [exportingCSV, setExportingCSV] = useState(false)
 
   // -- Import state ------------------------------------------------
   const [importDialog, setImportDialog] = useState(false)
@@ -173,6 +175,8 @@ export function InventoryView() {
   const dateFormat = useAppStore((s) => s.dateFormat)
   const bumpInventoryVersion = useAppStore((s) => s.bumpInventoryVersion)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const setPendingPOItems = useAppStore((s) => s.setPendingPOItems)
 
   const fetchInventory = useCallback(async (forceRefresh = false) => {
     setLoading(true)
@@ -880,6 +884,93 @@ export function InventoryView() {
     setImportPreview({ name: file.name, rows: rowCount, size: sizeStr })
   }
 
+  // ── CSV Export ──────────────────────────────────────────────────────
+  const handleExportCSV = async () => {
+    setExportingCSV(true)
+    try {
+      const params = new URLSearchParams({ limit: '10000' })
+      if (searchQuery) params.set('search', searchQuery)
+      if (categoryFilter !== 'ALL') params.set('category', categoryFilter)
+      const res = await fetch(`/api/inventory?${params}`, { headers: authHeaders() })
+      if (!res.ok) throw new Error('Export failed')
+      const exportItems: InventoryItem[] = await res.json()
+
+      const headers = ['Name', 'NDC', 'Category', 'Dosage Form', 'Strength', 'Unit', 'Cost Price', 'Selling Price', 'Stock Qty', 'Reorder Point', 'Status', 'Batch Number', 'Expiry Date']
+      const rows = exportItems.map((item) => {
+        const qty = Number(item.quantity) || 0
+        const reorder = Number(item.product.reorderPoint) || 10
+        const isOut = qty === 0
+        const isLow = qty > 0 && qty <= reorder
+        const status = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : item.product.status === 'DISCONTINUED' ? 'Discontinued' : 'In Stock'
+        return [
+          item.product.name,
+          item.product.ndc || '',
+          item.product.category.replace(/_/g, ' '),
+          item.product.dosageForm || '',
+          item.product.strength || '',
+          item.product.unitOfMeasure,
+          item.product.costPrice != null ? String(item.product.costPrice) : '',
+          String(item.product.sellingPrice),
+          String(qty),
+          String(reorder),
+          status,
+          item.product.batchNumber || '',
+          item.product.expiryDate ? item.product.expiryDate.slice(0, 10) : '',
+        ]
+      })
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('CSV export error:', err)
+      addToast({ title: 'Export Failed', description: 'Could not export inventory CSV', variant: 'destructive' })
+    } finally {
+      setExportingCSV(false)
+    }
+  }
+
+  // ── Create PO from Low Stock ──────────────────────────────────────
+  const [poLoading, setPOLoading] = useState(false)
+  const handleCreatePOFromLowStock = async () => {
+    setPOLoading(true)
+    try {
+      const res = await fetch('/api/notifications/low-stock-po', { headers: authHeaders() })
+      if (!res.ok) throw new Error('Failed to fetch low stock items')
+      const data = await res.json()
+      const lowStockItems = data.items || []
+      if (lowStockItems.length === 0) {
+        addToast({ title: 'No Low Stock Items', description: 'No products below reorder point', variant: 'default' })
+        return
+      }
+      // Convert to PO items format (use first vendor group, or merge all)
+      const poItems = lowStockItems.map((item: any) => ({
+        productId: item.id,
+        productName: item.name,
+        quantity: Math.max(item.reorderQty || (item.reorderPoint - item.currentStock), 1),
+        unitCost: item.costPrice || 0,
+        vendorId: item.vendorId || null,
+        vendorName: item.vendorName || null,
+      }))
+      setPendingPOItems(poItems)
+      setCurrentView('purchase-orders')
+    } catch (err) {
+      console.error('PO from low stock error:', err)
+      addToast({ title: 'Error', description: 'Failed to create PO from low stock', variant: 'destructive' })
+    } finally {
+      setPOLoading(false)
+    }
+  }
+
   const handleImport = async () => {
     if (!importFile) return
     setImporting(true)
@@ -914,7 +1005,38 @@ export function InventoryView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader icon={Package} title="Inventory" description="Manage your pharmacy product stock and batches" />
+      <PageHeader icon={Package} title="Inventory" description="Manage your pharmacy product stock and batches" action={
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCreatePOFromLowStock}
+            disabled={poLoading}
+            className="gap-2"
+          >
+            {poLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PackagePlus className="h-4 w-4" />
+            )}
+            Create PO from Low Stock
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={exportingCSV}
+            className="gap-2"
+          >
+            {exportingCSV ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Export CSV
+          </Button>
+        </div>
+      } />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">

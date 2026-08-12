@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   FileText, Search, Plus, AlertTriangle, CheckCircle, Clock,
-  XCircle, ChevronRight, Eye, Ban, Play, Printer, ClipboardList
+  XCircle, ChevronRight, Eye, Ban, Play, Printer, ClipboardList,
+  RotateCcw, Loader2, X, Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,10 +22,14 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAppStore } from '@/store/app-store'
 import { formatDate, formatDateTime } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { authHeaders } from '@/lib/auth-headers'
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 interface Prescription {
   id: string
@@ -48,6 +53,7 @@ interface Prescription {
   verifiedById: string | null
   createdAt: string
   expiresAt: string | null
+  customerId?: string | null
   customer?: {
     id: string
     firstName: string
@@ -56,6 +62,25 @@ interface Prescription {
     allergies: string | null
   }
 }
+
+interface CustomerOption {
+  id: string
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+}
+
+interface ProductOption {
+  id: string
+  name: string
+  ndc: string | null
+  strength: string | null
+  dosageForm: string | null
+  sellingPrice: number | null
+}
+
+// ── Config ──────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pending', color: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -72,6 +97,8 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   STAT: { label: 'STAT', color: 'bg-red-100 text-red-700' },
 }
 
+// ── Component ──────────────────────────────────────────────────────────────
+
 export function PrescriptionsView() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,13 +107,31 @@ export function PrescriptionsView() {
   const [detailDialog, setDetailDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
   const [selectedRx, setSelectedRx] = useState<Prescription | null>(null)
+
+  // Customer / product lookup data
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
+  const [products, setProducts] = useState<ProductOption[]>([])
+  const [lookupLoading, setLookupLoading] = useState(false)
+
+  // Search states for combobox popovers
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [productSearch, setProductSearch] = useState('')
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false)
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false)
+
   const [form, setForm] = useState({
+    customerId: '',
     patientName: '', productName: '', productNdc: '', prescriberName: '',
     prescriberNPI: '', prescriberPhone: '', dosage: '', quantity: '1',
     refillsTotal: '0', daysSupply: '30', priority: 'ROUTINE', notes: '',
+    strength: '', dosageForm: '',
   })
+  const [exportingCSV, setExportingCSV] = useState(false)
+
   const user = useAppStore((s) => s.user)
   const addToast = useAppStore((s) => s.addToast)
+
+  // ── Fetch prescriptions ─────────────────────────────────────────────────
 
   const fetchPrescriptions = useCallback(async () => {
     setLoading(true)
@@ -94,7 +139,7 @@ export function PrescriptionsView() {
       const params = new URLSearchParams()
       if (statusFilter !== 'ALL') params.set('status', statusFilter)
       if (searchQuery) params.set('search', searchQuery)
-      const res = await fetch(`/api/prescriptions?${params}`)
+      const res = await fetch(`/api/prescriptions?${params}`, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setPrescriptions(Array.isArray(data) ? data : data.prescriptions || [])
@@ -108,24 +153,119 @@ export function PrescriptionsView() {
 
   useEffect(() => { fetchPrescriptions() }, [fetchPrescriptions])
 
+  // ── Fetch customers & products on dialog open ──────────────────────────
+
+  const fetchLookupData = useCallback(async () => {
+    setLookupLoading(true)
+    try {
+      const [custRes, prodRes] = await Promise.all([
+        fetch('/api/customers?limit=100', { headers: authHeaders() }),
+        fetch('/api/products?limit=50&status=ACTIVE', { headers: authHeaders() }),
+      ])
+      if (custRes.ok) {
+        const custData = await custRes.json()
+        const custArr = Array.isArray(custData) ? custData : custData.customers || []
+        setCustomers(custArr)
+      }
+      if (prodRes.ok) {
+        const prodData = await prodRes.json()
+        const prodArr = Array.isArray(prodData) ? prodData : prodData.products || []
+        setProducts(prodArr)
+      }
+    } catch {
+      // silently fail — user can still type manually
+    } finally {
+      setLookupLoading(false)
+    }
+  }, [])
+
+  const openCreateDialog = (prefill?: Prescription) => {
+    if (prefill) {
+      // Refill mode — pre-fill form from original Rx
+      setForm({
+        customerId: prefill.customerId || '',
+        patientName: prefill.patientName,
+        productName: prefill.productName,
+        productNdc: prefill.productNdc || '',
+        prescriberName: prefill.prescriberName,
+        prescriberNPI: prefill.prescriberNPI || '',
+        prescriberPhone: prefill.prescriberPhone || '',
+        dosage: prefill.dosage || '',
+        quantity: String(prefill.quantity),
+        refillsTotal: String(prefill.refillsTotal),
+        daysSupply: prefill.daysSupply ? String(prefill.daysSupply) : '30',
+        priority: prefill.priority,
+        notes: `Refill of ${prefill.rxNumber}`,
+        strength: '',
+        dosageForm: '',
+      })
+      setCustomerSearch(`${prefill.patientName}`)
+      setProductSearch(prefill.productName)
+    } else {
+      setForm({
+        customerId: '',
+        patientName: '', productName: '', productNdc: '', prescriberName: '',
+        prescriberNPI: '', prescriberPhone: '', dosage: '', quantity: '1',
+        refillsTotal: '0', daysSupply: '30', priority: 'ROUTINE', notes: '',
+        strength: '', dosageForm: '',
+      })
+      setCustomerSearch('')
+      setProductSearch('')
+    }
+    setCreateDialog(true)
+    fetchLookupData()
+  }
+
+  // ── Derived lists ─────────────────────────────────────────────────────
+
+  const filteredCustomers = customerSearch.trim()
+    ? customers.filter((c) => {
+        const q = customerSearch.toLowerCase()
+        return (
+          c.firstName.toLowerCase().includes(q) ||
+          c.lastName.toLowerCase().includes(q) ||
+          (c.email && c.email.toLowerCase().includes(q)) ||
+          (c.phone && c.phone.includes(q))
+        )
+      })
+    : customers
+
+  const filteredProducts = productSearch.trim()
+    ? products.filter((p) => {
+        const q = productSearch.toLowerCase()
+        return (
+          p.name.toLowerCase().includes(q) ||
+          (p.ndc && p.ndc.includes(q)) ||
+          (p.strength && p.strength.toLowerCase().includes(q)) ||
+          (p.dosageForm && p.dosageForm.toLowerCase().includes(q))
+        )
+      })
+    : products
+
+  const selectedCustomerObj = customers.find((c) => c.id === form.customerId)
+
+  // ── Status counts ─────────────────────────────────────────────────────
+
   const statusCounts = {
     pending: prescriptions.filter((r) => r.status === 'PENDING').length,
     inProgress: prescriptions.filter((r) => r.status === 'IN_PROGRESS').length,
     ready: prescriptions.filter((r) => r.status === 'READY').length,
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────
+
   const handleAction = async (rx: Prescription, action: 'verify' | 'fill' | 'cancel') => {
     try {
       if (action === 'verify') {
-        await fetch(`/api/prescriptions/${rx.id}?action=verify`, { method: 'PUT' })
+        await fetch(`/api/prescriptions/${rx.id}?action=verify`, { method: 'PUT', headers: authHeaders() })
         addToast({ title: 'Verified', description: `${rx.rxNumber} verified`, variant: 'success' })
       } else if (action === 'fill') {
-        await fetch(`/api/prescriptions/${rx.id}?action=fill`, { method: 'PUT' })
+        await fetch(`/api/prescriptions/${rx.id}?action=fill`, { method: 'PUT', headers: authHeaders() })
         addToast({ title: 'Filled', description: `${rx.rxNumber} dispensed`, variant: 'success' })
       } else {
         await fetch(`/api/prescriptions/${rx.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'CANCELLED' }),
         })
         addToast({ title: 'Cancelled', description: `${rx.rxNumber} cancelled` })
@@ -138,29 +278,120 @@ export function PrescriptionsView() {
 
   const handleCreate = async () => {
     try {
-      await fetch('/api/prescriptions', {
+      const payload: Record<string, unknown> = {
+        ...form,
+        quantity: parseInt(form.quantity),
+        refillsTotal: parseInt(form.refillsTotal),
+        daysSupply: parseInt(form.daysSupply),
+        refillsRemaining: parseInt(form.refillsTotal),
+      }
+      // Only send customerId if one is selected; otherwise send patientName
+      if (form.customerId) {
+        payload.customerId = form.customerId
+      }
+      // Remove extra fields that aren't part of the API
+      delete payload.strength
+      delete payload.dosageForm
+
+      const res = await fetch('/api/prescriptions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          quantity: parseInt(form.quantity),
-          refillsTotal: parseInt(form.refillsTotal),
-          daysSupply: parseInt(form.daysSupply),
-          refillsRemaining: parseInt(form.refillsTotal),
-          customerId: 'demo-customer',
-        }),
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-      addToast({ title: 'Created', description: 'New prescription created', variant: 'success' })
-      setCreateDialog(false)
-      fetchPrescriptions()
+      if (res.ok) {
+        addToast({ title: 'Created', description: 'New prescription created', variant: 'success' })
+        setCreateDialog(false)
+        fetchPrescriptions()
+      } else {
+        addToast({ title: 'Error', description: 'Failed to create prescription', variant: 'destructive' })
+      }
     } catch {
       addToast({ title: 'Error', description: 'Failed to create prescription', variant: 'destructive' })
     }
   }
 
+  const selectCustomer = (c: CustomerOption) => {
+    setForm((prev) => ({ ...prev, customerId: c.id, patientName: `${c.firstName} ${c.lastName}` }))
+    setCustomerSearch(`${c.firstName} ${c.lastName}`)
+    setCustomerPopoverOpen(false)
+  }
+
+  // ── CSV Export ──────────────────────────────────────────────────────
+  const handleExportCSV = async () => {
+    setExportingCSV(true)
+    try {
+      const params = new URLSearchParams({ limit: '10000' })
+      if (statusFilter !== 'ALL') params.set('status', statusFilter)
+      if (searchQuery) params.set('search', searchQuery)
+      const res = await fetch(`/api/prescriptions?${params}`, { headers: authHeaders() })
+      if (!res.ok) throw new Error('Export failed')
+      const data = await res.json()
+      const exportRxs: Prescription[] = Array.isArray(data) ? data : data.prescriptions || []
+
+      const headers = ['Rx Number', 'Patient', 'Medication', 'Prescriber', 'Status', 'Priority', 'Quantity', 'Refills Remaining', 'Created']
+      const rows = exportRxs.map((rx) => [
+        rx.rxNumber,
+        rx.patientName,
+        rx.productName,
+        rx.prescriberName,
+        rx.status,
+        rx.priority,
+        String(rx.quantity),
+        String(rx.refillsRemaining),
+        rx.createdAt || '',
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `prescriptions-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('CSV export error:', err)
+      addToast({ title: 'Export Failed', description: 'Could not export prescriptions CSV', variant: 'destructive' })
+    } finally {
+      setExportingCSV(false)
+    }
+  }
+
+  const selectProduct = (p: ProductOption) => {
+    setForm((prev) => ({
+      ...prev,
+      productName: p.name,
+      productNdc: p.ndc || '',
+      dosage: p.strength || prev.dosage,
+      strength: p.strength || '',
+      dosageForm: p.dosageForm || '',
+    }))
+    setProductSearch(p.name)
+    setProductPopoverOpen(false)
+  }
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <PageHeader icon={ClipboardList} title="Prescriptions" description="Track and manage prescription orders" />
+      <PageHeader icon={ClipboardList} title="Prescriptions" description="Track and manage prescription orders" action={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportCSV}
+          disabled={exportingCSV}
+          className="gap-2"
+        >
+          {exportingCSV ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          Export CSV
+        </Button>
+      } />
 
       {/* Status Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
@@ -225,7 +456,7 @@ export function PrescriptionsView() {
                 </Button>
               ))}
             </div>
-            <Button onClick={() => setCreateDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={() => openCreateDialog()} className="bg-emerald-600 hover:bg-emerald-700">
               <Plus className="h-4 w-4 mr-2" />
               New Rx
             </Button>
@@ -312,6 +543,12 @@ export function PrescriptionsView() {
                               <ChevronRight className="h-3.5 w-3.5 mr-1" />Dispense
                             </Button>
                           )}
+                          {/* TASK 5: Refill button for dispensed prescriptions with remaining refills */}
+                          {rx.status === 'DISPENSED' && rx.refillsRemaining > 0 && (
+                            <Button size="sm" variant="ghost" className="text-emerald-600" onClick={() => openCreateDialog(rx)}>
+                              <RotateCcw className="h-3.5 w-3.5 mr-1" />Refill
+                            </Button>
+                          )}
                           {['PENDING', 'IN_PROGRESS'].includes(rx.status) && (
                             <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleAction(rx, 'cancel')}>
                               <Ban className="h-3.5 w-3.5" />
@@ -366,21 +603,126 @@ export function PrescriptionsView() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Prescription Dialog */}
-      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
+      {/* Create / Refill Prescription Dialog */}
+      <Dialog open={createDialog} onOpenChange={(open) => { if (!open) setCreateDialog(false) }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>New Prescription</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+            {/* TASK 1: Customer Search/Select */}
             <div className="col-span-2">
-              <Label>Patient Name</Label>
-              <Input value={form.patientName} onChange={(e) => setForm({ ...form, patientName: e.target.value })} placeholder="Full name" className="mt-1" />
+              <Label>Customer *</Label>
+              <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <div className="relative mt-1">
+                    {lookupLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    <Input
+                      placeholder="Search customer by name, email, or phone..."
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value)
+                        setCustomerPopoverOpen(true)
+                        // Clear customerId if user is typing a new search
+                        if (form.customerId) {
+                          const match = customers.find(
+                            (c) => `${c.firstName} ${c.lastName}` === e.target.value
+                          )
+                          if (!match) {
+                            setForm((prev) => ({ ...prev, customerId: '' }))
+                          }
+                        }
+                      }}
+                      onFocus={() => setCustomerPopoverOpen(true)}
+                      className={selectedCustomerObj ? 'pr-16' : ''}
+                    />
+                    {selectedCustomerObj && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                        onClick={() => {
+                          setForm((prev) => ({ ...prev, customerId: '', patientName: '' }))
+                          setCustomerSearch('')
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredCustomers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-3 text-center">No customers found</p>
+                    ) : (
+                      filteredCustomers.slice(0, 20).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors ${form.customerId === c.id ? 'bg-muted' : ''}`}
+                          onClick={() => selectCustomer(c)}
+                        >
+                          <p className="font-medium">{c.firstName} {c.lastName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {[c.email, c.phone].filter(Boolean).join(' · ') || 'No contact info'}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+
+            {/* TASK 2: Product Autocomplete */}
             <div className="col-span-2">
-              <Label>Medication Name</Label>
-              <Input value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} placeholder="Drug name" className="mt-1" />
+              <Label>Medication Name *</Label>
+              <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <div className="relative mt-1">
+                    {lookupLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    <Input
+                      placeholder="Search medication by name, NDC, strength..."
+                      value={productSearch}
+                      onChange={(e) => {
+                        setProductSearch(e.target.value)
+                        setProductPopoverOpen(true)
+                        setForm((prev) => ({ ...prev, productName: e.target.value }))
+                      }}
+                      onFocus={() => setProductPopoverOpen(true)}
+                    />
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredProducts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-3 text-center">No products found</p>
+                    ) : (
+                      filteredProducts.slice(0, 20).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                          onClick={() => selectProduct(p)}
+                        >
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {[p.ndc, p.strength, p.dosageForm, p.sellingPrice != null ? `$${p.sellingPrice}` : null].filter(Boolean).join(' · ')}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+
             <div>
               <Label>NDC (optional)</Label>
               <Input value={form.productNdc} onChange={(e) => setForm({ ...form, productNdc: e.target.value })} className="mt-1" />
@@ -390,7 +732,7 @@ export function PrescriptionsView() {
               <Input value={form.dosage} onChange={(e) => setForm({ ...form, dosage: e.target.value })} placeholder="e.g., 500mg" className="mt-1" />
             </div>
             <div className="col-span-2">
-              <Label>Prescriber Name</Label>
+              <Label>Prescriber Name *</Label>
               <Input value={form.prescriberName} onChange={(e) => setForm({ ...form, prescriberName: e.target.value })} className="mt-1" />
             </div>
             <div>

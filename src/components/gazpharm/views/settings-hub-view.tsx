@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import {
   Globe, Coins, Printer, Database, UserCog, Monitor, RefreshCw, Info, MonitorSmartphone,
+  Building2, KeyRound,
 } from 'lucide-react'
 import { UsersView } from './users-view'
 import { WorkstationsView } from './workstations-view'
@@ -16,8 +17,11 @@ import {
   AutoBackupSection,
   SystemInfoSection,
 } from './settings-sections'
+import { CompanyProfileSection } from './settings-sections/company-profile-section'
+import { PasswordChangeSection } from './settings-sections/password-change-section'
 
 const SETTINGS_NAV = [
+  { key: 'company', label: 'Company Profile', icon: Building2, description: 'Business information, contact & tax settings' },
   { key: 'users', label: 'User Management', icon: UserCog, description: 'Manage staff accounts, roles & permissions' },
   { key: 'regional', label: 'Regional Settings', icon: Globe, description: 'Timezone, date & time formats' },
   { key: 'currency', label: 'Currency Settings', icon: Coins, description: 'Local currency for prices & transactions' },
@@ -27,6 +31,7 @@ const SETTINGS_NAV = [
   { key: 'sync', label: 'Device Sync', icon: RefreshCw, description: 'Sync settings across devices' },
   { key: 'hardware', label: 'Hardware', icon: MonitorSmartphone, description: 'Printers, scanners & peripheral devices' },
   { key: 'system', label: 'System Information', icon: Info, description: 'Application version & pharmacy info' },
+  { key: 'password', label: 'Change Password', icon: KeyRound, description: 'Update your account password' },
 ] as const
 
 type SettingsKey = (typeof SETTINGS_NAV)[number]['key']
@@ -36,6 +41,7 @@ export function SettingsHubView() {
 
   const renderSection = () => {
     switch (active) {
+      case 'company': return <CompanyProfileSection />
       case 'users': return <UsersView />
       case 'regional': return <RegionalSettingsSection />
       case 'currency': return <CurrencySettingsSection />
@@ -50,6 +56,7 @@ export function SettingsHubView() {
       case 'sync': return <SyncSettingsView />
       case 'hardware': return <HardwareView />
       case 'system': return <SystemInfoSection />
+      case 'password': return <PasswordChangeSection />
     }
   }
 

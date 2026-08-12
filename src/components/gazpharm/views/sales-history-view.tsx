@@ -15,6 +15,7 @@ import {
   ArrowUpDown,
   Loader2,
   History,
+  Printer,
 } from 'lucide-react'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
@@ -43,6 +44,7 @@ import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTimeShort, formatDateShort, formatDate as formatDateDMY, getTodayWAT } from '@/lib/date-utils'
 import { exportToPDF } from '@/lib/pdf-export'
+import { ReceiptModal } from './receipt-modal'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#047857', '#065f46']
 
@@ -111,6 +113,8 @@ export function SalesHistoryView() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailTxn, setDetailTxn] = useState<any>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [reprintTxn, setReprintTxn] = useState<any | null>(null)
+  const [reprintLoading, setReprintLoading] = useState<string | null>(null)
   const [activePreset, setActivePreset] = useState<string>(isSuperAdmin ? 'all' : 'today')
 
   const fetchSalesHistory = useCallback(async () => {
@@ -303,6 +307,22 @@ export function SalesHistoryView() {
   const summary = data?.summary || {}
   const transactions = data?.transactions || []
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
+
+  // Reprint handler
+  const handleReprint = async (txnId: string) => {
+    setReprintLoading(txnId)
+    try {
+      const res = await fetch(`/api/transactions/${txnId}`, { headers: authHeaders() })
+      if (!res.ok) throw new Error('Failed to fetch transaction')
+      const data = await res.json()
+      setReprintTxn(data)
+    } catch (err) {
+      console.error('Reprint error:', err)
+      addToast({ title: 'Reprint Failed', description: 'Could not load transaction for reprint', variant: 'destructive' })
+    } finally {
+      setReprintLoading(null)
+    }
+  }
 
   // PDF Export handler
   const handleExportPDF = useCallback(async () => {
@@ -867,7 +887,7 @@ export function SalesHistoryView() {
                       <TableHead className="text-right">Discount</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -923,14 +943,31 @@ export function SalesHistoryView() {
                           </TableCell>
                           <TableCell>{statusBadge(txn.status)}</TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => { setDetailTxn(txn); setDetailOpen(true) }}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => { setDetailTxn(txn); setDetailOpen(true) }}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              {txn.status === 'COMPLETED' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => { e.stopPropagation(); handleReprint(txn.id) }}
+                                  disabled={reprintLoading === txn.id}
+                                >
+                                  {reprintLoading === txn.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Printer className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -1203,6 +1240,14 @@ export function SalesHistoryView() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Receipt Modal for Reprint */}
+      {reprintTxn && (
+        <ReceiptModal
+          transaction={reprintTxn}
+          onClose={() => setReprintTxn(null)}
+        />
+      )}
     </div>
   )
 }

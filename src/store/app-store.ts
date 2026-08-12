@@ -249,12 +249,18 @@ export interface WorkstationState {
   setCurrentWorkstationId: (id: string | null) => void
 }
 
+export interface POState {
+  pendingPOItems: { productId: string; productName: string; quantity: number; unitCost: number; vendorId: string | null; vendorName: string | null }[] | null
+  setPendingPOItems: (items: { productId: string; productName: string; quantity: number; unitCost: number; vendorId: string | null; vendorName: string | null }[] | null) => void
+}
+
 export type AppState = NavigationState &
   AuthState &
   POSState &
   InventoryUIState &
   ShiftState &
   WorkstationState &
+  POState &
   CompanyState &
   CurrencyState &
   ReceiptSettingsState &
@@ -434,6 +440,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         localStorage.removeItem('selrx_workstation')
       }
     }
+  },
+  pendingPOItems: null,
+  setPendingPOItems: (items) => {
+    set({ pendingPOItems: items })
   },
 
   // ---- Shift ----

@@ -282,6 +282,10 @@ async function main() {
   await addColumn(turso, 'AuditLog', 'entityId', 'TEXT')
   await addColumn(turso, 'AuditLog', 'userAgent', 'TEXT')
 
+  // ── Company: add settings column for JSON settings storage ──
+  console.log('📦 Syncing Company table columns...')
+  await addColumn(turso, 'Company', 'settings', 'TEXT')
+
   // ── PurchaseOrder table ──
   console.log('📦 Syncing PurchaseOrder table...')
   await run(turso, `

@@ -105,6 +105,7 @@ export function POSView() {
   const [cartAllergyAlerts, setCartAllergyAlerts] = useState<Array<{drug: string; allergen: string}>>([])
   const [cartDuplicates, setCartDuplicates] = useState<Array<{drugClass: string; drugs: string[]}>>([])
   const [checkingInteractions, setCheckingInteractions] = useState(false)
+  const [taxRate, setTaxRate] = useState<number>(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
@@ -136,7 +137,7 @@ export function POSView() {
     const current = cartStockMap.get(item.product.id) || 0
     cartStockMap.set(item.product.id, current + item.quantity * item.product.itemsPerUnit)
   }
-  const tax = 0
+  const tax = subtotal * (taxRate / 100)
   const total = subtotal + tax
 
   // Search products
@@ -242,6 +243,18 @@ export function POSView() {
       setShowBarcodeInput(false)
     }
   }, [addToCart, addToast])
+
+  // Fetch company tax rate on mount
+  useEffect(() => {
+    fetch('/api/company-setup', { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.taxRate != null && data.taxRate > 0) {
+          setTaxRate(data.taxRate)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Fetch categories on mount
   useEffect(() => {
@@ -953,8 +966,21 @@ export function POSView() {
                   <span className="text-gray-400">Subtotal</span>
                   <span className="font-medium text-gray-700">{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Tax</span>
+                <div className="flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Tax</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                      className="w-12 h-5 text-[11px] text-center border rounded px-1 bg-gray-50 text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                      aria-label="Tax rate percentage"
+                    />
+                    <span className="text-gray-400 text-[11px]">%</span>
+                  </div>
                   <span className="font-medium text-gray-700">{formatCurrency(tax)}</span>
                 </div>
                 <Separator className="bg-gray-100" />

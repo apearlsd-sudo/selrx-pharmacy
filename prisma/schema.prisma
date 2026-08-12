@@ -378,6 +378,7 @@ model Company {
   active            Boolean  @default(true)
   ownerName         String?
   ownerId           String?  @unique // User ID of the company owner
+  settings          String?  // JSON: { taxRate, defaultPaymentMethod, ... }
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

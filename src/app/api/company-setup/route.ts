@@ -9,12 +9,13 @@ export async function GET() {
     if (isTurso()) {
       // --- Raw SQL path (Turso / libsql) ---
       const result = await turso.execute({
-        sql: `SELECT "id", "name", "slug", "logo", "tagline", "businessType", "currency", "phone", "email", "address", "city", "state", "country", "postalCode", "timezone", "registrationNo", "pharmacyLicense", "website" FROM "Company" WHERE "active" = 1 LIMIT 1`,
+        sql: `SELECT "id", "name", "slug", "logo", "tagline", "businessType", "currency", "phone", "email", "address", "city", "state", "country", "postalCode", "timezone", "registrationNo", "pharmacyLicense", "website", "settings" FROM "Company" WHERE "active" = 1 LIMIT 1`,
         args: [],
       })
 
       if (result.rows.length > 0) {
         const row = result.rows[0]
+        const settings = (row.settings as string) ? JSON.parse(row.settings as string) : {}
         return NextResponse.json({
           isSetup: true,
           company: {
@@ -36,6 +37,9 @@ export async function GET() {
             registrationNo: (row.registrationNo as string) || null,
             pharmacyLicense: (row.pharmacyLicense as string) || null,
             website: (row.website as string) || null,
+            taxRate: (settings.taxRate as number) || null,
+            defaultPaymentMethod: (settings.defaultPaymentMethod as string) || null,
+            settings,
           },
         })
       }
@@ -66,11 +70,21 @@ export async function GET() {
           registrationNo: true,
           pharmacyLicense: true,
           website: true,
+          settings: true,
         },
       })
 
       if (company) {
-        return NextResponse.json({ isSetup: true, company })
+        const settings = company.settings ? JSON.parse(company.settings) : {}
+        return NextResponse.json({
+          isSetup: true,
+          company: {
+            ...company,
+            taxRate: (settings.taxRate as number) || null,
+            defaultPaymentMethod: (settings.defaultPaymentMethod as string) || null,
+            settings,
+          },
+        })
       }
 
       return NextResponse.json({ isSetup: false, company: null })
@@ -80,6 +94,236 @@ export async function GET() {
     const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
       { error: 'Failed to check company status', detail: msg },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/company-setup — edit company settings after initial setup
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const {
+      name,
+      tagline,
+      phone,
+      email,
+      website,
+      address,
+      city,
+      state,
+      country,
+      postalCode,
+      currency,
+      timezone,
+      registrationNo,
+      pharmacyLicense,
+      businessType,
+      ownerName,
+      taxRate,
+      defaultPaymentMethod,
+    } = body
+
+    // Map of allowed company fields → their column names (most are quoted)
+    const FIELD_MAP: Record<string, string> = {
+      name: '"name"',
+      tagline: '"tagline"',
+      phone: '"phone"',
+      email: '"email"',
+      website: '"website"',
+      address: '"address"',
+      city: '"city"',
+      state: '"state"',
+      country: '"country"',
+      postalCode: '"postalCode"',
+      currency: '"currency"',
+      timezone: '"timezone"',
+      registrationNo: '"registrationNo"',
+      pharmacyLicense: '"pharmacyLicense"',
+      businessType: '"businessType"',
+      ownerName: '"ownerName"',
+    }
+
+    if (isTurso()) {
+      // --- Raw SQL path (Turso / libsql) ---
+
+      // Check if a company exists
+      const existing = await turso.execute({
+        sql: `SELECT "id" FROM "Company" WHERE "active" = 1 LIMIT 1`,
+        args: [],
+      })
+      if (existing.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'No company found. Please complete the initial setup first.' },
+          { status: 404 }
+        )
+      }
+      const companyId = existing.rows[0].id as string
+
+      // Get current settings JSON from the company
+      const currentRow = await turso.execute({
+        sql: `SELECT "settings" FROM "Company" WHERE "id" = ?`,
+        args: [companyId],
+      })
+      let currentSettings: Record<string, unknown> = {}
+      if (currentRow.rows.length > 0 && currentRow.rows[0].settings) {
+        try {
+          currentSettings = JSON.parse(currentRow.rows[0].settings as string)
+        } catch {
+          currentSettings = {}
+        }
+      }
+
+      // Build dynamic UPDATE for standard fields
+      const updateFields: string[] = []
+      const updateArgs: (string | number | null)[] = []
+
+      for (const [field, col] of Object.entries(FIELD_MAP)) {
+        const value = (body as Record<string, unknown>)[field]
+        if (value !== undefined) {
+          updateFields.push(`${col} = ?`)
+          updateArgs.push(value || null)
+        }
+      }
+
+      // Handle taxRate and defaultPaymentMethod via settings JSON
+      let settingsChanged = false
+      if (taxRate !== undefined) {
+        currentSettings.taxRate = taxRate
+        settingsChanged = true
+      }
+      if (defaultPaymentMethod !== undefined) {
+        currentSettings.defaultPaymentMethod = defaultPaymentMethod
+        settingsChanged = true
+      }
+      if (settingsChanged) {
+        updateFields.push('"settings" = ?')
+        updateArgs.push(JSON.stringify(currentSettings))
+      }
+
+      if (updateFields.length === 0) {
+        return NextResponse.json(
+          { error: 'No fields to update' },
+          { status: 400 }
+        )
+      }
+
+      // Always update updatedAt
+      updateFields.push('"updatedAt" = ?')
+      updateArgs.push(new Date().toISOString())
+
+      updateArgs.push(companyId) // WHERE "id" = ?
+
+      await turso.execute({
+        sql: `UPDATE "Company" SET ${updateFields.join(', ')} WHERE "id" = ?`,
+        args: updateArgs,
+      })
+
+      // Fetch and return the updated company
+      const result = await turso.execute({
+        sql: `SELECT "id", "name", "slug", "logo", "tagline", "businessType", "currency", "phone", "email", "address", "city", "state", "country", "postalCode", "timezone", "registrationNo", "pharmacyLicense", "website", "ownerName", "settings" FROM "Company" WHERE "id" = ?`,
+        args: [companyId],
+      })
+
+      if (result.rows.length === 0) {
+        return NextResponse.json({ error: 'Company not found after update' }, { status: 404 })
+      }
+
+      const row = result.rows[0]
+      const updatedSettings = (row.settings as string) ? JSON.parse(row.settings as string) : {}
+
+      const company = {
+        id: row.id as string,
+        name: row.name as string,
+        slug: row.slug as string,
+        logo: (row.logo as string) || null,
+        tagline: (row.tagline as string) || null,
+        businessType: row.businessType as string,
+        currency: row.currency as string,
+        phone: (row.phone as string) || null,
+        email: (row.email as string) || null,
+        address: (row.address as string) || null,
+        city: (row.city as string) || null,
+        state: (row.state as string) || null,
+        country: (row.country as string) || null,
+        postalCode: (row.postalCode as string) || null,
+        timezone: (row.timezone as string) || null,
+        registrationNo: (row.registrationNo as string) || null,
+        pharmacyLicense: (row.pharmacyLicense as string) || null,
+        website: (row.website as string) || null,
+        ownerName: (row.ownerName as string) || null,
+        taxRate: (updatedSettings.taxRate as number) || null,
+        defaultPaymentMethod: (updatedSettings.defaultPaymentMethod as string) || null,
+        settings: updatedSettings,
+      }
+
+      const { userId: aUid, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: aUid, action: 'COMPANY_UPDATED', category: 'company', entity: 'Company', entityId: companyId, details: { name }, ipAddress, userAgent })
+
+      return NextResponse.json(company)
+    } else {
+      // --- Prisma fallback (local dev) ---
+      const { db } = await import('@/lib/db')
+
+      const existing = await db.company.findFirst({
+        where: { active: true },
+      })
+      if (!existing) {
+        return NextResponse.json(
+          { error: 'No company found. Please complete the initial setup first.' },
+          { status: 404 }
+        )
+      }
+
+      // Parse current settings
+      let currentSettings: Record<string, unknown> = {}
+      if (existing.settings) {
+        try { currentSettings = JSON.parse(existing.settings) } catch { currentSettings = {} }
+      }
+
+      // Update settings fields
+      if (taxRate !== undefined) currentSettings.taxRate = taxRate
+      if (defaultPaymentMethod !== undefined) currentSettings.defaultPaymentMethod = defaultPaymentMethod
+
+      const company = await db.company.update({
+        where: { id: existing.id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(tagline !== undefined && { tagline: tagline || null }),
+          ...(phone !== undefined && { phone: phone || null }),
+          ...(email !== undefined && { email: email || null }),
+          ...(website !== undefined && { website: website || null }),
+          ...(address !== undefined && { address: address || null }),
+          ...(city !== undefined && { city: city || null }),
+          ...(state !== undefined && { state: state || null }),
+          ...(country !== undefined && { country: country || null }),
+          ...(postalCode !== undefined && { postalCode: postalCode || null }),
+          ...(currency !== undefined && { currency }),
+          ...(timezone !== undefined && { timezone }),
+          ...(registrationNo !== undefined && { registrationNo: registrationNo || null }),
+          ...(pharmacyLicense !== undefined && { pharmacyLicense: pharmacyLicense || null }),
+          ...(businessType !== undefined && { businessType }),
+          ...(ownerName !== undefined && { ownerName: ownerName || null }),
+          settings: JSON.stringify(currentSettings),
+        },
+      })
+
+      const { userId: aUid2, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: aUid2, action: 'COMPANY_UPDATED', category: 'company', entity: 'Company', entityId: company.id, details: { name }, ipAddress, userAgent })
+
+      const settings = company.settings ? JSON.parse(company.settings) : {}
+      return NextResponse.json({
+        ...company,
+        taxRate: (settings.taxRate as number) || null,
+        defaultPaymentMethod: (settings.defaultPaymentMethod as string) || null,
+        settings,
+      })
+    }
+  } catch (error) {
+    console.error('PUT /api/company-setup error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json(
+      { error: 'Failed to update company', detail: msg },
       { status: 500 }
     )
   }
@@ -199,8 +443,9 @@ export async function POST(req: NextRequest) {
 
       // Create the company linked to the owner
       const companyId = generateId()
+      const initialSettings = JSON.stringify({})
       await turso.execute({
-        sql: `INSERT INTO "Company" ("id", "name", "slug", "tagline", "logo", "businessType", "registrationNo", "pharmacyLicense", "taxId", "phone", "email", "website", "address", "city", "state", "country", "postalCode", "currency", "timezone", "active", "ownerName", "ownerId", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+        sql: `INSERT INTO "Company" ("id", "name", "slug", "tagline", "logo", "businessType", "registrationNo", "pharmacyLicense", "taxId", "phone", "email", "website", "address", "city", "state", "country", "postalCode", "currency", "timezone", "active", "ownerName", "ownerId", "settings", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
         args: [
           companyId,
           companyName,
@@ -223,6 +468,7 @@ export async function POST(req: NextRequest) {
           timezone || 'UTC',
           ownerName,
           ownerId,
+          initialSettings,
           now,
           now,
         ],
@@ -322,6 +568,7 @@ export async function POST(req: NextRequest) {
             active: true,
             ownerName: ownerName,
             ownerId: ownerUser.id,
+            settings: JSON.stringify({}),
           },
         })
 

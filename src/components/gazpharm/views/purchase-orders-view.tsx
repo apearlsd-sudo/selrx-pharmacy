@@ -47,6 +47,7 @@ import { formatCurrency } from '@/lib/currency'
 import { formatDateTime, formatDate } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { useAppStore } from '@/store/app-store'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -163,6 +164,10 @@ export function PurchaseOrdersView() {
   const [detailOrder, setDetailOrder] = useState<PurchaseOrder | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
+  // Pending PO items from store (pre-filled from low stock)
+  const pendingPOItems = useAppStore((s) => s.pendingPOItems)
+  const setPendingPOItems = useAppStore((s) => s.setPendingPOItems)
+
   // New PO dialog
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [vendors, setVendors] = useState<Vendor[]>([])
@@ -216,6 +221,30 @@ export function PurchaseOrdersView() {
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
   useEffect(() => { setPage(1) }, [activeTab, search])
+
+  // ── Auto-open PO dialog with pending items from low stock ──
+  useEffect(() => {
+    if (pendingPOItems && pendingPOItems.length > 0 && !newDialogOpen) {
+      // Pre-fill items
+      const prefilledItems = pendingPOItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitCost: item.unitCost,
+      }))
+      // Set vendor from first item if available
+      const firstItem = pendingPOItems[0]
+      setSelectedVendorId(firstItem.vendorId || '')
+      setSelectedVendorName(firstItem.vendorName || '')
+      setExpectedDate('')
+      setPoNotes('Auto-generated from low stock alerts')
+      setNewItems(prefilledItems)
+      setProductSearch('')
+      setNewDialogOpen(true)
+      // Clear pending items
+      setPendingPOItems(null)
+    }
+  }, [pendingPOItems])
 
   // ── Fetch vendors for new PO dialog ──
   useEffect(() => {

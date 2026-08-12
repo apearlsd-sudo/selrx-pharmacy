@@ -10,6 +10,8 @@ import {
   Package,
   ShoppingCart,
   LayoutDashboard,
+  Wallet,
+  BoxesIcon,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -86,6 +88,9 @@ interface DashboardData {
       productName: string
     }[]
   }[]
+  totalCustomers?: number
+  inventoryValue?: number
+  totalProducts?: number
 }
 
 import { formatCurrency } from '@/lib/currency'
@@ -132,7 +137,7 @@ function StatSkeleton() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatSkeleton />
         <StatSkeleton />
         <StatSkeleton />
@@ -179,6 +184,9 @@ export function DashboardView() {
         pendingPrescriptions: json.pendingPrescriptions || 0,
         topProducts: json.topProducts || [],
         recentTransactions: json.recentTransactions || [],
+        totalCustomers: json.totalCustomers ?? undefined,
+        inventoryValue: json.inventoryValue ?? undefined,
+        totalProducts: json.totalProducts ?? undefined,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -233,18 +241,25 @@ export function DashboardView() {
       bgClass: 'bg-red-50 text-red-600',
     },
     {
-      title: 'Active Customers',
-      value: (() => {
-        const uniqueCustomers = new Set(
-          data.recentTransactions
-            .filter((t) => t.customer)
-            .map((t) => t.customer!.id)
-        )
-        return uniqueCustomers.size.toString()
-      })(),
-      subtitle: 'Recent transactions',
+      title: 'Registered Customers',
+      value: (data.totalCustomers ?? 0).toString(),
+      subtitle: 'Total registered',
       icon: Users,
       bgClass: 'bg-teal-50 text-teal-600',
+    },
+    {
+      title: 'Inventory Value',
+      value: formatCurrency(data.inventoryValue ?? 0),
+      subtitle: 'At cost price',
+      icon: Wallet,
+      bgClass: 'bg-violet-50 text-violet-600',
+    },
+    {
+      title: 'Total Products',
+      value: (data.totalProducts ?? 0).toString(),
+      subtitle: 'Active products',
+      icon: BoxesIcon,
+      bgClass: 'bg-sky-50 text-sky-600',
     },
   ]
 
@@ -253,7 +268,7 @@ export function DashboardView() {
       <PageHeader icon={LayoutDashboard} title="Dashboard" description="Overview of your pharmacy performance" />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
         {stats.map((stat) => (
           <Card key={stat.title} className="gap-4 card-hover overflow-hidden">
             <CardContent className="p-6">

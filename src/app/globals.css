@@ -458,3 +458,27 @@ html {
   transition: all 0.15s ease;
 }
 
+/* ── Print Styles ────────────────────────────────────────────────── */
+@media print {
+  /* Hide navigation and sidebar */
+  nav, aside, [data-sidebar], [data-slot="sidebar"] {
+    display: none !important;
+  }
+  /* Hide buttons and interactive elements */
+  button, .no-print {
+    display: none !important;
+  }
+  /* Ensure content is full width and clean */
+  main, [role="main"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+  /* Remove shadows and borders for clean printing */
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+

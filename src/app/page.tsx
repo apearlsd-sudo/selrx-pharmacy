@@ -227,10 +227,28 @@ function NotificationBell() {
   const [notifications, setNotifications] = useState<Array<{
     id: string; type: string; title: string; message: string; severity: string; productName: string; productId: string; meta: Record<string, unknown>
   }>>([])
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set())
   const [count, setCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+
+  // Load dismissed keys from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('dismissed-notifications')
+      if (stored) setDismissedKeys(new Set(JSON.parse(stored) as string[]))
+    } catch { /* ignore */ }
+  }, [])
+
+  const dismissNotification = useCallback((id: string) => {
+    setDismissedKeys((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      try { localStorage.setItem('dismissed-notifications', JSON.stringify([...next])) } catch { /* ignore */ }
+      return next
+    })
+  }, [])
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -257,17 +275,19 @@ function NotificationBell() {
     fetchNotifications()
   }, [open, inventoryVersion, fetchNotifications])
 
-  const expiryNotifs = notifications.filter((n) => n.type === 'expiry')
-  const stockNotifs = notifications.filter((n) => n.type === 'low-stock')
+  const visibleNotifications = notifications.filter((n) => !dismissedKeys.has(n.id))
+  const visibleCount = visibleNotifications.length
+  const expiryNotifs = visibleNotifications.filter((n) => n.type === 'expiry')
+  const stockNotifs = visibleNotifications.filter((n) => n.type === 'low-stock')
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-          <Bell className={`h-4 w-4 ${count > 0 ? 'text-amber-500' : ''}`} />
-          {count > 0 && (
+          <Bell className={`h-4 w-4 ${visibleCount > 0 ? 'text-amber-500' : ''}`} />
+          {visibleCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-              {count > 99 ? '99+' : count}
+              {visibleCount > 99 ? '99+' : visibleCount}
             </span>
           )}
         </Button>
@@ -275,16 +295,16 @@ function NotificationBell() {
       <PopoverContent align="end" sideOffset={8} className="w-80 p-0">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-          {count > 0 && (
+          {visibleCount > 0 && (
             <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-50 text-red-600 border-red-200">
-              {count} alert{count !== 1 ? 's' : ''}
+              {visibleCount} alert{visibleCount !== 1 ? 's' : ''}
             </Badge>
           )}
         </div>
         <ScrollArea className="max-h-[360px]">
           {loading ? (
             <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">Loading...</div>
-          ) : count === 0 ? (
+          ) : visibleCount === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
               <Bell className="h-8 w-8 text-gray-300 mb-2" />
               <p className="text-sm font-medium text-gray-500">All clear</p>
@@ -300,7 +320,7 @@ function NotificationBell() {
                     </span>
                   </div>
                   {expiryNotifs.map((n) => (
-                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group">
                       <div className="flex items-start gap-2.5">
                         <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-amber-100'}`}>
                           <AlertTriangle className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600' : 'text-amber-600'}`} />
@@ -309,6 +329,13 @@ function NotificationBell() {
                           <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
                           <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); dismissNotification(n.id) }}
+                          className="shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
+                          aria-label="Dismiss notification"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -322,7 +349,7 @@ function NotificationBell() {
                     </span>
                   </div>
                   {stockNotifs.map((n) => (
-                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group">
                       <div className="flex items-start gap-2.5">
                         <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-orange-100'}`}>
                           <PackageX className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600' : 'text-orange-600'}`} />
@@ -331,6 +358,13 @@ function NotificationBell() {
                           <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
                           <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); dismissNotification(n.id) }}
+                          className="shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
+                          aria-label="Dismiss notification"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
                     </div>
                   ))}

@@ -45,6 +45,9 @@ export async function GET(request: NextRequest) {
         rxCountResult,
         topResult,
         recentResult,
+        totalCustomersResult,
+        inventoryValueResult,
+        totalProductsResult,
       ] = await Promise.all([
         // 1. Today's completed transactions
         turso.execute({
@@ -104,6 +107,27 @@ export async function GET(request: NextRequest) {
                ORDER BY t.createdAt DESC
                LIMIT 10`,
           args: isSuperAdmin ? [] : requesterId ? [requesterId] : [],
+        }),
+
+        // 7. Total customers
+        turso.execute({
+          sql: `SELECT COUNT(*) as cnt FROM Customer`,
+          args: [],
+        }),
+
+        // 8. Inventory value at cost
+        turso.execute({
+          sql: `SELECT COALESCE(SUM(i.quantity * COALESCE(p."costPrice", 0)), 0) as val
+                FROM Inventory i
+                JOIN Product p ON p.id = i."productId"
+                WHERE p.status = 'ACTIVE'`,
+          args: [],
+        }),
+
+        // 9. Total active products
+        turso.execute({
+          sql: `SELECT COUNT(*) as cnt FROM Product WHERE status = 'ACTIVE'`,
+          args: [],
         }),
       ])
 
@@ -165,6 +189,11 @@ export async function GET(request: NextRequest) {
         customer: r.c_id ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName } : null,
       }))
 
+      // ---- New KPIs ----
+      const totalCustomers = (toObjs(totalCustomersResult)[0]?.cnt as number) ?? 0
+      const inventoryValue = (toObjs(inventoryValueResult)[0]?.val as number) ?? 0
+      const totalProducts = (toObjs(totalProductsResult)[0]?.cnt as number) ?? 0
+
       return NextResponse.json({
         today: { sales: todaySales, count: todayCount },
         weeklyTrend,
@@ -180,6 +209,9 @@ export async function GET(request: NextRequest) {
         pendingPrescriptions,
         topProducts,
         recentTransactions,
+        totalCustomers,
+        inventoryValue,
+        totalProducts,
       })
     }
 
@@ -194,6 +226,9 @@ export async function GET(request: NextRequest) {
       pendingPrescriptions,
       topProducts,
       recentTransactions,
+      totalCustomersCount,
+      inventoryValueAgg,
+      totalActiveProducts,
     ] = await Promise.all([
       db.transaction.findMany({
         where: { createdAt: { gte: startOfDay }, status: 'COMPLETED', ...userFilter },
@@ -228,6 +263,17 @@ export async function GET(request: NextRequest) {
           customer: { select: { id: true, firstName: true, lastName: true } },
         },
       }),
+
+      db.customer.count(),
+
+      db.$queryRaw<Array<{ val: bigint }>>`
+        SELECT SUM(i.quantity * COALESCE(p."costPrice", 0)) as val
+        FROM Inventory i
+        JOIN Product p ON p.id = i."productId"
+        WHERE p.status = 'ACTIVE'
+      `,
+
+      db.product.count({ where: { status: 'ACTIVE' } }),
     ])
 
     const todaySales = todayTransactions.reduce((sum, t) => sum + t.total, 0)
@@ -270,6 +316,9 @@ export async function GET(request: NextRequest) {
       pendingPrescriptions,
       topProducts,
       recentTransactions,
+      totalCustomers: totalCustomersCount,
+      inventoryValue: Number(inventoryValueAgg[0]?.val || 0),
+      totalProducts: totalActiveProducts,
     })
   } catch (error) {
     console.error('Error fetching dashboard data:', error)

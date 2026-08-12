@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Store,
 } from 'lucide-react'
+import type React from 'react'
 import {
   Dialog,
   DialogContent,
@@ -128,6 +129,117 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
         variant: 'destructive',
       })
     }
+  }
+
+  const handleBrowserPrint = () => {
+    const printWindow = window.open('', '_blank', 'width=400,height=700')
+    if (!printWindow) return
+
+    const itemRows = transaction.items.map((item) => `
+        <tr>
+          <td style="padding:4px 0;text-align:left;vertical-align:top;">
+            <strong>${item.productName}</strong>
+            <br/>
+            <span style="color:#666;font-size:0.85em;">${item.quantity}${item.sellingUnit && item.sellingUnit !== 'EA' ? ` ${item.sellingUnit.toLowerCase()}${item.quantity !== 1 ? 's' : ''}` : ''} × ${formatCurrency(item.unitPrice)}</span>
+          </td>
+          <td style="padding:4px 0;text-align:right;white-space:nowrap;">${formatCurrency(item.subtotal)}</td>
+        </tr>`).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Receipt - ${transaction.transactionNo}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${getFontCSS(fontFamily)};
+      font-size: ${getBaseSize(fontSize)};
+      color: #000;
+      background: #fff;
+      padding: 20px;
+      max-width: 320px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .header { text-align: center; margin-bottom: 12px; }
+    .header h2 { font-size: 1.3em; margin-bottom: 2px; }
+    .header p { color: #444; font-size: 0.9em; }
+    .divider { border: none; border-top: 1px dashed #999; margin: 8px 0; }
+    .info-row { display: flex; justify-content: space-between; margin: 3px 0; }
+    .info-label { color: #666; }
+    table { width: 100%; border-collapse: collapse; }
+    .totals-section { margin-top: 4px; }
+    .totals-section .info-row { margin: 2px 0; }
+    .total-row { font-size: 1.2em; font-weight: bold; border-top: 1px dashed #999; padding-top: 6px; margin-top: 4px; }
+    .footer { text-align: center; margin-top: 12px; color: #666; font-size: 0.85em; }
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>${company?.name || 'SelRx'}</h2>
+    ${company?.tagline ? `<p style="font-style:italic;">${company.tagline}</p>` : ''}
+    ${company?.address ? `<p>${company.address}</p>` : ''}
+    ${company?.phone ? `<p>Tel: ${company.phone}</p>` : ''}
+    ${company?.email ? `<p>${company.email}</p>` : ''}
+    ${company?.registrationNo ? `<p style="font-size:0.85em;">Reg: ${company.registrationNo}</p>` : ''}
+    ${company?.pharmacyLicense ? `<p style="font-size:0.85em;">Pharm. Lic: ${company.pharmacyLicense}</p>` : ''}
+  </div>
+
+  <hr class="divider" />
+
+  <div class="info-row"><span class="info-label">Transaction:</span><span><strong>${transaction.transactionNo}</strong></span></div>
+  <div class="info-row"><span class="info-label">Date:</span><span>${formatDate(transaction.createdAt)}</span></div>
+  <div class="info-row"><span class="info-label">Cashier:</span><span>${transaction.user?.name || 'Unknown'}</span></div>
+  ${transaction.customer ? `<div class="info-row"><span class="info-label">Customer:</span><span>${transaction.customer.firstName} ${transaction.customer.lastName}</span></div>` : ''}
+  <div class="info-row"><span class="info-label">Payment:</span><span>${(transaction.paymentMethod || '').replace(/_/g, ' ')}</span></div>
+
+  <hr class="divider" />
+
+  <table>
+    <thead>
+      <tr style="text-align:center;text-transform:uppercase;letter-spacing:0.05em;font-size:0.9em;border-bottom:1px solid #ccc;"><td colspan="2" style="padding:4px 0;">Items</td></tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+    </tbody>
+  </table>
+
+  <hr class="divider" />
+
+  <div class="totals-section">
+    <div class="info-row"><span class="info-label">Subtotal:</span><span>${formatCurrency(transaction.subtotal)}</span></div>
+    <div class="info-row"><span class="info-label">Tax:</span><span>${formatCurrency(transaction.tax)}</span></div>
+    ${transaction.discount > 0 ? `<div class="info-row"><span class="info-label">Discount:</span><span>-${formatCurrency(transaction.discount)}</span></div>` : ''}
+    <div class="info-row total-row"><span>Total:</span><span>${formatCurrency(transaction.total)}</span></div>
+    <div class="info-row"><span class="info-label">Paid:</span><span>${formatCurrency(transaction.paymentAmount)}</span></div>
+    ${transaction.changeAmount > 0 ? `<div class="info-row" style="color:#059669;"><span>Change:</span><span>${formatCurrency(transaction.changeAmount)}</span></div>` : ''}
+  </div>
+
+  <hr class="divider" />
+
+  <div class="footer">
+    <p>Thank you for choosing ${company?.name || 'SelRx'}!</p>
+    <p>Your health, our priority. Rx questions? Ask our pharmacist.</p>
+    ${receiptFooter ? receiptFooter.split('\n').filter(Boolean).map((line) => `<p>${line}</p>`).join('') : ''}
+    ${company?.website ? `<p>${company.website}</p>` : ''}
+    <p style="margin-top:8px;">*** End of Receipt ***</p>
+  </div>
+
+  <div class="no-print" style="text-align:center;margin-top:16px;">
+    <button onclick="window.print()" style="padding:8px 24px;font-size:14px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#059669;color:#fff;">Print</button>
+  </div>
+
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`
+
+    printWindow.document.write(html)
+    printWindow.document.close()
   }
 
   const handleNewTransaction = () => {
@@ -339,11 +451,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
           </Button>
           <Button
             variant="outline"
-            onClick={handlePrintReceipt}
+            onClick={handleBrowserPrint}
             className="flex-1"
           >
             <Printer className="h-4 w-4 mr-1.5" />
-            Print Receipt
+            Browser Print
           </Button>
           <Button
             className="flex-1 bg-emerald-600 hover:bg-emerald-700"

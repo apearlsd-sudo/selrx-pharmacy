@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS } from '@/lib/permissions'
-import { hashPassword, verifyToken } from '@/lib/security'
+import { hashPassword, verifyPassword, verifyToken } from '@/lib/security'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ── Schema introspection ─────────────────────────────────────────────────
@@ -361,6 +361,94 @@ export async function PUT(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
     const targetUserId = searchParams.get('id')
+
+    // PUT /api/users?action=change-password - Change own password
+    if (action === 'change-password') {
+      const userId = request.headers.get('x-user-id')
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'User ID required' },
+          { status: 400 }
+        )
+      }
+
+      const body = await request.json()
+      const { currentPassword, newPassword } = body
+
+      if (!currentPassword || !newPassword) {
+        return NextResponse.json(
+          { error: 'Current password and new password are required' },
+          { status: 400 }
+        )
+      }
+
+      if (newPassword.length < 6) {
+        return NextResponse.json(
+          { error: 'New password must be at least 6 characters' },
+          { status: 400 }
+        )
+      }
+
+      if (isTurso()) {
+        // Fetch current password hash
+        const result = await turso.execute({
+          sql: `SELECT "password" FROM "User" WHERE "id" = ?`,
+          args: [userId],
+        })
+        if (result.rows.length === 0) {
+          return NextResponse.json(
+            { error: 'User not found' },
+            { status: 404 }
+          )
+        }
+
+        const storedHash = result.rows[0].password as string
+        const { valid } = await verifyPassword(currentPassword, storedHash)
+        if (!valid) {
+          return NextResponse.json(
+            { error: 'Current password is incorrect' },
+            { status: 401 }
+          )
+        }
+
+        const hashedNewPassword = await hashPassword(newPassword)
+        const now = new Date().toISOString()
+
+        await turso.execute({
+          sql: `UPDATE "User" SET "password" = ?, "updatedAt" = ? WHERE "id" = ?`,
+          args: [hashedNewPassword, now, userId],
+        })
+      } else {
+        const { db } = await import('@/lib/db')
+
+        const user = await db.user.findUnique({ where: { id: userId } })
+        if (!user) {
+          return NextResponse.json(
+            { error: 'User not found' },
+            { status: 404 }
+          )
+        }
+
+        const { valid } = await verifyPassword(currentPassword, user.password)
+        if (!valid) {
+          return NextResponse.json(
+            { error: 'Current password is incorrect' },
+            { status: 401 }
+          )
+        }
+
+        const hashedNewPassword = await hashPassword(newPassword)
+        await db.user.update({
+          where: { id: userId },
+          data: { password: hashedNewPassword },
+        })
+      }
+
+      const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid, action: 'PASSWORD_CHANGED', category: 'user', entity: 'User', entityId: userId, ipAddress, userAgent }).catch(() => {})
+
+      return NextResponse.json({ success: true, message: 'Password changed successfully' })
+    }
 
     // PUT /api/users/profile - Update own profile
     if (action === 'profile') {
