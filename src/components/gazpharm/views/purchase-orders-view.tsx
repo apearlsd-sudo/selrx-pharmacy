@@ -48,6 +48,7 @@ import { formatDateTime, formatDate } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
+import { addToast } from '@/components/gazpharm/toast-container'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -325,9 +326,15 @@ export function PurchaseOrdersView() {
   }
 
   const submitNewPO = async () => {
-    if (!selectedVendorName.trim()) return
-    const validItems = newItems.filter((i) => i.productId && i.quantity > 0 && i.unitCost > 0)
-    if (validItems.length === 0) return
+    if (!selectedVendorName.trim()) {
+      addToast({ title: 'Vendor Required', description: 'Please select or enter a vendor name', variant: 'destructive' })
+      return
+    }
+    const validItems = newItems.filter((i) => i.productId && i.quantity > 0)
+    if (validItems.length === 0) {
+      addToast({ title: 'No Valid Items', description: 'Add at least one product with a quantity', variant: 'destructive' })
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -343,10 +350,16 @@ export function PurchaseOrdersView() {
         }),
       })
       if (res.ok) {
+        addToast({ title: 'PO Created', description: `Purchase order with ${validItems.length} item(s) created`, variant: 'success' })
         setNewDialogOpen(false)
         fetchOrders()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        addToast({ title: 'Failed to Create PO', description: err.error || 'Unknown error', variant: 'destructive' })
       }
-    } catch {} finally {
+    } catch (err) {
+      addToast({ title: 'Error', description: 'Network error creating purchase order', variant: 'destructive' })
+    } finally {
       setSubmitting(false)
     }
   }

@@ -952,16 +952,45 @@ export function InventoryView() {
         addToast({ title: 'No Low Stock Items', description: 'No products below reorder point', variant: 'default' })
         return
       }
-      // Convert to PO items format (use first vendor group, or merge all)
-      const poItems = lowStockItems.map((item: any) => ({
-        productId: item.id,
-        productName: item.name,
-        quantity: Math.max(item.reorderQty || (item.reorderPoint - item.currentStock), 1),
-        unitCost: item.costPrice || 0,
-        vendorId: item.vendorId || null,
-        vendorName: item.vendorName || null,
-      }))
-      setPendingPOItems(poItems)
+
+      // Group items by vendor — create one PO per vendor
+      const vendorGroups: Record<string, any[]> = {}
+      for (const item of lowStockItems) {
+        const vendor = item.vendorName || 'Unknown Vendor'
+        if (!vendorGroups[vendor]) vendorGroups[vendor] = []
+        vendorGroups[vendor].push(item)
+      }
+
+      const vendorNames = Object.keys(vendorGroups)
+      let createdCount = 0
+
+      for (const vendorName of vendorNames) {
+        const group = vendorGroups[vendorName]
+        const poItems = group.map((item: any) => ({
+          productId: item.id,
+          productName: item.name,
+          quantity: Math.max(item.reorderQty || (item.reorderPoint - item.currentStock), 1),
+          unitCost: item.costPrice || 0,
+        }))
+
+        const poRes = await fetch('/api/purchase-orders', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            vendorId: group[0].vendorId || null,
+            vendorName,
+            notes: 'Auto-generated from low stock alerts',
+            items: poItems,
+          }),
+        })
+        if (poRes.ok) createdCount++
+      }
+
+      addToast({
+        title: 'Purchase Orders Created',
+        description: `${createdCount} PO(s) created across ${vendorNames.length} vendor(s)`,
+        variant: 'success',
+      })
       setCurrentView('purchase-orders')
     } catch (err) {
       console.error('PO from low stock error:', err)
