@@ -353,9 +353,12 @@ export function PurchaseOrdersView() {
         addToast({ title: 'PO Created', description: `Purchase order with ${validItems.length} item(s) created`, variant: 'success' })
         setNewDialogOpen(false)
         fetchOrders()
+      } else if (res.status === 401) {
+        addToast({ title: 'Session Expired', description: 'Please log in again', variant: 'destructive' })
       } else {
         const err = await res.json().catch(() => ({}))
-        addToast({ title: 'Failed to Create PO', description: err.error || 'Unknown error', variant: 'destructive' })
+        console.error('PO create failed:', res.status, err)
+        addToast({ title: 'Failed to Create PO', description: err.detail || err.error || `Error ${res.status}`, variant: 'destructive' })
       }
     } catch (err) {
       addToast({ title: 'Error', description: 'Network error creating purchase order', variant: 'destructive' })
