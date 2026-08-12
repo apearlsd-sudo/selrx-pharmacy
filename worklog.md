@@ -49,3 +49,26 @@ Stage Summary:
 - Next.js web build may have TypeScript errors now that ignoreBuildErrors is false
 - Env vars now required: NEXTAUTH_SECRET, JWT_SECRET (or NEXTAUTH_SECRET), SYNC_SECRET (for hub mode)
 - Optional env vars: SETUP_TOKEN (for company-setup protection), AES_ENCRYPTION_KEY, CORS_ALLOWED_ORIGIN, NEXT_PUBLIC_APP_URL
+---
+Task ID: 1
+Agent: Super Z (main)
+Task: Implement H1 (Audit Logging) and H3 (Purchase Orders) — fill remaining gaps
+
+Work Log:
+- Explored full codebase: schema, API routes (55 files), view components (20+), utilities
+- Discovered both features were already 95%+ implemented from prior work
+- H1 (Audit Logging) already had: audit-log.ts helper, audit-logs API route, audit-log-view UI, 24/28 mutation routes with writeAuditLog()
+- H3 (Purchase Orders) already had: schema, 3 API routes (list/create, get/update/delete, receive), full UI, navigation wiring
+- Identified 4 routes missing audit logging: manufacturers, workstations, products/import, inventory/batches
+- Added writeAuditLog() to manufacturers/route.ts (POST, PUT, DELETE — both Turso and Prisma paths)
+- Rewrote workstations/route.ts with writeAuditLog() on all mutations (also fixed ID generation to use generateId() instead of manual concat)
+- Added writeAuditLog() to products/import/route.ts (PRODUCTS_IMPORTED action with counts)
+- Added writeAuditLog() to inventory/batches/route.ts (BATCH_RECEIVED action)
+- Verified turso-sync-schema.mjs includes PurchaseOrder and PurchaseOrderItem tables
+- Verified page.tsx has imports and switch cases for both audit-logs and purchase-orders views
+- Final audit coverage: 28/28 mutation API routes now have writeAuditLog()
+
+Stage Summary:
+- H1 (Audit Logging): COMPLETE — 28 API routes log mutations, full UI with filters/pagination/CSV export/detail dialog
+- H3 (Purchase Orders): COMPLETE — full CRUD + receive workflow, status state machine (DRAFT→SENT→PARTIALLY_RECEIVED→RECEIVED/CANCELLED), batch tracking on receive, rich UI with tabs/create/detail/receive dialogs
+- Files modified: manufacturers/route.ts, workstations/route.ts, products/import/route.ts, inventory/batches/route.ts

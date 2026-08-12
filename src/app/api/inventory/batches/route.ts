@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 /**
  * GET  /api/inventory/batches?productId=xxx                      — list batches for a product
@@ -169,6 +170,10 @@ export async function POST(request: NextRequest) {
               WHERE id = ?`,
         args: [productId, now, productId],
       })
+
+      // Audit log
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'BATCH_RECEIVED', category: 'inventory', entity: 'Batch', entityId: batchId, details: { productId, batchNumber: autoBatchNumber, quantity, costPrice }, ipAddress, userAgent })
 
       return NextResponse.json({
         id: batchId,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 import * as XLSX from 'xlsx'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ── Excel column mapping (header name → field name) ──────────────────────
 const COLUMN_MAP: Record<string, string> = {
@@ -323,11 +324,17 @@ export async function POST(request: NextRequest) {
 
     // ── Turso raw SQL path ──
     if (isTurso()) {
-      return await importViaTurso(validRows, invalidRows, rows.length)
+      const result = await importViaTurso(validRows, invalidRows, rows.length)
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'PRODUCTS_IMPORTED', category: 'product', entity: 'Product', details: { totalRows, created: result.created, failed: result.failed }, ipAddress, userAgent })
+      return result
     }
 
     // ── Prisma fallback (local dev only) ──
-    return await importViaPrisma(validRows, invalidRows, rows.length)
+    const result = await importViaPrisma(validRows, invalidRows, rows.length)
+    const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId: auditUserId, action: 'PRODUCTS_IMPORTED', category: 'product', entity: 'Product', details: { totalRows, created: result.created, failed: result.failed }, ipAddress, userAgent })
+    return result
   } catch (error) {
     console.error('[Product Import] Error:', error)
     return NextResponse.json(

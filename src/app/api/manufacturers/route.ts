@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/manufacturers - List all manufacturers
 export async function GET() {
@@ -126,6 +127,9 @@ export async function POST(request: NextRequest) {
         updatedAt: now,
       }
 
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_CREATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name.trim() }, ipAddress, userAgent })
+
       return NextResponse.json(manufacturer, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -154,6 +158,9 @@ export async function POST(request: NextRequest) {
           notes: notes || null,
         },
       })
+
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_CREATED', category: 'catalog', entity: 'Manufacturer', entityId: manufacturer.id, details: { name: name.trim() }, ipAddress, userAgent })
 
       return NextResponse.json(manufacturer, { status: 201 })
     }
@@ -272,6 +279,9 @@ export async function PUT(request: NextRequest) {
         updatedAt: row.updatedAt as string,
       }
 
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_UPDATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name?.trim() }, ipAddress, userAgent })
+
       return NextResponse.json(manufacturer)
     } else {
       // Prisma fallback for local dev
@@ -291,6 +301,9 @@ export async function PUT(request: NextRequest) {
           ...(notes !== undefined && { notes: notes || null }),
         },
       })
+
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_UPDATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name?.trim() }, ipAddress, userAgent })
 
       return NextResponse.json(manufacturer)
     }
@@ -334,12 +347,16 @@ export async function DELETE(request: NextRequest) {
         sql: `DELETE FROM "Manufacturer" WHERE id = ?`,
         args: [id],
       })
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_DELETED', category: 'catalog', entity: 'Manufacturer', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ success: true })
     } else {
       // Prisma fallback for local dev
       const { db } = await import('@/lib/db')
 
       await db.manufacturer.delete({ where: { id } })
+      const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_DELETED', category: 'catalog', entity: 'Manufacturer', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ success: true })
     }
   } catch (error: any) {

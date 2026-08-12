@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/workstations — list all workstations
 export async function GET() {
@@ -42,8 +43,9 @@ export async function POST(req: NextRequest) {
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
-    const id = `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const id = generateId()
     const now = new Date().toISOString()
+    const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
 
     if (isTurso()) {
       await turso.execute({
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
               VALUES (?, ?, ?, ?, 1, ?, ?)`,
         args: [id, name.trim(), description?.trim() || null, location?.trim() || null, now, now],
       })
+      writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_CREATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim() }, ipAddress, userAgent })
       return NextResponse.json({ id, name: name.trim(), description, location, isActive: true, createdAt: now, updatedAt: now })
     }
 
@@ -58,6 +61,7 @@ export async function POST(req: NextRequest) {
     const ws = await db.workstation.create({
       data: { name: name.trim(), description: description?.trim() || null, location: location?.trim() || null },
     })
+    writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_CREATED', category: 'system', entity: 'Workstation', entityId: ws.id, details: { name: name.trim() }, ipAddress, userAgent })
     return NextResponse.json(ws)
   } catch (error) {
     console.error('POST /api/workstations error:', error)
@@ -73,12 +77,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'ID and name are required' }, { status: 400 })
     }
     const now = new Date().toISOString()
+    const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
 
     if (isTurso()) {
       await turso.execute({
         sql: `UPDATE "Workstation" SET name = ?, description = ?, location = ?, "isActive" = ?, "updatedAt" = ? WHERE id = ?`,
         args: [name.trim(), description?.trim() || null, location?.trim() || null, isActive !== false ? 1 : 0, now, id],
       })
+      writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_UPDATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim(), isActive: isActive !== false }, ipAddress, userAgent })
       return NextResponse.json({ id, name: name.trim(), description, location, isActive: isActive !== false, updatedAt: now })
     }
 
@@ -87,6 +93,7 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: { name: name.trim(), description: description?.trim() || null, location: location?.trim() || null, isActive: isActive !== false },
     })
+    writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_UPDATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim(), isActive: isActive !== false }, ipAddress, userAgent })
     return NextResponse.json(ws)
   } catch (error) {
     console.error('PUT /api/workstations error:', error)
@@ -103,17 +110,20 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
     const now = new Date().toISOString()
+    const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
 
     if (isTurso()) {
       await turso.execute({
         sql: `UPDATE "Workstation" SET "isActive" = 0, "updatedAt" = ? WHERE id = ?`,
         args: [now, id],
       })
+      writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_DEACTIVATED', category: 'system', entity: 'Workstation', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ success: true })
     }
 
     const { db } = await import('@/lib/db')
     await db.workstation.update({ where: { id }, data: { isActive: false } })
+    writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_DEACTIVATED', category: 'system', entity: 'Workstation', entityId: id, ipAddress, userAgent })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('DELETE /api/workstations error:', error)
