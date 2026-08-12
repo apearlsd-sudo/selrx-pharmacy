@@ -97,8 +97,12 @@ export async function writeAuditLog(params: AuditLogParams): Promise<void> {
         data: {
           userId: params.userId,
           action: params.action,
+          category,
+          entity: params.entity || null,
+          entityId: params.entityId || null,
           details,
-          ipAddress: params.ipAddress,
+          ipAddress: params.ipAddress || null,
+          userAgent: params.userAgent || null,
         },
       })
     }

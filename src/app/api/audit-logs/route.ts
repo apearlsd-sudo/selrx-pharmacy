@@ -17,7 +17,7 @@ async function ensureTable() {
         "ipAddress" TEXT,
         "userAgent" TEXT,
         "createdAt" TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
+    )`,
       args: [],
     })
     await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_category" ON "AuditLog"(category)`, args: [] })
@@ -69,9 +69,11 @@ export async function GET(req: NextRequest) {
         conditions.push(`a."createdAt" <= ?`)
         args.push(to + 'T23:59:59')
       }
+      // When search is active, also filter by user name/email via subquery
+      // instead of JOIN to avoid breaking the count query
       if (search) {
-        conditions.push(`(a.action LIKE ? OR a.details LIKE ? OR u.name LIKE ? OR u.email LIKE ?)`)
         const term = `%${search}%`
+        conditions.push(`(a.action LIKE ? OR a.details LIKE ? OR a."userId" IN (SELECT id FROM "User" WHERE name LIKE ? OR email LIKE ?))`)
         args.push(term, term, term, term)
       }
 
@@ -121,11 +123,19 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Prisma fallback
+    // Prisma fallback (local / Windows)
     const { db } = await import('@/lib/db')
     const whereClause: Record<string, unknown> = {}
     if (category) whereClause.category = category
     if (userId) whereClause.userId = userId
+    if (search) {
+      whereClause.OR = [
+        { action: { contains: search, mode: 'insensitive' } },
+        { details: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
     if (from || to) {
       whereClause.createdAt = {}
       if (from) (whereClause.createdAt as Record<string, unknown>).gte = from
@@ -151,8 +161,8 @@ export async function GET(req: NextRequest) {
         userEmail: l.user?.email || '',
         action: l.action,
         category: l.category || 'general',
-        entity: null,
-        entityId: null,
+        entity: l.entity || null,
+        entityId: l.entityId || null,
         details: l.details,
         ipAddress: l.ipAddress,
         createdAt: l.createdAt.toISOString(),
