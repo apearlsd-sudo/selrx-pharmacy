@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { writeProductHistory } from '@/lib/product-history'
+import { ensurePOTables } from '@/lib/ensure-po-tables'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,6 +50,7 @@ export async function POST(
 
     const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
     const now = new Date().toISOString()
+    if (isTurso()) await ensurePOTables()
 
     if (isTurso()) {
       // Verify PO exists and is in SENT or PARTIALLY_RECEIVED status

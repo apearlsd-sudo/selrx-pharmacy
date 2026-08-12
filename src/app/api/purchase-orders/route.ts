@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { ensurePOTables } from '@/lib/ensure-po-tables'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,6 +22,7 @@ function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> })
 
 export async function GET(request: NextRequest) {
   try {
+    if (isTurso()) await ensurePOTables()
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const search = searchParams.get('search')
@@ -150,6 +152,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (isTurso()) await ensurePOTables()
     const body = await req.json()
     const { vendorId, vendorName, expectedDate, notes, items } = body
 

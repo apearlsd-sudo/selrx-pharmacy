@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { ensurePOTables } from '@/lib/ensure-po-tables'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,6 +26,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    if (isTurso()) await ensurePOTables()
 
     if (isTurso()) {
       // Fetch PO
@@ -110,6 +112,7 @@ export async function PUT(
 
     const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
     const now = new Date().toISOString()
+    if (isTurso()) await ensurePOTables()
 
     if (isTurso()) {
       // Check PO exists
@@ -233,6 +236,7 @@ export async function DELETE(
   try {
     const { id } = await params
     const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
+    if (isTurso()) await ensurePOTables()
 
     if (isTurso()) {
       const existing = await turso.execute({
