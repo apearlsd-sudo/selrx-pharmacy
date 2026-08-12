@@ -17,7 +17,6 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/company-setup',
   '/api/health',
-  '/api/audit-logs/debug',
   // Static assets and Next.js internals
   '/_next/',
   '/favicon.ico',
