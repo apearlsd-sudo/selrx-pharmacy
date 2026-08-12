@@ -1,5 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, generateId } from '@/lib/turso'
+
+let ensured = false
+async function ensureTable() {
+  if (ensured || !isTurso()) return
+  try {
+    await turso.execute({
+      sql: `CREATE TABLE IF NOT EXISTS "AuditLog" (
+        id TEXT PRIMARY KEY,
+        "userId" TEXT NOT NULL,
+        action TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'general',
+        entity TEXT,
+        "entityId" TEXT,
+        details TEXT,
+        "ipAddress" TEXT,
+        "userAgent" TEXT,
+        "createdAt" TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    })
+    await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_category" ON "AuditLog"(category)`, args: [] })
+    await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_user" ON "AuditLog"("userId")`, args: [] })
+    await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_created" ON "AuditLog"("createdAt")`, args: [] })
+    ensured = true
+    console.log('[audit-logs] AuditLog table ensured')
+  } catch (err) {
+    console.error('[audit-logs] Failed to ensure table:', err)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/audit-logs
@@ -8,6 +37,7 @@ import { turso, isTurso } from '@/lib/turso'
 
 export async function GET(req: NextRequest) {
   try {
+    if (isTurso()) await ensureTable()
     const { searchParams } = req.nextUrl
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
     const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit')) || 50))
