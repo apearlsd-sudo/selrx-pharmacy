@@ -423,13 +423,17 @@ export function PurchaseOrdersView() {
   // ── Receive stock ──
   const openReceiveDialog = (order: PurchaseOrder) => {
     if (!order.items) return
-    const forms: ReceiveItemForm[] = order.items.map((item) => ({
+    const d = new Date()
+    const dateStr = String(d.getDate()).padStart(2, '0') +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      d.getFullYear().toString()
+    const forms: ReceiveItemForm[] = order.items.map((item, idx) => ({
       orderItemId: item.id,
       productName: item.productName,
       orderedQty: item.quantity,
       alreadyReceived: item.receivedQty,
       quantityReceived: item.quantity - item.receivedQty,
-      batchNumber: '',
+      batchNumber: `BN-${dateStr}-${String(idx + 1).padStart(4, '0')}`,
       expiryDate: '',
       costPrice: item.unitCost,
     }))
@@ -945,7 +949,7 @@ export function PurchaseOrdersView() {
                       <div className="space-y-1">
                         <Label className="text-xs">Batch Number</Label>
                         <Input
-                          placeholder="Optional"
+                          placeholder="Auto-generated"
                           value={item.batchNumber}
                           onChange={(e) => updateReceiveItem(index, 'batchNumber', e.target.value)}
                           className="h-8 text-sm"
