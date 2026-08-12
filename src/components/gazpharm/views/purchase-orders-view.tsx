@@ -48,7 +48,6 @@ import { formatDateTime, formatDate } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
-import { addToast } from '@/components/gazpharm/toast-container'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -168,6 +167,7 @@ export function PurchaseOrdersView() {
   // Pending PO items from store (pre-filled from low stock)
   const pendingPOItems = useAppStore((s) => s.pendingPOItems)
   const setPendingPOItems = useAppStore((s) => s.setPendingPOItems)
+  const addToast = useAppStore((s) => s.addToast)
 
   // New PO dialog
   const [newDialogOpen, setNewDialogOpen] = useState(false)
