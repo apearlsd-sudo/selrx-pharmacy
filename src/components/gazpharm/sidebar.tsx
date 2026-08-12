@@ -101,17 +101,17 @@ const NAV_ITEMS: NavItem[] = [
 function getRoleBadgeColor(role: string) {
   switch (role) {
     case 'SUPER_ADMIN':
-      return 'bg-amber-100 text-amber-800'
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
     case 'PHARMACIST':
-      return 'bg-emerald-100 text-emerald-800'
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
     case 'TECHNICIAN':
-      return 'bg-sky-100 text-sky-800'
+      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300'
     case 'CASHIER':
-      return 'bg-violet-100 text-violet-800'
+      return 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300'
     case 'CLERK':
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
     default:
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
   }
 }
 
@@ -345,11 +345,11 @@ export function Sidebar() {
     return (
       <div className="md:hidden">
         {/* Top bar with menu button */}
-        <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4">
+        <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Menu className="h-5 w-5 text-gray-700" />
+                <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
                 <span className="sr-only">Open navigation</span>
               </Button>
             </SheetTrigger>
@@ -369,7 +369,7 @@ export function Sidebar() {
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600">
               <Pill className="h-4 w-4 text-white" />
             </div>
-            <span className="text-sm font-bold text-gray-900">
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
               SelRx
             </span>
           </div>

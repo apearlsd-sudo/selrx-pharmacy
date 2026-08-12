@@ -333,7 +333,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                       className={`w-full text-left rounded-lg border p-3 transition-all ${
                         isSelected
                           ? 'border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200'
-                          : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50'
+                          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-emerald-300 hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -379,7 +379,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                               className={`w-full flex items-center justify-between p-2 rounded-lg border text-left text-xs transition-colors ${
                                 selectedItem?.id === item.id
                                   ? 'border-emerald-500 bg-emerald-100'
-                                  : 'border-gray-200 bg-white hover:border-emerald-300'
+                                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-emerald-300'
                               }`}
                             >
                               <div className="flex-1 min-w-0">

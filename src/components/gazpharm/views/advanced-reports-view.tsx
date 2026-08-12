@@ -43,7 +43,7 @@ function daysAgoLocal(n: number) {
 function ChangeIndicator({ value, suffix = '%' }: { value: number; suffix?: string }) {
   const isUp = value >= 0
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${isUp ? 'text-emerald-600' : 'text-red-500'}`}>
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
       {isUp ? '↑' : '↓'} {Math.abs(value).toFixed(1)}{suffix}
     </span>
   )
@@ -53,9 +53,9 @@ function KpiCard({ icon: Icon, label, value, sub, color = 'emerald' }: {
   icon: React.ElementType; label: string; value: string; sub?: React.ReactNode; color?: string
 }) {
   const bgMap: Record<string, string> = {
-    emerald: 'bg-emerald-50 text-emerald-600', blue: 'bg-blue-50 text-blue-600',
-    amber: 'bg-amber-50 text-amber-600', rose: 'bg-rose-50 text-rose-600',
-    violet: 'bg-violet-50 text-violet-600', cyan: 'bg-cyan-50 text-cyan-600',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400', blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    amber: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400', rose: 'bg-rose-50 text-rose-600',
+    violet: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400', cyan: 'bg-cyan-50 text-cyan-600',
   }
   return (
     <Card className="border-none shadow-sm card-hover">
@@ -63,7 +63,7 @@ function KpiCard({ icon: Icon, label, value, sub, color = 'emerald' }: {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
             {sub && <div className="mt-1">{sub}</div>}
           </div>
           <div className={`h-10 w-10 rounded-lg ${bgMap[color] || bgMap.emerald} flex items-center justify-center`}>
@@ -183,8 +183,8 @@ function NavbarDropdown({
         type="button"
         className={`flex items-center gap-1.5 h-10 px-3 text-xs font-medium rounded-none border-b-2 transition-colors whitespace-nowrap ${
           isActiveGroup
-            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
-            : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            ? 'border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30/50'
+            : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:bg-gray-800/50'
         }`}
       >
         <GroupIcon className="h-4 w-4" />
@@ -194,7 +194,7 @@ function NavbarDropdown({
       {/* Dropdown — positioned directly beneath the trigger */}
       {open && (
         <div
-          className="absolute top-full left-0 z-50 mt-0 w-52 bg-white rounded-b-lg border border-t-0 border-gray-200 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          className="absolute top-full left-0 z-50 mt-0 w-52 bg-white dark:bg-gray-900 rounded-b-lg border border-t-0 border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
@@ -204,8 +204,8 @@ function NavbarDropdown({
               type="button"
               className={`flex items-center gap-2.5 w-full px-3 py-2.5 text-xs text-left transition-colors ${
                 activeTab === item.value
-                  ? 'bg-emerald-50 text-emerald-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 font-medium'
+                  : 'text-gray-600 hover:bg-gray-50 dark:bg-gray-800/50 hover:text-gray-900 dark:text-gray-100'
               }`}
               onClick={() => {
                 onSelect(item.value)
@@ -214,7 +214,7 @@ function NavbarDropdown({
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span>{item.label}</span>
-              {activeTab === item.value && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+              {activeTab === item.value && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/300" />}
             </button>
           ))}
         </div>
@@ -285,14 +285,14 @@ export function AdvancedReportsView() {
             </div>
 
             {/* Date Range + Presets — right side */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3 border-t lg:border-t-0 lg:border-l border-gray-100">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
+                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
                 <span className="text-[10px] text-muted-foreground">to</span>
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white" />
+                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {PRESETS.map((p) => (
@@ -304,9 +304,9 @@ export function AdvancedReportsView() {
           </div>
 
           {/* Active report indicator bar */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 border-t border-gray-100">
-            {activeReport && <activeReport.icon className="h-3.5 w-3.5 text-emerald-600" />}
-            <span className="text-xs font-medium text-gray-700">
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50/80 border-t border-gray-100 dark:border-gray-800">
+            {activeReport && <activeReport.icon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {activeGroup?.label && <span className="text-muted-foreground mr-1.5">{activeGroup.label} /</span>}
               {activeReport?.label || 'Select a report'}</span>
           </div>
@@ -442,16 +442,16 @@ function RevenueTab({ data }: { data: Record<string, unknown> | null }) {
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80">
                 <TableHead className="text-xs">Product</TableHead>
                 <TableHead className="text-xs text-right">Qty</TableHead>
                 <TableHead className="text-xs text-right">Revenue</TableHead>
               </TableRow></TableHeader>
               <TableBody>{topProducts.slice(0, 10).map((p, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productName)}</TableCell>
                   <TableCell className="text-xs text-right">{Number(p.totalQty)}</TableCell>
-                  <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(p.totalRevenue))}</TableCell>
                 </TableRow>
               ))}</TableBody>
             </Table>
@@ -541,17 +541,17 @@ function ProfitTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs text-right">Revenue</TableHead>
                   <TableHead className="text-xs text-right">Profit</TableHead>
                   <TableHead className="text-xs text-right">Margin</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{productProfit.slice(0, 15).map((p, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium truncate max-w-[120px]">{String(p.productName)}</TableCell>
                     <TableCell className="text-xs text-right">{formatCurrency(Number(p.totalRevenue))}</TableCell>
-                    <TableCell className={`text-xs text-right font-semibold ${Number(p.profit) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatCurrency(Number(p.profit))}</TableCell>
+                    <TableCell className={`text-xs text-right font-semibold ${Number(p.profit) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{formatCurrency(Number(p.profit))}</TableCell>
                     <TableCell className="text-xs text-right"><Badge className={`text-[10px] ${Number(p.margin) >= 30 ? 'bg-emerald-100 text-emerald-700' : Number(p.margin) >= 15 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{Number(p.margin)}%</Badge></TableCell>
                   </TableRow>
                 ))}</TableBody>
@@ -642,20 +642,20 @@ function CustomerTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Customer</TableHead>
                   <TableHead className="text-xs text-right">Txns</TableHead>
                   <TableHead className="text-xs text-right">Total Spent</TableHead>
                   <TableHead className="text-xs text-right">Avg Basket</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{topCustomers.slice(0, 15).map((c, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs">
                       <p className="font-medium">{String(c.customerName)}</p>
                       {c.customerPhone && <p className="text-muted-foreground">{String(c.customerPhone)}</p>}
                     </TableCell>
                     <TableCell className="text-xs text-right">{Number(c.txCount)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(c.totalSpent))}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(c.totalSpent))}</TableCell>
                     <TableCell className="text-xs text-right">{formatCurrency(Number(c.avgBasket))}</TableCell>
                   </TableRow>
                 ))}</TableBody>
@@ -725,7 +725,7 @@ function ExpiryTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs">Batch</TableHead>
                   <TableHead className="text-xs text-right">Qty</TableHead>
@@ -735,7 +735,7 @@ function ExpiryTab({ data }: { data: Record<string, unknown> | null }) {
                 <TableBody>{expired.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">No expired items in stock</TableCell></TableRow>
                 ) : expired.map((e, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(e.productName)}</TableCell>
                     <TableCell className="text-xs font-mono text-muted-foreground">{String(e.batchNumber)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(e.quantity)}</TableCell>
@@ -756,7 +756,7 @@ function ExpiryTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-48 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs">Batch</TableHead>
                   <TableHead className="text-xs text-right">Qty</TableHead>
@@ -764,12 +764,12 @@ function ExpiryTab({ data }: { data: Record<string, unknown> | null }) {
                   <TableHead className="text-xs">Expiry Date</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{(bucket.items as Array<Record<string, unknown>>).map((item, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(item.productName)}</TableCell>
                     <TableCell className="text-xs font-mono text-muted-foreground">{String(item.batchNumber)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(item.quantity)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold text-amber-600">{formatCurrency(Number(item.totalValue))}</TableCell>
-                    <TableCell className="text-xs text-amber-600">{String(item.expiryDate)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(Number(item.totalValue))}</TableCell>
+                    <TableCell className="text-xs text-amber-600 dark:text-amber-400">{String(item.expiryDate)}</TableCell>
                   </TableRow>
                 ))}</TableBody>
               </Table>
@@ -830,7 +830,7 @@ function PaymentTab({ data }: { data: Record<string, unknown> | null }) {
                       </div>
                       <span className="text-muted-foreground">{pct}%</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
                       <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
                     </div>
                     <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
@@ -886,7 +886,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
         <Card className="border-none shadow-sm">
           <CardContent className="p-5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenue</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(Number(cur.revenue || 0))}</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{formatCurrency(Number(cur.revenue || 0))}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">vs {formatCurrency(Number(prv.revenue || 0))}</p>
             <ChangeIndicator value={Number(changes.revenue || 0)} />
           </CardContent>
@@ -894,7 +894,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
         <Card className="border-none shadow-sm">
           <CardContent className="p-5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Transactions</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{Number(cur.txCount || 0)}</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{Number(cur.txCount || 0)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">vs {Number(prv.txCount || 0)}</p>
             <ChangeIndicator value={Number(changes.txCount || 0)} />
           </CardContent>
@@ -902,7 +902,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
         <Card className="border-none shadow-sm">
           <CardContent className="p-5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Transaction</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(Number(cur.avgTxValue || 0))}</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{formatCurrency(Number(cur.avgTxValue || 0))}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">vs {formatCurrency(Number(prv.avgTxValue || 0))}</p>
             <ChangeIndicator value={Number(changes.avgTxValue || 0)} />
           </CardContent>
@@ -910,7 +910,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
         <Card className="border-none shadow-sm">
           <CardContent className="p-5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Discounts</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(Number(cur.discount || 0))}</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{formatCurrency(Number(cur.discount || 0))}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">vs {formatCurrency(Number(prv.discount || 0))}</p>
             <ChangeIndicator value={Number(changes.discount || 0)} />
           </CardContent>
@@ -944,7 +944,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
         <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Period Details</CardTitle></CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow className="bg-gray-50/80">
+            <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80">
               <TableHead className="text-xs">Metric</TableHead>
               <TableHead className="text-xs text-right">Current Period</TableHead>
               <TableHead className="text-xs text-right">Previous Period</TableHead>
@@ -957,7 +957,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
                 { label: 'Avg Transaction Value', cur: cur.avgTxValue, prv: prv.avgTxValue, chg: changes.avgTxValue },
                 { label: 'Total Discounts', cur: cur.discount, prv: prv.discount, chg: changes.discount },
               ].map((row, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium">{row.label}</TableCell>
                   <TableCell className="text-xs text-right font-semibold">{typeof row.cur === 'number' && row.label.includes('Revenue') || row.label.includes('Discount') || row.label.includes('Avg') ? formatCurrency(Number(row.cur)) : String(row.cur)}</TableCell>
                   <TableCell className="text-xs text-right text-muted-foreground">{typeof row.prv === 'number' && (row.label.includes('Revenue') || row.label.includes('Discount') || row.label.includes('Avg')) ? formatCurrency(Number(row.prv)) : String(row.prv)}</TableCell>
@@ -1028,7 +1028,7 @@ function StockVelocityTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-72 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs">Category</TableHead>
                   <TableHead className="text-xs text-right">Sold</TableHead>
@@ -1039,15 +1039,15 @@ function StockVelocityTab({ data }: { data: Record<string, unknown> | null }) {
                   <TableHead className="text-xs">Velocity</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{products.slice(0, 30).map((p, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(p.productName)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{String(p.category)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(p.totalSold)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(p.totalRevenue))}</TableCell>
                     <TableCell className="text-xs text-right">{Number(p.dailyRate)}/day</TableCell>
                     <TableCell className="text-xs text-right">{Number(p.currentStock)}</TableCell>
                     <TableCell className="text-xs text-right">
-                      <span className={Number(p.daysOfStock) < 14 ? 'text-red-600 font-semibold' : ''}>
+                      <span className={Number(p.daysOfStock) < 14 ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
                         {Number(p.daysOfStock) >= 999 ? '∞' : `${Number(p.daysOfStock)}d`}
                       </span>
                     </TableCell>
@@ -1145,7 +1145,7 @@ function ReturnsAnalysisTab({ data }: { data: Record<string, unknown> | null }) 
         <CardContent>
           <div className="max-h-64 overflow-auto">
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                 <TableHead className="text-xs">Product</TableHead>
                 <TableHead className="text-xs text-right">Returns</TableHead>
                 <TableHead className="text-xs text-right">Qty Returned</TableHead>
@@ -1154,7 +1154,7 @@ function ReturnsAnalysisTab({ data }: { data: Record<string, unknown> | null }) 
               <TableBody>{topProducts.length === 0 ? (
                 <TableRow><TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-6">No returns in this period</TableCell></TableRow>
               ) : topProducts.map((p, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium truncate max-w-[180px]">{String(p.productName)}</TableCell>
                   <TableCell className="text-xs text-right"><Badge variant="outline" className="text-rose-600 border-rose-200 bg-rose-50">{Number(p.returnCount)}</Badge></TableCell>
                   <TableCell className="text-xs text-right">{Number(p.totalQtyReturned)}</TableCell>
@@ -1188,8 +1188,8 @@ function UserPerformanceTab({ data }: { data: Record<string, unknown> | null }) 
         <Card className="border-none shadow-sm">
           <CardContent className="p-5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Top Performer</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">{topPerformer ? String(topPerformer.name) : 'N/A'}</p>
-            {topPerformer && <p className="text-xs text-emerald-600 font-medium mt-0.5">{formatCurrency(Number(topPerformer.sales))}</p>}
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-1">{topPerformer ? String(topPerformer.name) : 'N/A'}</p>
+            {topPerformer && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">{formatCurrency(Number(topPerformer.sales))}</p>}
           </CardContent>
         </Card>
       </div>
@@ -1206,7 +1206,7 @@ function UserPerformanceTab({ data }: { data: Record<string, unknown> | null }) 
         <CardContent>
           <div className="max-h-96 overflow-auto">
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                 <TableHead className="text-xs">Staff</TableHead>
                 <TableHead className="text-xs">Role</TableHead>
                 <TableHead className="text-xs text-right">Transactions</TableHead>
@@ -1219,18 +1219,18 @@ function UserPerformanceTab({ data }: { data: Record<string, unknown> | null }) 
               <TableBody>{users.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-6">No data</TableCell></TableRow>
               ) : users.map((u, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium">{String(u.userName)}</TableCell>
                   <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{String(u.role).replace(/_/g, ' ')}</Badge></TableCell>
                   <TableCell className="text-xs text-right font-medium">{Number(u.txCount)}</TableCell>
-                  <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(u.totalSales))}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(u.totalSales))}</TableCell>
                   <TableCell className="text-xs text-right">{formatCurrency(Number(u.avgTransaction))}</TableCell>
                   <TableCell className="text-xs text-right">{Number(u.totalItems)}</TableCell>
                   <TableCell className="text-xs text-right">
-                    <span className={Number(u.discountRate) > 5 ? 'text-amber-600 font-medium' : 'text-muted-foreground'}>{Number(u.discountRate)}%</span>
+                    <span className={Number(u.discountRate) > 5 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}>{Number(u.discountRate)}%</span>
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    <span className={Number(u.voidRate) > 3 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{Number(u.voidRate)}%</span>
+                    <span className={Number(u.voidRate) > 3 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>{Number(u.voidRate)}%</span>
                   </TableCell>
                 </TableRow>
               ))}</TableBody>
@@ -1327,7 +1327,7 @@ function PrescriptionAnalyticsTab({ data }: { data: Record<string, unknown> | nu
         <CardContent>
           <div className="max-h-64 overflow-auto">
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                 <TableHead className="text-xs">Prescriber</TableHead>
                 <TableHead className="text-xs text-right">Prescriptions</TableHead>
                 <TableHead className="text-xs text-right">Unique Patients</TableHead>
@@ -1337,7 +1337,7 @@ function PrescriptionAnalyticsTab({ data }: { data: Record<string, unknown> | nu
               <TableBody>{byPrescriber.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">No prescriptions in this period</TableCell></TableRow>
               ) : byPrescriber.map((p, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium">{String(p.prescriberName)}</TableCell>
                   <TableCell className="text-xs text-right font-semibold">{Number(p.rxCount)}</TableCell>
                   <TableCell className="text-xs text-right">{Number(p.uniquePatients)}</TableCell>
@@ -1381,12 +1381,12 @@ function InventoryValuationTab({ data }: { data: Record<string, unknown> | null 
         <CardContent>
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <p className="text-3xl font-bold text-emerald-600">{formatCurrency(Number(s.potentialProfit || 0))}</p>
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(s.potentialProfit || 0))}</p>
               <p className="text-xs text-muted-foreground mt-1">If all stock sold at retail price</p>
             </div>
             <div className="flex-1">
-              <div className="h-8 bg-gray-100 rounded-full overflow-hidden flex">
-                <div className="bg-emerald-500 h-full" style={{ width: `${Number(s.totalRetailValue || 0) > 0 ? Math.min(100, ((Number(s.totalRetailValue) - Number(s.totalCostValue)) / Number(s.totalRetailValue)) * 100) : 0}%` }} />
+              <div className="h-8 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
+                <div className="bg-emerald-50 dark:bg-emerald-900/300 h-full" style={{ width: `${Number(s.totalRetailValue || 0) > 0 ? Math.min(100, ((Number(s.totalRetailValue) - Number(s.totalCostValue)) / Number(s.totalRetailValue)) * 100) : 0}%` }} />
               </div>
               <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
                 <span>Cost: {formatCurrency(Number(s.totalCostValue || 0))}</span>
@@ -1429,7 +1429,7 @@ function InventoryValuationTab({ data }: { data: Record<string, unknown> | null 
           <CardContent>
             <div className="max-h-72 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs">Category</TableHead>
                   <TableHead className="text-xs text-right">Stock</TableHead>
@@ -1442,12 +1442,12 @@ function InventoryValuationTab({ data }: { data: Record<string, unknown> | null 
                 ) : lowValueItems.map((item, i) => {
                   const deficit = Number(item.reorderPoint) - Number(item.stockQty)
                   return (
-                    <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                       <TableCell className="text-xs font-medium truncate max-w-[120px]">{String(item.productName)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{String(item.category)}</TableCell>
-                      <TableCell className="text-xs text-right text-red-600 font-medium">{Number(item.stockQty)}</TableCell>
+                      <TableCell className="text-xs text-right text-red-600 dark:text-red-400 font-medium">{Number(item.stockQty)}</TableCell>
                       <TableCell className="text-xs text-right">{Number(item.reorderPoint)}</TableCell>
-                      <TableCell className="text-xs text-right text-red-600 font-semibold">-{deficit}</TableCell>
+                      <TableCell className="text-xs text-right text-red-600 dark:text-red-400 font-semibold">-{deficit}</TableCell>
                       <TableCell className="text-xs text-right">{formatCurrency(Number(item.retailValue))}</TableCell>
                     </TableRow>
                   )
@@ -1532,7 +1532,7 @@ function DiscountAnalysisTab({ data }: { data: Record<string, unknown> | null })
         <CardContent>
           <div className="max-h-72 overflow-auto">
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                 <TableHead className="text-xs">Staff</TableHead>
                 <TableHead className="text-xs text-right">Transactions</TableHead>
                 <TableHead className="text-xs text-right">Discounted Tx</TableHead>
@@ -1543,13 +1543,13 @@ function DiscountAnalysisTab({ data }: { data: Record<string, unknown> | null })
               <TableBody>{byUser.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">No discount data</TableCell></TableRow>
               ) : byUser.map((u, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium">{String(u.userName)}</TableCell>
                   <TableCell className="text-xs text-right">{Number(u.txCount)}</TableCell>
                   <TableCell className="text-xs text-right">{Number(u.discountedTx)}</TableCell>
-                  <TableCell className="text-xs text-right font-semibold text-amber-600">{formatCurrency(Number(u.totalDiscount))}</TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(Number(u.totalDiscount))}</TableCell>
                   <TableCell className="text-xs text-right">
-                    <span className={Number(u.discountPctOfSales) > 5 ? 'text-red-600 font-medium' : ''}>{Number(u.discountPctOfSales)}%</span>
+                    <span className={Number(u.discountPctOfSales) > 5 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{Number(u.discountPctOfSales)}%</span>
                   </TableCell>
                   <TableCell className="text-xs text-right">{Number(u.discountTxRate)}%</TableCell>
                 </TableRow>
@@ -1691,7 +1691,7 @@ function CategoryDeepDiveTab({ data }: { data: Record<string, unknown> | null })
         <CardContent>
           <div className="max-h-80 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Category</TableHead>
                   <TableHead className="text-xs text-right">Products</TableHead>
                   <TableHead className="text-xs text-right">Units Sold</TableHead>
@@ -1703,17 +1703,17 @@ function CategoryDeepDiveTab({ data }: { data: Record<string, unknown> | null })
                 <TableBody>{categories.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-6">No data</TableCell></TableRow>
                 ) : categories.map((c, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium">{String(c.category)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(c.productCount)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(c.totalQty)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(c.totalRevenue))}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(c.totalRevenue))}</TableCell>
                     <TableCell className="text-xs text-right">{Number(c.txCount)}</TableCell>
                     <TableCell className="text-xs text-right">{formatCurrency(Number(c.avgUnitPrice))}</TableCell>
                     <TableCell className="text-xs text-right">
                       <div className="flex items-center gap-1.5 justify-end">
-                        <div className="w-12 bg-gray-100 rounded-full h-1.5">
-                          <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, Number(c.revenueShare))}%` }} />
+                        <div className="w-12 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/300" style={{ width: `${Math.min(100, Number(c.revenueShare))}%` }} />
                         </div>
                         <span className="w-10 text-right">{Number(c.revenueShare)}%</span>
                       </div>
@@ -1731,17 +1731,17 @@ function CategoryDeepDiveTab({ data }: { data: Record<string, unknown> | null })
           <CardContent>
             <div className="max-h-48 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs text-right">Qty Sold</TableHead>
                   <TableHead className="text-xs text-right">Revenue</TableHead>
                   <TableHead className="text-xs text-right">Transactions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{(catGroup.products as Array<Record<string, unknown>>).map((p, j) => (
-                  <TableRow key={j} className="hover:bg-gray-50/50">
+                  <TableRow key={j} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productName)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(p.totalQty)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold text-emerald-600">{formatCurrency(Number(p.totalRevenue))}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(p.totalRevenue))}</TableCell>
                     <TableCell className="text-xs text-right">{Number(p.txCount)}</TableCell>
                   </TableRow>
                 ))}</TableBody>
@@ -1768,9 +1768,9 @@ function ExecutiveSummaryTab({ data }: { data: Record<string, unknown> | null })
     return <Activity className="h-3.5 w-3.5 text-blue-500" />
   }
   const alertBg = (type: string) => {
-    if (type === 'danger') return 'bg-red-50 border-red-100'
-    if (type === 'warning') return 'bg-amber-50 border-amber-100'
-    return 'bg-blue-50 border-blue-100'
+    if (type === 'danger') return 'bg-red-50 dark:bg-red-900/30 border-red-100'
+    if (type === 'warning') return 'bg-amber-50 dark:bg-amber-900/30 border-amber-100'
+    return 'bg-blue-50 dark:bg-blue-900/30 border-blue-100'
   }
 
   return (
@@ -1809,7 +1809,7 @@ function ExecutiveSummaryTab({ data }: { data: Record<string, unknown> | null })
         <Card className="border-none shadow-sm">
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground">Total Discounts Given</p>
-            <p className="text-lg font-bold text-amber-600 mt-1">{formatCurrency(Number(kpis.totalDiscount || 0))}</p>
+            <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1">{formatCurrency(Number(kpis.totalDiscount || 0))}</p>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm">
@@ -1822,7 +1822,7 @@ function ExecutiveSummaryTab({ data }: { data: Record<string, unknown> | null })
         <Card className="border-none shadow-sm">
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground">Pending Returns</p>
-            <p className="text-lg font-bold text-amber-600 mt-1">{String(kpis.pendingReturns || 0)}</p>
+            <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1">{String(kpis.pendingReturns || 0)}</p>
           </CardContent>
         </Card>
       </div>
@@ -1861,7 +1861,7 @@ function ProductAffinityTab({ data }: { data: Record<string, unknown> | null }) 
           ) : (
             <div className="max-h-96 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs w-8">#</TableHead>
                   <TableHead className="text-xs">Product A</TableHead>
                   <TableHead className="text-xs">Product B</TableHead>
@@ -1869,15 +1869,15 @@ function ProductAffinityTab({ data }: { data: Record<string, unknown> | null }) 
                   <TableHead className="text-xs">Frequency</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{pairs.map((p, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productA)}</TableCell>
                     <TableCell className="text-xs font-medium truncate max-w-[160px]">{String(p.productB)}</TableCell>
                     <TableCell className="text-xs text-right font-semibold">{Number(p.coOccurrence)}</TableCell>
                     <TableCell className="text-xs">
                       <div className="flex items-center gap-1.5">
-                        <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                          <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, (Number(p.coOccurrence) / (Number(pairs[0]?.coOccurrence || 1))) * 100)}%` }} />
+                        <div className="w-16 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/300" style={{ width: `${Math.min(100, (Number(p.coOccurrence) / (Number(pairs[0]?.coOccurrence || 1))) * 100)}%` }} />
                         </div>
                       </div>
                     </TableCell>
@@ -1903,7 +1903,7 @@ function SalesForecastTab({ data }: { data: Record<string, unknown> | null }) {
   const forecast = (data?.forecast as Array<Record<string, unknown>>) || []
   const dayOfWeekAvg = (data?.dayOfWeekAvg as Array<Record<string, unknown>>) || []
 
-  const trendColor = String(s.trendDirection) === 'Growing' ? 'text-emerald-600' : String(s.trendDirection) === 'Declining' ? 'text-red-500' : 'text-amber-600'
+  const trendColor = String(s.trendDirection) === 'Growing' ? 'text-emerald-600 dark:text-emerald-400' : String(s.trendDirection) === 'Declining' ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'
   const trendIcon = String(s.trendDirection) === 'Growing' ? '\u2191' : String(s.trendDirection) === 'Declining' ? '\u2193' : '\u2192'
 
   // Combine historical + forecast for continuous chart
@@ -1985,16 +1985,16 @@ function SalesForecastTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Date</TableHead>
                   <TableHead className="text-xs text-right">Forecast</TableHead>
                   <TableHead className="text-xs text-right">Lower</TableHead>
                   <TableHead className="text-xs text-right">Upper</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{forecast.map((f, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium">{String(f.day).slice(5)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold text-violet-600">{formatCurrency(Number(f.forecast))}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(Number(f.forecast))}</TableCell>
                     <TableCell className="text-xs text-right text-muted-foreground">{formatCurrency(Number(f.lower))}</TableCell>
                     <TableCell className="text-xs text-right text-muted-foreground">{formatCurrency(Number(f.upper))}</TableCell>
                   </TableRow>
@@ -2079,7 +2079,7 @@ function CustomerSegmentationTab({ data }: { data: Record<string, unknown> | nul
           <CardContent>
             <div className="max-h-[420px] overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs w-8">#</TableHead>
                   <TableHead className="text-xs">Customer</TableHead>
                   <TableHead className="text-xs text-right">Visits</TableHead>
@@ -2088,7 +2088,7 @@ function CustomerSegmentationTab({ data }: { data: Record<string, unknown> | nul
                   <TableHead className="text-xs">Segment</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{customers.map((c, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="text-xs font-medium">{String(c.customerName)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(c.frequency)}</TableCell>
@@ -2178,7 +2178,7 @@ function BatchExpiryTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-[420px] overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs">Category</TableHead>
                   <TableHead className="text-xs">Expiry Date</TableHead>
@@ -2189,11 +2189,11 @@ function BatchExpiryTab({ data }: { data: Record<string, unknown> | null }) {
                 <TableBody>{atRiskProducts.map((p, i) => {
                   const isExpired = new Date(String(p.expiryDate)) < new Date()
                   return (
-                    <TableRow key={i} className="hover:bg-gray-50/50">
+                    <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                       <TableCell className="text-xs font-medium truncate max-w-[140px]">{String(p.productName)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{String(p.category)}</TableCell>
                       <TableCell className="text-xs">
-                        <span className={isExpired ? 'text-red-600 font-semibold' : 'text-amber-600'}>{String(p.expiryDate).slice(5)}</span>
+                        <span className={isExpired ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-600 dark:text-amber-400'}>{String(p.expiryDate).slice(5)}</span>
                       </TableCell>
                       <TableCell className="text-xs text-right">{Number(p.quantity)}</TableCell>
                       <TableCell className="text-xs text-right font-semibold text-rose-600">{formatCurrency(Number(p.atRiskValue))}</TableCell>
@@ -2216,7 +2216,7 @@ function BatchExpiryTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs text-right">Batches</TableHead>
                   <TableHead className="text-xs text-right">Total Units</TableHead>
@@ -2225,12 +2225,12 @@ function BatchExpiryTab({ data }: { data: Record<string, unknown> | null }) {
                   <TableHead className="text-xs text-right">Total Cost</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{batchDiversity.map((b, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium">{String(b.productName)}</TableCell>
                     <TableCell className="text-xs text-right font-semibold">{Number(b.batchCount)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(b.totalUnits)}</TableCell>
-                    <TableCell className="text-xs text-amber-600">{String(b.nearestExpiry).slice(5)}</TableCell>
-                    <TableCell className="text-xs text-emerald-600">{String(b.furthestExpiry).slice(5)}</TableCell>
+                    <TableCell className="text-xs text-amber-600 dark:text-amber-400">{String(b.nearestExpiry).slice(5)}</TableCell>
+                    <TableCell className="text-xs text-emerald-600 dark:text-emerald-400">{String(b.furthestExpiry).slice(5)}</TableCell>
                     <TableCell className="text-xs text-right">{formatCurrency(Number(b.totalCost))}</TableCell>
                   </TableRow>
                 ))}</TableBody>
@@ -2316,7 +2316,7 @@ function StockTakeAccuracyTab({ data }: { data: Record<string, unknown> | null }
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Product</TableHead>
                   <TableHead className="text-xs text-right">System</TableHead>
                   <TableHead className="text-xs text-right">Counted</TableHead>
@@ -2324,12 +2324,12 @@ function StockTakeAccuracyTab({ data }: { data: Record<string, unknown> | null }
                   <TableHead className="text-xs">Ref</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{discrepancies.slice(0, 15).map((d, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs font-medium truncate max-w-[120px]">{String(d.productName)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(d.systemQty)}</TableCell>
                     <TableCell className="text-xs text-right">{Number(d.countedQty)}</TableCell>
                     <TableCell className="text-xs text-right font-semibold">
-                      <span className={Number(d.variance) > 0 ? 'text-emerald-600' : 'text-red-500'}>
+                      <span className={Number(d.variance) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}>
                         {Number(d.variance) > 0 ? '+' : ''}{Number(d.variance)}
                       </span>
                     </TableCell>
@@ -2405,7 +2405,7 @@ function ManufacturerPerformanceTab({ data }: { data: Record<string, unknown> | 
         <CardContent>
           <div className="max-h-[400px] overflow-auto">
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                 <TableHead className="text-xs">Manufacturer</TableHead>
                 <TableHead className="text-xs text-right">Products</TableHead>
                 <TableHead className="text-xs text-right">Revenue</TableHead>
@@ -2414,20 +2414,20 @@ function ManufacturerPerformanceTab({ data }: { data: Record<string, unknown> | 
                 <TableHead className="text-xs">Share</TableHead>
               </TableRow></TableHeader>
               <TableBody>{manufacturers.map((m, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium">{String(m.manufacturer)}</TableCell>
                   <TableCell className="text-xs text-right">{Number(m.productCount)}</TableCell>
                   <TableCell className="text-xs text-right font-semibold">{formatCurrency(Number(m.totalRevenue))}</TableCell>
-                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(Number(m.estimatedProfit))}</TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(m.estimatedProfit))}</TableCell>
                   <TableCell className="text-xs text-right">
-                    <span className={Number(m.margin) >= 30 ? 'text-emerald-600' : Number(m.margin) >= 15 ? 'text-amber-600' : 'text-red-500'}>
+                    <span className={Number(m.margin) >= 30 ? 'text-emerald-600 dark:text-emerald-400' : Number(m.margin) >= 15 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}>
                       {Number(m.margin).toFixed(1)}%
                     </span>
                   </TableCell>
                   <TableCell className="text-xs">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${Math.min(100, Number(m.revenueShare))}%` }} />
+                      <div className="w-16 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5">
+                        <div className="h-1.5 rounded-full bg-blue-50 dark:bg-blue-900/300" style={{ width: `${Math.min(100, Number(m.revenueShare))}%` }} />
                       </div>
                       <span className="text-muted-foreground">{Number(m.revenueShare).toFixed(1)}%</span>
                     </div>
@@ -2453,14 +2453,14 @@ function ManufacturerPerformanceTab({ data }: { data: Record<string, unknown> | 
                   <div key={gi}>
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">{String(mfrGroup.manufacturer)}</p>
                     <Table>
-                      <TableHeader><TableRow className="bg-gray-50/60">
+                      <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/60">
                         <TableHead className="text-xs">Product</TableHead>
                         <TableHead className="text-xs text-right">Qty Sold</TableHead>
                         <TableHead className="text-xs text-right">Revenue</TableHead>
                         <TableHead className="text-xs text-right">Transactions</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>{prods.map((p, pi) => (
-                        <TableRow key={pi} className="hover:bg-gray-50/50">
+                        <TableRow key={pi} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                           <TableCell className="text-xs font-medium">{String(p.productName)}</TableCell>
                           <TableCell className="text-xs text-right">{Number(p.totalQty)}</TableCell>
                           <TableCell className="text-xs text-right font-semibold">{formatCurrency(Number(p.totalRevenue))}</TableCell>
@@ -2574,14 +2574,14 @@ function TaxComplianceTab({ data }: { data: Record<string, unknown> | null }) {
         <CardContent>
           <div className="max-h-64 overflow-auto">
             <Table>
-              <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+              <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                 <TableHead className="text-xs">Category</TableHead>
                 <TableHead className="text-xs text-right">Revenue</TableHead>
                 <TableHead className="text-xs text-right">Tax</TableHead>
                 <TableHead className="text-xs text-right">Rate</TableHead>
               </TableRow></TableHeader>
               <TableBody>{byCategory.map((c, i) => (
-                <TableRow key={i} className="hover:bg-gray-50/50">
+                <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                   <TableCell className="text-xs font-medium">{String(c.category)}</TableCell>
                   <TableCell className="text-xs text-right">{formatCurrency(Number(c.revenue))}</TableCell>
                   <TableCell className="text-xs text-right font-semibold">{formatCurrency(Number(c.tax))}</TableCell>
@@ -2602,7 +2602,7 @@ function TaxComplianceTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-48 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs">Date</TableHead>
                   <TableHead className="text-xs">Tx #</TableHead>
                   <TableHead className="text-xs text-right">Subtotal</TableHead>
@@ -2610,11 +2610,11 @@ function TaxComplianceTab({ data }: { data: Record<string, unknown> | null }) {
                   <TableHead className="text-xs">Method</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{exemptTransactions.slice(0, 20).map((t, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs">{String(t.date).slice(5)}</TableCell>
                     <TableCell className="text-xs font-medium">{String(t.transactionNo)}</TableCell>
                     <TableCell className="text-xs text-right">{formatCurrency(Number(t.subtotal))}</TableCell>
-                    <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(Number(t.tax))}</TableCell>
+                    <TableCell className="text-xs text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(t.tax))}</TableCell>
                     <TableCell className="text-xs"><Badge variant="outline" className="text-[10px] px-1.5 py-0">{String(t.paymentMethod)}</Badge></TableCell>
                   </TableRow>
                 ))}</TableBody>
@@ -2648,12 +2648,12 @@ function HourlyHeatmapTab({ data }: { data: Record<string, unknown> | null }) {
   const maxRev = Math.max(...grid.flat().map(c => c.revenue), 1)
 
   const getCellColor = (val: number) => {
-    if (val === 0) return 'bg-gray-50'
+    if (val === 0) return 'bg-gray-50 dark:bg-gray-800/50'
     const ratio = val / maxRev
     if (ratio >= 0.75) return 'bg-emerald-600 text-white'
     if (ratio >= 0.5) return 'bg-emerald-400 text-white'
     if (ratio >= 0.25) return 'bg-emerald-200 text-emerald-900'
-    return 'bg-emerald-50 text-emerald-700'
+    return 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700'
   }
 
   return (
@@ -2703,7 +2703,7 @@ function HourlyHeatmapTab({ data }: { data: Record<string, unknown> | null }) {
               {/* Legend */}
               <div className="flex items-center gap-2 mt-3 pl-10">
                 <span className="text-[9px] text-muted-foreground">Low</span>
-                <div className="h-3 w-3 rounded-sm bg-emerald-50" />
+                <div className="h-3 w-3 rounded-sm bg-emerald-50 dark:bg-emerald-900/30" />
                 <div className="h-3 w-3 rounded-sm bg-emerald-200" />
                 <div className="h-3 w-3 rounded-sm bg-emerald-400" />
                 <div className="h-3 w-3 rounded-sm bg-emerald-600" />
@@ -2743,7 +2743,7 @@ function HourlyHeatmapTab({ data }: { data: Record<string, unknown> | null }) {
           <CardContent>
             <div className="max-h-64 overflow-auto">
               <Table>
-                <TableHeader><TableRow className="bg-gray-50/80 sticky top-0">
+                <TableHeader><TableRow className="bg-gray-50 dark:bg-gray-800/50/80 sticky top-0">
                   <TableHead className="text-xs w-8">#</TableHead>
                   <TableHead className="text-xs">Day</TableHead>
                   <TableHead className="text-xs">Hour</TableHead>
@@ -2751,7 +2751,7 @@ function HourlyHeatmapTab({ data }: { data: Record<string, unknown> | null }) {
                   <TableHead className="text-xs text-right">Transactions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>{peakHours.slice(0, 15).map((p, i) => (
-                  <TableRow key={i} className="hover:bg-gray-50/50">
+                  <TableRow key={i} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="text-xs font-medium">{String(p.day)}</TableCell>
                     <TableCell className="text-xs font-medium">{String(p.hour)}:00</TableCell>

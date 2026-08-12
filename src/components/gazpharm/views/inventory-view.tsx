@@ -1042,34 +1042,34 @@ export function InventoryView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <Package className="h-4.5 w-4.5 text-emerald-600" />
+            <div className="h-9 w-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+              <Package className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-2xl font-bold">{items.length}</p>
-              <p className="text-xs text-gray-400">Total Products</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Total Products</p>
             </div>
           </CardContent>
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center">
-              <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
+            <div className="h-9 w-9 rounded-lg bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 flex items-center justify-center">
+              <AlertTriangle className="h-4.5 w-4.5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-600">{lowStockCount}</p>
-              <p className="text-xs text-gray-400">Low Stock Alerts</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{lowStockCount}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Low Stock Alerts</p>
             </div>
           </CardContent>
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
-              <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
+            <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20 flex items-center justify-center">
+              <AlertTriangle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-amber-600">{outOfStockCount}</p>
-              <p className="text-xs text-gray-400">Out of Stock</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{outOfStockCount}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Out of Stock</p>
             </div>
           </CardContent>
         </Card>
@@ -1080,7 +1080,7 @@ export function InventoryView() {
             </div>
             <div>
               <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
-              <p className="text-xs text-gray-400">Inventory Value</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Inventory Value</p>
             </div>
           </CardContent>
         </Card>
@@ -1091,12 +1091,12 @@ export function InventoryView() {
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <Input
                 placeholder="Search by product name or NDC..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white"
+                className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
               />
             </div>
             <div className="relative sm:w-56">
@@ -1105,7 +1105,7 @@ export function InventoryView() {
                 placeholder="Batch # or expiry (YYYY-MM-DD)"
                 value={batchLookupQuery}
                 onChange={(e) => handleBatchLookup(e.target.value)}
-                className={`pl-9 pr-8 ${batchLookupQuery ? 'bg-indigo-50/50 border-indigo-300/80 focus:bg-indigo-50' : 'bg-gray-50/50 border-gray-200/80 focus:bg-white'}`}
+                className={`pl-9 pr-8 ${batchLookupQuery ? 'bg-indigo-50/50 border-indigo-300/80 focus:bg-indigo-50' : 'bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:focus:bg-gray-900'}`}
               />
               {batchLookupQuery && (
                 <button
@@ -1150,7 +1150,7 @@ export function InventoryView() {
               <ClipboardCheck className="h-4 w-4 mr-2" />
               Stock Count
             </Button>
-            <Button onClick={() => setImportDialog(true)} variant="outline" className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">
+            <Button onClick={() => setImportDialog(true)} variant="outline" className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300">
               <Upload className="h-4 w-4 mr-2" />
               Import
             </Button>
@@ -1201,7 +1201,7 @@ export function InventoryView() {
                           <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
                           <td className="px-2 py-1.5">
                             {b.expiryDate ? (
-                              <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                              <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-600 dark:text-amber-400') : ''}>
                                 {formatDate(b.expiryDate)}
                                 {days !== null && days <= 90 && (
                                   <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
@@ -1305,7 +1305,7 @@ export function InventoryView() {
                   const showExpired = allBatchesExpired && !allBatchesNoExpiry && qty > 0
                   const isDiscontinued = item.product.status === 'DISCONTINUED'
                   return (
-                    <TableRow key={item.id} className={`hover:bg-gray-50/50 transition-colors ${isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}`}>
+                    <TableRow key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors ${isOut ? 'bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20/50' : isLow ? 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20/50' : ''}`}>
                       <TableCell>
                         <div>
                           <p className="font-medium text-sm">{item.product.name}</p>
@@ -1325,18 +1325,18 @@ export function InventoryView() {
                         {item.product.sellingUnit && item.product.sellingUnit !== 'EA' ? (
                           <span>{item.product.sellingUnit} ({item.product.itemsPerUnit})</span>
                         ) : (
-                          <span className="text-gray-400">Each</span>
+                          <span className="text-gray-400 dark:text-gray-500">Each</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-bold">
                         {qty}
                         {item.product.sellingUnit && item.product.sellingUnit !== 'EA' && item.product.itemsPerUnit > 1 ? (
-                          <p className="text-[10px] text-gray-400 font-normal">{Math.floor(qty / item.product.itemsPerUnit)} {item.product.sellingUnit.toLowerCase()}{Math.floor(qty / item.product.itemsPerUnit) !== 1 ? 's' : ''}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 font-normal">{Math.floor(qty / item.product.itemsPerUnit)} {item.product.sellingUnit.toLowerCase()}{Math.floor(qty / item.product.itemsPerUnit) !== 1 ? 's' : ''}</p>
                         ) : null}
                       </TableCell>
                       <TableCell>
                         {isDiscontinued ? (
-                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">Discontinued</Badge>
+                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 dark:border-gray-700 text-[10px]">Discontinued</Badge>
                         ) : isOut ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
                         ) : showExpired ? (
@@ -1360,18 +1360,18 @@ export function InventoryView() {
                             {primaryBatchNo}{totalBatches > 1 ? ` +${totalBatches - 1}` : ''}
                           </span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">
                         {activeExpiry ? (
                           formatDate(activeExpiry)
                         ) : allBatchesNoExpiry ? (
-                          <span className="text-gray-400 italic" title="Batches exist but have no expiry date set">No expiry set</span>
+                          <span className="text-gray-400 dark:text-gray-500 italic" title="Batches exist but have no expiry date set">No expiry set</span>
                         ) : bs?.hasBatches && !activeExpiry ? (
-                          <span className="text-gray-400 italic" title="All batches expired or no expiry recorded">—</span>
+                          <span className="text-gray-400 dark:text-gray-500 italic" title="All batches expired or no expiry recorded">—</span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-gray-400 dark:text-gray-500">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -1395,8 +1395,8 @@ export function InventoryView() {
         <DialogContent className="max-w-2xl rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <PackagePlus className="h-4.5 w-4.5 text-emerald-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                <PackagePlus className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
               Add New Product
             </DialogTitle>
@@ -1696,8 +1696,8 @@ export function InventoryView() {
         <DialogContent className="max-w-lg rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <Plus className="h-4.5 w-4.5 text-emerald-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                <Plus className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
               Add New Manufacturer
             </DialogTitle>
@@ -1755,8 +1755,8 @@ export function InventoryView() {
         <DialogContent className="max-w-lg rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <Plus className="h-4.5 w-4.5 text-emerald-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                <Plus className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
               Add New Vendor
             </DialogTitle>
@@ -1916,7 +1916,7 @@ export function InventoryView() {
                               <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
                               <td className="px-2 py-1.5">
                                 {b.expiryDate ? (
-                                  <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                                  <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-600 dark:text-amber-400') : ''}>
                                     {formatDate(b.expiryDate)}
                                     {days !== null && days <= 90 && (
                                       <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
@@ -1940,7 +1940,7 @@ export function InventoryView() {
                                   <button
                                     onClick={() => handleDeleteBatch(b)}
                                     disabled={savingBatch}
-                                    className="bg-red-100 hover:bg-red-200 text-red-600 disabled:opacity-50 rounded p-1"
+                                    className="bg-red-100 hover:bg-red-200 text-red-600 dark:text-red-400 disabled:opacity-50 rounded p-1"
                                     title="Remove batch"
                                   >
                                     <X className="h-3 w-3" />
@@ -2028,7 +2028,7 @@ export function InventoryView() {
               </span>
             )}
             {stockSearchResults.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border rounded-lg shadow-lg max-h-56 overflow-y-auto">
                 {stockSearchResults.map((product) => {
                   const alreadyAdded = stockEntries.find(e => e.productId === product.id)
                   return (
@@ -2142,7 +2142,7 @@ export function InventoryView() {
                             />
                           </td>
                           <td className="text-center px-3 py-2">
-                            <Button size="sm" variant="ghost" onClick={() => removeStockEntry(entry.productId)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600">
+                            <Button size="sm" variant="ghost" onClick={() => removeStockEntry(entry.productId)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600 dark:text-red-400">
                               <X className="h-3.5 w-3.5" />
                             </Button>
                           </td>
@@ -2233,7 +2233,7 @@ export function InventoryView() {
                   className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                     importFile
                       ? 'border-teal-500 bg-teal-50'
-                      : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50'
+                      : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50'
                   }`}
                   onClick={() => document.getElementById('import-file-input')?.click()}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
@@ -2266,8 +2266,8 @@ export function InventoryView() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <Upload className="h-10 w-10 text-gray-400 mx-auto" />
-                      <p className="text-sm font-medium text-gray-700">
+                      <Upload className="h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto" />
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Drop your Excel/CSV file here, or click to browse
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -2278,7 +2278,7 @@ export function InventoryView() {
                 </div>
 
                 {/* Column guide */}
-                <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 rounded-lg">
+                <div className="text-xs text-muted-foreground space-y-1 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                   <p className="font-medium text-foreground">Template columns:</p>
                   <p><span className="text-red-500 font-bold">*</span> <strong>Drug Name</strong> — Product name (required)</p>
                   <p>SKU, Category, Manufacturer, Vendor, Dosage Form, Stock Qty, Status, Reorder Level, Cost, Retail, Expiry</p>
@@ -2314,31 +2314,31 @@ export function InventoryView() {
             {importResult && (
               <div className="space-y-3">
                 {importResult.success ? (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       <p className="font-medium text-emerald-800">Import Complete!</p>
                     </div>
                     <p className="text-sm text-emerald-700">{importResult.message}</p>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                      <div className="p-2 bg-white rounded">
+                      <div className="p-2 bg-white dark:bg-gray-900 rounded">
                         <p className="text-lg font-bold text-emerald-700">{importResult.created}</p>
                         <p className="text-xs text-muted-foreground">Created</p>
                       </div>
-                      <div className="p-2 bg-white rounded">
-                        <p className="text-lg font-bold text-amber-600">{importResult.failed}</p>
+                      <div className="p-2 bg-white dark:bg-gray-900 rounded">
+                        <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{importResult.failed}</p>
                         <p className="text-xs text-muted-foreground">Failed</p>
                       </div>
-                      <div className="p-2 bg-white rounded">
+                      <div className="p-2 bg-white dark:bg-gray-900 rounded">
                         <p className="text-lg font-bold text-gray-600">{importResult.skipped}</p>
                         <p className="text-xs text-muted-foreground">Skipped</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 border border-red-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                       <p className="font-medium text-red-800">Import Failed</p>
                     </div>
                     <p className="text-sm text-red-700">{importResult.error || importResult.message}</p>
@@ -2365,7 +2365,7 @@ export function InventoryView() {
                             <tr key={i} className="border-t">
                               <td className="px-3 py-2">{err.row}</td>
                               <td className="px-3 py-2 font-medium">{err.name || '—'}</td>
-                              <td className="px-3 py-2 text-red-600">{err.errors.join('; ')}</td>
+                              <td className="px-3 py-2 text-red-600 dark:text-red-400">{err.errors.join('; ')}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2421,7 +2421,7 @@ export function InventoryView() {
                 {editingBatch.costPrice != null && <>
                   · Cost: <span className="font-medium text-foreground">{formatCurrency(editingBatch.costPrice)}</span></>}
                 {editingBatch.expiryDate && <>
-                  · Exp: <span className={getDaysToExpiry(editingBatch.expiryDate) <= 0 ? 'text-red-600 font-semibold' : ''}>{formatDate(editingBatch.expiryDate)}</span></>}
+                  · Exp: <span className={getDaysToExpiry(editingBatch.expiryDate) <= 0 ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>{formatDate(editingBatch.expiryDate)}</span></>}
               </div>
             )}
 
@@ -2552,7 +2552,7 @@ export function InventoryView() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
               Delete Batch
             </AlertDialogTitle>

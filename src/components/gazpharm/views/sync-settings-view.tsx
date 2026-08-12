@@ -70,7 +70,7 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
   idle:         { color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', label: 'Synced', icon: CheckCircle2 },
   syncing:      { color: 'text-amber-600',   bg: 'bg-amber-50 border-amber-200',   label: 'Syncing...', icon: RefreshCw },
   error:        { color: 'text-red-600',     bg: 'bg-red-50 border-red-200',       label: 'Error', icon: XCircle },
-  offline:      { color: 'text-gray-500',    bg: 'bg-gray-50 border-gray-200',     label: 'Offline', icon: WifiOff },
+  offline:      { color: 'text-gray-500',    bg: 'bg-gray-50 border-gray-200 dark:border-gray-700',     label: 'Offline', icon: WifiOff },
   ws_connected: { color: 'text-cyan-600',    bg: 'bg-cyan-50 border-cyan-200',     label: 'Live (WebSocket)', icon: Radio },
   discovering:  { color: 'text-violet-600', bg: 'bg-violet-50 border-violet-200', label: 'Scanning LAN...', icon: Radio },
 }
@@ -294,7 +294,7 @@ export function SyncSettingsView() {
     return (
       <div className="space-y-6 max-w-3xl">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <RefreshCw className="h-5 w-5 text-emerald-600" /> Device Sync
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">Configure multi-device synchronization</p>
@@ -305,7 +305,7 @@ export function SyncSettingsView() {
               <Shield className="h-8 w-8 text-blue-500" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Cloud Mode Active</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Cloud Mode Active</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-md">
                 You are running on the web (Vercel + Turso). Device sync settings are only available in the desktop app.
               </p>
@@ -325,7 +325,7 @@ export function SyncSettingsView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <RefreshCw className="h-5 w-5 text-emerald-600" /> Device Sync
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">Configure multi-device synchronization</p>
@@ -407,7 +407,7 @@ export function SyncSettingsView() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button onClick={() => applyDeviceRole('terminal')} className={`relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-md ${deviceRole === 'terminal' ? 'border-emerald-500 bg-emerald-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <button onClick={() => applyDeviceRole('terminal')} className={`relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-md ${deviceRole === 'terminal' ? 'border-emerald-500 bg-emerald-50/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}>
                   <div className="flex items-start gap-3">
                     <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${deviceRole === 'terminal' ? 'bg-emerald-100' : 'bg-gray-100'}`}>
                       <Monitor className={`h-5 w-5 ${deviceRole === 'terminal' ? 'text-emerald-600' : 'text-gray-400'}`} />
@@ -419,7 +419,7 @@ export function SyncSettingsView() {
                   </div>
                   {deviceRole === 'terminal' && <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-emerald-500" />}
                 </button>
-                <button onClick={() => isSuperAdmin && applyDeviceRole('hub')} disabled={!isSuperAdmin} className={`relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-md ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed border-gray-200' : deviceRole === 'hub' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <button onClick={() => isSuperAdmin && applyDeviceRole('hub')} disabled={!isSuperAdmin} className={`relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-md ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : deviceRole === 'hub' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}>
                   <div className="flex items-start gap-3">
                     <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${deviceRole === 'hub' ? 'bg-violet-100' : 'bg-gray-100'}`}>
                       <Server className={`h-5 w-5 ${deviceRole === 'hub' ? 'text-violet-600' : 'text-gray-400'}`} />
@@ -538,7 +538,7 @@ export function SyncSettingsView() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {tunnelStatus && (
-                  <div className={`flex items-center gap-3 rounded-lg border p-3 ${tunnelStatus.running ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-gray-50/50'}`}>
+                  <div className={`flex items-center gap-3 rounded-lg border p-3 ${tunnelStatus.running ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 dark:border-gray-700 bg-gray-50/50'}`}>
                     <TowerControl className={`h-5 w-5 shrink-0 ${tunnelStatus.running ? 'text-emerald-500' : 'text-gray-400'}`} />
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs font-semibold ${tunnelStatus.running ? 'text-emerald-700' : 'text-gray-500'}`}>{tunnelStatus.running ? 'Tunnel Active' : 'Tunnel Inactive'}</p>
@@ -597,7 +597,7 @@ export function SyncSettingsView() {
                   <p className="text-xs font-semibold text-orange-700 flex items-center gap-1.5"><Info className="h-3.5 w-3.5" /> Setup Guide</p>
                   <ol className="space-y-1.5 text-xs text-orange-600 list-decimal list-inside">
                     <li>Install <span className="font-semibold">cloudflared</span> on this PC</li>
-                    <li>Run <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-[11px]">cloudflared tunnel create selrx-hub</code></li>
+                    <li>Run <code className="bg-white dark:bg-gray-900 px-1.5 py-0.5 rounded border font-mono text-[11px]">cloudflared tunnel create selrx-hub</code></li>
                     <li>Copy the token from the output and paste above</li>
                     <li>Click <span className="font-semibold">Start Tunnel</span> — share the URL with terminals</li>
                   </ol>
@@ -650,7 +650,7 @@ export function SyncSettingsView() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {conflicts.map((conflict) => (
-                  <div key={conflict.id} className={`rounded-lg border p-3 space-y-2 ${conflict.resolved ? 'border-gray-200 bg-gray-50/50 opacity-60' : 'border-amber-200 bg-amber-50/50'}`}>
+                  <div key={conflict.id} className={`rounded-lg border p-3 space-y-2 ${conflict.resolved ? 'border-gray-200 dark:border-gray-700 bg-gray-50/50 opacity-60' : 'border-amber-200 bg-amber-50/50'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-[10px] font-mono">{conflict.tableName}</Badge>

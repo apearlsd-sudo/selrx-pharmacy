@@ -143,7 +143,7 @@ function StatusBadge({ status }: { status: string }) {
     case 'PENDING':
       return <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">{status}</Badge>
     case 'REFUNDED':
-      return <Badge className="bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-100">{status}</Badge>
+      return <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-800">{status}</Badge>
     default:
       return <Badge variant="secondary">{status}</Badge>
   }
@@ -272,21 +272,21 @@ export function DashboardView() {
       value: formatCurrency(data.today.sales),
       subtitle: `${data.today.count} transactions`,
       icon: DollarSign,
-      bgClass: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
+      bgClass: 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
     },
     {
       title: 'Pending Prescriptions',
       value: data.pendingPrescriptions.toString(),
       subtitle: 'Awaiting processing',
       icon: FileText,
-      bgClass: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
+      bgClass: 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
     },
     {
       title: 'Low Stock Alerts',
       value: data.lowStockAlerts.count.toString(),
       subtitle: `${data.lowStockAlerts.items.length} critical items`,
       icon: AlertTriangle,
-      bgClass: 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400',
+      bgClass: 'bg-red-50 dark:bg-red-900/30 dark:bg-red-950/30 text-red-600 dark:text-red-400',
     },
     {
       title: 'Registered Customers',
@@ -300,14 +300,14 @@ export function DashboardView() {
       value: formatCurrency(data.inventoryValue ?? 0),
       subtitle: 'At cost price',
       icon: Wallet,
-      bgClass: 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400',
+      bgClass: 'bg-violet-50 dark:bg-violet-900/30 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400',
     },
     {
       title: 'Total Products',
       value: (data.totalProducts ?? 0).toString(),
       subtitle: 'Active products',
       icon: BoxesIcon,
-      bgClass: 'bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400',
+      bgClass: 'bg-sky-50 dark:bg-sky-900/30 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400',
     },
   ]
 
@@ -368,7 +368,7 @@ export function DashboardView() {
               <Card className="card-hover">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
                       <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Sales Trend</CardTitle>
@@ -421,7 +421,7 @@ export function DashboardView() {
               <Card className="card-hover">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
                       <ShoppingCart className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</CardTitle>
@@ -490,7 +490,7 @@ export function DashboardView() {
         <Card className="card-hover">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
                 <Package className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Top Selling Products</CardTitle>
@@ -508,7 +508,7 @@ export function DashboardView() {
                     className="rounded-xl border border-gray-200/80 dark:border-gray-700 bg-card p-4 hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800 transition-all duration-200"
                   >
                     <div className="flex items-start justify-between">
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 h-6 w-6 rounded-lg flex items-center justify-center">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 h-6 w-6 rounded-lg flex items-center justify-center">
                         {index + 1}
                       </span>
                       <Package className="h-4 w-4 text-gray-300 dark:text-gray-600" />

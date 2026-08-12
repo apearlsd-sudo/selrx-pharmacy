@@ -749,11 +749,11 @@ export function POSView() {
       {!shiftActive && (
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-            <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
+            <AlertTriangle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold text-amber-800">No Active Shift</p>
-            <p className="text-xs text-amber-600/80 mt-0.5">You must start a shift before processing sales. Click "Start Shift" in the top bar.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400/80 mt-0.5">You must start a shift before processing sales. Click "Start Shift" in the top bar.</p>
           </div>
         </div>
       )}
@@ -770,7 +770,7 @@ export function POSView() {
                     placeholder="Search products by name, NDC, generic name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 bg-gray-50/50 dark:bg-gray-800/50 border-gray-200/80 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-900"
+                    className="pl-9 h-10 bg-gray-50/50 dark:bg-gray-800/50 border-gray-200/80 dark:border-gray-700 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
                     ref={searchInputRef}
                   />
                 </div>
@@ -826,7 +826,7 @@ export function POSView() {
                     className={`text-xs whitespace-nowrap h-7 rounded-lg transition-all duration-200 ${
                       activeCategory === cat.value
                         ? 'bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-200'
-                        : 'border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
+                        : 'border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                     onClick={() => setActiveCategory(cat.value)}
                   >
@@ -887,7 +887,7 @@ export function POSView() {
                         className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-gray-200/80 dark:border-gray-700 ${
                           isOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                         } ${
-                          inCart ? 'ring-2 ring-emerald-500 bg-emerald-50/40 border-emerald-200' : ''
+                          inCart ? 'ring-2 ring-emerald-500 bg-emerald-50 dark:bg-emerald-900/30/40 border-emerald-200' : ''
                         }`}
                         onClick={() => {
                           if (isOut) {
@@ -910,7 +910,7 @@ export function POSView() {
                               </p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="font-bold text-emerald-600 text-sm">
+                              <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                                 {formatCurrency(product.sellingPrice)}
                               </p>
                               {(product.sellingUnit && product.sellingUnit !== 'EA') && (
@@ -921,7 +921,7 @@ export function POSView() {
                               )}
                               <p
                                 className={`text-xs mt-0.5 ${
-                                  isOut ? 'text-red-600 font-bold' : stock <= 5 ? 'text-red-500 font-medium' : 'text-muted-foreground'
+                                  isOut ? 'text-red-600 dark:text-red-400 font-bold' : stock <= 5 ? 'text-red-500 font-medium' : 'text-muted-foreground'
                                 }`}
                               >
                                 {isOut ? 'Out of Stock' : product.itemsPerUnit > 1
@@ -985,8 +985,8 @@ export function POSView() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                      <ShoppingCart className="h-4.5 w-4.5 text-emerald-600" />
+                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
+                      <ShoppingCart className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Cart</CardTitle>
                     <Badge variant="secondary" className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
@@ -998,7 +998,7 @@ export function POSView() {
                       variant="ghost"
                       size="sm"
                       onClick={clearCart}
-                      className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-950/30"
                     >
                       Clear All
                     </Button>
@@ -1010,7 +1010,7 @@ export function POSView() {
 
               {/* Persistent Drug Interaction Warnings */}
               {(cartInteractions.length > 0 || cartAllergyAlerts.length > 0 || cartDuplicates.length > 0) && (
-                <div className="px-3 py-2.5 space-y-2 border-b border-amber-200 bg-amber-50/50">
+                <div className="px-3 py-2.5 space-y-2 border-b border-amber-200 bg-amber-50 dark:bg-amber-900/30/50">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
                     {checkingInteractions ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                     Interaction Alerts ({cartInteractions.length + cartAllergyAlerts.length + cartDuplicates.length})
@@ -1025,7 +1025,7 @@ export function POSView() {
                     </div>
                   ))}
                   {cartAllergyAlerts.length > 0 && (
-                    <div className="rounded-md border p-2 text-[11px] bg-red-50 text-red-800 border-red-200">
+                    <div className="rounded-md border p-2 text-[11px] bg-red-50 dark:bg-red-900/30 text-red-800 border-red-200">
                       <div className="flex items-center gap-1 mb-0.5"><ShieldAlert className="h-3 w-3" /><span className="font-semibold">Allergy Alert</span></div>
                       {cartAllergyAlerts.slice(0, 2).map((a, i) => (
                         <p key={i} className="opacity-90">{a.drug} — patient allergy: {a.allergen}</p>
@@ -1103,7 +1103,7 @@ export function POSView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-red-600 shrink-0"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-600 dark:text-red-400 shrink-0"
                           onClick={() => removeFromCart(item.product.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1142,7 +1142,7 @@ export function POSView() {
                 <Separator className="bg-gray-100 dark:bg-gray-800" />
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Total</span>
-                  <span className="text-xl font-bold text-emerald-600">{formatCurrency(total)}</span>
+                  <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(total)}</span>
                 </div>
               </div>
 
@@ -1152,9 +1152,9 @@ export function POSView() {
               <div className="p-4 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Customer (optional)</p>
                 {selectedCustomer ? (
-                  <div className="flex items-center justify-between rounded-lg border p-2.5 bg-emerald-50/50">
+                  <div className="flex items-center justify-between rounded-lg border p-2.5 bg-emerald-50 dark:bg-emerald-900/30/50">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-emerald-600" />
+                      <User className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                       <div>
                         <p className="text-sm font-medium">
                           {selectedCustomer.firstName} {selectedCustomer.lastName}
@@ -1239,7 +1239,7 @@ export function POSView() {
                       key={opt.value}
                       className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition-all text-xs ${
                         paymentMethod === opt.value
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600'
+                          ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 ring-1 ring-emerald-600'
                           : 'hover:bg-accent text-muted-foreground'
                       }`}
                       onClick={() => setPaymentMethod(opt.value)}
@@ -1272,7 +1272,7 @@ export function POSView() {
                       />
                     </div>
                     {changeAmount > 0 && (
-                      <div className="flex items-center justify-between rounded-lg bg-emerald-50 border border-emerald-200 p-2.5">
+                      <div className="flex items-center justify-between rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 p-2.5">
                         <span className="text-sm text-emerald-700">Change</span>
                         <span className="font-bold text-emerald-700">
                           {formatCurrency(changeAmount)}
@@ -1322,7 +1322,7 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    className="text-xs border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:text-red-400 hover:border-red-200 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-950/30"
                     onClick={handleVoidTransaction}
                     disabled={cart.length === 0}
                   >
@@ -1332,7 +1332,7 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600"
+                    className="text-xs border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:text-gray-200 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600"
                     onClick={() => {
                       clearCart()
                       setAmountTendered('')
@@ -1347,29 +1347,29 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-blue-200/80 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:text-blue-700 hover:border-blue-300"
+                    className="text-xs border-blue-200/80 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-900/30 dark:hover:bg-blue-950/30 hover:text-blue-700 hover:border-blue-300"
                     onClick={handleSuspendCart}
                     disabled={cart.length === 0}
                   >
                     <Pause className="h-3.5 w-3.5 mr-1" />
                     Suspend
-                    <span className="font-mono bg-blue-50 px-1 py-0.5 rounded ml-1 text-[10px]">F7</span>
+                    <span className="font-mono bg-blue-50 dark:bg-blue-900/30 px-1 py-0.5 rounded ml-1 text-[10px]">F7</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-violet-200/80 text-violet-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300"
+                    className="text-xs border-violet-200/80 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:bg-violet-900/30 hover:text-violet-700 hover:border-violet-300"
                     onClick={handleOpenRecallDialog}
                     disabled={cart.length > 0}
                   >
                     <Play className="h-3.5 w-3.5 mr-1" />
                     Recall
-                    <span className="font-mono bg-violet-50 px-1 py-0.5 rounded ml-1 text-[10px]">F7</span>
+                    <span className="font-mono bg-violet-50 dark:bg-violet-900/30 px-1 py-0.5 rounded ml-1 text-[10px]">F7</span>
                   </Button>
                 </div>
                 <Button
                   variant="outline"
-                  className="w-full h-10 border-amber-200/80 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 text-sm font-medium"
+                  className="w-full h-10 border-amber-200/80 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:bg-amber-900/30 hover:text-amber-700 hover:border-amber-300 text-sm font-medium"
                   onClick={() => setReturnDialogOpen(true)}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
@@ -1452,7 +1452,7 @@ export function POSView() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
-              <Package className="h-5 w-5 text-emerald-600" />
+              <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               Set Quantity
             </DialogTitle>
             <DialogDescription>
@@ -1508,7 +1508,7 @@ export function POSView() {
                 <Separator />
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>
-                  <span className="text-emerald-600">{formatCurrency(pendingAddProduct.sellingPrice * (parseInt(quantityInput) || 1))}</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{formatCurrency(pendingAddProduct.sellingPrice * (parseInt(quantityInput) || 1))}</span>
                 </div>
               </div>
             )}
@@ -1537,7 +1537,7 @@ export function POSView() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-3">
-            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 text-sm space-y-1">
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:bg-blue-950/30 p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Items</span>
                 <span className="font-medium">{cart.length}</span>
@@ -1605,7 +1605,7 @@ export function POSView() {
               suspendedCarts.map((sc: any) => (
                 <div
                   key={sc.id}
-                  className="rounded-lg border border-violet-100 dark:border-violet-800 p-3 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-colors"
+                  className="rounded-lg border border-violet-100 dark:border-violet-800 p-3 hover:bg-violet-50 dark:bg-violet-900/30/50 dark:hover:bg-violet-950/20 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -1648,7 +1648,7 @@ export function POSView() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-red-600"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-600 dark:text-red-400"
                         onClick={() => handleDeleteSuspended(sc.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

@@ -134,11 +134,20 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.7 0 0);
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.4 0 0);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0 0);
+}
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
   scrollbar-color: oklch(0.8 0 0) transparent;
+}
+.dark * {
+  scrollbar-color: oklch(0.4 0 0) transparent;
 }
 
 @layer base {
@@ -154,6 +163,9 @@ html {
 .bg-dot-pattern {
   background-image: radial-gradient(circle, oklch(0.88 0 0) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+.dark .bg-dot-pattern {
+  background-image: radial-gradient(circle, oklch(0.35 0 0) 1px, transparent 1px);
 }
 
 /* ── Gradient text utility ── */
@@ -171,6 +183,9 @@ html {
 .card-hover:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.dark .card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 /* ── Glass morphism utility ── */
@@ -256,12 +271,18 @@ html {
 .table-header-standard thead tr {
   background: oklch(0.97 0 0);
 }
+.dark .table-header-standard thead tr {
+  background: oklch(0.25 0 0);
+}
 .table-header-standard thead th {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.025em;
   color: oklch(0.45 0 0);
+}
+.dark .table-header-standard thead th {
+  color: oklch(0.7 0 0);
 }
 
 /* ──────────────────────────────────────────────
@@ -442,6 +463,12 @@ html {
 }
 [data-slot="dialog-content"]::-webkit-scrollbar-thumb:hover {
   background: oklch(0.7 0 0);
+}
+.dark [data-slot="dialog-content"]::-webkit-scrollbar-thumb {
+  background: oklch(0.4 0 0);
+}
+.dark [data-slot="dialog-content"]::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0 0);
 }
 
 /* Dialog footer button polish */

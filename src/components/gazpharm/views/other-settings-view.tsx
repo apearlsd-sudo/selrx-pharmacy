@@ -417,8 +417,8 @@ export function OtherSettingsView() {
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <Settings className="h-5 w-5 text-emerald-600" />
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <Settings className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           Other Settings
         </h2>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -534,11 +534,11 @@ export function OtherSettingsView() {
               Live Preview
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-lg bg-white/80 border p-3">
+              <div className="rounded-lg bg-white/80 dark:bg-gray-800/80 border p-3">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Current Date</p>
                 <p className="text-lg font-bold text-foreground mt-0.5 font-mono">{previewDate}</p>
               </div>
-              <div className="rounded-lg bg-white/80 border p-3">
+              <div className="rounded-lg bg-white/80 dark:bg-gray-800/80 border p-3">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Current Time</p>
                 <p className="text-lg font-bold text-foreground mt-0.5 font-mono">{previewTime}</p>
               </div>
@@ -585,7 +585,7 @@ export function OtherSettingsView() {
           </div>
           <div className="rounded-lg bg-muted/50 p-3 flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-              <span className="text-lg font-bold text-amber-700">{CURRENCIES[currency].symbol}</span>
+              <span className="text-lg font-bold text-amber-700 dark:text-amber-400">{CURRENCIES[currency].symbol}</span>
             </div>
             <div>
               <p className="text-sm font-medium">{CURRENCIES[currency].name}</p>
@@ -611,8 +611,8 @@ export function OtherSettingsView() {
           {/* Auto-print toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
-                <Printer className="h-4 w-4 text-blue-600" />
+              <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <Label className="text-sm font-medium">Auto-print Receipt</Label>
@@ -639,8 +639,8 @@ export function OtherSettingsView() {
           {/* Show popup toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
-                <FileText className="h-4 w-4 text-emerald-600" />
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <Label className="text-sm font-medium">Show Receipt Popup</Label>
@@ -756,13 +756,13 @@ export function OtherSettingsView() {
 
             {/* Live receipt preview */}
             <Separator />
-            <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2">
+            <div className="rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-900/30/50 p-4 space-y-2">
               <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 Receipt Preview
               </p>
               <div
-                className="bg-white border-2 border-dashed border-gray-200 rounded-lg p-4 space-y-3"
+                className="bg-white dark:bg-gray-900 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"
                 style={{
                   fontFamily: fontFamily === 'sans'
                     ? "'Inter', 'Helvetica Neue', Arial, sans-serif"
@@ -778,37 +778,37 @@ export function OtherSettingsView() {
                   <p className={boldHeader ? 'font-bold tracking-wide' : 'tracking-wide'} style={{ fontSize: fontSize === 'large' ? '16px' : fontSize === 'medium' ? '13px' : '11px' }}>
                     {company?.name || 'SelRx Pharmacy'}
                   </p>
-                  <p className="text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px', fontStyle: 'italic' }}>
+                  <p className="text-gray-400 dark:text-gray-500" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px', fontStyle: 'italic' }}>
                     {company?.tagline || 'Your health, our priority'}
                   </p>
                 </div>
                 <div className="border-t border-dashed border-gray-300" />
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Paracetamol 500mg</span>
+                  <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Paracetamol 500mg</span>
                   <span className={boldItems ? 'font-bold' : ''}>2 x GHS 5.00</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Amoxicillin 250mg</span>
+                  <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Amoxicillin 250mg</span>
                   <span className={boldItems ? 'font-bold' : ''}>1 x GHS 12.50</span>
                 </div>
                 <div className="border-t border-dashed border-gray-300" />
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Total:</span>
+                  <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Total:</span>
                   <span className={boldTotals ? 'font-bold' : ''}>GHS 22.50</span>
                 </div>
                 <div className="border-t border-dashed border-gray-300" />
-                <p className="text-center text-gray-400" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>
+                <p className="text-center text-gray-400 dark:text-gray-500" style={{ fontSize: fontSize === 'large' ? '11px' : fontSize === 'medium' ? '9px' : '8px' }}>
                   Thank you for choosing us!
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 flex items-start gap-2">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-900/30/50 p-3 flex items-start gap-2">
             <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
             <div className="text-xs text-blue-700">
               <p className="font-medium">Receipt Printer Setup</p>
-              <p className="mt-0.5 text-blue-600">
+              <p className="mt-0.5 text-blue-600 dark:text-blue-400">
                 To use auto-print, configure your receipt printer in the Hardware settings page.
                 Make sure the printer is connected and drivers are installed.
               </p>
@@ -833,8 +833,8 @@ export function OtherSettingsView() {
           {/* ── Backup Section ── */}
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
-                <Download className="h-4 w-4 text-violet-600" />
+              <div className="h-8 w-8 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <Download className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               </div>
               <div className="flex-1">
                 <Label className="text-sm font-medium">Create Backup</Label>
@@ -857,12 +857,12 @@ export function OtherSettingsView() {
             </div>
 
             {backup.lastBackup && (
-              <div className="ml-11 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2.5 flex items-center gap-2">
+              <div className="ml-11 rounded-lg border border-emerald-100 bg-emerald-50 dark:bg-emerald-900/30/50 p-2.5 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                 <div className="text-xs text-emerald-700">
                   <span className="font-medium">Last backup:</span>{' '}
                   {new Date(backup.lastBackup).toLocaleString()}
-                  <span className="text-emerald-600 ml-1.5">({backup.lastBackupRows.toLocaleString()} rows)</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 ml-1.5">({backup.lastBackupRows.toLocaleString()} rows)</span>
                 </div>
               </div>
             )}
@@ -972,7 +972,7 @@ export function OtherSettingsView() {
 
             {/* Processing state */}
             {(restore.phase === 'uploading' || restore.phase === 'processing') && restore.progress && (
-              <div className="ml-11 rounded-lg border border-blue-200 bg-blue-50/50 p-3 flex items-center gap-2">
+              <div className="ml-11 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/30/50 p-3 flex items-center gap-2">
                 <Loader2 className="h-4 w-4 text-blue-500 animate-spin shrink-0" />
                 <p className="text-xs text-blue-700 font-medium">{restore.progress}</p>
               </div>
@@ -980,35 +980,35 @@ export function OtherSettingsView() {
 
             {/* Success state */}
             {restore.phase === 'done' && restore.result && (
-              <div className="ml-11 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
+              <div className="ml-11 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30/50 p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                   <p className="text-xs font-semibold text-emerald-700">Restore Successful</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-2">
-                  <div className="rounded bg-white/80 border p-2 text-center">
+                  <div className="rounded bg-white/80 dark:bg-gray-800/80 border p-2 text-center">
                     <p className="text-lg font-bold text-emerald-700">{restore.result.summary.tablesProcessed}</p>
                     <p className="text-[10px] text-muted-foreground">Tables</p>
                   </div>
-                  <div className="rounded bg-white/80 border p-2 text-center">
+                  <div className="rounded bg-white/80 dark:bg-gray-800/80 border p-2 text-center">
                     <p className="text-lg font-bold text-blue-700">{restore.result.summary.totalInserted}</p>
                     <p className="text-[10px] text-muted-foreground">Inserted</p>
                   </div>
-                  <div className="rounded bg-white/80 border p-2 text-center">
-                    <p className="text-lg font-bold text-red-600">{restore.result.summary.totalErrors}</p>
+                  <div className="rounded bg-white/80 dark:bg-gray-800/80 border p-2 text-center">
+                    <p className="text-lg font-bold text-red-600 dark:text-red-400">{restore.result.summary.totalErrors}</p>
                     <p className="text-[10px] text-muted-foreground">Errors</p>
                   </div>
                 </div>
                 {/* Per-table details */}
                 {Object.entries(restore.result.details).some(([, r]) => r.errors.length > 0) && (
                   <div className="mt-2 space-y-1">
-                    <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wider">Tables with errors:</p>
+                    <p className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Tables with errors:</p>
                     {Object.entries(restore.result.details)
                       .filter(([, r]) => r.errors.length > 0)
                       .map(([table, r]) => (
-                        <div key={table} className="rounded bg-red-50 border border-red-100 p-1.5 text-[10px]">
+                        <div key={table} className="rounded bg-red-50 dark:bg-red-900/30 border border-red-100 p-1.5 text-[10px]">
                           <span className="font-medium text-red-700">{table}:</span>{' '}
-                          <span className="text-red-600">{r.errors.length} error(s) — {r.errors[0]}</span>
+                          <span className="text-red-600 dark:text-red-400">{r.errors.length} error(s) — {r.errors[0]}</span>
                         </div>
                       ))}
                   </div>
@@ -1021,12 +1021,12 @@ export function OtherSettingsView() {
 
             {/* Error state */}
             {restore.phase === 'error' && restore.error && (
-              <div className="ml-11 rounded-lg border border-red-200 bg-red-50/50 p-3 space-y-2">
+              <div className="ml-11 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/30/50 p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-500" />
                   <p className="text-xs font-semibold text-red-700">Restore Failed</p>
                 </div>
-                <p className="text-xs text-red-600 ml-6">{restore.error}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 ml-6">{restore.error}</p>
                 <Button size="sm" variant="outline" className="h-7 text-xs ml-6" onClick={handleRestoreCancel}>
                   Dismiss
                 </Button>
@@ -1037,11 +1037,11 @@ export function OtherSettingsView() {
           <Separator />
 
           {/* Info box */}
-          <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-3 flex items-start gap-2">
+          <div className="rounded-lg border border-violet-100 bg-violet-50 dark:bg-violet-900/30/50 p-3 flex items-start gap-2">
             <Info className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
             <div className="text-xs text-violet-700">
               <p className="font-medium">Backup Recommendations</p>
-              <p className="mt-0.5 text-violet-600">
+              <p className="mt-0.5 text-violet-600 dark:text-violet-400">
                 Create regular backups before making major changes (bulk imports, stock takes, pricing updates).
                 Store backup files securely. The backup includes all data except user passwords for security.
               </p>
@@ -1101,7 +1101,7 @@ export function OtherSettingsView() {
               </div>
 
               {backup.autoBackupNextTime && (
-                <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-900/30/50 p-3">
                   <Clock className="h-4 w-4 text-blue-500 shrink-0" />
                   <p className="text-xs text-blue-700">
                     Next backup: <span className="font-medium">{new Date(backup.autoBackupNextTime).toLocaleString()}</span>
@@ -1131,7 +1131,7 @@ export function OtherSettingsView() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Monitor className="h-4 w-4 text-gray-500" />
+            <Monitor className="h-4 w-4 text-gray-500 dark:text-gray-400 dark:text-gray-500" />
             System Information
           </CardTitle>
         </CardHeader>

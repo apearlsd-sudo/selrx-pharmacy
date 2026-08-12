@@ -137,7 +137,7 @@ export function ShiftReportDialog({ open, onOpenChange }: ShiftReportDialogProps
               <select
                 value={filterUser}
                 onChange={(e) => setFilterUser(e.target.value)}
-                className="w-full h-8 text-xs border rounded-md px-2 bg-white"
+                className="w-full h-8 text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
               >
                 <option value="">All Users</option>
                 {reportData.users.map((u: { id: string; name: string }) => (
@@ -186,12 +186,12 @@ export function ShiftReportDialog({ open, onOpenChange }: ShiftReportDialogProps
                     </div>
                     <p className="text-lg font-bold text-amber-800">{reportData.summary.totalItemsSold}</p>
                   </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-center gap-1.5 text-gray-700 mb-1">
+                  <div className="bg-gray-50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 mb-1">
                       <Clock className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Products Sold</span>
                     </div>
-                    <p className="text-lg font-bold text-gray-800">{reportData.summary.totalProductsSold}</p>
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{reportData.summary.totalProductsSold}</p>
                   </div>
                 </div>
 

@@ -73,17 +73,17 @@ interface CustomerDetail {
 const TXN_STATUS_COLORS: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700 border-green-200',
   VOIDED: 'bg-red-100 text-red-700 border-red-200',
-  PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
-  REFUNDED: 'bg-gray-100 text-gray-700 border-gray-200',
+  PENDING: 'bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200',
+  REFUNDED: 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
  PARTIAL_REFUND: 'bg-orange-100 text-orange-700 border-orange-200',
 }
 
 const RX_STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
+  PENDING: 'bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200',
   IN_PROGRESS: 'bg-sky-100 text-sky-700 border-sky-200',
   READY: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   DISPENSED: 'bg-green-100 text-green-700 border-green-200',
-  EXPIRED: 'bg-gray-100 text-gray-700 border-gray-200',
+  EXPIRED: 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
   CANCELLED: 'bg-red-100 text-red-700 border-red-200',
 }
 
@@ -266,8 +266,8 @@ export function CustomersView() {
 
   // Loyalty computed values
   const TIER_COLORS: Record<string, string> = {
-    BRONZE: 'bg-amber-100 text-amber-700 border-amber-200',
-    SILVER: 'bg-gray-100 text-gray-700 border-gray-200',
+    BRONZE: 'bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200',
+    SILVER: 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
     GOLD: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     PLATINUM: 'bg-violet-100 text-violet-700 border-violet-200',
   }
@@ -333,7 +333,7 @@ export function CustomersView() {
         <Card className="card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <Users className="h-5 w-5 text-emerald-600" />
+              <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-2xl font-bold">{customers.length}</p>
@@ -344,7 +344,7 @@ export function CustomersView() {
         <Card className="card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <p className="text-2xl font-bold">{customers.filter((c) => c.insuranceProvider).length}</p>
@@ -355,7 +355,7 @@ export function CustomersView() {
         <Card className="card-hover">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-red-600" />
+              <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
               <p className="text-2xl font-bold">{customers.filter((c) => c.allergies).length}</p>
@@ -375,7 +375,7 @@ export function CustomersView() {
                 placeholder="Search by name, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-gray-50/50"
+                className="pl-9 bg-gray-50 dark:bg-gray-800/50/50"
               />
             </div>
             <Button onClick={openCreateDialog} className="bg-emerald-600 hover:bg-emerald-700">
@@ -522,22 +522,22 @@ export function CustomersView() {
               {/* Spending Summary */}
               {!detailLoading && customerDetail && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-3">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg p-3 flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center">
-                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                      <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
                       <p className="text-lg font-bold text-emerald-700">${totalSpent.toFixed(2)}</p>
-                      <p className="text-xs text-emerald-600">Total Spent</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Total Spent</p>
                     </div>
                   </div>
-                  <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center gap-3">
+                  <div className="bg-sky-50 dark:bg-sky-900/30 border border-sky-200 rounded-lg p-3 flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center">
-                      <ShoppingBag className="h-4 w-4 text-sky-600" />
+                      <ShoppingBag className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                     </div>
                     <div>
                       <p className="text-lg font-bold text-sky-700">{purchaseCount}</p>
-                      <p className="text-xs text-sky-600">Purchases</p>
+                      <p className="text-xs text-sky-600 dark:text-sky-400">Purchases</p>
                     </div>
                   </div>
                 </div>
@@ -621,7 +621,7 @@ export function CustomersView() {
                                 <TableCell className="text-xs text-right">{t.itemsCount}</TableCell>
                                 <TableCell className="text-xs text-right font-medium">${(t.total || 0).toFixed(2)}</TableCell>
                                 <TableCell>
-                                  <Badge className={`text-[10px] ${TXN_STATUS_COLORS[t.status] || 'bg-gray-100 text-gray-700'}`}>
+                                  <Badge className={`text-[10px] ${TXN_STATUS_COLORS[t.status] || 'bg-gray-100 text-gray-700 dark:text-gray-300'}`}>
                                     {t.status}
                                   </Badge>
                                 </TableCell>
@@ -655,7 +655,7 @@ export function CustomersView() {
                                 <TableCell className="text-xs font-mono">{r.rxNumber}</TableCell>
                                 <TableCell className="text-xs">{r.productName}</TableCell>
                                 <TableCell>
-                                  <Badge className={`text-[10px] ${RXN_STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-700'}`}>
+                                  <Badge className={`text-[10px] ${RXN_STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-700 dark:text-gray-300'}`}>
                                     {r.status}
                                   </Badge>
                                 </TableCell>

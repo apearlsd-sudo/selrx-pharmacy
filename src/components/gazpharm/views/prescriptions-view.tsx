@@ -87,7 +87,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   IN_PROGRESS: { label: 'In Progress', color: 'bg-sky-100 text-sky-700 border-sky-200' },
   READY: { label: 'Ready', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   DISPENSED: { label: 'Dispensed', color: 'bg-green-100 text-green-700 border-green-200' },
-  EXPIRED: { label: 'Expired', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  EXPIRED: { label: 'Expired', color: 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700' },
   CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-700 border-red-200' },
 }
 

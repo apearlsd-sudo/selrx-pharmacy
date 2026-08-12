@@ -64,7 +64,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   customer: 'bg-purple-100 text-purple-700 hover:bg-purple-100/80',
   prescription: 'bg-pink-100 text-pink-700 hover:bg-pink-100/80',
   user: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-100/80',
-  system: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80',
+  system: 'bg-gray-100 text-gray-700 dark:text-gray-300 hover:bg-gray-100/80',
   purchase: 'bg-teal-100 text-teal-700 hover:bg-teal-100/80',
   general: 'bg-slate-100 text-slate-700 hover:bg-slate-100/80',
 }
@@ -359,7 +359,7 @@ export function AuditLogView() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50/80">
+                    <TableRow className="bg-gray-50 dark:bg-gray-800/50/80">
                       <TableHead className="text-xs font-semibold whitespace-nowrap">Timestamp</TableHead>
                       <TableHead className="text-xs font-semibold whitespace-nowrap">User</TableHead>
                       <TableHead className="text-xs font-semibold whitespace-nowrap">Action</TableHead>
@@ -373,7 +373,7 @@ export function AuditLogView() {
                     {logs.map((log) => (
                       <TableRow
                         key={log.id}
-                        className="hover:bg-gray-50/50 cursor-default"
+                        className="hover:bg-gray-50 dark:bg-gray-800/50/50 cursor-default"
                       >
                         {/* Timestamp */}
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
@@ -558,7 +558,7 @@ export function AuditLogView() {
 
               <div>
                 <p className="text-xs text-muted-foreground mb-1.5">Details</p>
-                <pre className="bg-gray-50 border rounded-md p-3 text-xs overflow-auto max-h-[300px] whitespace-pre-wrap break-words font-mono leading-relaxed">
+                <pre className="bg-gray-50 dark:bg-gray-800/50 border rounded-md p-3 text-xs overflow-auto max-h-[300px] whitespace-pre-wrap break-words font-mono leading-relaxed">
                   {formatDetails(detailLog.details)}
                 </pre>
               </div>

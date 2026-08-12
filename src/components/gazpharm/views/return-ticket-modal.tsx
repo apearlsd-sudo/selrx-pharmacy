@@ -61,14 +61,14 @@ export function ReturnTicketModal({ returnData, open, onClose }: ReturnTicketMod
         </DialogHeader>
 
         {/* Receipt Body */}
-        <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-5 font-mono text-xs space-y-4">
+        <div className="bg-white dark:bg-gray-900 border-2 border-dashed border-gray-300 rounded-lg p-5 font-mono text-xs space-y-4">
           {/* Header */}
           <div className="text-center space-y-1">
             <div className="flex items-center justify-center gap-2">
               <div className="h-6 w-6 rounded bg-emerald-600 flex items-center justify-center">
                 <CheckCircle2 className="h-4 w-4 text-white" />
               </div>
-              <h3 className="text-base font-bold text-gray-900">{company?.name || 'SelRx'}</h3>
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{company?.name || 'SelRx'}</h3>
             </div>
             <p className="text-muted-foreground">Goods Return Ticket</p>
             {company?.address && <p className="text-muted-foreground">{company.address}</p>}

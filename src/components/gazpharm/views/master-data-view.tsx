@@ -178,7 +178,7 @@ function CategoryModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle className="font-semibold text-gray-800">{isEditing ? 'Edit Category' : 'Add Category'}</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800 dark:text-gray-200">{isEditing ? 'Edit Category' : 'Add Category'}</DialogTitle>
           <DialogDescription>{isEditing ? 'Update category details' : 'Create a new drug category'}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -192,7 +192,7 @@ function CategoryModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!name.trim() || saving} className="bg-emerald-600 hover:bg-emerald-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
           </Button>
@@ -291,7 +291,7 @@ function VendorModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle className="font-semibold text-gray-800">{isEditing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800 dark:text-gray-200">{isEditing ? 'Edit Vendor' : 'Add Vendor'}</DialogTitle>
           <DialogDescription>{isEditing ? 'Update vendor details' : 'Register a new vendor / supplier'}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
@@ -321,7 +321,7 @@ function VendorModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!form.name.trim() || saving} className="bg-green-600 hover:bg-green-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
           </Button>
@@ -423,7 +423,7 @@ function ManufacturerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle className="font-semibold text-gray-800">{isEditing ? 'Edit Manufacturer' : 'Add Manufacturer'}</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800 dark:text-gray-200">{isEditing ? 'Edit Manufacturer' : 'Add Manufacturer'}</DialogTitle>
           <DialogDescription>{isEditing ? 'Update manufacturer details' : 'Register a new drug manufacturer'}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
@@ -465,7 +465,7 @@ function ManufacturerModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!form.name.trim() || saving} className="bg-indigo-600 hover:bg-indigo-700">
             {saving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" /> {isEditing ? 'Update' : 'Create'}</>}
           </Button>
@@ -525,7 +525,7 @@ function DosageFormModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md rounded-xl">
         <DialogHeader>
-          <DialogTitle className="font-semibold text-gray-800">Add Dosage Form</DialogTitle>
+          <DialogTitle className="font-semibold text-gray-800 dark:text-gray-200">Add Dosage Form</DialogTitle>
           <DialogDescription>Create a new dosage form type</DialogDescription>
         </DialogHeader>
         <div>
@@ -540,7 +540,7 @@ function DosageFormModal({
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleClose(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
+          <Button variant="outline" onClick={() => handleClose(false)} className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300">Cancel</Button>
           <Button onClick={handleSave} disabled={!name.trim() || saving} className="bg-teal-600 hover:bg-teal-700">
             <><Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Create'}</>
           </Button>
@@ -833,7 +833,7 @@ function DrugEditModal({
                             <td className="px-2 py-1.5 text-center font-mono">{b.quantity}</td>
                             <td className="px-2 py-1.5">
                               {b.expiryDate ? (
-                                <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 font-semibold' : 'text-amber-600') : ''}>
+                                <span className={days !== null && days <= 90 ? (days <= 0 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-600 dark:text-amber-400') : ''}>
                                   {formatDate(b.expiryDate)}
                                   {days !== null && days <= 90 && (
                                     <Badge variant={days <= 0 ? 'destructive' : 'secondary'} className="ml-1 text-[10px] px-1 py-0">
@@ -849,7 +849,7 @@ function DrugEditModal({
                                 <button onClick={() => handleEditBatch(b)} disabled={savingBatch} className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 disabled:opacity-50 rounded p-1" title="Edit batch">
                                   <Pencil className="h-3 w-3" />
                                 </button>
-                                <button onClick={() => handleDeleteBatch(b)} disabled={savingBatch} className="bg-red-100 hover:bg-red-200 text-red-600 disabled:opacity-50 rounded p-1" title="Remove batch">
+                                <button onClick={() => handleDeleteBatch(b)} disabled={savingBatch} className="bg-red-100 hover:bg-red-200 text-red-600 dark:text-red-400 disabled:opacity-50 rounded p-1" title="Remove batch">
                                   <X className="h-3 w-3" />
                                 </button>
                               </div>
@@ -921,7 +921,7 @@ function DrugEditModal({
                 {editingBatch.costPrice != null && <>
                   · Cost: <span className="font-medium text-foreground">{formatCurrency(editingBatch.costPrice)}</span></>}
                 {editingBatch.expiryDate && <>
-                  · Exp: <span className={getDaysToExpiry(editingBatch.expiryDate) <= 0 ? 'text-red-600 font-semibold' : ''}>{formatDate(editingBatch.expiryDate)}</span></>}
+                  · Exp: <span className={getDaysToExpiry(editingBatch.expiryDate) <= 0 ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>{formatDate(editingBatch.expiryDate)}</span></>}
               </div>
             )}
 
@@ -1053,7 +1053,7 @@ function DrugEditModal({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
             </div>
             Delete Batch
           </AlertDialogTitle>
@@ -1099,16 +1099,16 @@ export function MasterDataView() {
               onClick={() => setActiveSection(sec.key)}
               className={`relative flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
                 isActive
-                  ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-100'
-                  : 'border-transparent bg-white hover:border-gray-200 hover:shadow-sm'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 shadow-md shadow-emerald-100'
+                  : 'border-transparent bg-white dark:bg-gray-900 hover:border-gray-200 dark:border-gray-700 hover:shadow-sm'
               }`}
             >
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600' : 'bg-gray-100'}`}>
                 <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-gray-700'}`}>{sec.label}</p>
-                <p className={`text-xs ${isActive ? 'text-emerald-600' : 'text-gray-500'}`}>{sec.desc}</p>
+                <p className={`text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-gray-700 dark:text-gray-300'}`}>{sec.label}</p>
+                <p className={`text-xs ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}>{sec.desc}</p>
               </div>
               {isActive && (
                 <ChevronRight className="h-5 w-5 text-emerald-500 shrink-0" />
@@ -1189,8 +1189,8 @@ function CategorySection() {
     <div className="space-y-6">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Tags className="h-4.5 w-4.5 text-emerald-600" /></div>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Tags className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
           Drug Categories ({categories.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
@@ -1200,8 +1200,8 @@ function CategorySection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Input placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
       </div>
 
       {/* Categories Table */}
@@ -1234,12 +1234,12 @@ function CategorySection() {
                   const prodCount = cat._count?.products || 0
                   const isVirtual = cat.id.startsWith('__product_cat__')
                   return (
-                    <TableRow key={cat.id} className={isVirtual ? 'bg-gray-50/50' : ''}>
+                    <TableRow key={cat.id} className={isVirtual ? 'bg-gray-50 dark:bg-gray-800/50/50' : ''}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="font-mono text-xs">{cat.name.replace(/_/g, ' ')}</Badge>
                           {isVirtual && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-200">Auto-detected</Badge>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20 text-amber-700 border-amber-200">Auto-detected</Badge>
                           )}
                         </div>
                       </TableCell>
@@ -1257,7 +1257,7 @@ function CategorySection() {
                             </Button>
                             <Button
                               size="sm" variant="ghost"
-                              className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                              className="text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20 h-7 w-7"
                               onClick={() => handleDelete(cat)}
                               disabled={prodCount > 0}
                               title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
@@ -1638,8 +1638,8 @@ function DrugSection() {
       <Card className="card-hover shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600" /></div>
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
               Register New Drug / Product
             </h3>
             <div className="flex items-center gap-2">
@@ -1711,7 +1711,7 @@ function DrugSection() {
                   {manufacturers.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
-                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                  <SelectItem value="__new__" className="text-emerald-600 dark:text-emerald-400 font-medium">
                     + Add new manufacturer
                   </SelectItem>
                 </SelectContent>
@@ -1736,7 +1736,7 @@ function DrugSection() {
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={c.name}>{c.name.replace(/_/g, ' ')}</SelectItem>
                   ))}
-                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                  <SelectItem value="__new__" className="text-emerald-600 dark:text-emerald-400 font-medium">
                     + Add new category
                   </SelectItem>
                 </SelectContent>
@@ -1762,7 +1762,7 @@ function DrugSection() {
                   {dosageFormsList.map((f) => (
                     <SelectItem key={f} value={f}>{f}</SelectItem>
                   ))}
-                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                  <SelectItem value="__new__" className="text-emerald-600 dark:text-emerald-400 font-medium">
                     + Add new dosage form
                   </SelectItem>
                 </SelectContent>
@@ -1831,7 +1831,7 @@ function DrugSection() {
                   {vendors.map((v) => (
                     <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                   ))}
-                  <SelectItem value="__new__" className="text-emerald-600 font-medium">
+                  <SelectItem value="__new__" className="text-emerald-600 dark:text-emerald-400 font-medium">
                     + Add new vendor
                   </SelectItem>
                 </SelectContent>
@@ -1896,8 +1896,8 @@ function DrugSection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input placeholder="Search drugs by name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Input placeholder="Search drugs by name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
       </div>
 
       {/* Drug Table */}
@@ -1951,7 +1951,7 @@ function DrugSection() {
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
                   const showExpired = allBatchesExpired && !allBatchesNoExpiry && stockQty > 0
                   return (
-                    <TableRow key={drug.id} className={showExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : nearExpiry ? 'bg-amber-50/50' : ''}>
+                    <TableRow key={drug.id} className={showExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : nearExpiry ? 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20/50' : ''}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="h-7 w-7 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
@@ -1977,11 +1977,11 @@ function DrugSection() {
                         ) : '—'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={`text-sm font-bold ${stockQty === 0 ? 'text-red-600' : stockQty <= reorderLvl ? 'text-amber-600' : ''}`}>{stockQty}</span>
+                        <span className={`text-sm font-bold ${stockQty === 0 ? 'text-red-600 dark:text-red-400' : stockQty <= reorderLvl ? 'text-amber-600 dark:text-amber-400' : ''}`}>{stockQty}</span>
                       </TableCell>
                       <TableCell>
                         {isDiscontinued ? (
-                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">Discontinued</Badge>
+                          <Badge className="bg-gray-100 text-gray-600 border-gray-200 dark:border-gray-700 text-[10px]">Discontinued</Badge>
                         ) : stockQty === 0 ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
                         ) : showExpired ? (
@@ -2015,11 +2015,11 @@ function DrugSection() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {isDiscontinued ? (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => handleReactivateDrug(drug)} title="Reactivate">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/30 dark:bg-emerald-900/20" onClick={() => handleReactivateDrug(drug)} title="Reactivate">
                               <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
                           ) : (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteDrug(drug)} title="Discontinue">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20" onClick={() => setDeleteDrug(drug)} title="Discontinue">
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -2097,7 +2097,7 @@ function DrugSection() {
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="sm:max-w-xl max-h-[80vh] rounded-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800">
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
               <Clock className="h-4 w-4 text-teal-600" />
               Product History
             </DialogTitle>
@@ -2113,15 +2113,15 @@ function DrugSection() {
             ) : (
               <div className="space-y-3">
                 {historyData.map((h: any) => {
-                  const actionColor = h.action === 'CREATED' ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
-                    : h.action === 'DELETED' ? 'text-red-600 bg-red-50 border-red-200'
-                    : 'text-blue-600 bg-blue-50 border-blue-200'
+                  const actionColor = h.action === 'CREATED' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border-emerald-200'
+                    : h.action === 'DELETED' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 border-red-200'
+                    : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border-blue-200'
                   const actionIcon = h.action === 'CREATED' ? '+' : h.action === 'DELETED' ? '-' : '~'
                   const prev = h.previousValues ? (typeof h.previousValues === 'string' ? JSON.parse(h.previousValues) : h.previousValues) : null
                   const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
                   const dateStr = h.createdAt ? formatDateTimeShort(h.createdAt) : ''
                   return (
-                    <div key={h.id} className="border border-gray-200/80 rounded-xl p-3 transition-all duration-200">
+                    <div key={h.id} className="border border-gray-200 dark:border-gray-700/80 rounded-xl p-3 transition-all duration-200">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className={`text-[10px] ${actionColor}`}>
@@ -2134,11 +2134,11 @@ function DrugSection() {
                       {h.action === 'UPDATED' && h.changedFields && (
                         <div className="mt-2 space-y-1">
                           {(typeof h.changedFields === 'string' ? h.changedFields.split(', ') : (h.changedFields || [])).map((field: string, i: number) => (
-                            <div key={i} className="text-xs flex items-start gap-2 bg-gray-50 rounded px-2 py-1.5">
+                            <div key={i} className="text-xs flex items-start gap-2 bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
                               <span className="font-medium text-gray-600 min-w-[80px]">{field}:</span>
                               <span className="text-red-500 line-through">{prev?.[field] != null ? String(prev[field]) : '—'}</span>
-                              <span className="text-gray-400">→</span>
-                              <span className="text-emerald-600">{next?.[field] != null ? String(next[field]) : '—'}</span>
+                              <span className="text-gray-400 dark:text-gray-500">→</span>
+                              <span className="text-emerald-600 dark:text-emerald-400">{next?.[field] != null ? String(next[field]) : '—'}</span>
                             </div>
                           ))}
                         </div>
@@ -2150,7 +2150,7 @@ function DrugSection() {
                       )}
                       {h.action === 'DELETED' && (
                         <div className="mt-2 text-xs text-muted-foreground">
-                          Status changed to <span className="text-red-600 font-medium">DISCONTINUED</span>
+                          Status changed to <span className="text-red-600 dark:text-red-400 font-medium">DISCONTINUED</span>
                         </div>
                       )}
                     </div>
@@ -2166,7 +2166,7 @@ function DrugSection() {
       <Dialog open={importDialog} onOpenChange={(open) => { if (!open) { setImportDialog(false); setImportFile(null); setImportResult(null); setImportPreview(null) } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] rounded-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800">
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
               <FileSpreadsheet className="h-5 w-5 text-teal-600" />
               Import Products from Excel
             </DialogTitle>
@@ -2217,7 +2217,7 @@ function DrugSection() {
                   className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 ${
                     importFile
                       ? 'border-teal-500 bg-teal-50'
-                      : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50'
+                      : 'border-gray-300 hover:border-teal-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50'
                   }`}
                   onClick={() => document.getElementById('drug-import-file-input')?.click()}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
@@ -2250,8 +2250,8 @@ function DrugSection() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <Upload className="h-10 w-10 text-gray-400 mx-auto" />
-                      <p className="text-sm font-medium text-gray-700">
+                      <Upload className="h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto" />
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Drop your Excel/CSV file here, or click to browse
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -2262,7 +2262,7 @@ function DrugSection() {
                 </div>
 
                 {/* Column guide */}
-                <div className="text-xs text-gray-400 space-y-1 p-3 bg-gray-50 rounded-xl">
+                <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                   <p className="font-medium text-foreground">Template columns:</p>
                   <p><span className="text-red-500 font-bold">*</span> <strong>Drug Name</strong> — Product name (required)</p>
                   <p>SKU, Category, Manufacturer, Vendor, Dosage Form, Stock Qty, Status, Reorder Level, Cost, Retail, Expiry</p>
@@ -2292,31 +2292,31 @@ function DrugSection() {
             {importResult && (
               <div className="space-y-3">
                 {importResult.success ? (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       <p className="font-medium text-emerald-800">Import Complete!</p>
                     </div>
                     <p className="text-sm text-emerald-700">{importResult.message}</p>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                      <div className="p-2 bg-white rounded">
+                      <div className="p-2 bg-white dark:bg-gray-900 rounded">
                         <p className="text-lg font-bold text-emerald-700">{importResult.created}</p>
                         <p className="text-xs text-muted-foreground">Created</p>
                       </div>
-                      <div className="p-2 bg-white rounded">
-                        <p className="text-lg font-bold text-amber-600">{importResult.failed}</p>
+                      <div className="p-2 bg-white dark:bg-gray-900 rounded">
+                        <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{importResult.failed}</p>
                         <p className="text-xs text-muted-foreground">Failed</p>
                       </div>
-                      <div className="p-2 bg-white rounded">
+                      <div className="p-2 bg-white dark:bg-gray-900 rounded">
                         <p className="text-lg font-bold text-gray-600">{importResult.skipped}</p>
                         <p className="text-xs text-muted-foreground">Skipped</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 border border-red-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                       <p className="font-medium text-red-800">Import Failed</p>
                     </div>
                     <p className="text-sm text-red-700">{importResult.error || importResult.message}</p>
@@ -2341,7 +2341,7 @@ function DrugSection() {
                             <tr key={i} className="border-t">
                               <td className="px-3 py-2">{err.row}</td>
                               <td className="px-3 py-2 font-medium">{err.name || '—'}</td>
-                              <td className="px-3 py-2 text-red-600">{err.errors.join('; ')}</td>
+                              <td className="px-3 py-2 text-red-600 dark:text-red-400">{err.errors.join('; ')}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2463,8 +2463,8 @@ function DosageFormSection() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600" /></div>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
           Dosage Forms ({forms.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-cyan-600 hover:bg-cyan-700">
@@ -2473,8 +2473,8 @@ function DosageFormSection() {
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input placeholder="Search dosage forms..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Input placeholder="Search dosage forms..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
       </div>
 
       <Card className="card-hover">
@@ -2508,7 +2508,7 @@ function DosageFormSection() {
                         </Button>
                         <Button
                           size="sm" variant="ghost"
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                          className="text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20 h-7 w-7"
                           onClick={() => handleDelete(f)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -2527,7 +2527,7 @@ function DosageFormSection() {
       <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setNewName(''); setEditingForm(null) }; setModalOpen(o) }}>
         <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader>
-            <DialogTitle className="font-semibold text-gray-800">{editingForm ? 'Edit Dosage Form' : 'Add Dosage Form'}</DialogTitle>
+            <DialogTitle className="font-semibold text-gray-800 dark:text-gray-200">{editingForm ? 'Edit Dosage Form' : 'Add Dosage Form'}</DialogTitle>
             <DialogDescription>{editingForm ? 'Rename the dosage form' : 'Create a new dosage form type (e.g., TABLET, CAPSULE, SYRUP)'}</DialogDescription>
           </DialogHeader>
           <div>
@@ -2543,7 +2543,7 @@ function DosageFormSection() {
             <p className="text-[10px] text-muted-foreground mt-1">Will be saved in uppercase (e.g., CHEWABLE TABLET)</p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)} className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300">Cancel</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)} className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300">Cancel</Button>
             <Button onClick={handleSave} disabled={!newName.trim() || saving} className="bg-cyan-600 hover:bg-cyan-700">
               <><Save className="h-4 w-4 mr-2" /> {editingForm ? 'Update' : 'Create'}</>
             </Button>
@@ -2616,8 +2616,8 @@ function VendorSection() {
     <div className="space-y-6">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Truck className="h-4.5 w-4.5 text-emerald-600" /></div>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Truck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
           Vendors / Suppliers ({vendors.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-green-600 hover:bg-green-700">
@@ -2627,8 +2627,8 @@ function VendorSection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Input placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
       </div>
 
       {/* Vendor Table */}
@@ -2687,7 +2687,7 @@ function VendorSection() {
                           </Button>
                           <Button
                             size="sm" variant="ghost"
-                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                            className="text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20 h-7 w-7"
                             onClick={() => handleDelete(vendor)}
                             disabled={prodCount > 0}
                             title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}
@@ -2778,8 +2778,8 @@ function ManufacturerSection() {
     <div className="space-y-6">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Factory className="h-4.5 w-4.5 text-emerald-600" /></div>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Factory className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
           Manufacturers ({manufacturers.length})
         </h3>
         <Button onClick={openAdd} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
@@ -2789,8 +2789,8 @@ function ManufacturerSection() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input placeholder="Search manufacturers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Input placeholder="Search manufacturers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
       </div>
 
       {/* Manufacturers Table */}
@@ -2852,7 +2852,7 @@ function ManufacturerSection() {
                           </Button>
                           <Button
                             size="sm" variant="ghost"
-                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-7 w-7"
+                            className="text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20 h-7 w-7"
                             onClick={() => handleDelete(mfg)}
                             disabled={prodCount > 0}
                             title={prodCount > 0 ? `${prodCount} products linked` : 'Delete'}

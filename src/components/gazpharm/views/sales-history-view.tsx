@@ -73,7 +73,7 @@ function statusBadge(status: string) {
     case 'VOIDED':
       return <Badge className="bg-red-100 text-red-700 text-xs border-red-200">Voided</Badge>
     case 'REFUNDED':
-      return <Badge className="bg-gray-100 text-gray-700 text-xs border-gray-200">Refunded</Badge>
+      return <Badge className="bg-gray-100 text-gray-700 dark:text-gray-300 text-xs border-gray-200 dark:border-gray-700">Refunded</Badge>
     default:
       return <Badge variant="outline" className="text-xs">{status}</Badge>
   }
@@ -90,7 +90,7 @@ function paymentBadge(method: string) {
     SPLIT: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   }
   return (
-    <Badge className={`text-xs border ${colors[method] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+    <Badge className={`text-xs border ${colors[method] || 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}>
       {method?.replace(/_/g, ' ')}
     </Badge>
   )
@@ -184,8 +184,8 @@ export function SalesHistoryView() {
   }
 
   const sortIcon = (field: string) => {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-gray-400" />
-    return <ArrowUpDown className={`h-3 w-3 ml-1 ${sortDir === 'desc' ? 'text-emerald-600' : 'text-amber-600'}`} />
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 text-gray-400 dark:text-gray-500" />
+    return <ArrowUpDown className={`h-3 w-3 ml-1 ${sortDir === 'desc' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`} />
   }
 
   // Set today as date range preset
@@ -448,7 +448,7 @@ export function SalesHistoryView() {
                       size="sm"
                       className={`h-7 text-[11px] px-2.5 ${
                         activePreset === preset.val
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm'
+                          ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 text-emerald-700 border-emerald-200 shadow-sm'
                           : ''
                       }`}
                       onClick={() => setPresetRange(preset.val)}
@@ -490,13 +490,13 @@ export function SalesHistoryView() {
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
+              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-bold text-gray-900 truncate">
+              <div className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
                 {loading ? <Skeleton className="h-7 w-24" /> : formatCurrency(summary.totalSales || 0)}
               </div>
-              <p className="text-xs text-gray-400">Total Sales</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Total Sales</p>
             </div>
           </CardContent>
         </Card>
@@ -506,10 +506,10 @@ export function SalesHistoryView() {
               <Receipt className="h-5 w-5 text-teal-600" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-bold text-gray-900">
+              <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
                 {loading ? <Skeleton className="h-7 w-12" /> : summary.totalTransactions || 0}
               </div>
-              <p className="text-xs text-gray-400">Total Transactions</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Total Transactions</p>
             </div>
           </CardContent>
         </Card>
@@ -519,10 +519,10 @@ export function SalesHistoryView() {
               <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-bold text-gray-900">
+              <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
                 {loading ? <Skeleton className="h-7 w-20" /> : formatCurrency(summary.averageTransaction || 0)}
               </div>
-              <p className="text-xs text-gray-400">Avg. Transaction</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Avg. Transaction</p>
             </div>
           </CardContent>
         </Card>
@@ -530,13 +530,13 @@ export function SalesHistoryView() {
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-              <Trophy className="h-5 w-5 text-amber-600" />
+              <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold text-gray-900 truncate">
+              <div className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                 {loading ? <Skeleton className="h-5 w-32" /> : summary.topSeller?.userName || 'N/A'}
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 dark:text-gray-500">
                 Top Seller {summary.topSeller ? formatCurrency(summary.topSeller.totalSales) : ''}
               </p>
             </div>
@@ -561,7 +561,7 @@ export function SalesHistoryView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Sales by User</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales by User</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -592,7 +592,7 @@ export function SalesHistoryView() {
             {/* Sales Distribution Pie Chart — SUPER_ADMIN only */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Sales Distribution</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales Distribution</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -631,7 +631,7 @@ export function SalesHistoryView() {
           {/* Daily Sales Trend — visible to all users */}
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800">Daily Sales Trend</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Daily Sales Trend</CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -667,8 +667,8 @@ export function SalesHistoryView() {
           {isSuperAdmin && (
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                <Users className="h-4 w-4 text-emerald-600" />
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 Top Sellers Summary
               </CardTitle>
             </CardHeader>
@@ -696,12 +696,12 @@ export function SalesHistoryView() {
                     ))
                   ) : sortedUserSales.length > 0 ? (
                     sortedUserSales.slice(0, 10).map((u: any, i: number) => (
-                      <TableRow key={u.userId} className={i === 0 ? 'bg-emerald-50/50' : ''}>
+                      <TableRow key={u.userId} className={i === 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20/50' : ''}>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             {i < 3 ? (
                               <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
-                                i === 0 ? 'bg-amber-500' : i === 1 ? 'bg-gray-400' : 'bg-amber-700'
+                                i === 0 ? 'bg-amber-50 dark:bg-amber-900/300' : i === 1 ? 'bg-gray-400' : 'bg-amber-700'
                               }`}>
                                 {i + 1}
                               </span>
@@ -715,7 +715,7 @@ export function SalesHistoryView() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                              <UserCircle className="h-4 w-4 text-emerald-600" />
+                              <UserCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div>
                               <p className="text-sm font-medium">{u.userName}</p>
@@ -756,7 +756,7 @@ export function SalesHistoryView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Sales Distribution by User</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales Distribution by User</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -795,8 +795,8 @@ export function SalesHistoryView() {
             {/* Quick stats cards per user */}
             <Card className="lg:col-span-2 card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                  <Users className="h-4 w-4 text-emerald-600" />
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   User Performance Cards
                 </CardTitle>
               </CardHeader>
@@ -818,7 +818,7 @@ export function SalesHistoryView() {
                       const totalSales = data?.summary?.totalSales || 1
                       const pct = ((u.totalSales / totalSales) * 100).toFixed(1)
                       return (
-                        <div key={u.userId} className="p-4 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
+                        <div key={u.userId} className="p-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors">
                           <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                             <span className="text-sm font-bold text-emerald-700">
                               {u.userName?.charAt(0)?.toUpperCase() || '?'}
@@ -837,7 +837,7 @@ export function SalesHistoryView() {
                             {/* Progress bar */}
                             <div className="mt-1.5 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-emerald-500 rounded-full transition-all"
+                                className="h-full bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/200 rounded-full transition-all"
                                 style={{ width: `${Math.min(parseFloat(pct), 100)}%` }}
                               />
                             </div>
@@ -862,8 +862,8 @@ export function SalesHistoryView() {
         <TabsContent value="transactions" className="space-y-4 mt-4">
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-emerald-600" />
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 Transaction Details
                 {data && (
                   <span className="text-xs font-normal text-muted-foreground ml-2">
@@ -901,7 +901,7 @@ export function SalesHistoryView() {
                       ))
                     ) : transactions.length > 0 ? (
                       transactions.map((txn: any) => (
-                        <TableRow key={txn.id} className="hover:bg-gray-50/50 transition-colors">
+                        <TableRow key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors">
                           <TableCell className="font-mono text-xs">{txn.transactionNo}</TableCell>
                           <TableCell>
                             <div>
@@ -915,7 +915,7 @@ export function SalesHistoryView() {
                           <TableCell>
                             <div className="flex items-center gap-1.5">
                               <div className="h-6 w-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                                <UserCircle className="h-3.5 w-3.5 text-emerald-600" />
+                                <UserCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                               </div>
                               <div>
                                 <p className="text-xs font-medium">{txn.user?.name || 'Unknown'}</p>
@@ -935,7 +935,7 @@ export function SalesHistoryView() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right text-xs">{formatCurrency(txn.subtotal ?? 0)}</TableCell>
-                          <TableCell className="text-right text-xs text-amber-600">
+                          <TableCell className="text-right text-xs text-amber-600 dark:text-amber-400">
                             {txn.discount > 0 ? `-${formatCurrency(txn.discount)}` : '-'}
                           </TableCell>
                           <TableCell className="text-right font-semibold text-sm">
@@ -1043,8 +1043,8 @@ export function SalesHistoryView() {
             {/* Revenue Trend */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   Revenue Trend
                 </CardTitle>
               </CardHeader>
@@ -1077,7 +1077,7 @@ export function SalesHistoryView() {
             {/* Transaction Count Trend */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                   <ShoppingCart className="h-4 w-4 text-teal-600" />
                   Transaction Volume
                 </CardTitle>
@@ -1106,7 +1106,7 @@ export function SalesHistoryView() {
           {isSuperAdmin && (
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800">User Sales Comparison (Ranked)</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">User Sales Comparison (Ranked)</CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -1179,10 +1179,10 @@ export function SalesHistoryView() {
               </div>
 
               {/* Items table */}
-              <div className="border border-gray-200/80 rounded-xl overflow-hidden">
+              <div className="border border-gray-200 dark:border-gray-700/80 rounded-xl overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
+                    <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                       <TableHead className="text-xs">Product</TableHead>
                       <TableHead className="text-xs text-right">Qty</TableHead>
                       <TableHead className="text-xs text-right">Price</TableHead>
@@ -1203,7 +1203,7 @@ export function SalesHistoryView() {
               </div>
 
               {/* Totals */}
-              <div className="bg-gray-50 rounded-xl p-3 space-y-1.5 text-sm">
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatCurrency(detailTxn.subtotal ?? 0)}</span>
@@ -1214,7 +1214,7 @@ export function SalesHistoryView() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Discount</span>
-                  <span className="text-amber-600">-{formatCurrency(detailTxn.discount || 0)}</span>
+                  <span className="text-amber-600 dark:text-amber-400">-{formatCurrency(detailTxn.discount || 0)}</span>
                 </div>
                 <div className="flex justify-between font-bold border-t pt-1.5 text-base">
                   <span>Total</span>

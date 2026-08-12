@@ -110,7 +110,7 @@ function TierBadge({ tier }: { tier: string }) {
   const meta = PRIVILEGE_TIERS[tier as PrivilegeTier]
   if (!meta) return null
   const colors: Record<string, string> = {
-    LEVEL_1: 'bg-gray-100 text-gray-700 border-gray-200',
+    LEVEL_1: 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
     LEVEL_2: 'bg-blue-100 text-blue-700 border-blue-200',
     LEVEL_3: 'bg-amber-100 text-amber-700 border-amber-200',
     LEVEL_4: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -214,9 +214,9 @@ function PermissionGrid({
         const isCollapsed = collapsedCats.has(cat.category)
 
         return (
-          <div key={cat.category} className="border border-gray-200/80 rounded-xl">
+          <div key={cat.category} className="border border-gray-200 dark:border-gray-700/80 rounded-xl">
             <div
-              className={`px-3 py-2 bg-gray-50/50 border-b flex items-center justify-between cursor-pointer hover:bg-gray-100/50 transition-colors ${disabled ? 'cursor-not-allowed' : ''}`}
+              className={`px-3 py-2 bg-gray-50 dark:bg-gray-800/50/50 border-b flex items-center justify-between cursor-pointer hover:bg-gray-100/50 transition-colors ${disabled ? 'cursor-not-allowed' : ''}`}
               onClick={() => disabled ? null : setCollapsedCats(prev => {
                 const next = new Set(prev)
                 next.has(cat.category) ? next.delete(cat.category) : next.add(cat.category)
@@ -224,7 +224,7 @@ function PermissionGrid({
               })}
             >
               <div className="flex items-center gap-2">
-                <CatIcon className="h-3.5 w-3.5 text-gray-500" />
+                <CatIcon className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 dark:text-gray-500" />
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{cat.category}</span>
                 <Badge variant="outline" className="text-[10px] h-5">
                   {catSelected}/{cat.permissions.length}
@@ -233,13 +233,13 @@ function PermissionGrid({
               <div className="flex items-center gap-2">
                 {!disabled && (
                   <button
-                    className="text-[10px] text-muted-foreground hover:text-emerald-600 px-1 py-0.5 rounded"
+                    className="text-[10px] text-muted-foreground hover:text-emerald-600 dark:text-emerald-400 px-1 py-0.5 rounded"
                     onClick={(e) => { e.stopPropagation(); toggleCategory(cat.category, cat.permissions.map(p => p.key)) }}
                   >
                     {catSelected === cat.permissions.length ? 'Deselect All' : 'Select All'}
                   </button>
                 )}
-                {isCollapsed ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronUp className="h-3 w-3 text-gray-400" />}
+                {isCollapsed ? <ChevronDown className="h-3 w-3 text-gray-400 dark:text-gray-500" /> : <ChevronUp className="h-3 w-3 text-gray-400 dark:text-gray-500" />}
               </div>
             </div>
             {!isCollapsed && (
@@ -251,7 +251,7 @@ function PermissionGrid({
                     <label
                       key={perm.key}
                       className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
-                        disabled ? 'opacity-60 cursor-not-allowed' : isChecked ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-muted/50'
+                        disabled ? 'opacity-60 cursor-not-allowed' : isChecked ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20/60 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/30 dark:bg-emerald-900/20' : 'hover:bg-muted/50'
                       }`}
                     >
                       <Checkbox
@@ -279,7 +279,7 @@ function PermissionGrid({
       <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
         <span>{totalGranted} of {ALL_PERMISSIONS.length} permissions granted</span>
         {!allSelected && totalGranted > 0 && (
-          <span className="text-amber-600 font-medium">Custom permissions active</span>
+          <span className="text-amber-600 dark:text-amber-400 font-medium">Custom permissions active</span>
         )}
       </div>
     </div>
@@ -291,8 +291,8 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
   return (
     <Card className="card-hover transition-all duration-200">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><ShieldCheck className="h-4.5 w-4.5 text-emerald-600" /></div>
+        <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
           Role Permission Matrix
         </CardTitle>
       </CardHeader>
@@ -301,7 +301,7 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 bg-white z-10 min-w-[160px]">Permission</TableHead>
+                <TableHead className="sticky left-0 bg-white dark:bg-gray-900 z-10 min-w-[160px]">Permission</TableHead>
                 {roles.filter(r => r.isActive).map((role) => {
                   const meta = ROLE_METADATA[role.name]
                   return (
@@ -322,19 +322,19 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
             <TableBody>
               {PERMISSION_CATEGORIES.map((cat) => (
                 <React.Fragment key={cat.category}>
-                  <TableRow className="bg-gray-50/50">
+                  <TableRow className="bg-gray-50 dark:bg-gray-800/50/50">
                     <TableCell colSpan={roles.filter(r => r.isActive).length + 1} className="py-1.5 px-3">
-                      <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{cat.category}</span>
+                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">{cat.category}</span>
                     </TableCell>
                   </TableRow>
                   {cat.permissions.map((perm) => (
-                    <TableRow key={perm.key} className="hover:bg-gray-50/50 transition-colors">
-                      <TableCell className="font-medium text-xs sticky left-0 bg-white z-10">{perm.label}</TableCell>
+                    <TableRow key={perm.key} className="hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors">
+                      <TableCell className="font-medium text-xs sticky left-0 bg-white dark:bg-gray-900 z-10">{perm.label}</TableCell>
                       {roles.filter(r => r.isActive).map((role) => {
                         const hasPerm = DEFAULT_ROLE_PERMISSIONS[role.name]?.includes(perm.key)
                         return (
                           <TableCell key={role.id} className="text-center px-2">
-                            {hasPerm ? <CheckCircle className="h-3.5 w-3.5 text-emerald-600 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-gray-300 mx-auto" />}
+                            {hasPerm ? <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-gray-300 mx-auto" />}
                           </TableCell>
                         )
                       })}
@@ -673,11 +673,11 @@ export function UsersView() {
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <UserCheck className="h-5 w-5 text-emerald-600" />
+              <UserCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-2xl font-bold">{users.length}</p>
-              <p className="text-xs text-gray-400">Total Users</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Total Users</p>
             </div>
           </CardContent>
         </Card>
@@ -688,7 +688,7 @@ export function UsersView() {
             </div>
             <div>
               <p className="text-2xl font-bold text-green-600">{users.filter((u) => u.active).length}</p>
-              <p className="text-xs text-gray-400">Active</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Active</p>
             </div>
           </CardContent>
         </Card>
@@ -699,7 +699,7 @@ export function UsersView() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-600">{users.filter((u) => !u.active).length}</p>
-              <p className="text-xs text-gray-400">Inactive</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Inactive</p>
             </div>
           </CardContent>
         </Card>
@@ -710,18 +710,18 @@ export function UsersView() {
             </div>
             <div>
               <p className="text-2xl font-bold text-purple-600">{roles.length}</p>
-              <p className="text-xs text-gray-400">Total Roles</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Total Roles</p>
             </div>
           </CardContent>
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">{ALL_PERMISSIONS.length}</p>
-              <p className="text-xs text-gray-400">Permissions</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ALL_PERMISSIONS.length}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Permissions</p>
             </div>
           </CardContent>
         </Card>
@@ -730,16 +730,16 @@ export function UsersView() {
       {/* Privilege Tier Distribution */}
       <Card className="card-hover transition-all duration-200">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Crown className="h-4.5 w-4.5 text-emerald-600" /></div>
+          <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Crown className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
             Access Level Distribution
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <div className="grid grid-cols-5 gap-2">
             {tierCounts.map(({ tier, label, level, count }) => (
-              <div key={tier} className="text-center p-2 rounded-lg bg-gray-50 border">
-                <p className="text-lg font-bold text-gray-900">{count}</p>
+              <div key={tier} className="text-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border">
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{count}</p>
                 <p className="text-[10px] text-muted-foreground">Level {level}</p>
                 <p className="text-xs font-medium">{label}</p>
               </div>
@@ -752,7 +752,7 @@ export function UsersView() {
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:text-gray-300'}`}
         >
           <span className="flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5" /> Users ({users.length})</span>
         </button>
@@ -760,13 +760,13 @@ export function UsersView() {
           <>
             <button
               onClick={() => setActiveTab('roles')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'roles' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'roles' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:text-gray-300'}`}
             >
               <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Roles ({roles.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('matrix')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'matrix' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'matrix' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:text-gray-300'}`}
             >
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Matrix</span>
             </button>
@@ -796,12 +796,12 @@ export function UsersView() {
         <CardContent className="p-3">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <Input
                 placeholder="Search by name, email, or role..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-9 bg-gray-50/50 border-gray-200/80 focus:bg-white"
+                className="pl-10 h-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
               />
             </div>
             <div className="flex gap-2">
@@ -880,13 +880,13 @@ export function UsersView() {
                 filteredUsers.map((userItem) => {
                   const roleData = roles.find(r => r.name === userItem.role)
                   const meta = ROLE_METADATA[userItem.role]
-                  const roleColor = meta?.color || roleData?.color || 'bg-gray-100 text-gray-700 border-gray-200'
+                  const roleColor = meta?.color || roleData?.color || 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
                   const roleLabel = meta?.label || roleData?.label || userItem.role
                   const perms = getUserPermissions(userItem)
                   const isCustomPerms = parsePermissions(userItem.permissions).length > 0
                   const tier = meta?.tier
                   return (
-                    <TableRow key={userItem.id} className={`hover:bg-gray-50/50 transition-colors ${!userItem.active ? 'opacity-50' : ''}`}>
+                    <TableRow key={userItem.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors ${!userItem.active ? 'opacity-50' : ''}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
@@ -949,7 +949,7 @@ export function UsersView() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className={userItem.active ? 'text-red-500' : 'text-emerald-600'}
+                                className={userItem.active ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}
                                 onClick={() => handleToggleActive(userItem)}
                               >
                                 {userItem.active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
@@ -957,7 +957,7 @@ export function UsersView() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20"
                                 onClick={() => openDeleteDialog(userItem)}
                                 title="Delete user"
                               >
@@ -981,7 +981,7 @@ export function UsersView() {
         <DialogContent className="max-w-3xl max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-emerald-600" />
+              <Plus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               Create New User
             </DialogTitle>
             <DialogDescription>
@@ -991,7 +991,7 @@ export function UsersView() {
           <div className="space-y-4 overflow-y-auto max-h-[65vh] pr-1">
             {/* Personal Info */}
             <div>
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Personal Information</Label>
+              <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Personal Information</Label>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <div className="col-span-2">
                   <Label>Full Name <span className="text-red-500">*</span></Label>
@@ -1020,7 +1020,7 @@ export function UsersView() {
 
             {/* Work Details */}
             <div>
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Work Details</Label>
+              <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Work Details</Label>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <div>
                   <Label>Department</Label>
@@ -1051,7 +1051,7 @@ export function UsersView() {
 
             {/* Role & Permissions */}
             <div>
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Role & Permissions</Label>
+              <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Role & Permissions</Label>
               <div className="space-y-3 mt-2">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -1137,7 +1137,7 @@ export function UsersView() {
 
               {/* Editable Fields */}
               <div>
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Work Details</Label>
+                <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Work Details</Label>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div>
                     <Label>Phone</Label>
@@ -1172,7 +1172,7 @@ export function UsersView() {
 
               {/* Role Dropdown */}
               <div>
-                <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Role & Permissions</Label>
+                <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Role & Permissions</Label>
                 <div className="space-y-3 mt-2">
                   <div>
                     <Label>Change Role</Label>
@@ -1225,7 +1225,7 @@ export function UsersView() {
         <DialogContent className="max-w-lg max-h-[90vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-emerald-600" />
+              <Eye className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               User Details
             </DialogTitle>
           </DialogHeader>
@@ -1235,7 +1235,7 @@ export function UsersView() {
             const detailRoleData = roles.find(r => r.name === selectedUser.role)
             const meta = ROLE_METADATA[selectedUser.role]
             const detailRoleLabel = meta?.label || detailRoleData?.label || selectedUser.role
-            const detailRoleColor = meta?.color || detailRoleData?.color || 'bg-gray-100 text-gray-700 border-gray-200'
+            const detailRoleColor = meta?.color || detailRoleData?.color || 'bg-gray-100 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
             return (
               <div className="space-y-4 overflow-y-auto max-h-[65vh] pr-1">
                 <div className="bg-muted rounded-lg p-4">
@@ -1306,7 +1306,7 @@ export function UsersView() {
                       const CatIcon = CATEGORY_ICONS[cat.category] || Shield
                       return (
                         <div key={cat.category}>
-                          <div className="px-3 py-1.5 bg-gray-50 border-b text-[10px] font-semibold text-gray-500 uppercase flex items-center gap-1.5">
+                          <div className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 border-b text-[10px] font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase flex items-center gap-1.5">
                             <CatIcon className="h-3 w-3" />
                             {cat.category} ({catPerms.length}/{cat.permissions.length})
                           </div>
@@ -1315,7 +1315,7 @@ export function UsersView() {
                             if (!has) return null
                             return (
                               <div key={perm.key} className="flex items-center gap-3 px-3 py-2">
-                                <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
+                                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                 <span className="text-sm font-medium">{perm.label}</span>
                               </div>
                             )
@@ -1344,7 +1344,7 @@ export function UsersView() {
       <Dialog open={deleteDialog} onOpenChange={(open) => { if (!open || !deleting) setDeleteDialog(false) }}>
         <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
+            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
               <Trash2 className="h-5 w-5" />
               Delete User
             </DialogTitle>
@@ -1353,7 +1353,7 @@ export function UsersView() {
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+            <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 p-3 space-y-1">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium">{selectedUser.name}</p>
                 <Badge className={`text-xs ${ROLE_METADATA[selectedUser.role]?.color || ''}`}>
@@ -1448,7 +1448,7 @@ export function UsersView() {
                               <div key={cat.category} className="flex items-center gap-2">
                                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${catCount === cat.permissions.length ? 'bg-emerald-500' : catCount > 0 ? 'bg-emerald-300' : 'bg-gray-100'}`}
+                                    className={`h-full rounded-full ${catCount === cat.permissions.length ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/200' : catCount > 0 ? 'bg-emerald-300' : 'bg-gray-100'}`}
                                     style={{ width: `${cat.permissions.length > 0 ? (catCount / cat.permissions.length) * 100 : 0}%` }}
                                   />
                                 </div>
@@ -1470,7 +1470,7 @@ export function UsersView() {
             <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col rounded-xl overflow-hidden">
               <DialogHeader className="shrink-0">
                 <DialogTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5 text-emerald-600" />
+                  <Plus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   Create New Role
                 </DialogTitle>
                 <DialogDescription>Define a new role with custom permissions and access levels.</DialogDescription>
@@ -1521,7 +1521,7 @@ export function UsersView() {
                 </div>
                 <div>
                   <Label>Role Name</Label>
-                  <Input value={selectedRole?.name || ''} disabled className="mt-1 bg-gray-50" />
+                  <Input value={selectedRole?.name || ''} disabled className="mt-1 bg-gray-50 dark:bg-gray-800/50" />
                   <p className="text-[10px] text-muted-foreground mt-1">Role name cannot be changed after creation</p>
                 </div>
                 <div>
@@ -1547,7 +1547,7 @@ export function UsersView() {
           <Dialog open={deleteRoleDialog} onOpenChange={setDeleteRoleDialog}>
             <DialogContent className="sm:max-w-md rounded-xl">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-red-600">
+                <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
                   <Trash2 className="h-5 w-5" />
                   Delete Role
                 </DialogTitle>
@@ -1560,7 +1560,7 @@ export function UsersView() {
                 </DialogDescription>
               </DialogHeader>
               {selectedRole && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+                <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 p-3 space-y-1">
                   <p className="text-sm font-medium">{ROLE_METADATA[selectedRole.name]?.label || selectedRole.label}</p>
                   <p className="text-xs text-muted-foreground">{selectedRole._count.users} user(s) assigned</p>
                 </div>

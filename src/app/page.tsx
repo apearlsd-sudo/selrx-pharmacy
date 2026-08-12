@@ -114,11 +114,11 @@ class ViewErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState
     if (this.state.hasError) {
       return this.props.fallback || (
         <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 p-8 animate-fade-in">
-          <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+          <div className="h-14 w-14 rounded-2xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
             <AlertTriangle className="h-7 w-7 text-red-500" />
           </div>
           <div className="text-center space-y-1">
-            <p className="text-sm font-semibold text-gray-900">Something went wrong</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Something went wrong</p>
             <p className="text-sm text-muted-foreground max-w-md">
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
@@ -210,7 +210,7 @@ function WorkstationSelector() {
 
   return (
     <Select value={currentWorkstationId || '_none'} onValueChange={(v) => setCurrentWorkstationId(v === '_none' ? null : v)}>
-      <SelectTrigger className="h-8 w-[140px] text-[11px] border-gray-200 bg-gray-50/50">
+      <SelectTrigger className="h-8 w-[140px] text-[11px] border-gray-200 dark:border-gray-700 bg-gray-50/50">
         <div className="flex items-center gap-1.5 truncate">
           <Monitor className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <SelectValue placeholder="Select terminal" />
@@ -300,9 +300,9 @@ function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="w-80 p-0">
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
           {visibleCount > 0 && (
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-50 text-red-600 border-red-200">
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200">
               {visibleCount} alert{visibleCount !== 1 ? 's' : ''}
             </Badge>
           )}
@@ -320,7 +320,7 @@ function NotificationBell() {
             <div className="divide-y">
               {expiryNotifs.length > 0 && (
                 <>
-                  <div className="px-4 py-2 bg-amber-50/60">
+                  <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30/60">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" /> Near Expiry
                     </span>
@@ -329,10 +329,10 @@ function NotificationBell() {
                     <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group">
                       <div className="flex items-start gap-2.5">
                         <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-amber-100'}`}>
-                          <AlertTriangle className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600' : 'text-amber-600'}`} />
+                          <AlertTriangle className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{n.productName}</p>
                           <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
                         </div>
                         <button
@@ -358,10 +358,10 @@ function NotificationBell() {
                     <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group">
                       <div className="flex items-start gap-2.5">
                         <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-orange-100'}`}>
-                          <PackageX className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600' : 'text-orange-600'}`} />
+                          <PackageX className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-orange-600'}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-gray-900 truncate">{n.productName}</p>
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{n.productName}</p>
                           <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
                         </div>
                         <button
@@ -627,7 +627,7 @@ export default function Home() {
           </div>
           <div className="space-y-2">
             <div className="h-5 w-28 rounded-lg bg-emerald-100/80 animate-pulse" />
-            <div className="h-3 w-20 rounded-md bg-emerald-50/60 animate-pulse" />
+            <div className="h-3 w-20 rounded-md bg-emerald-50 dark:bg-emerald-900/30/60 animate-pulse" />
           </div>
         </div>
       </div>
@@ -723,8 +723,8 @@ export default function Home() {
                 key={item.name}
                 className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                   currentView === item.name
-                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
+                    : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100'
                 }`}
                 onClick={() => {
                   setCurrentView(item.name)
@@ -754,8 +754,8 @@ export default function Home() {
                 key={item.name}
                 className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                   currentView === item.name
-                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
+                    : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100'
                 }`}
                 onClick={() => {
                   setCurrentView(item.name)
@@ -770,7 +770,7 @@ export default function Home() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-gray-100 dark:border-gray-800 p-3">
+        <div className="border-t border-gray-100 dark:border-gray-800 dark:border-gray-800 p-3">
           <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-gray-50/50 dark:bg-gray-800/50">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
               <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
@@ -781,7 +781,7 @@ export default function Home() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+              className="h-7 w-7 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:hover:bg-red-950/30"
               onClick={() => setLogoutOpen(true)}
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -838,7 +838,7 @@ export default function Home() {
             {shiftActive && shiftStartedAt && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100">
                     <ClockIcon className="h-3.5 w-3.5" />
                     <span className="hidden md:inline">Active</span>
                   </Button>
@@ -862,7 +862,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-xs border-gray-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
+                className="h-8 gap-1.5 text-xs border-gray-200 dark:border-gray-700 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/30 hover:text-emerald-600 hover:border-emerald-200"
                 onClick={async () => {
                   if (!user) return
                   try {
@@ -924,7 +924,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                className="h-8 w-8 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:hover:bg-red-950/30"
                 onClick={() => setLogoutOpen(true)}
               >
                 <LogOut className="h-4 w-4" />
@@ -945,19 +945,19 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="border-t border-gray-100 bg-white/80 backdrop-blur-sm px-4 lg:px-6 py-3">
+        <footer className="border-t border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-4 lg:px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="h-6 w-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-sm">
                 <Pill className="h-3.5 w-3.5 text-white" />
               </div>
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="font-semibold text-gray-700">SelRx</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">SelRx</span>
                 <span className="text-gray-300">·</span>
                 <span className="text-muted-foreground">Pharmacy Management System</span>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground border-gray-200 h-5 px-2">
+            <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground border-gray-200 dark:border-gray-700 h-5 px-2">
               v1.0
             </Badge>
           </div>
@@ -1037,8 +1037,8 @@ export default function Home() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           {shiftActive && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-              <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 rounded-lg">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <p className="text-xs text-amber-800">
                 Shift started at {shiftStartedAt ? new Date(shiftStartedAt).toLocaleTimeString() : '—'}. You can end it later after signing back in.
               </p>

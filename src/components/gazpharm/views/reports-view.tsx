@@ -876,9 +876,9 @@ export function ReportsView() {
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
               <Label className="text-xs">From:</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
               <Label className="text-xs">To:</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white" />
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
             </div>
           </div>
         </div>
@@ -888,14 +888,14 @@ export function ReportsView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.today?.sales || 0)}
                   </div>
-                  <p className="text-xs text-gray-400">Today&apos;s Sales</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Today&apos;s Sales</p>
                 </div>
               </CardContent>
             </Card>
@@ -905,10 +905,10 @@ export function ReportsView() {
                   <ShoppingCart className="h-4.5 w-4.5 text-teal-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-12" /> : salesStats?.today?.count || 0}
                   </div>
-                  <p className="text-xs text-gray-400">Transactions Today</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Transactions Today</p>
                 </div>
               </CardContent>
             </Card>
@@ -918,23 +918,23 @@ export function ReportsView() {
                   <TrendingUp className="h-4.5 w-4.5 text-green-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisWeek?.sales || 0)}
                   </div>
-                  <p className="text-xs text-gray-400">This Week</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">This Week</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <CalendarDays className="h-4.5 w-4.5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <CalendarDays className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisMonth?.sales || 0)}
                   </div>
-                  <p className="text-xs text-gray-400">This Month</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">This Month</p>
                 </div>
               </CardContent>
             </Card>
@@ -944,7 +944,7 @@ export function ReportsView() {
             {/* Daily Sales Trend */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Daily Sales Trend (Last 7 Days)</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Daily Sales Trend (Last 7 Days)</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? <Skeleton className="h-64 w-full" /> : (
@@ -964,7 +964,7 @@ export function ReportsView() {
             {/* Sales by Category (Pie) */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Sales by Product</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales by Product</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? <Skeleton className="h-64 w-full" /> : (
@@ -986,7 +986,7 @@ export function ReportsView() {
           {/* Top Products Table */}
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800">Top Selling Products</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top Selling Products</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table className="table-header-standard">
@@ -1023,7 +1023,7 @@ export function ReportsView() {
           </Card>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportSalesSummaryCSV} disabled={loading}>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300" onClick={exportSalesSummaryCSV} disabled={loading}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
@@ -1052,7 +1052,7 @@ export function ReportsView() {
                 </>
               )}
             </div>
-            <Button variant="outline" size="sm" className="border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportUserSalesCSV} disabled={userSalesData.length === 0}>
+            <Button variant="outline" size="sm" className="border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300" onClick={exportUserSalesCSV} disabled={userSalesData.length === 0}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
@@ -1061,14 +1061,14 @@ export function ReportsView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesSummary?.totalSales || 0)}
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {isSuperAdmin
                       ? (selectedUserId === 'all' ? 'Total Sales (All Users)' : 'User Total Sales')
                       : 'My Total Sales'}
@@ -1082,36 +1082,36 @@ export function ReportsView() {
                   <ShoppingCart className="h-4.5 w-4.5 text-teal-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-12" /> : salesSummary?.totalTransactions || 0}
                   </div>
-                  <p className="text-xs text-gray-400">Total Transactions</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Total Transactions</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-sky-100 flex items-center justify-center">
-                  <TrendingUp className="h-4.5 w-4.5 text-sky-600" />
+                  <TrendingUp className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesSummary?.averageTransaction || 0)}
                   </div>
-                  <p className="text-xs text-gray-400">Avg Transaction</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Avg Transaction</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <Users className="h-4.5 w-4.5 text-amber-600" />
+                  <Users className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-12" /> : userSalesData.length}
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {isSuperAdmin ? 'Active Users' : 'Data Source'}
                   </p>
                 </div>
@@ -1125,7 +1125,7 @@ export function ReportsView() {
             {isSuperAdmin && selectedUserId === 'all' && userSalesChartData.length > 0 && (
               <Card className="card-hover transition-all duration-200">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-gray-800">Sales by User</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales by User</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {userSalesLoading ? <Skeleton className="h-64 w-full" /> : (
@@ -1150,7 +1150,7 @@ export function ReportsView() {
             {/* Daily Sales Trend Line Chart */}
             <Card className={`${!(isSuperAdmin && selectedUserId === 'all' && userSalesChartData.length > 0) ? 'lg:col-span-2' : ''} card-hover transition-all duration-200`}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Daily Sales Trend</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Daily Sales Trend</CardTitle>
               </CardHeader>
               <CardContent>
                 {userSalesLoading ? <Skeleton className="h-64 w-full" /> : userDailyChartData.length > 0 ? (
@@ -1175,8 +1175,8 @@ export function ReportsView() {
           {/* Per-User Sales Breakdown Table (SUPER_ADMIN: all users; others: own row) */}
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Users className="h-4.5 w-4.5 text-emerald-600" /></div>
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Users className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
                 {isSuperAdmin ? 'Sales Breakdown by User' : 'My Sales Performance'}
               </CardTitle>
             </CardHeader>
@@ -1215,10 +1215,10 @@ export function ReportsView() {
                       const totalAllSales = userSalesData.reduce((sum, x) => sum + x.totalSales, 0)
                       const sharePercent = totalAllSales > 0 ? ((u.totalSales / totalAllSales) * 100) : 0
                       return (
-                        <TableRow key={u.userId} className={i === 0 && isSuperAdmin ? 'bg-emerald-50/50' : ''}>
+                        <TableRow key={u.userId} className={i === 0 && isSuperAdmin ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20/50' : ''}>
                           {isSuperAdmin && selectedUserId === 'all' && (
                             <TableCell className="font-bold">
-                              {i === 0 && <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600 inline mr-1" />}
+                              {i === 0 && <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 inline mr-1" />}
                               {i + 1}
                             </TableCell>
                           )}
@@ -1265,12 +1265,12 @@ export function ReportsView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{inventory.length}</p>
-                  <p className="text-xs text-gray-400">Total SKUs</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{inventory.length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Total SKUs</p>
                 </div>
               </CardContent>
             </Card>
@@ -1280,8 +1280,8 @@ export function ReportsView() {
                   <Badge className="bg-red-600 text-white">{lowStockItems.length}</Badge>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-red-600">{lowStockItems.length}</p>
-                  <p className="text-xs text-gray-400">Low Stock Alerts</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{lowStockItems.length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Low Stock Alerts</p>
                 </div>
               </CardContent>
             </Card>
@@ -1291,8 +1291,8 @@ export function ReportsView() {
                   <Badge className="bg-amber-600 text-white">{expiringSoon.length}</Badge>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-amber-600">{expiringSoon.length}</p>
-                  <p className="text-xs text-gray-400">Expiring (30 days)</p>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{expiringSoon.length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Expiring (30 days)</p>
                 </div>
               </CardContent>
             </Card>
@@ -1301,7 +1301,7 @@ export function ReportsView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Stock by Category</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Stock by Category</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={280}>
@@ -1318,7 +1318,7 @@ export function ReportsView() {
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Low Stock Items</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Low Stock Items</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table className="table-header-standard">
@@ -1333,7 +1333,7 @@ export function ReportsView() {
                     {lowStockItems.map((item: any) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium text-sm">{item.product?.name}</TableCell>
-                        <TableCell className="text-right text-red-600 font-bold">{item.quantity}</TableCell>
+                        <TableCell className="text-right text-red-600 dark:text-red-400 font-bold">{item.quantity}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{item.product?.reorderPoint}</TableCell>
                       </TableRow>
                     ))}
@@ -1347,7 +1347,7 @@ export function ReportsView() {
           </div>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportInventoryCSV} disabled={inventory.length === 0}>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300" onClick={exportInventoryCSV} disabled={inventory.length === 0}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
@@ -1376,7 +1376,7 @@ export function ReportsView() {
 
           {/* Selection toolbar */}
           {selectedExpiredIds.size > 0 && (
-            <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
+            <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 border border-red-200 rounded-lg px-4 py-2 text-sm">
               <Checkbox
                 checked={expiredGoods.length > 0 && expiredGoods.every((p: any) => selectedExpiredIds.has(p.id))}
                 onCheckedChange={toggleSelectAllExpired}
@@ -1410,10 +1410,10 @@ export function ReportsView() {
                     <p className="text-[10px] text-muted-foreground">{expiredSummary?.processedItems || 0} removed, {expiredSummary?.unprocessedItems || 0} pending</p>
                   </CardContent>
                 </Card>
-                <Card className={(expiredSummary?.unprocessedItems || 0) > 0 ? 'border-red-200 bg-red-50/50' : ''}>
+                <Card className={(expiredSummary?.unprocessedItems || 0) > 0 ? 'border-red-200 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20/50' : ''}>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Unprocessed (In Stock)</p>
-                    <p className={`text-xl font-bold mt-1 ${(expiredSummary?.unprocessedItems || 0) > 0 ? 'text-red-600' : ''}`}>{expiredSummary?.unprocessedItems || 0}</p>
+                    <p className={`text-xl font-bold mt-1 ${(expiredSummary?.unprocessedItems || 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{expiredSummary?.unprocessedItems || 0}</p>
                     <p className="text-[10px] text-muted-foreground">Stock qty: {expiredSummary?.totalStockQty || 0}</p>
                   </CardContent>
                 </Card>
@@ -1427,7 +1427,7 @@ export function ReportsView() {
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost Value at Risk</p>
-                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
+                    <p className="text-xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1443,13 +1443,13 @@ export function ReportsView() {
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Potential Loss</p>
-                    <p className="text-xl font-bold mt-1 text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
+                    <p className="text-xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sold Before Expiry</p>
-                    <p className="text-xl font-bold mt-1 text-emerald-600">{expiredSummary?.totalQtySold || 0}</p>
+                    <p className="text-xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{expiredSummary?.totalQtySold || 0}</p>
                     <p className="text-[10px] text-muted-foreground">Revenue: {formatCurrency(expiredSummary?.totalSalesRevenue || 0)}</p>
                   </CardContent>
                 </Card>
@@ -1459,7 +1459,7 @@ export function ReportsView() {
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold text-gray-800">Expired Products Detail</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Expired Products Detail</CardTitle>
                     {expiredGoods.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Checkbox
@@ -1506,7 +1506,7 @@ export function ReportsView() {
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">{p.batchNumber || '—'}</TableCell>
                             <TableCell className="text-right">
-                              <span className={`font-bold text-sm ${p.processed ? 'text-orange-600' : p.stockQty > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              <span className={`font-bold text-sm ${p.processed ? 'text-orange-600' : p.stockQty > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                                 {p.processed ? (p.removedQty || 0) : p.stockQty}
                               </span>
                             </TableCell>
@@ -1514,10 +1514,10 @@ export function ReportsView() {
                               <Badge variant="outline" className="text-[10px]">{p.category?.replace(/_/g, ' ')}</Badge>
                             </TableCell>
                             <TableCell className="text-right text-xs">{formatCurrency(p.costPrice)}</TableCell>
-                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">
+                            <TableCell className="text-right text-xs text-red-600 dark:text-red-400 hidden sm:table-cell">
                               {p.costValue > 0 ? formatCurrency(p.costValue) : '—'}
                             </TableCell>
-                            <TableCell className="text-right text-xs text-red-600 hidden sm:table-cell">
+                            <TableCell className="text-right text-xs text-red-600 dark:text-red-400 hidden sm:table-cell">
                               {p.lossValue > 0 ? formatCurrency(p.lossValue) : '—'}
                             </TableCell>
                             <TableCell className="text-right text-xs text-gray-600 whitespace-nowrap">
@@ -1533,7 +1533,7 @@ export function ReportsView() {
                                     <CheckCircle2 className="h-3 w-3" /> Removed
                                   </Badge>
                                   <Button
-                                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:text-red-400"
                                     disabled={deletingExpired}
                                     onClick={() => deleteExpiredGoods({ batchIds: [p.id] })}
                                   >
@@ -1546,7 +1546,7 @@ export function ReportsView() {
                                     <AlertTriangle className="h-3 w-3" /> In Stock
                                   </Badge>
                                   <Button
-                                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:text-red-400"
                                     disabled={deletingExpired}
                                     onClick={() => deleteExpiredGoods({ batchIds: [p.id] })}
                                   >
@@ -1563,12 +1563,12 @@ export function ReportsView() {
                     </Table>
                   </div>
                   {/* Totals footer */}
-                  <div className="border-t px-4 py-2 bg-gray-50/80 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                  <div className="border-t px-4 py-2 bg-gray-50 dark:bg-gray-800/50/80 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
                     <span>Totals —</span>
                     <span>Batches: <strong>{expiredSummary?.totalItems || 0}</strong></span>
                     <span>Qty Removed: <strong className="text-orange-600">{expiredSummary?.totalRemovedQty || 0}</strong></span>
-                    <span>Cost Written Off: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalCostValue || 0)}</strong></span>
-                    <span>Loss: <strong className="text-red-600">{formatCurrency(expiredSummary?.totalLossValue || 0)}</strong></span>
+                    <span>Cost Written Off: <strong className="text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalCostValue || 0)}</strong></span>
+                    <span>Loss: <strong className="text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalLossValue || 0)}</strong></span>
                   </div>
                 </CardContent>
               </Card>
@@ -1581,12 +1581,12 @@ export function ReportsView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <span className="text-sm font-bold text-emerald-600">{prescriptions.length}</span>
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{prescriptions.length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{prescriptions.length}</p>
-                  <p className="text-xs text-gray-400">Total Prescriptions</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Total Prescriptions</p>
                 </div>
               </CardContent>
             </Card>
@@ -1596,19 +1596,19 @@ export function ReportsView() {
                   <span className="text-sm font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
-                  <p className="text-xs text-gray-400">Dispensed</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Dispensed</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <span className="text-sm font-bold text-amber-600">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
+                  <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
-                  <p className="text-xs text-gray-400">Urgent/STAT</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Urgent/STAT</p>
                 </div>
               </CardContent>
             </Card>
@@ -1617,7 +1617,7 @@ export function ReportsView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Prescriptions by Status</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Prescriptions by Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={280}>
@@ -1637,7 +1637,7 @@ export function ReportsView() {
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Recent Prescriptions</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Recent Prescriptions</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table className="table-header-standard">
@@ -1665,7 +1665,7 @@ export function ReportsView() {
           </div>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300" onClick={exportPrescriptionsCSV} disabled={prescriptions.length === 0}>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:text-gray-200 hover:border-gray-300" onClick={exportPrescriptionsCSV} disabled={prescriptions.length === 0}>
               <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
             </Button>
           </div>
@@ -1685,7 +1685,7 @@ export function ReportsView() {
             <>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-gray-800">Completed Stock Takes</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Completed Stock Takes</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table className="table-header-standard">
@@ -1738,23 +1738,23 @@ export function ReportsView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <span className="text-sm font-bold text-emerald-600">+</span>
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">+</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{products.length}</p>
-                  <p className="text-xs text-gray-400">Active Products</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{products.length}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Active Products</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Clock className="h-4.5 w-4.5 text-blue-600" />
+                  <Clock className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
-                  <p className="text-xs text-gray-400">Edits (this page)</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Edits (this page)</p>
                 </div>
               </CardContent>
             </Card>
@@ -1764,8 +1764,8 @@ export function ReportsView() {
                   <Trash2 className="h-4.5 w-4.5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
-                  <p className="text-xs text-gray-400">Deleted (this page)</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Deleted (this page)</p>
                 </div>
               </CardContent>
             </Card>
@@ -1780,7 +1780,7 @@ export function ReportsView() {
                 value={activitySearch}
                 onChange={(e) => setActivitySearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchActivityLog(1, activityFilter, activitySearch)}
-                className="pl-9 h-8 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white"
+                className="pl-9 h-8 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
               />
             </div>
             <Select value={activityFilter} onValueChange={(v) => setActivityFilter(v)}>
@@ -1798,7 +1798,7 @@ export function ReportsView() {
 
           {/* Selection toolbar */}
           {selectedLogIds.size > 0 && (
-            <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 border border-red-200 rounded-lg">
               <span className="text-xs font-medium text-red-700">{selectedLogIds.size} selected</span>
               <Button
                 variant="destructive"
@@ -1825,7 +1825,7 @@ export function ReportsView() {
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-semibold text-gray-800">Product Activity Log</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Product Activity Log</CardTitle>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
@@ -1841,7 +1841,7 @@ export function ReportsView() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="h-7 text-xs text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20"
                       onClick={handleDeleteAllLogs}
                       disabled={deletingLog}
                     >
@@ -1888,10 +1888,10 @@ export function ReportsView() {
                     activityLog.map((h: any) => {
                       const isExpanded = expandedActivity === h.id
                       const actionColor = h.action === 'CREATED'
-                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 border-emerald-200'
                         : h.action === 'DELETED'
-                        ? 'text-red-700 bg-red-50 border-red-200'
-                        : 'text-blue-700 bg-blue-50 border-blue-200'
+                        ? 'text-red-700 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 border-red-200'
+                        : 'text-blue-700 bg-blue-50 dark:bg-blue-900/30 border-blue-200'
                       const actionIcon = h.action === 'CREATED' ? '+' : h.action === 'DELETED' ? '-' : '~'
                       const prev = h.previousValues ? (typeof h.previousValues === 'string' ? JSON.parse(h.previousValues) : h.previousValues) : null
                       const next = h.newValues ? (typeof h.newValues === 'string' ? JSON.parse(h.newValues) : h.newValues) : null
@@ -1901,7 +1901,7 @@ export function ReportsView() {
                         <>
                           <TableRow
                             key={h.id}
-                            className={`${selectedLogIds.has(h.id) ? 'bg-red-50/50' : 'hover:bg-gray-50'} cursor-pointer`}
+                            className={`${selectedLogIds.has(h.id) ? 'bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20/50' : 'hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50'} cursor-pointer`}
                             onClick={() => setExpandedActivity(isExpanded ? null : h.id)}
                           >
                             <TableCell className="w-9" onClick={(e) => e.stopPropagation()}>
@@ -1935,7 +1935,7 @@ export function ReportsView() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                className="h-7 w-7 text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20"
                                 onClick={() => handleDeleteSingleLog(h.id)}
                                 disabled={deletingLog}
                               >
@@ -1946,15 +1946,15 @@ export function ReportsView() {
                           {/* Expanded detail row */}
                           {isExpanded && (
                             <TableRow key={`${h.id}-detail`}>
-                              <TableCell colSpan={8} className="bg-gray-50/80 px-6 py-3">
+                              <TableCell colSpan={8} className="bg-gray-50 dark:bg-gray-800/50/80 px-6 py-3">
                                 {h.action === 'UPDATED' && h.changedFields && (
                                   <div className="space-y-1.5">
                                     {(typeof h.changedFields === 'string' ? h.changedFields.split(', ') : (h.changedFields || [])).map((field: string, i: number) => (
-                                      <div key={i} className="text-xs flex items-start gap-2 bg-white rounded px-3 py-2 border">
+                                      <div key={i} className="text-xs flex items-start gap-2 bg-white dark:bg-gray-900 rounded px-3 py-2 border">
                                         <span className="font-medium text-gray-600 min-w-[100px]">{field}:</span>
                                         <span className="text-red-500 line-through">{prev?.[field] != null ? String(prev[field]) : '—'}</span>
-                                        <span className="text-gray-400 mx-1">→</span>
-                                        <span className="text-emerald-600 font-medium">{next?.[field] != null ? String(next[field]) : '—'}</span>
+                                        <span className="text-gray-400 dark:text-gray-500 mx-1">→</span>
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">{next?.[field] != null ? String(next[field]) : '—'}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -1968,7 +1968,7 @@ export function ReportsView() {
                                 )}
                                 {h.action === 'DELETED' && (
                                   <div className="text-xs text-muted-foreground">
-                                    Status changed to <span className="text-red-600 font-medium">DISCONTINUED</span>
+                                    Status changed to <span className="text-red-600 dark:text-red-400 font-medium">DISCONTINUED</span>
                                   </div>
                                 )}
                               </TableCell>
@@ -2013,8 +2013,8 @@ export function ReportsView() {
           {/* Delete Product Section */}
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center"><Trash2 className="h-4.5 w-4.5 text-red-500" /></div>
+              <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 flex items-center justify-center"><Trash2 className="h-4.5 w-4.5 text-red-500" /></div>
                 Discontinue Product
               </CardTitle>
             </CardHeader>
@@ -2027,7 +2027,7 @@ export function ReportsView() {
                     placeholder="Search products to discontinue..."
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    className="pl-9 h-8 text-xs bg-gray-50/50 border-gray-200/80 focus:bg-white"
+                    className="pl-9 h-8 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
                   />
                 </div>
               </div>
@@ -2042,7 +2042,7 @@ export function ReportsView() {
                     .map((p: any) => (
                       <div
                         key={p.id}
-                        className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 cursor-pointer"
+                        className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50 border-b last:border-b-0 cursor-pointer"
                         onClick={() => setDeleteProduct({ id: p.id, name: p.name })}
                       >
                         <div>
@@ -2083,7 +2083,7 @@ export function ReportsView() {
                 <select
                   value={shiftFilterUser}
                   onChange={(e) => setShiftFilterUser(e.target.value)}
-                  className="w-full h-8 text-xs border rounded-md px-2 bg-white"
+                  className="w-full h-8 text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
                 >
                   <option value="">All Users</option>
                   {shiftReport.users.map((u: { id: string; name: string }) => (
@@ -2134,13 +2134,13 @@ export function ReportsView() {
                     <p className="text-lg font-bold text-amber-800">{shiftReport.summary.totalItemsSold}</p>
                   </CardContent>
                 </Card>
-                <Card className="border-gray-200">
+                <Card className="border-gray-200 dark:border-gray-700">
                   <CardContent className="p-3">
-                    <div className="flex items-center gap-1.5 text-gray-700 mb-1">
+                    <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 mb-1">
                       <TrendingUp className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Products Sold</span>
                     </div>
-                    <p className="text-lg font-bold text-gray-800">{shiftReport.summary.totalProductsSold}</p>
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{shiftReport.summary.totalProductsSold}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -2155,7 +2155,7 @@ export function ReportsView() {
               {isSuperAdmin && shiftReport.salesByUser && shiftReport.salesByUser.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold text-gray-800">Sales by User</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales by User</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table className="table-header-standard">
@@ -2184,7 +2184,7 @@ export function ReportsView() {
               <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold text-gray-800">Individual Drug Quantities Sold</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Individual Drug Quantities Sold</CardTitle>
                     <div className="flex gap-1.5">
                       <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={handleShiftExportCSV}>
                         <Download className="h-3 w-3 mr-1" /> CSV
@@ -2228,7 +2228,7 @@ export function ReportsView() {
               {/* Inventory Snapshot */}
               <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-gray-800">Current Inventory ({shiftReport.inventorySnapshot?.length || 0} items in stock)</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Current Inventory ({shiftReport.inventorySnapshot?.length || 0} items in stock)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {(!shiftReport.inventorySnapshot || shiftReport.inventorySnapshot.length === 0) ? (
@@ -2269,7 +2269,7 @@ export function ReportsView() {
               {/* Shift History */}
               <Card className="overflow-hidden">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-gray-800">Shift History</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Shift History</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {shiftReport.shiftHistory.length === 0 ? (
@@ -2292,7 +2292,7 @@ export function ReportsView() {
                           {shiftReport.shiftHistory.filter((s: any) => s.status === 'ENDED').map((s: any) => (
                             <TableRow
                               key={s.id}
-                              className={`cursor-pointer hover:bg-muted/50 ${discrepancy?.currentShift?.id === s.id ? 'bg-amber-50' : ''}`}
+                              className={`cursor-pointer hover:bg-muted/50 ${discrepancy?.currentShift?.id === s.id ? 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20' : ''}`}
                               onClick={() => fetchDiscrepancy(s.id)}
                             >
                               <TableCell className="text-sm font-medium">{s.userName}</TableCell>
@@ -2309,7 +2309,7 @@ export function ReportsView() {
                               </TableCell>
                               <TableCell className="text-xs text-center font-mono">{s.totalTransactions}</TableCell>
                               <TableCell className="text-xs text-right font-mono">{formatCurrency(s.totalSales)}</TableCell>
-                              <TableCell className={`text-xs text-right font-mono font-medium ${s.cashDiscrepancy == null ? 'text-muted-foreground' : s.cashDiscrepancy > 0 ? 'text-red-600' : s.cashDiscrepancy < 0 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                              <TableCell className={`text-xs text-right font-mono font-medium ${s.cashDiscrepancy == null ? 'text-muted-foreground' : s.cashDiscrepancy > 0 ? 'text-red-600 dark:text-red-400' : s.cashDiscrepancy < 0 ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 {s.cashDiscrepancy != null ? `${s.cashDiscrepancy > 0 ? '-' : '+'}${formatCurrency(Math.abs(s.cashDiscrepancy))}` : '—'}
                               </TableCell>
                             </TableRow>
@@ -2327,8 +2327,8 @@ export function ReportsView() {
           <Card className="overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                  <Camera className="h-4 w-4 text-emerald-600" />
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                  <Camera className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   Daily Shift Snapshots & Cash Accounting
                   {snapshotData?.shifts && (
                     <Badge variant="outline" className="ml-2 text-[10px] font-normal">
@@ -2377,12 +2377,12 @@ export function ReportsView() {
                 <>
                   {/* Daily Summary Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 text-center">
-                      <p className="text-[10px] text-emerald-600 font-medium">Total Day Sales</p>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20/50 p-2.5 text-center">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Total Day Sales</p>
                       <p className="text-base font-bold text-emerald-800">{formatCurrency(snapshotData.dailySummary.totalSales)}</p>
                     </div>
-                    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-2.5 text-center">
-                      <p className="text-[10px] text-blue-600 font-medium">Total Transactions</p>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/30/50 p-2.5 text-center">
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Total Transactions</p>
                       <p className="text-base font-bold text-blue-800">{snapshotData.dailySummary.totalTransactions}</p>
                     </div>
                     <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-2.5 text-center">
@@ -2393,8 +2393,8 @@ export function ReportsView() {
                           : '—'}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 text-center">
-                      <p className="text-[10px] text-amber-600 font-medium">Cash Variance</p>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20/50 p-2.5 text-center">
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Cash Variance</p>
                       <p className={`text-base font-bold ${snapshotData.dailySummary.totalCashDiscrepancy > 0 ? 'text-red-700' : snapshotData.dailySummary.totalCashDiscrepancy < 0 ? 'text-blue-700' : 'text-emerald-700'}`}>
                         {snapshotData.dailySummary.hasCashData
                           ? `${snapshotData.dailySummary.totalCashDiscrepancy > 0 ? '-' : '+'}${formatCurrency(Math.abs(snapshotData.dailySummary.totalCashDiscrepancy))}`
@@ -2407,7 +2407,7 @@ export function ReportsView() {
                   <div className="mb-4">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Cash Accounting Per Shift</p>
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Cash Accounting Per Shift</p>
                     </div>
                     <div className="overflow-x-auto">
                       <Table className="table-header-standard">
@@ -2440,7 +2440,7 @@ export function ReportsView() {
                               <TableCell className="text-xs text-right font-mono">{s.cashAtStart != null ? formatCurrency(s.cashAtStart) : '—'}</TableCell>
                               <TableCell className="text-xs text-right font-mono">{s.cashAtEnd != null ? formatCurrency(s.cashAtEnd) : '—'}</TableCell>
                               <TableCell className="text-xs text-right font-mono">{s.expectedCash != null ? formatCurrency(s.expectedCash) : '—'}</TableCell>
-                              <TableCell className={`text-xs text-right font-mono font-medium ${s.cashDiscrepancy == null ? 'text-muted-foreground' : s.cashDiscrepancy > 0 ? 'text-red-600' : s.cashDiscrepancy < 0 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                              <TableCell className={`text-xs text-right font-mono font-medium ${s.cashDiscrepancy == null ? 'text-muted-foreground' : s.cashDiscrepancy > 0 ? 'text-red-600 dark:text-red-400' : s.cashDiscrepancy < 0 ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 {s.cashDiscrepancy != null ? `${s.cashDiscrepancy > 0 ? '-' : '+'}${formatCurrency(Math.abs(s.cashDiscrepancy))}` : '—'}
                               </TableCell>
                               <TableCell className="text-center">
@@ -2466,7 +2466,7 @@ export function ReportsView() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                           <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                             Inventory Snapshot — {snapshotData.shifts.find((s: any) => s.shiftId === expandedShiftSnap)?.userName}
                           </p>
                           <Badge variant="outline" className="text-[10px]">
@@ -2523,7 +2523,7 @@ export function ReportsView() {
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Stock Snapshot Comparison Across Shifts
                         </p>
                         <Badge variant="outline" className="text-[10px]">
@@ -2544,7 +2544,7 @@ export function ReportsView() {
                         )}
                       </div>
                       {snapshotData.previousDayBaseline && (
-                        <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2.5 py-1.5 mb-2 flex items-center gap-1.5">
+                        <div className="text-[11px] text-blue-700 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded px-2.5 py-1.5 mb-2 flex items-center gap-1.5">
                           <Clock className="h-3 w-3 shrink-0" />
                           <span>Previous day end stock included — from <strong>{snapshotData.previousDayBaseline.userName}</strong>'s shift ended at {format(new Date(snapshotData.previousDayBaseline.endedAt), dateFormat === 'dd/mm/yyyy' ? 'dd/MM/yyyy HH:mm' : dateFormat === 'mm/dd/yyyy' ? 'MM/dd/yyyy hh:mm a' : 'yyyy-MM-dd HH:mm')} ({snapshotData.previousDayBaseline.itemCount} items)</span>
                         </div>
@@ -2556,7 +2556,7 @@ export function ReportsView() {
                         </div>
                       )}
                       {!snapshotData.previousDayBaseline && snapshotData.shifts.length === 1 && (
-                        <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-2">
+                        <div className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20 border border-amber-200 rounded p-2 mb-2">
                           No previous day snapshot found. Comparison requires at least 2 shifts today or a previous day's ended shift with inventory snapshot.
                         </div>
                       )}
@@ -2568,9 +2568,9 @@ export function ReportsView() {
                               <TableHead className="text-xs">Product</TableHead>
                               <TableHead className="text-xs">Category</TableHead>
                               {snapshotData.previousDayBaseline && (
-                                <TableHead className="text-xs text-center min-w-[90px] bg-amber-50/60">
+                                <TableHead className="text-xs text-center min-w-[90px] bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20/60">
                                   <div className="flex items-center justify-center gap-1">
-                                    <Clock className="h-3 w-3 text-amber-600" />
+                                    <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                                     <span>Prev Day End</span>
                                   </div>
                                   <div className="text-[9px] font-normal text-muted-foreground">
@@ -2604,7 +2604,7 @@ export function ReportsView() {
                                   <TableCell className="text-sm font-medium">{item.productName}</TableCell>
                                   <TableCell className="text-[11px] text-muted-foreground">{item.category || '—'}</TableCell>
                                   {snapshotData.previousDayBaseline && (
-                                    <TableCell className={`text-xs text-center font-mono ${isExpiredRow ? 'bg-orange-50/50' : 'bg-amber-50/30'}`}>
+                                    <TableCell className={`text-xs text-center font-mono ${isExpiredRow ? 'bg-orange-50/50' : 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20/30'}`}>
                                       <span className={item.prevDayQty === 0 ? 'text-muted-foreground/40' : 'font-medium'}>{item.prevDayQty}</span>
                                     </TableCell>
                                   )}
@@ -2648,7 +2648,7 @@ export function ReportsView() {
                                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
                                     ) : null}
                                   </TableCell>
-                                  <TableCell className={`text-xs text-right font-mono font-medium ${displayVariance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                  <TableCell className={`text-xs text-right font-mono font-medium ${displayVariance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                     {displayVariance > 0 ? formatCurrency(displayVariance * item.costPrice) : ''}
                                   </TableCell>
                                 </TableRow>
@@ -2665,13 +2665,13 @@ export function ReportsView() {
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <PackageX className="h-3.5 w-3.5 text-orange-500" />
-                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                           Expired Since Last Shift
                         </p>
                         <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">
                           {snapshotData.expiredSummary.totalProducts} products
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] border-red-300 text-red-700 bg-red-50">
+                        <Badge variant="outline" className="text-[10px] border-red-300 text-red-700 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20">
                           Loss: {formatCurrency(snapshotData.expiredSummary.totalCostLoss)}
                         </Badge>
                       </div>
@@ -2712,7 +2712,7 @@ export function ReportsView() {
                                 </TableCell>
                                 <TableCell className="text-xs text-center font-mono font-medium text-orange-700">{exp.totalExpiredQty}</TableCell>
                                 <TableCell className="text-xs text-right font-mono">{formatCurrency(exp.costPrice)}</TableCell>
-                                <TableCell className="text-xs text-right font-mono font-medium text-red-600">{formatCurrency(exp.costLoss)}</TableCell>
+                                <TableCell className="text-xs text-right font-mono font-medium text-red-600 dark:text-red-400">{formatCurrency(exp.costLoss)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -2736,7 +2736,7 @@ export function ReportsView() {
           <Card className={discrepancy?.hasData && discrepancy.summary.totalDiscrepancies > 0 ? 'border-amber-300 overflow-hidden' : 'overflow-hidden'}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   Shift Discrepancy Analysis
                       {discrepancy?.hasData && discrepancy.totalHandoffs > 1 && (
@@ -2774,12 +2774,12 @@ export function ReportsView() {
                           <p className="text-base font-bold">{discrepancy.summary.totalDiscrepancies}</p>
                         </div>
                         <div className="rounded-lg border border-red-200 p-2.5 text-center">
-                          <p className="text-[10px] text-red-600">Shortages</p>
+                          <p className="text-[10px] text-red-600 dark:text-red-400">Shortages</p>
                           <p className="text-base font-bold text-red-700">{discrepancy.summary.shortageCount}</p>
                           <p className="text-[10px] text-red-500 font-mono">{formatCurrency(discrepancy.summary.totalShortageCost)}</p>
                         </div>
                         <div className="rounded-lg border border-blue-200 p-2.5 text-center">
-                          <p className="text-[10px] text-blue-600">Overs</p>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400">Overs</p>
                           <p className="text-base font-bold text-blue-700">{discrepancy.summary.overCount}</p>
                           <p className="text-[10px] text-blue-500 font-mono">{formatCurrency(discrepancy.summary.totalOverCost)}</p>
                         </div>
@@ -2803,13 +2803,13 @@ export function ReportsView() {
                           )}
 
                           {comp.usingLiveInventory && (
-                            <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-3">
+                            <div className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20 border border-amber-200 rounded p-2 mb-3">
                               Note: Using live inventory (no snapshot at shift end). Future shifts will have snapshots automatically.
                             </div>
                           )}
 
                           {comp.reconstructedPrevious && (
-                            <div className="text-[11px] text-blue-600 bg-blue-50 border border-blue-200 rounded p-2 mb-3">
+                            <div className="text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded p-2 mb-3">
                               Prev Stock is approximated (no snapshot saved when that shift ended). It is reconstructed from current stock + sales since then. Future shifts will capture exact snapshots.
                             </div>
                           )}
@@ -2859,7 +2859,7 @@ export function ReportsView() {
                                     <p>Actual: <span className="font-mono">{formatCurrency(comp.cashHandoff.prevCashAtEnd)}</span></p>
                                   )}
                                   {comp.cashHandoff.prevCashDiscrepancy != null && (
-                                    <p className={comp.cashHandoff.prevCashDiscrepancy > 0 ? 'text-red-600 font-medium' : comp.cashHandoff.prevCashDiscrepancy < 0 ? 'text-blue-600 font-medium' : 'text-emerald-600 font-medium'}>
+                                    <p className={comp.cashHandoff.prevCashDiscrepancy > 0 ? 'text-red-600 dark:text-red-400 font-medium' : comp.cashHandoff.prevCashDiscrepancy < 0 ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-emerald-600 dark:text-emerald-400 font-medium'}>
                                       Diff: {comp.cashHandoff.prevCashDiscrepancy > 0 ? '-' : '+'}{formatCurrency(Math.abs(comp.cashHandoff.prevCashDiscrepancy))}
                                     </p>
                                   )}
@@ -2874,7 +2874,7 @@ export function ReportsView() {
                                     <p>Actual: <span className="font-mono">{formatCurrency(comp.cashHandoff.curCashAtEnd)}</span></p>
                                   )}
                                   {comp.cashHandoff.curCashDiscrepancy != null && (
-                                    <p className={comp.cashHandoff.curCashDiscrepancy > 0 ? 'text-red-600 font-medium' : comp.cashHandoff.curCashDiscrepancy < 0 ? 'text-blue-600 font-medium' : 'text-emerald-600 font-medium'}>
+                                    <p className={comp.cashHandoff.curCashDiscrepancy > 0 ? 'text-red-600 dark:text-red-400 font-medium' : comp.cashHandoff.curCashDiscrepancy < 0 ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-emerald-600 dark:text-emerald-400 font-medium'}>
                                       Diff: {comp.cashHandoff.curCashDiscrepancy > 0 ? '-' : '+'}{formatCurrency(Math.abs(comp.cashHandoff.curCashDiscrepancy))}
                                     </p>
                                   )}
@@ -2885,7 +2885,7 @@ export function ReportsView() {
                                     <p className="font-medium text-muted-foreground">Handoff Gap</p>
                                     <p>Prev ended with: <span className="font-mono">{formatCurrency(comp.cashHandoff.prevCashAtEnd!)}</span></p>
                                     <p>Cur started with: <span className="font-mono">{formatCurrency(comp.cashHandoff.curCashAtStart!)}</span></p>
-                                    <p className={comp.cashHandoff.handoffCashGap !== 0 ? 'text-red-600 font-medium' : 'text-emerald-600 font-medium'}>
+                                    <p className={comp.cashHandoff.handoffCashGap !== 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-emerald-600 dark:text-emerald-400 font-medium'}>
                                       Gap: {formatCurrency(Math.abs(comp.cashHandoff.handoffCashGap))}
                                       {comp.cashHandoff.handoffCashGap !== 0 ? (comp.cashHandoff.handoffCashGap > 0 ? ' (excess)' : ' (shortage)') : ' (balanced)'}
                                     </p>
@@ -2930,7 +2930,7 @@ export function ReportsView() {
                                           {d.discrepancy > 0 ? `-${d.discrepancy}` : `+${Math.abs(d.discrepancy)}`}
                                         </Badge>
                                       </TableCell>
-                                      <TableCell className={`text-xs text-right font-mono font-medium ${d.discrepancy > 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                                      <TableCell className={`text-xs text-right font-mono font-medium ${d.discrepancy > 0 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
                                         {formatCurrency(d.discrepancyCost)}
                                       </TableCell>
                                     </TableRow>

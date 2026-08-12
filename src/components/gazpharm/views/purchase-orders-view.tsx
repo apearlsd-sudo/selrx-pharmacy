@@ -140,7 +140,7 @@ function statusBadge(status: string) {
     case 'CANCELLED':
       return <Badge className="bg-red-100 text-red-700 text-xs border-red-200"><XCircle className="h-3 w-3 mr-1" />Cancelled</Badge>
     default:
-      return <Badge className="bg-gray-100 text-gray-700 text-xs border-gray-200">{status}</Badge>
+      return <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs border-gray-200 dark:border-gray-700">{status}</Badge>
   }
 }
 
@@ -652,7 +652,7 @@ export function PurchaseOrdersView() {
                             <TableCell className="font-medium text-sm">{item.productName}</TableCell>
                             <TableCell className="text-right">{item.quantity}</TableCell>
                             <TableCell className="text-right">
-                              <span className={item.receivedQty >= item.quantity ? 'text-emerald-600 font-medium' : item.receivedQty > 0 ? 'text-amber-600' : ''}>
+                              <span className={item.receivedQty >= item.quantity ? 'text-emerald-600 dark:text-emerald-400 font-medium' : item.receivedQty > 0 ? 'text-amber-600 dark:text-amber-400' : ''}>
                                 {item.receivedQty}
                               </span>
                             </TableCell>
@@ -668,7 +668,7 @@ export function PurchaseOrdersView() {
                   <div className="flex justify-between items-center text-sm px-1">
                     <div>
                       <span className="text-muted-foreground">Received Amount: </span>
-                      <span className="font-medium text-emerald-600">{formatCurrency(detailOrder.receivedAmount)}</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(detailOrder.receivedAmount)}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Order Total: </span>
@@ -686,7 +686,7 @@ export function PurchaseOrdersView() {
                         <Button size="sm" variant="destructive" onClick={() => setCancelTarget(detailOrder)}>
                           <XCircle className="h-4 w-4 mr-1" /> Cancel
                         </Button>
-                        <Button size="sm" variant="outline" className="text-red-600" onClick={() => setDeleteTarget(detailOrder)}>
+                        <Button size="sm" variant="outline" className="text-red-600 dark:text-red-400" onClick={() => setDeleteTarget(detailOrder)}>
                           <Trash2 className="h-4 w-4 mr-1" /> Delete
                         </Button>
                       </>

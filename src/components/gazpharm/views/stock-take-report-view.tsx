@@ -289,7 +289,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold">{title}</h3>
             {badge !== undefined && (
-              <Badge className={`text-[10px] px-1.5 py-0 ${badgeColor || 'bg-gray-100 text-gray-700'}`}>{badge}</Badge>
+              <Badge className={`text-[10px] px-1.5 py-0 ${badgeColor || 'bg-gray-100 text-gray-700 dark:text-gray-300'}`}>{badge}</Badge>
             )}
           </div>
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}

@@ -76,7 +76,7 @@ function reasonBadgeColor(reason: string): string {
     case 'DAMAGED': return 'bg-rose-100 text-rose-700 border-rose-200'
     case 'CUSTOMER_CHANGE_OF_MIND': return 'bg-amber-100 text-amber-700 border-amber-200'
     case 'RECALLED': return 'bg-sky-100 text-sky-700 border-sky-200'
-    default: return 'bg-gray-100 text-gray-700 border-gray-200'
+    default: return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
   }
 }
 
@@ -96,9 +96,9 @@ function statusBadge(status: string) {
     case 'COMPLETED':
       return <Badge className="bg-emerald-100 text-emerald-700 text-xs border-emerald-200"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>
     case 'CANCELLED':
-      return <Badge className="bg-gray-100 text-gray-600 text-xs border-gray-200"><Ban className="h-3 w-3 mr-1" />Cancelled</Badge>
+      return <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-600 text-xs border-gray-200 dark:border-gray-700"><Ban className="h-3 w-3 mr-1" />Cancelled</Badge>
     default:
-      return <Badge className="bg-gray-100 text-gray-700 text-xs border-gray-200">{status}</Badge>
+      return <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs border-gray-200 dark:border-gray-700">{status}</Badge>
   }
 }
 
@@ -302,10 +302,10 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Returns</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{summary.totalReturns}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{summary.totalReturns}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <RotateCcw className="h-5 w-5 text-emerald-600" />
+                <RotateCcw className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
           </CardContent>
@@ -316,10 +316,10 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pending Approval</p>
-                <p className="text-2xl font-bold text-amber-600 mt-1">{summary.pendingCount}</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{summary.pendingCount}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-amber-600" />
+                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
           </CardContent>
@@ -330,10 +330,10 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completed</p>
-                <p className="text-2xl font-bold text-emerald-600 mt-1">{summary.completedCount}</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{summary.completedCount}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
           </CardContent>
@@ -344,7 +344,7 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Refunded</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(summary.totalRefundAmount)}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{formatCurrency(summary.totalRefundAmount)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-rose-100 flex items-center justify-center">
                 <TrendingDown className="h-5 w-5 text-rose-600" />
@@ -448,7 +448,7 @@ export function GoodsReturnView() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="border-none shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-900">Return Reasons</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-900 dark:text-gray-100">Return Reasons</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="h-56">
@@ -490,7 +490,7 @@ export function GoodsReturnView() {
 
           <Card className="border-none shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-900">Reason Distribution</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-900 dark:text-gray-100">Reason Distribution</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="h-56">
@@ -531,7 +531,7 @@ export function GoodsReturnView() {
         <DialogContent className="max-w-lg max-h-[85vh] rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-emerald-600" />
+              <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               Return Ticket Detail
             </DialogTitle>
           </DialogHeader>
@@ -541,7 +541,7 @@ export function GoodsReturnView() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-lg font-bold text-gray-900">{detailReturn.returnNo}</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{detailReturn.returnNo}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(detailReturn.createdAt)}</p>
                 </div>
                 {statusBadge(detailReturn.status)}
@@ -549,19 +549,19 @@ export function GoodsReturnView() {
 
               {/* Info grid */}
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Product</p>
-                  <p className="font-semibold text-gray-900">{detailReturn.productName}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{detailReturn.productName}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Quantity</p>
-                  <p className="font-semibold text-gray-900">{detailReturn.quantity}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{detailReturn.quantity}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Refund Amount</p>
-                  <p className="font-semibold text-emerald-600">{formatCurrency(detailReturn.refundAmount)}</p>
+                  <p className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(detailReturn.refundAmount)}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Reason</p>
                   <p>
                     <Badge className={`text-xs ${reasonBadgeColor(detailReturn.reason)}`}>
@@ -569,41 +569,41 @@ export function GoodsReturnView() {
                     </Badge>
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Original TXN</p>
-                  <p className="font-semibold text-gray-900">{detailReturn.transaction?.transactionNo}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{detailReturn.transaction?.transactionNo}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Refund Method</p>
-                  <p className="font-semibold text-gray-900">{(detailReturn.refundMethod || '').replace(/_/g, ' ')}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{(detailReturn.refundMethod || '').replace(/_/g, ' ')}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Processed By</p>
-                  <p className="font-semibold text-gray-900">{detailReturn.user?.name}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{detailReturn.user?.name}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Restocked</p>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
                     {detailReturn.restocked ? (
-                      <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Yes</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Yes</span>
                     ) : (
-                      <span className="text-amber-600 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> No</span>
+                      <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> No</span>
                     )}
                   </p>
                 </div>
               </div>
 
               {detailReturn.customerName && (
-                <div className="bg-gray-50 rounded-lg p-3 text-xs">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 text-xs">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Customer</p>
-                  <p className="font-semibold text-gray-900">{detailReturn.customerName}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{detailReturn.customerName}</p>
                 </div>
               )}
 
               {detailReturn.approvedBy && (
-                <div className="bg-blue-50 rounded-lg p-3 text-xs">
-                  <p className="text-blue-600 font-medium uppercase tracking-wide">Approved By</p>
-                  <p className="font-semibold text-gray-900">
+                <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-3 text-xs">
+                  <p className="text-blue-600 dark:text-blue-400 font-medium uppercase tracking-wide">Approved By</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
                     {detailReturn.approvedBy.name}
                     {detailReturn.approvedAt && <span className="ml-2 text-muted-foreground">{formatDate(detailReturn.approvedAt)}</span>}
                   </p>
@@ -611,16 +611,16 @@ export function GoodsReturnView() {
               )}
 
               {detailReturn.reasonNote && (
-                <div className="bg-amber-50 rounded-lg p-3 text-xs">
+                <div className="bg-amber-50 dark:bg-amber-900/30 rounded-lg p-3 text-xs">
                   <p className="text-amber-700 font-medium uppercase tracking-wide">Reason Notes</p>
-                  <p className="text-gray-700 mt-0.5">{detailReturn.reasonNote}</p>
+                  <p className="text-gray-700 dark:text-gray-300 mt-0.5">{detailReturn.reasonNote}</p>
                 </div>
               )}
 
               {detailReturn.notes && (
-                <div className="bg-gray-50 rounded-lg p-3 text-xs">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 text-xs">
                   <p className="text-muted-foreground font-medium uppercase tracking-wide">Notes</p>
-                  <p className="text-gray-700 mt-0.5">{detailReturn.notes}</p>
+                  <p className="text-gray-700 dark:text-gray-300 mt-0.5">{detailReturn.notes}</p>
                 </div>
               )}
 
@@ -756,7 +756,7 @@ function ReturnTable({
       <CardContent className="p-0">
         <Table className="table-header-standard">
           <TableHeader>
-            <TableRow className="bg-gray-50/80">
+            <TableRow className="bg-gray-50 dark:bg-gray-800/50/80">
               <TableHead className="text-xs font-semibold">Return #</TableHead>
               <TableHead className="text-xs font-semibold">Product</TableHead>
               <TableHead className="text-xs font-semibold">Customer</TableHead>
@@ -771,7 +771,7 @@ function ReturnTable({
           </TableHeader>
           <TableBody>
             {returns.map((ret) => (
-              <TableRow key={ret.id} className="hover:bg-gray-50/50">
+              <TableRow key={ret.id} className="hover:bg-gray-50 dark:bg-gray-800/50/50">
                 <TableCell className="text-xs font-mono font-medium text-emerald-700">{ret.returnNo}</TableCell>
                 <TableCell>
                   <div className="text-xs">
@@ -783,7 +783,7 @@ function ReturnTable({
                   {ret.customerName ? ret.customerName : <span className="italic">Walk-in</span>}
                 </TableCell>
                 <TableCell className="text-xs font-medium text-right">{ret.quantity}</TableCell>
-                <TableCell className="text-xs font-semibold text-right text-emerald-600">{formatCurrency(ret.refundAmount)}</TableCell>
+                <TableCell className="text-xs font-semibold text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(ret.refundAmount)}</TableCell>
                 <TableCell>
                   <Badge className={`text-[10px] ${reasonBadgeColor(ret.reason)}`}>
                     {reasonLabel(ret.reason)}
@@ -809,15 +809,15 @@ function ReturnTable({
                           {(userRole === 'SUPER_ADMIN' || ret.transactionUserId === userId) && (
                             <>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'complete')} disabled={actionLoading}>
-                                <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Approve & Restock
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600 dark:text-emerald-400" /> Approve & Restock
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => onAction(ret.id, 'reject')} disabled={actionLoading}>
-                                <XCircle className="h-3.5 w-3.5 mr-2 text-red-600" /> Reject
+                                <XCircle className="h-3.5 w-3.5 mr-2 text-red-600 dark:text-red-400" /> Reject
                               </DropdownMenuItem>
                             </>
                           )}
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'cancel')} disabled={actionLoading}>
-                            <Ban className="h-3.5 w-3.5 mr-2 text-gray-500" /> Cancel
+                            <Ban className="h-3.5 w-3.5 mr-2 text-gray-500 dark:text-gray-400 dark:text-gray-500" /> Cancel
                           </DropdownMenuItem>
                         </>
                       )}
@@ -825,10 +825,10 @@ function ReturnTable({
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'complete')} disabled={actionLoading}>
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Complete
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600 dark:text-emerald-400" /> Complete
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onAction(ret.id, 'cancel')} disabled={actionLoading}>
-                            <Ban className="h-3.5 w-3.5 mr-2 text-gray-500" /> Cancel
+                            <Ban className="h-3.5 w-3.5 mr-2 text-gray-500 dark:text-gray-400 dark:text-gray-500" /> Cancel
                           </DropdownMenuItem>
                         </>
                       )}
