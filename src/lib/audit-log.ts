@@ -1,10 +1,11 @@
 import { turso, isTurso, generateId } from './turso'
 
-// Ensure AuditLog table exists in Turso (idempotent)
+// Ensure AuditLog table + columns exist in Turso (idempotent, handles schema drift)
 let ensured = false
 async function ensureTable() {
   if (ensured || !isTurso()) return
   try {
+    // 1. Create table if missing (new deployments)
     await turso.execute({
       sql: `CREATE TABLE IF NOT EXISTS "AuditLog" (
         id TEXT PRIMARY KEY,
@@ -20,7 +21,22 @@ async function ensureTable() {
     )`,
       args: [],
     })
-    // Create index for faster querying
+
+    // 2. Migrate: add columns that may be missing from older schema pushes.
+    //    Each ALTER is wrapped individually so one failure doesn't block the rest.
+    const migrations = [
+      `ALTER TABLE "AuditLog" ADD COLUMN category TEXT NOT NULL DEFAULT 'general'`,
+      `ALTER TABLE "AuditLog" ADD COLUMN entity TEXT`,
+      `ALTER TABLE "AuditLog" ADD COLUMN "entityId" TEXT`,
+      `ALTER TABLE "AuditLog" ADD COLUMN "userAgent" TEXT`,
+    ]
+    for (const sql of migrations) {
+      try { await turso.execute({ sql, args: [] }) } catch {
+        // "duplicate column name" — expected if column already exists, ignore
+      }
+    }
+
+    // 3. Create indexes for faster querying
     await turso.execute({
       sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_category" ON "AuditLog"(category)`,
       args: [],

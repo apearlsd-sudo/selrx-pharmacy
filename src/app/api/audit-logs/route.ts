@@ -5,6 +5,7 @@ let ensured = false
 async function ensureTable() {
   if (ensured || !isTurso()) return
   try {
+    // 1. Create table if missing (new deployments)
     await turso.execute({
       sql: `CREATE TABLE IF NOT EXISTS "AuditLog" (
         id TEXT PRIMARY KEY,
@@ -20,11 +21,26 @@ async function ensureTable() {
     )`,
       args: [],
     })
+
+    // 2. Migrate: add columns that may be missing from older schema pushes
+    const migrations = [
+      `ALTER TABLE "AuditLog" ADD COLUMN category TEXT NOT NULL DEFAULT 'general'`,
+      `ALTER TABLE "AuditLog" ADD COLUMN entity TEXT`,
+      `ALTER TABLE "AuditLog" ADD COLUMN "entityId" TEXT`,
+      `ALTER TABLE "AuditLog" ADD COLUMN "userAgent" TEXT`,
+    ]
+    for (const sql of migrations) {
+      try { await turso.execute({ sql, args: [] }) } catch {
+        // "duplicate column name" — expected, ignore
+      }
+    }
+
+    // 3. Indexes
     await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_category" ON "AuditLog"(category)`, args: [] })
     await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_user" ON "AuditLog"("userId")`, args: [] })
     await turso.execute({ sql: `CREATE INDEX IF NOT EXISTS "idx_auditlog_created" ON "AuditLog"("createdAt")`, args: [] })
     ensured = true
-    console.log('[audit-logs] AuditLog table ensured')
+    console.log('[audit-logs] AuditLog table + columns ensured')
   } catch (err) {
     console.error('[audit-logs] Failed to ensure table:', err)
   }

@@ -60,7 +60,7 @@ export async function GET() {
     steps.push({ step: 'Table check', ok: false, detail: 'Failed', error: err instanceof Error ? err.message : String(err) })
   }
 
-  // Step 3: Try CREATE TABLE IF NOT EXISTS
+  // Step 3: CREATE TABLE IF NOT EXISTS
   try {
     await turso.execute({
       sql: `CREATE TABLE IF NOT EXISTS "AuditLog" (
@@ -81,6 +81,25 @@ export async function GET() {
   } catch (err) {
     steps.push({ step: 'CREATE TABLE IF NOT EXISTS', ok: false, detail: 'Failed', error: err instanceof Error ? err.message : String(err) })
   }
+
+  // Step 3.5: ALTER TABLE to add missing columns (schema drift fix)
+  const colMigrations = [
+    `ALTER TABLE "AuditLog" ADD COLUMN category TEXT NOT NULL DEFAULT 'general'`,
+    `ALTER TABLE "AuditLog" ADD COLUMN entity TEXT`,
+    `ALTER TABLE "AuditLog" ADD COLUMN "entityId" TEXT`,
+    `ALTER TABLE "AuditLog" ADD COLUMN "userAgent" TEXT`,
+  ]
+  const migrationResults: string[] = []
+  for (const sql of colMigrations) {
+    try {
+      await turso.execute({ sql, args: [] })
+      migrationResults.push(`Added: ${sql.match(/ADD COLUMN (\S+)/)?.[1]}`)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      migrationResults.push(`Skip (${msg})`)
+    }
+  }
+  steps.push({ step: 'ALTER TABLE migrations', ok: true, detail: migrationResults.join('; ') })
 
   // Step 4: Try INSERT a test row
   let testId = ''
