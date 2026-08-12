@@ -186,7 +186,7 @@ export async function POST(
       })
 
       // 6. Audit log
-      writeAuditLog({
+      await writeAuditLog({
         userId: auditUserId,
         action: allFullyReceived ? 'PO_FULLY_RECEIVED' : 'PO_PARTIALLY_RECEIVED',
         category: 'purchase',
@@ -289,7 +289,7 @@ export async function POST(
       data: { status: newStatus, receivedAmount: newReceivedAmount },
     })
 
-    writeAuditLog({
+    await writeAuditLog({
       userId: auditUserId,
       action: allFullyReceived ? 'PO_FULLY_RECEIVED' : 'PO_PARTIALLY_RECEIVED',
       category: 'purchase', entity: 'PurchaseOrder', entityId: id,

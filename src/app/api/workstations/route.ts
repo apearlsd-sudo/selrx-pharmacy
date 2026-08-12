@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
               VALUES (?, ?, ?, ?, 1, ?, ?)`,
         args: [id, name.trim(), description?.trim() || null, location?.trim() || null, now, now],
       })
-      writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_CREATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim() }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_CREATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim() }, ipAddress, userAgent })
       return NextResponse.json({ id, name: name.trim(), description, location, isActive: true, createdAt: now, updatedAt: now })
     }
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const ws = await db.workstation.create({
       data: { name: name.trim(), description: description?.trim() || null, location: location?.trim() || null },
     })
-    writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_CREATED', category: 'system', entity: 'Workstation', entityId: ws.id, details: { name: name.trim() }, ipAddress, userAgent })
+    await writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_CREATED', category: 'system', entity: 'Workstation', entityId: ws.id, details: { name: name.trim() }, ipAddress, userAgent })
     return NextResponse.json(ws)
   } catch (error) {
     console.error('POST /api/workstations error:', error)
@@ -84,7 +84,7 @@ export async function PUT(req: NextRequest) {
         sql: `UPDATE "Workstation" SET name = ?, description = ?, location = ?, "isActive" = ?, "updatedAt" = ? WHERE id = ?`,
         args: [name.trim(), description?.trim() || null, location?.trim() || null, isActive !== false ? 1 : 0, now, id],
       })
-      writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_UPDATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim(), isActive: isActive !== false }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_UPDATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim(), isActive: isActive !== false }, ipAddress, userAgent })
       return NextResponse.json({ id, name: name.trim(), description, location, isActive: isActive !== false, updatedAt: now })
     }
 
@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: { name: name.trim(), description: description?.trim() || null, location: location?.trim() || null, isActive: isActive !== false },
     })
-    writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_UPDATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim(), isActive: isActive !== false }, ipAddress, userAgent })
+    await writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_UPDATED', category: 'system', entity: 'Workstation', entityId: id, details: { name: name.trim(), isActive: isActive !== false }, ipAddress, userAgent })
     return NextResponse.json(ws)
   } catch (error) {
     console.error('PUT /api/workstations error:', error)
@@ -117,13 +117,13 @@ export async function DELETE(req: NextRequest) {
         sql: `UPDATE "Workstation" SET "isActive" = 0, "updatedAt" = ? WHERE id = ?`,
         args: [now, id],
       })
-      writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_DEACTIVATED', category: 'system', entity: 'Workstation', entityId: id, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_DEACTIVATED', category: 'system', entity: 'Workstation', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ success: true })
     }
 
     const { db } = await import('@/lib/db')
     await db.workstation.update({ where: { id }, data: { isActive: false } })
-    writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_DEACTIVATED', category: 'system', entity: 'Workstation', entityId: id, ipAddress, userAgent })
+    await writeAuditLog({ userId: auditUserId, action: 'WORKSTATION_DEACTIVATED', category: 'system', entity: 'Workstation', entityId: id, ipAddress, userAgent })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('DELETE /api/workstations error:', error)

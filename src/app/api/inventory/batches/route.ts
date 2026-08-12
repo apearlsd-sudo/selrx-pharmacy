@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
 
       // Audit log
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'BATCH_RECEIVED', category: 'inventory', entity: 'Batch', entityId: batchId, details: { productId, batchNumber: autoBatchNumber, quantity, costPrice }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'BATCH_RECEIVED', category: 'inventory', entity: 'Batch', entityId: batchId, details: { productId, batchNumber: autoBatchNumber, quantity, costPrice }, ipAddress, userAgent })
 
       return NextResponse.json({
         id: batchId,

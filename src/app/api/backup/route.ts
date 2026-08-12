@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'BACKUP_CREATED', category: 'backup', details: { tableCount: meta.tableCount, totalRows: meta.totalRows }, ipAddress, userAgent }).catch(() => {})
+    await writeAuditLog({ userId, action: 'BACKUP_CREATED', category: 'backup', details: { tableCount: meta.tableCount, totalRows: meta.totalRows }, ipAddress, userAgent }).catch(() => {})
     return NextResponse.json({ meta, data: backup })
   } catch (error) {
     console.error('[backup] Export failed:', error)
@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'BACKUP_RESTORED', category: 'backup', details: { totalInserted, totalUpdated, totalErrors, tablesProcessed: Object.keys(results).length }, ipAddress, userAgent })
+    await writeAuditLog({ userId, action: 'BACKUP_RESTORED', category: 'backup', details: { totalInserted, totalUpdated, totalErrors, tablesProcessed: Object.keys(results).length }, ipAddress, userAgent })
     return NextResponse.json({
       success: true,
       summary: {

@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { userId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId, action: 'VENDOR_CREATED', category: 'catalog', entity: 'Vendor', entityId: id, details: { name: name.trim() }, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId, action: 'VENDOR_CREATED', category: 'catalog', entity: 'Vendor', entityId: id, details: { name: name.trim() }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(vendor, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId, action: 'VENDOR_CREATED', category: 'catalog', entity: 'Vendor', entityId: vendor.id, details: { name: name.trim() }, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId, action: 'VENDOR_CREATED', category: 'catalog', entity: 'Vendor', entityId: vendor.id, details: { name: name.trim() }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(vendor, { status: 201 })
     }
   } catch (error) {

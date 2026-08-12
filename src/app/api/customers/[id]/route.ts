@@ -356,7 +356,7 @@ export async function PUT(
       })
 
       const { userId: aUid1, ipAddress: aIp1, userAgent: aUa1 } = getRequestContext(request)
-      writeAuditLog({ userId: aUid1, action: 'CUSTOMER_UPDATED', category: 'customer', entity: 'Customer', entityId: id, ipAddress: aIp1, userAgent: aUa1 })
+      await writeAuditLog({ userId: aUid1, action: 'CUSTOMER_UPDATED', category: 'customer', entity: 'Customer', entityId: id, ipAddress: aIp1, userAgent: aUa1 })
       return NextResponse.json(rowToCustomer(updatedResult.rows[0] as Record<string, unknown>))
     } else {
       // --- Prisma fallback (local dev) ---
@@ -401,7 +401,7 @@ export async function PUT(
       })
 
       const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(request)
-      writeAuditLog({ userId: aUid2, action: 'CUSTOMER_UPDATED', category: 'customer', entity: 'Customer', entityId: id, ipAddress: aIp2, userAgent: aUa2 })
+      await writeAuditLog({ userId: aUid2, action: 'CUSTOMER_UPDATED', category: 'customer', entity: 'Customer', entityId: id, ipAddress: aIp2, userAgent: aUa2 })
       return NextResponse.json(customer)
     }
   } catch (error) {

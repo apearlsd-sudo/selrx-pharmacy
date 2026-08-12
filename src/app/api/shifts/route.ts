@@ -527,7 +527,7 @@ export async function POST(request: NextRequest) {
         }
       }
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid, action: 'SHIFT_OPENED', category: 'shift', entity: 'Shift', entityId: id, details: { cashAtStart }, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId: aUid, action: 'SHIFT_OPENED', category: 'shift', entity: 'Shift', entityId: id, details: { cashAtStart }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(response, { status: 201 })
     }
 
@@ -584,7 +584,7 @@ export async function POST(request: NextRequest) {
       await captureInventorySnapshot(sid, now)
 
       const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(request)
-      writeAuditLog({ userId: aUid2, action: 'SHIFT_CLOSED', category: 'shift', entity: 'Shift', entityId: sid, details: { totalSales, totalTransactions, cashDiscrepancy }, ipAddress: aIp2, userAgent: aUa2 }).catch(() => {})
+      await writeAuditLog({ userId: aUid2, action: 'SHIFT_CLOSED', category: 'shift', entity: 'Shift', entityId: sid, details: { totalSales, totalTransactions, cashDiscrepancy }, ipAddress: aIp2, userAgent: aUa2 }).catch(() => {})
       return NextResponse.json({
         id: sid, userId, userName, startedAt, endedAt: now,
         status: 'ENDED', totalSales, totalTransactions, totalItemsSold,

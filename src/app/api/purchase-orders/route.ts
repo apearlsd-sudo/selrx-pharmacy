@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      writeAuditLog({
+      await writeAuditLog({
         userId: auditUserId,
         action: 'PO_CREATED',
         category: 'purchase',
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
       include: { items: true },
     })
 
-    writeAuditLog({
+    await writeAuditLog({
       userId: auditUserId,
       action: 'PO_CREATED',
       category: 'purchase',

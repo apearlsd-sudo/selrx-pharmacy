@@ -326,14 +326,14 @@ export async function POST(request: NextRequest) {
     if (isTurso()) {
       const result = await importViaTurso(validRows, invalidRows, rows.length)
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'PRODUCTS_IMPORTED', category: 'product', entity: 'Product', details: { totalRows, created: result.created, failed: result.failed }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'PRODUCTS_IMPORTED', category: 'product', entity: 'Product', details: { totalRows, created: result.created, failed: result.failed }, ipAddress, userAgent })
       return result
     }
 
     // ── Prisma fallback (local dev only) ──
     const result = await importViaPrisma(validRows, invalidRows, rows.length)
     const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId: auditUserId, action: 'PRODUCTS_IMPORTED', category: 'product', entity: 'Product', details: { totalRows, created: result.created, failed: result.failed }, ipAddress, userAgent })
+    await writeAuditLog({ userId: auditUserId, action: 'PRODUCTS_IMPORTED', category: 'product', entity: 'Product', details: { totalRows, created: result.created, failed: result.failed }, ipAddress, userAgent })
     return result
   } catch (error) {
     console.error('[Product Import] Error:', error)

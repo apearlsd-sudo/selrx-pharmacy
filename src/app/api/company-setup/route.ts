@@ -258,7 +258,7 @@ export async function PUT(req: NextRequest) {
       }
 
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId: aUid, action: 'COMPANY_UPDATED', category: 'company', entity: 'Company', entityId: companyId, details: { name }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid, action: 'COMPANY_UPDATED', category: 'company', entity: 'Company', entityId: companyId, details: { name }, ipAddress, userAgent })
 
       return NextResponse.json(company)
     } else {
@@ -309,7 +309,7 @@ export async function PUT(req: NextRequest) {
       })
 
       const { userId: aUid2, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId: aUid2, action: 'COMPANY_UPDATED', category: 'company', entity: 'Company', entityId: company.id, details: { name }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid2, action: 'COMPANY_UPDATED', category: 'company', entity: 'Company', entityId: company.id, details: { name }, ipAddress, userAgent })
 
       const settings = company.settings ? JSON.parse(company.settings) : {}
       return NextResponse.json({
@@ -475,7 +475,7 @@ export async function POST(req: NextRequest) {
       })
 
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId: aUid, action: 'COMPANY_SETUP_COMPLETED', category: 'company', details: { companyName }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid, action: 'COMPANY_SETUP_COMPLETED', category: 'company', details: { companyName }, ipAddress, userAgent })
       return NextResponse.json(
         {
           message: 'Company created successfully!',
@@ -576,7 +576,7 @@ export async function POST(req: NextRequest) {
       })
 
       const { userId: aUid2, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId: aUid2, action: 'COMPANY_SETUP_COMPLETED', category: 'company', details: { companyName }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid2, action: 'COMPANY_SETUP_COMPLETED', category: 'company', details: { companyName }, ipAddress, userAgent })
       return NextResponse.json(
         {
           message: 'Company created successfully!',

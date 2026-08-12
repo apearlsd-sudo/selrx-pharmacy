@@ -158,10 +158,10 @@ export async function PUT(
 
       // Audit log for status changes
       if (status === 'SENT') {
-        writeAuditLog({ userId: auditUserId, action: 'PO_SENT', category: 'purchase', entity: 'PurchaseOrder', entityId: id, ipAddress, userAgent })
+        await writeAuditLog({ userId: auditUserId, action: 'PO_SENT', category: 'purchase', entity: 'PurchaseOrder', entityId: id, ipAddress, userAgent })
       }
       if (status === 'CANCELLED') {
-        writeAuditLog({ userId: auditUserId, action: 'PO_CANCELLED', category: 'purchase', entity: 'PurchaseOrder', entityId: id, details: { previousStatus: currentStatus }, ipAddress, userAgent })
+        await writeAuditLog({ userId: auditUserId, action: 'PO_CANCELLED', category: 'purchase', entity: 'PurchaseOrder', entityId: id, details: { previousStatus: currentStatus }, ipAddress, userAgent })
       }
 
       // Fetch updated PO
@@ -211,10 +211,10 @@ export async function PUT(
     const order = await db.purchaseOrder.update({ where: { id }, data: updateData })
 
     if (status === 'SENT') {
-      writeAuditLog({ userId: auditUserId, action: 'PO_SENT', category: 'purchase', entity: 'PurchaseOrder', entityId: id, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'PO_SENT', category: 'purchase', entity: 'PurchaseOrder', entityId: id, ipAddress, userAgent })
     }
     if (status === 'CANCELLED') {
-      writeAuditLog({ userId: auditUserId, action: 'PO_CANCELLED', category: 'purchase', entity: 'PurchaseOrder', entityId: id, details: { previousStatus: existing.status }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'PO_CANCELLED', category: 'purchase', entity: 'PurchaseOrder', entityId: id, details: { previousStatus: existing.status }, ipAddress, userAgent })
     }
 
     return NextResponse.json({ order })
@@ -252,7 +252,7 @@ export async function DELETE(
       await turso.execute({ sql: `DELETE FROM "PurchaseOrderItem" WHERE "orderId" = ?`, args: [id] })
       await turso.execute({ sql: `DELETE FROM "PurchaseOrder" WHERE id = ?`, args: [id] })
 
-      writeAuditLog({
+      await writeAuditLog({
         userId: auditUserId, action: 'PO_DELETED', category: 'purchase',
         entity: 'PurchaseOrder', entityId: id,
         details: { vendorName: po.vendorName },
@@ -270,7 +270,7 @@ export async function DELETE(
     }
     await db.purchaseOrder.delete({ where: { id } })
 
-    writeAuditLog({
+    await writeAuditLog({
       userId: auditUserId, action: 'PO_DELETED', category: 'purchase',
       entity: 'PurchaseOrder', entityId: id,
       details: { vendorName: existing.vendorName },

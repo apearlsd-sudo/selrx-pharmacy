@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'ROLE_CREATED', category: 'role', entity: 'Role', entityId: id, details: { name, label }, ipAddress, userAgent }).catch(() => {})
+    await writeAuditLog({ userId, action: 'ROLE_CREATED', category: 'role', entity: 'Role', entityId: id, details: { name, label }, ipAddress, userAgent }).catch(() => {})
 
     return NextResponse.json({
       id,
@@ -383,7 +383,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'ROLE_UPDATED', category: 'role', entity: 'Role', entityId: (existing as any).id, details: { name: (existing as any).name }, ipAddress, userAgent }).catch(() => {})
+    await writeAuditLog({ userId, action: 'ROLE_UPDATED', category: 'role', entity: 'Role', entityId: (existing as any).id, details: { name: (existing as any).name }, ipAddress, userAgent }).catch(() => {})
 
     return NextResponse.json({
       id: (existing as any).id,
@@ -490,7 +490,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'ROLE_DELETED', category: 'role', entity: 'Role', entityId: (existing as any).id, details: { name: (existing as any).name }, ipAddress, userAgent }).catch(() => {})
+    await writeAuditLog({ userId, action: 'ROLE_DELETED', category: 'role', entity: 'Role', entityId: (existing as any).id, details: { name: (existing as any).name }, ipAddress, userAgent }).catch(() => {})
 
     return NextResponse.json({ success: true })
   } catch (error) {

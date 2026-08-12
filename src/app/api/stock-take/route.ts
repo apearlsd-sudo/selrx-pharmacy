@@ -375,7 +375,7 @@ export async function POST(req: NextRequest) {
       const stockTake = { id, reference: ref, status: 'IN_PROGRESS', notes: notes || null, countedBy: countedBy || null, startedAt: now, createdAt: now, updatedAt: now }
       console.log(`[StockTake Create] success id=${id}`)
       const { userId, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId, action: 'STOCK_TAKE_CREATED', category: 'stocktake', entity: 'StockTake', entityId: id, details: { reference: ref }, ipAddress, userAgent })
+      await writeAuditLog({ userId, action: 'STOCK_TAKE_CREATED', category: 'stocktake', entity: 'StockTake', entityId: id, details: { reference: ref }, ipAddress, userAgent })
       return NextResponse.json(stockTake, { status: 201 })
     } else {
       const { db } = await import('@/lib/db')
@@ -410,7 +410,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`[StockTake Create] success id=${stockTake.id}`)
       const { userId: aUid2, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId: aUid2, action: 'STOCK_TAKE_CREATED', category: 'stocktake', entity: 'StockTake', entityId: stockTake.id, details: { reference: ref }, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId: aUid2, action: 'STOCK_TAKE_CREATED', category: 'stocktake', entity: 'StockTake', entityId: stockTake.id, details: { reference: ref }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(stockTake, { status: 201 })
     }
   } catch (error) {

@@ -377,7 +377,7 @@ export async function POST(req: NextRequest) {
       }
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
-      writeAuditLog({ userId: auditUserId, action: 'RETURN_CREATED', category: 'return', entity: 'Return', entityId: id, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'RETURN_CREATED', category: 'return', entity: 'Return', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ return: returnRecord }, { status: 201 })
     }
 
@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
     })
 
     const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
-    writeAuditLog({ userId: auditUserId, action: 'RETURN_CREATED', category: 'return', entity: 'Return', entityId: returnRecord.id, ipAddress, userAgent })
+    await writeAuditLog({ userId: auditUserId, action: 'RETURN_CREATED', category: 'return', entity: 'Return', entityId: returnRecord.id, ipAddress, userAgent })
     return NextResponse.json({ return: returnRecord }, { status: 201 })
   } catch (error) {
     console.error('POST /api/returns error:', error)

@@ -74,7 +74,7 @@ export async function POST(
       })
 
       const { ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({
+      await writeAuditLog({
         userId,
         action: action === 'add' ? 'LOYALTY_POINTS_ADDED' : 'LOYALTY_POINTS_REDEEMED',
         category: 'customer',
@@ -116,7 +116,7 @@ export async function POST(
     })
 
     const { ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({
+    await writeAuditLog({
       userId,
       action: action === 'add' ? 'LOYALTY_POINTS_ADDED' : 'LOYALTY_POINTS_REDEEMED',
       category: 'customer',

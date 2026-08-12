@@ -330,7 +330,7 @@ export async function POST(
       }
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'TRANSACTION_VOIDED', category: 'transaction', entity: 'Transaction', entityId: id, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'TRANSACTION_VOIDED', category: 'transaction', entity: 'Transaction', entityId: id, ipAddress, userAgent })
       return NextResponse.json({
         message: 'Transaction voided successfully',
         transaction: voided,
@@ -387,7 +387,7 @@ export async function POST(
     })
 
     const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId: auditUserId, action: 'TRANSACTION_VOIDED', category: 'transaction', entity: 'Transaction', entityId: id, ipAddress, userAgent })
+    await writeAuditLog({ userId: auditUserId, action: 'TRANSACTION_VOIDED', category: 'transaction', entity: 'Transaction', entityId: id, ipAddress, userAgent })
     return NextResponse.json({
       message: 'Transaction voided successfully',
       transaction: voided,

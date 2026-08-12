@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_CREATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name.trim() }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_CREATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name.trim() }, ipAddress, userAgent })
 
       return NextResponse.json(manufacturer, { status: 201 })
     } else {
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_CREATED', category: 'catalog', entity: 'Manufacturer', entityId: manufacturer.id, details: { name: name.trim() }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_CREATED', category: 'catalog', entity: 'Manufacturer', entityId: manufacturer.id, details: { name: name.trim() }, ipAddress, userAgent })
 
       return NextResponse.json(manufacturer, { status: 201 })
     }
@@ -280,7 +280,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_UPDATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name?.trim() }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_UPDATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name?.trim() }, ipAddress, userAgent })
 
       return NextResponse.json(manufacturer)
     } else {
@@ -303,7 +303,7 @@ export async function PUT(request: NextRequest) {
       })
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_UPDATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name?.trim() }, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_UPDATED', category: 'catalog', entity: 'Manufacturer', entityId: id, details: { name: name?.trim() }, ipAddress, userAgent })
 
       return NextResponse.json(manufacturer)
     }
@@ -348,7 +348,7 @@ export async function DELETE(request: NextRequest) {
         args: [id],
       })
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_DELETED', category: 'catalog', entity: 'Manufacturer', entityId: id, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_DELETED', category: 'catalog', entity: 'Manufacturer', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ success: true })
     } else {
       // Prisma fallback for local dev
@@ -356,7 +356,7 @@ export async function DELETE(request: NextRequest) {
 
       await db.manufacturer.delete({ where: { id } })
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_DELETED', category: 'catalog', entity: 'Manufacturer', entityId: id, ipAddress, userAgent })
+      await writeAuditLog({ userId: auditUserId, action: 'MANUFACTURER_DELETED', category: 'catalog', entity: 'Manufacturer', entityId: id, ipAddress, userAgent })
       return NextResponse.json({ success: true })
     }
   } catch (error: any) {

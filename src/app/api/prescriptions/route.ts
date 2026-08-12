@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid, action: 'PRESCRIPTION_CREATED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid, action: 'PRESCRIPTION_CREATED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress, userAgent })
       return NextResponse.json(rowToPrescription(result.rows[0] as Record<string, unknown>), { status: 201 })
     } else {
       const { db } = await import('@/lib/db')
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId: aUid2, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid2, action: 'PRESCRIPTION_CREATED', category: 'prescription', entity: 'Prescription', entityId: prescription.id, details: { patientName, productName }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid2, action: 'PRESCRIPTION_CREATED', category: 'prescription', entity: 'Prescription', entityId: prescription.id, details: { patientName, productName }, ipAddress, userAgent })
       return NextResponse.json(prescription, { status: 201 })
     }
   } catch (error) {

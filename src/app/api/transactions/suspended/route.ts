@@ -107,7 +107,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'SUSPENDED_CART_DELETED', category: 'transaction', entity: 'SuspendedCart', entityId: id, ipAddress, userAgent })
+    await writeAuditLog({ userId, action: 'SUSPENDED_CART_DELETED', category: 'transaction', entity: 'SuspendedCart', entityId: id, ipAddress, userAgent })
 
     return NextResponse.json({ message: 'Suspended cart deleted' })
   } catch (error) {

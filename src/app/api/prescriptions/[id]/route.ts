@@ -317,7 +317,7 @@ export async function PUT(
         })
 
         const { userId: aUid1, ipAddress: aIp1, userAgent: aUa1 } = getRequestContext(request)
-        writeAuditLog({ userId: aUid1, action: 'PRESCRIPTION_FILLED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp1, userAgent: aUa1 })
+        await writeAuditLog({ userId: aUid1, action: 'PRESCRIPTION_FILLED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp1, userAgent: aUa1 })
         return NextResponse.json({
           message: 'Prescription filled successfully',
           prescription: rowToPrescriptionSummary(filledResult.rows[0] as Record<string, unknown>),
@@ -359,7 +359,7 @@ export async function PUT(
         })
 
         const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(request)
-        writeAuditLog({ userId: aUid2, action: 'PRESCRIPTION_VERIFIED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp2, userAgent: aUa2 })
+        await writeAuditLog({ userId: aUid2, action: 'PRESCRIPTION_VERIFIED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp2, userAgent: aUa2 })
         return NextResponse.json({
           message: 'Prescription verified successfully',
           prescription: rowToPrescriptionSummary(verifiedResult.rows[0] as Record<string, unknown>),
@@ -476,7 +476,7 @@ export async function PUT(
       })
 
       const { userId: aUid3, ipAddress: aIp3, userAgent: aUa3 } = getRequestContext(request)
-      writeAuditLog({ userId: aUid3, action: 'PRESCRIPTION_UPDATED', category: 'prescription', entity: 'Prescription', entityId: id, ipAddress: aIp3, userAgent: aUa3 })
+      await writeAuditLog({ userId: aUid3, action: 'PRESCRIPTION_UPDATED', category: 'prescription', entity: 'Prescription', entityId: id, ipAddress: aIp3, userAgent: aUa3 })
       return NextResponse.json(rowToPrescriptionSummary(updatedResult.rows[0] as Record<string, unknown>))
     } else {
       const { db } = await import('@/lib/db')
@@ -545,7 +545,7 @@ export async function PUT(
         })
 
         const { userId: aUid4, ipAddress: aIp4, userAgent: aUa4 } = getRequestContext(request)
-        writeAuditLog({ userId: aUid4, action: 'PRESCRIPTION_FILLED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp4, userAgent: aUa4 })
+        await writeAuditLog({ userId: aUid4, action: 'PRESCRIPTION_FILLED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp4, userAgent: aUa4 })
         return NextResponse.json({
           message: 'Prescription filled successfully',
           prescription: filled,
@@ -577,7 +577,7 @@ export async function PUT(
         })
 
         const { userId: aUid5, ipAddress: aIp5, userAgent: aUa5 } = getRequestContext(request)
-        writeAuditLog({ userId: aUid5, action: 'PRESCRIPTION_VERIFIED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp5, userAgent: aUa5 })
+        await writeAuditLog({ userId: aUid5, action: 'PRESCRIPTION_VERIFIED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp5, userAgent: aUa5 })
         return NextResponse.json({
           message: 'Prescription verified successfully',
           prescription: verified,
@@ -614,7 +614,7 @@ export async function PUT(
       })
 
       const { userId: aUid6, ipAddress: aIp6, userAgent: aUa6 } = getRequestContext(request)
-      writeAuditLog({ userId: aUid6, action: 'PRESCRIPTION_UPDATED', category: 'prescription', entity: 'Prescription', entityId: id, ipAddress: aIp6, userAgent: aUa6 })
+      await writeAuditLog({ userId: aUid6, action: 'PRESCRIPTION_UPDATED', category: 'prescription', entity: 'Prescription', entityId: id, ipAddress: aIp6, userAgent: aUa6 })
       return NextResponse.json(updated)
     }
   } catch (error) {

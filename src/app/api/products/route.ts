@@ -410,7 +410,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId, action: 'PRODUCT_CREATED', category: 'product', entity: 'Product', entityId: id, details: { name: body.name }, ipAddress, userAgent })
+      await writeAuditLog({ userId, action: 'PRODUCT_CREATED', category: 'product', entity: 'Product', entityId: id, details: { name: body.name }, ipAddress, userAgent })
       return NextResponse.json(product, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId, action: 'PRODUCT_CREATED', category: 'product', entity: 'Product', entityId: product.id, details: { name: body.name }, ipAddress, userAgent })
+      await writeAuditLog({ userId, action: 'PRODUCT_CREATED', category: 'product', entity: 'Product', entityId: product.id, details: { name: body.name }, ipAddress, userAgent })
       return NextResponse.json(product, { status: 201 })
     }
   } catch (error) {

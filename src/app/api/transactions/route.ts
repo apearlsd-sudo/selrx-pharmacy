@@ -124,7 +124,7 @@ async function handleSuspendCart(
     }
 
     const { ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'CART_SUSPENDED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
+    await writeAuditLog({ userId, action: 'CART_SUSPENDED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
       details: { itemCount: items.length, total, note: note || undefined }, ipAddress, userAgent })
 
     return NextResponse.json({ id, message: 'Cart suspended successfully' }, { status: 201 })
@@ -681,7 +681,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transactionId, details: { totalAmount: total, paymentMethod }, ipAddress, userAgent })
+      await writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transactionId, details: { totalAmount: total, paymentMethod }, ipAddress, userAgent })
 
       // Auto-add loyalty points (1 point per 1 currency unit spent)
       if (customerId) {
@@ -801,7 +801,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transaction.id, details: { totalAmount: transaction.total, paymentMethod: transaction.paymentMethod }, ipAddress, userAgent })
+    await writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transaction.id, details: { totalAmount: transaction.total, paymentMethod: transaction.paymentMethod }, ipAddress, userAgent })
     return NextResponse.json(transaction, { status: 201 })
   } catch (error) {
     console.error('Error creating transaction:', error)

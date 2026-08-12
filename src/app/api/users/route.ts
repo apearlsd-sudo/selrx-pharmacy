@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid, action: 'USER_CREATED', category: 'user', entity: 'User', entityId: id, details: { email, name, role: resolvedRole }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid, action: 'USER_CREATED', category: 'user', entity: 'User', entityId: id, details: { email, name, role: resolvedRole }, ipAddress, userAgent })
       return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>), { status: 201 })
     } else {
       const { db } = await import('@/lib/db')
@@ -343,7 +343,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId: aUid2, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid2, action: 'USER_CREATED', category: 'user', entity: 'User', entityId: user.id, details: { email, name, role: user.role }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid2, action: 'USER_CREATED', category: 'user', entity: 'User', entityId: user.id, details: { email, name, role: user.role }, ipAddress, userAgent })
       return NextResponse.json(user, { status: 201 })
     }
   } catch (error) {
@@ -445,7 +445,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid, action: 'PASSWORD_CHANGED', category: 'user', entity: 'User', entityId: userId, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId: aUid, action: 'PASSWORD_CHANGED', category: 'user', entity: 'User', entityId: userId, ipAddress, userAgent }).catch(() => {})
 
       return NextResponse.json({ success: true, message: 'Password changed successfully' })
     }
@@ -610,7 +610,7 @@ export async function PUT(request: NextRequest) {
       })
 
       const { userId: aUid3, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid3, action: 'USER_UPDATED', category: 'user', entity: 'User', entityId: targetUserId, details: { userRole, active }, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId: aUid3, action: 'USER_UPDATED', category: 'user', entity: 'User', entityId: targetUserId, details: { userRole, active }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>))
     } else {
       const { db } = await import('@/lib/db')
@@ -642,7 +642,7 @@ export async function PUT(request: NextRequest) {
       })
 
       const { userId: aUid4, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid4, action: 'USER_UPDATED', category: 'user', entity: 'User', entityId: user.id, details: { userRole, active }, ipAddress, userAgent }).catch(() => {})
+      await writeAuditLog({ userId: aUid4, action: 'USER_UPDATED', category: 'user', entity: 'User', entityId: user.id, details: { userRole, active }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(user)
     }
   } catch (error) {

@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid, action: 'CUSTOMER_CREATED', category: 'customer', entity: 'Customer', entityId: id, details: { firstName, lastName, email }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid, action: 'CUSTOMER_CREATED', category: 'customer', entity: 'Customer', entityId: id, details: { firstName, lastName, email }, ipAddress, userAgent })
       return NextResponse.json(customer, { status: 201 })
     } else {
       // --- Prisma fallback (local dev) ---
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
       })
 
       const { userId: aUid2, ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId: aUid2, action: 'CUSTOMER_CREATED', category: 'customer', entity: 'Customer', entityId: customer.id, details: { firstName, lastName, email }, ipAddress, userAgent })
+      await writeAuditLog({ userId: aUid2, action: 'CUSTOMER_CREATED', category: 'customer', entity: 'Customer', entityId: customer.id, details: { firstName, lastName, email }, ipAddress, userAgent })
       return NextResponse.json(customer, { status: 201 })
     }
   } catch (error) {

@@ -104,7 +104,7 @@ export async function POST(
       })
 
       const { ipAddress, userAgent } = getRequestContext(request)
-      writeAuditLog({ userId, action: 'CART_RECALLED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
+      await writeAuditLog({ userId, action: 'CART_RECALLED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
         details: { itemCount: (cart.items as unknown[]).length, total: cart.total }, ipAddress, userAgent })
 
       return NextResponse.json(cart)
@@ -127,7 +127,7 @@ export async function POST(
     await db.$executeRawUnsafe(`DELETE FROM "SuspendedCart" WHERE id = ?`, id)
 
     const { ipAddress, userAgent } = getRequestContext(request)
-    writeAuditLog({ userId, action: 'CART_RECALLED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
+    await writeAuditLog({ userId, action: 'CART_RECALLED', category: 'transaction', entity: 'SuspendedCart', entityId: id,
       details: { itemCount: (cart.items as unknown[]).length, total: cart.total }, ipAddress, userAgent })
 
     return NextResponse.json(cart)
