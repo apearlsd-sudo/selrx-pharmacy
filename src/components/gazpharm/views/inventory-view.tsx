@@ -1259,6 +1259,7 @@ export function InventoryView() {
                 <TableHead className="hidden lg:table-cell text-right">Reorder Lvl</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
+                <TableHead className="hidden md:table-cell">Batch</TableHead>
                 <TableHead className="hidden md:table-cell">Expiry</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -1267,7 +1268,7 @@ export function InventoryView() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 14 }).map((_, j) => (
+                    {Array.from({ length: 15 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
@@ -1294,11 +1295,14 @@ export function InventoryView() {
                   // Use batch-level expiry summary for accurate status (avoids false-expired when some batches are still active)
                   const allBatchesExpired = bs?.hasBatches ? (bs.allBatchesExpired === true) : false
                   const hasExpiredBatches = bs?.hasBatches ? (bs.hasExpiredBatches === true) : false
+                  const allBatchesNoExpiry = bs?.hasBatches ? (bs.allBatchesNoExpiry === true) : false
                   const activeExpiry = bs?.nearestActiveExpiry || item.product.expiryDate
+                  const primaryBatchNo = bs?.primaryBatchNumber || item.product.batchNumber
+                  const totalBatches = bs?.totalBatches || 0
                   const nearExpiryCount = bs?.nearExpiryBatches || 0
                   const daysToExpiry = daysToExpiryFrom(activeExpiry, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = allBatchesExpired && qty > 0
+                  const showExpired = allBatchesExpired && !allBatchesNoExpiry && qty > 0
                   const isDiscontinued = item.product.status === 'DISCONTINUED'
                   return (
                     <TableRow key={item.id} className={`hover:bg-gray-50/50 transition-colors ${isOut ? 'bg-red-50/50' : isLow ? 'bg-amber-50/50' : ''}`}>
@@ -1351,7 +1355,24 @@ export function InventoryView() {
                       <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-gray-600">
-                        {formatDate(activeExpiry)}
+                        {primaryBatchNo ? (
+                          <span className="font-mono" title={totalBatches > 1 ? `${totalBatches} batches` : undefined}>
+                            {primaryBatchNo}{totalBatches > 1 ? ` +${totalBatches - 1}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-gray-600">
+                        {activeExpiry ? (
+                          formatDate(activeExpiry)
+                        ) : allBatchesNoExpiry ? (
+                          <span className="text-gray-400 italic" title="Batches exist but have no expiry date set">No expiry set</span>
+                        ) : bs?.hasBatches && !activeExpiry ? (
+                          <span className="text-gray-400 italic" title="All batches expired or no expiry recorded">—</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); fetchBatches(item.productId); setAdjustDialog(true) }}>

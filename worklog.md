@@ -225,3 +225,32 @@ Stage Summary:
 - Loyalty: 4-tier system with auto-earn on purchase, management UI
 - Dashboard: 9-widget customization with drag/toggle and persistence
 - Login History: filtered view of auth events from AuditLog
+---
+Task ID: 5
+Agent: Super Z (main)
+Task: Fix batch/expiry not showing for in-stock products (e.g. Paracetamol 500mg)
+
+Work Log:
+- Root cause: batchExpirySummary SQL filtered `WHERE b."expiryDate" IS NOT NULL`, so products whose batches had NO expiry date were completely invisible in the summary (bs=undefined)
+- This caused the Expiry column to show nothing and the Status badge to incorrectly show "Expired" (0 active + 0 expired = allBatchesExpired=true)
+- Also: no Batch Number column existed in the inventory table — users couldn't see batch info at a glance
+- Fixed /api/inventory route (Turso path): removed `AND b."expiryDate" IS NOT NULL` from WHERE, added `noExpiryBatches` count, added `primaryBatchNumber` query (earliest batch per product), added `allBatchesNoExpiry` flag
+- Fixed /api/inventory route (Prisma fallback): same changes — include all batches, track noExpiry, primaryBatch
+- Fixed /api/products route (Turso path): same WHERE clause fix, added new summary fields
+- Added "Batch" column to inventory table (hidden md:table-cell) showing primary batch number with "+N" indicator for multiple batches
+- Updated Expiry column: shows "No expiry set" (italic) when batches exist but have no expiry, instead of blank
+- Fixed Status badge: `showExpired` now requires `!allBatchesNoExpiry` to prevent false "Expired" for no-expiry products
+- Applied same allBatchesNoExpiry fix to master-data-view.tsx
+- Updated skeleton column count from 14 to 15
+
+Files Modified:
+- src/app/api/inventory/route.ts — Turso + Prisma batch summary queries
+- src/app/api/products/route.ts — Turso batch summary query
+- src/components/gazpharm/views/inventory-view.tsx — Batch column, Expiry display, status fix
+- src/components/gazpharm/views/master-data-view.tsx — status badge fix
+
+Stage Summary:
+- Products with batches but no expiry dates now correctly show batch number and "No expiry set" in inventory
+- Status badge no longer falsely shows "Expired" for no-expiry products
+- New Batch column shows primary batch number with multi-batch indicator
+- Build verified passing

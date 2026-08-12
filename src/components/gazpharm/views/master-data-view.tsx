@@ -1945,10 +1945,11 @@ function DrugSection() {
                   const bs = (drug as any).batchExpirySummary
                   const allBatchesExpired = bs?.hasBatches ? (bs.allBatchesExpired === true) : false
                   const hasExpiredBatches = bs?.hasBatches ? (bs.hasExpiredBatches === true) : false
+                  const allBatchesNoExpiry = bs?.hasBatches ? (bs.allBatchesNoExpiry === true) : false
                   const activeExpiry = bs?.nearestActiveExpiry || drug.expiryDate
                   const daysToExpiry = daysToExpiryFrom(activeExpiry, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = allBatchesExpired && stockQty > 0
+                  const showExpired = allBatchesExpired && !allBatchesNoExpiry && stockQty > 0
                   return (
                     <TableRow key={drug.id} className={showExpired ? 'opacity-60' : isDiscontinued ? 'opacity-50' : nearExpiry ? 'bg-amber-50/50' : ''}>
                       <TableCell>

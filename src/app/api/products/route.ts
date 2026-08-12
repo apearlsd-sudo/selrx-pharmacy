@@ -127,6 +127,8 @@ export async function GET(request: NextRequest) {
       }))
 
       // Batch-level expiry summary for products on this page
+      // NOTE: Include ALL batches (even without expiry dates) so products whose
+      // batches lack expiry still get hasBatches=true.
       const productIds = rawProducts.map((p) => p.id)
       let batchSummaryMap = new Map<string, Record<string, unknown>>() 
       if (productIds.length > 0) {
@@ -134,13 +136,14 @@ export async function GET(request: NextRequest) {
         const batchSummaryResult = await turso.execute({
           sql: `SELECT b."productId",
                        COUNT(*) as totalBatches,
-                       SUM(CASE WHEN date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
-                       SUM(CASE WHEN date(b."expiryDate") > date('now') THEN 1 ELSE 0 END) as activeBatches,
-                       MIN(CASE WHEN date(b."expiryDate") > date('now') THEN b."expiryDate" ELSE NULL END) as nearestActiveExpiry,
-                       MIN(CASE WHEN date(b."expiryDate") <= date('now') THEN b."expiryDate" ELSE NULL END) as nearestExpiredDate,
-                       SUM(CASE WHEN date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
+                       SUM(CASE WHEN b."expiryDate" IS NULL THEN 1 ELSE 0 END) as noExpiryBatches,
+                       SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
+                       SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') THEN 1 ELSE 0 END) as activeBatches,
+                       MIN(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') THEN b."expiryDate" ELSE NULL END) as nearestActiveExpiry,
+                       MIN(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now') THEN b."expiryDate" ELSE NULL END) as nearestExpiredDate,
+                       SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
                 FROM "Batch" b
-                WHERE b.quantity > 0 AND b."expiryDate" IS NOT NULL AND b."productId" IN (${phPlaceholders})
+                WHERE b.quantity > 0 AND b."productId" IN (${phPlaceholders})
                 GROUP BY b."productId"`,
           args: productIds as (string | number)[],
         })
@@ -151,12 +154,14 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const defaultSummary = { hasBatches: false, totalBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null }
+      const defaultSummary = { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false }
       const products = rawProducts.map((p) => {
         const bs = batchSummaryMap.get(p.id)
+        const noExpiry = Number(bs?.noExpiryBatches) || 0
         const summary = bs ? {
           hasBatches: true,
           totalBatches: Number(bs.totalBatches) || 0,
+          noExpiryBatches: noExpiry,
           expiredBatches: Number(bs.expiredBatches) || 0,
           activeBatches: Number(bs.activeBatches) || 0,
           allBatchesExpired: (Number(bs.activeBatches) || 0) === 0,
@@ -164,6 +169,8 @@ export async function GET(request: NextRequest) {
           nearExpiryBatches: Number(bs.nearExpiryBatches) || 0,
           nearestActiveExpiry: bs.nearestActiveExpiry as string | null,
           nearestExpiredDate: bs.nearestExpiredDate as string | null,
+          primaryBatchNumber: p.batchNumber || null,
+          allBatchesNoExpiry: noExpiry > 0 && (Number(bs.expiredBatches) || 0) === 0 && (Number(bs.activeBatches) || 0) === 0,
         } : defaultSummary
         return { ...p, batchExpirySummary: summary }
       })

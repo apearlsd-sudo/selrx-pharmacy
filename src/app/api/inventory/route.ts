@@ -194,16 +194,19 @@ export async function GET(request: NextRequest) {
       const inventoryRows = toObjs(invResult).map(mapInventoryRow)
 
       // Batch-level expiry summary for each product (avoids product-level false expired)
+      // NOTE: We include ALL batches (even those without expiryDate) so products
+      // whose batches lack expiry dates still get a summary with hasBatches=true.
       const batchSummaryResult = await turso.execute({
         sql: `SELECT b."productId",
                      COUNT(*) as totalBatches,
-                     SUM(CASE WHEN date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
-                     SUM(CASE WHEN date(b."expiryDate") > date('now') THEN 1 ELSE 0 END) as activeBatches,
-                     MIN(CASE WHEN date(b."expiryDate") > date('now') THEN b."expiryDate" ELSE NULL END) as nearestActiveExpiry,
-                     MIN(CASE WHEN date(b."expiryDate") <= date('now') THEN b."expiryDate" ELSE NULL END) as nearestExpiredDate,
-                     SUM(CASE WHEN date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
+                     SUM(CASE WHEN b."expiryDate" IS NULL THEN 1 ELSE 0 END) as noExpiryBatches,
+                     SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
+                     SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') THEN 1 ELSE 0 END) as activeBatches,
+                     MIN(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') THEN b."expiryDate" ELSE NULL END) as nearestActiveExpiry,
+                     MIN(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now') THEN b."expiryDate" ELSE NULL END) as nearestExpiredDate,
+                     SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
               FROM "Batch" b
-              WHERE b.quantity > 0 AND b."expiryDate" IS NOT NULL
+              WHERE b.quantity > 0
               GROUP BY b."productId"`,
         args: [],
       })
@@ -212,12 +215,35 @@ export async function GET(request: NextRequest) {
         batchSummaryMap.set(r.productId as string, r)
       }
 
+      // Fetch the primary batch number (earliest-created non-null batchNumber per product) for display
+      const batchNumbersResult = await turso.execute({
+        sql: `SELECT b."productId", b."batchNumber"
+              FROM "Batch" b
+              INNER JOIN (
+                SELECT "productId", MIN("createdAt") as minCreated
+                FROM "Batch"
+                WHERE quantity > 0 AND "batchNumber" IS NOT NULL AND "batchNumber" != ''
+                GROUP BY "productId"
+              ) first ON b."productId" = first."productId" AND b."createdAt" = first.minCreated
+              WHERE b.quantity > 0 AND b."batchNumber" IS NOT NULL AND b."batchNumber" != ''`,
+        args: [],
+      })
+      const batchNumberMap = new Map<string, string>()
+      for (const r of toObjs(batchNumbersResult)) {
+        if (!batchNumberMap.has(r.productId as string)) {
+          batchNumberMap.set(r.productId as string, r.batchNumber as string)
+        }
+      }
+
       // Attach batch summary to each inventory row
       const inventory = inventoryRows.map((row) => {
         const bs = batchSummaryMap.get(row.productId)
+        const primaryBatchNo = batchNumberMap.get(row.productId) || null
+        const noExpiry = Number(bs?.noExpiryBatches) || 0
         const summary = bs ? {
           hasBatches: true,
           totalBatches: Number(bs.totalBatches) || 0,
+          noExpiryBatches: noExpiry,
           expiredBatches: Number(bs.expiredBatches) || 0,
           activeBatches: Number(bs.activeBatches) || 0,
           allBatchesExpired: (Number(bs.activeBatches) || 0) === 0,
@@ -225,7 +251,9 @@ export async function GET(request: NextRequest) {
           nearExpiryBatches: Number(bs.nearExpiryBatches) || 0,
           nearestActiveExpiry: bs.nearestActiveExpiry as string | null,
           nearestExpiredDate: bs.nearestExpiredDate as string | null,
-        } : { hasBatches: false, totalBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null }
+          primaryBatchNumber: primaryBatchNo,
+          allBatchesNoExpiry: noExpiry > 0 && (Number(bs.expiredBatches) || 0) === 0 && (Number(bs.activeBatches) || 0) === 0,
+        } : { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false }
         return { ...row, batchExpirySummary: summary }
       })
 
@@ -267,28 +295,33 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
-    // Batch-level expiry for Prisma fallback
+    // Batch-level expiry for Prisma fallback (includes batches without expiry dates)
     const allBatchRecords = await db.batch.findMany({
-      where: { quantity: { gt: 0 }, expiryDate: { not: null } },
-      select: { productId: true, expiryDate: true },
+      where: { quantity: { gt: 0 } },
+      select: { productId: true, expiryDate: true, batchNumber: true, createdAt: true },
     })
-    const batchGrouped = new Map<string, { total: number; expired: number; active: number; nearExpiry: number; nearestActive: string | null; nearestExpired: string | null }>()
+    const batchGrouped = new Map<string, { total: number; noExpiry: number; expired: number; active: number; nearExpiry: number; nearestActive: string | null; nearestExpired: string | null; primaryBatch: string | null }>()
     const now = new Date()
     const thirtyDays = 30 * 86400000
     for (const b of allBatchRecords) {
       const pid = b.productId
-      if (!batchGrouped.has(pid)) batchGrouped.set(pid, { total: 0, expired: 0, active: 0, nearExpiry: 0, nearestActive: null, nearestExpired: null })
+      if (!batchGrouped.has(pid)) batchGrouped.set(pid, { total: 0, noExpiry: 0, expired: 0, active: 0, nearExpiry: 0, nearestActive: null, nearestExpired: null, primaryBatch: null })
       const g = batchGrouped.get(pid)!
       g.total++
-      const expDate = new Date(b.expiryDate!)
-      if (expDate <= now) {
-        g.expired++
-        if (!g.nearestExpired || expDate < new Date(g.nearestExpired)) g.nearestExpired = b.expiryDate
+      if (!b.expiryDate) {
+        g.noExpiry++
       } else {
-        g.active++
-        if (!g.nearestActive || expDate < new Date(g.nearestActive)) g.nearestActive = b.expiryDate
-        if (expDate.getTime() - now.getTime() <= thirtyDays) g.nearExpiry++
+        const expDate = new Date(b.expiryDate)
+        if (expDate <= now) {
+          g.expired++
+          if (!g.nearestExpired || expDate < new Date(g.nearestExpired)) g.nearestExpired = b.expiryDate
+        } else {
+          g.active++
+          if (!g.nearestActive || expDate < new Date(g.nearestActive)) g.nearestActive = b.expiryDate
+          if (expDate.getTime() - now.getTime() <= thirtyDays) g.nearExpiry++
+        }
       }
+      if (b.batchNumber && !g.primaryBatch) g.primaryBatch = b.batchNumber
     }
 
     const productsWithInventory = new Set(inventory.map((i) => i.productId))
@@ -300,11 +333,13 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const defaultSummary = { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false }
     const attachSummary = (row: any) => {
       const g = batchGrouped.get(row.productId)
       row.batchExpirySummary = g ? {
         hasBatches: true,
         totalBatches: g.total,
+        noExpiryBatches: g.noExpiry,
         expiredBatches: g.expired,
         activeBatches: g.active,
         allBatchesExpired: g.active === 0,
@@ -312,7 +347,9 @@ export async function GET(request: NextRequest) {
         nearExpiryBatches: g.nearExpiry,
         nearestActiveExpiry: g.nearestActive,
         nearestExpiredDate: g.nearestExpired,
-      } : { hasBatches: false, totalBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null }
+        primaryBatchNumber: g.primaryBatch,
+        allBatchesNoExpiry: g.noExpiry > 0 && g.expired === 0 && g.active === 0,
+      } : defaultSummary
       return row
     }
 
