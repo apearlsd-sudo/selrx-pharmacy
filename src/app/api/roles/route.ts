@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ROLE_METADATA, DEFAULT_ROLE_PERMISSIONS, PERMISSION_CATEGORIES, ALL_PERMISSION_KEYS } from '@/lib/permissions'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // In-memory store for custom roles.
 // NOTE: This resets on serverless cold start (Vercel).
@@ -109,6 +110,8 @@ export async function POST(request: NextRequest) {
       isActive: true,
     }
 
+    const { userId, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId, action: 'ROLE_CREATED', category: 'role', entity: 'Role', entityId: id, details: { name, label }, ipAddress, userAgent }).catch(() => {})
     return NextResponse.json(customRoles[name], { status: 201 })
   } catch (error) {
     console.error('Error creating role:', error)
@@ -159,6 +162,8 @@ export async function PUT(request: NextRequest) {
     if (color !== undefined) existing.color = color
     if (isActive !== undefined) existing.isActive = isActive
 
+    const { userId, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId, action: 'ROLE_UPDATED', category: 'role', entity: 'Role', entityId: existing.id, details: { name: existing.name }, ipAddress, userAgent }).catch(() => {})
     return NextResponse.json(existing)
   } catch (error) {
     console.error('Error updating role:', error)

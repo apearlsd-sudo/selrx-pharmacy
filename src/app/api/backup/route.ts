@@ -44,11 +44,13 @@ const BACKUP_TABLES: TableDef[] = [
   { name: 'TransactionItem', columns: ['id','transactionId','productId','productName','quantity','unitPrice','subtotal','requiresRx','dispensedQty','createdAt'] },
   { name: 'Return',      columns: ['id','returnNo','transactionId','transactionItemId','productId','productName','quantity','unitPrice','refundAmount','reason','reasonNote','customerId','customerName','userId','status','approvedById','approvedAt','refundMethod','refundProcessed','restocked','notes','createdAt','updatedAt'] },
   { name: 'HardwareLog', columns: ['id','transactionId','hardwareType','action','status','details','createdAt'] },
-  { name: 'AuditLog',    columns: ['id','userId','action','details','ipAddress','createdAt'] },
+  { name: 'AuditLog',    columns: ['id','userId','action','category','entity','entityId','details','ipAddress','userAgent','createdAt'] },
   { name: 'ProductHistory', columns: ['id','productId','action','changedFields','previousValues','newValues','userId','createdAt'] },
   { name: 'StockTake',   columns: ['id','reference','status','notes','countedBy','startedAt','completedAt','createdAt','updatedAt'] },
   { name: 'StockTakeItem', columns: ['id','stockTakeId','productId','systemQty','countedQty','variance','notes','createdAt'] },
   { name: '_CategoryToProduct', columns: ['A','B'] },
+  { name: 'PurchaseOrder', columns: ['id','vendorId','vendorName','status','notes','expectedDate','totalAmount','receivedAmount','createdBy','createdAt','updatedAt'] },
+  { name: 'PurchaseOrderItem', columns: ['id','orderId','productId','productName','quantity','receivedQty','unitCost','createdAt'] },
 ]
 
 // ── Helpers ──
@@ -162,6 +164,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const { userId, ipAddress, userAgent } = getRequestContext(request)
+    writeAuditLog({ userId, action: 'BACKUP_CREATED', category: 'backup', details: { tableCount: meta.tableCount, totalRows: meta.totalRows }, ipAddress, userAgent }).catch(() => {})
     return NextResponse.json({ meta, data: backup })
   } catch (error) {
     console.error('[backup] Export failed:', error)

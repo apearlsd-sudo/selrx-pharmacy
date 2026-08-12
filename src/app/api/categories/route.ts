@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/categories - List all categories
 export async function GET() {
@@ -155,6 +156,8 @@ export async function POST(request: NextRequest) {
         updatedAt: now,
       }
 
+      const { userId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'CATEGORY_CREATED', category: 'catalog', entity: 'Category', entityId: id, details: { name: trimmedName }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(category, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -183,6 +186,8 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      const { userId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'CATEGORY_CREATED', category: 'catalog', entity: 'Category', entityId: category.id, details: { name: trimmedName }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(category, { status: 201 })
     }
   } catch (error) {

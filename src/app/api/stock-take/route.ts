@@ -409,6 +409,8 @@ export async function POST(req: NextRequest) {
       })
 
       console.log(`[StockTake Create] success id=${stockTake.id}`)
+      const { userId: aUid2, ipAddress, userAgent } = getRequestContext(req)
+      writeAuditLog({ userId: aUid2, action: 'STOCK_TAKE_CREATED', category: 'stocktake', entity: 'StockTake', entityId: stockTake.id, details: { reference: ref }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(stockTake, { status: 201 })
     }
   } catch (error) {

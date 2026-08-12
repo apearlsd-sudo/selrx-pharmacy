@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/vendors - List all vendors
 export async function GET() {
@@ -117,6 +118,8 @@ export async function POST(request: NextRequest) {
         updatedAt: now,
       }
 
+      const { userId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'VENDOR_CREATED', category: 'catalog', entity: 'Vendor', entityId: id, details: { name: name.trim() }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(vendor, { status: 201 })
     } else {
       // Prisma fallback for local dev
@@ -143,6 +146,8 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      const { userId, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId, action: 'VENDOR_CREATED', category: 'catalog', entity: 'Vendor', entityId: vendor.id, details: { name: name.trim() }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(vendor, { status: 201 })
     }
   } catch (error) {

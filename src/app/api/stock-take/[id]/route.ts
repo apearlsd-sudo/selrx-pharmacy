@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId } from '@/lib/turso'
+import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // GET /api/stock-take/[id] — get single stock take with items
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -214,6 +215,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           updatedAt: now,
         }
 
+        const { userId: aUid1, ipAddress: aIp1, userAgent: aUa1 } = getRequestContext(req)
+        writeAuditLog({ userId: aUid1, action: 'STOCKTAKE_COMPLETED', category: 'stocktake', entity: 'StockTake', entityId: id, details: { reference: existing.reference, inventoryUpdated: updatedInventoryCount }, ipAddress: aIp1, userAgent: aUa1 }).catch(() => {})
         return NextResponse.json({
           ...updated,
           _meta: { inventoryUpdated: updatedInventoryCount, totalItems: countedItems.length },
@@ -406,6 +409,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         console.log(`[StockTake Complete] id=${id} updated ${updatedInventoryCount} inventory records`)
+        const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(req)
+        writeAuditLog({ userId: aUid2, action: 'STOCKTAKE_COMPLETED', category: 'stocktake', entity: 'StockTake', entityId: id, details: { reference: updated.reference, inventoryUpdated: updatedInventoryCount }, ipAddress: aIp2, userAgent: aUa2 }).catch(() => {})
         return NextResponse.json({
           ...updated,
           _meta: { inventoryUpdated: updatedInventoryCount, totalItems: countedItems.length },

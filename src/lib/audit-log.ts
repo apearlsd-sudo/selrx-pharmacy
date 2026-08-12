@@ -42,12 +42,19 @@ async function ensureTable() {
 export type AuditCategory =
   | 'auth'        // login, logout, session
   | 'transaction' // sale, void, return
+  | 'return'      // returns
   | 'inventory'   // adjustment, receiving, stock take
   | 'product'     // create, update, delete
   | 'customer'    // create, update, delete
   | 'prescription'// create, fill, verify, cancel
   | 'user'        // create, update, delete, role change
+  | 'role'        // role create, update
   | 'system'      // backup, restore, settings change, company setup
+  | 'company'     // company setup
+  | 'backup'      // backup export, restore
+  | 'catalog'     // categories, vendors
+  | 'shift'       // shift open, close
+  | 'stocktake'   // stock take create, complete
   | 'purchase'    // PO create, receive, cancel
   | 'general'     // anything else
 

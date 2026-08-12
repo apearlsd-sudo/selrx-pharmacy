@@ -50,6 +50,7 @@ model User {
   productHistory     ProductHistory[]
   ownedCompany      Company?  @relation("CompanyOwner")
   stockTakes        StockTake[]  @relation("StockTakeCounter")
+  purchaseOrders     PurchaseOrder[] @relation("POCreator")
   systemRole        SystemRole? @relation(fields: [role], references: [name])
 }
 
@@ -416,6 +417,7 @@ model Vendor {
   updatedAt     DateTime @updatedAt
 
   products      Product[]
+  purchaseOrders PurchaseOrder[]
 }
 
 // ============ CATEGORIES ============
@@ -436,8 +438,12 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String
   action    String
+  category  String   @default("general")
+  entity    String?
+  entityId  String?
   details   String?
   ipAddress String?
+  userAgent  String?
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
@@ -495,4 +501,47 @@ model StockTakeItem {
   product   Product   @relation(fields: [productId], references: [id])
 
   @@unique([stockTakeId, productId])
+}
+
+// ============ PURCHASE ORDERS ============
+
+enum POStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id            String    @id @default(cuid())
+  vendorId      String?
+  vendorName    String
+  status        POStatus  @default(DRAFT)
+  notes         String?
+  expectedDate  DateTime?
+  totalAmount   Float     @default(0)
+  receivedAmount Float    @default(0)
+  createdBy      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vendor        Vendor?              @relation(fields: [vendorId], references: [id])
+  creator       User                 @relation("POCreator", fields: [createdBy], references: [id])
+  items         PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  receivedQty Int      @default(0)
+  unitCost    Float
+  createdAt   DateTime @default(now())
+
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }

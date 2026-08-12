@@ -320,6 +320,18 @@ async function main() {
   await run(turso, `CREATE INDEX IF NOT EXISTS "POItem_order_idx" ON "PurchaseOrderItem"("orderId")`)
   await run(turso, `CREATE INDEX IF NOT EXISTS "POItem_product_idx" ON "PurchaseOrderItem"("productId")`)
 
+  // ── Migrations for existing tables (add missing columns) ──
+  console.log('🔄 Running migrations for existing tables...')
+  const migrations = [
+    `ALTER TABLE "AuditLog" ADD COLUMN category TEXT NOT NULL DEFAULT 'general'`,
+    `ALTER TABLE "AuditLog" ADD COLUMN entity TEXT`,
+    `ALTER TABLE "AuditLog" ADD COLUMN "entityId" TEXT`,
+    `ALTER TABLE "AuditLog" ADD COLUMN "userAgent" TEXT`,
+  ]
+  for (const sql of migrations) {
+    try { await run(turso, sql) } catch { /* column may already exist */ }
+  }
+
   console.log('✅ Turso schema sync complete!')
 }
 

@@ -521,6 +521,8 @@ export async function PUT(request: NextRequest) {
         args: [targetUserId],
       })
 
+      const { userId: aUid3, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid3, action: 'USER_UPDATED', category: 'user', entity: 'User', entityId: targetUserId, details: { userRole, active }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>))
     } else {
       const { db } = await import('@/lib/db')
@@ -551,6 +553,8 @@ export async function PUT(request: NextRequest) {
         },
       })
 
+      const { userId: aUid4, ipAddress, userAgent } = getRequestContext(request)
+      writeAuditLog({ userId: aUid4, action: 'USER_UPDATED', category: 'user', entity: 'User', entityId: user.id, details: { userRole, active }, ipAddress, userAgent }).catch(() => {})
       return NextResponse.json(user)
     }
   } catch (error) {
