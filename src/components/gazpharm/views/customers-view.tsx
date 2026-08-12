@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Users, Search, Plus, Edit, Eye, Phone, Mail, Shield, X,
   Download, Loader2, ShoppingBag, ClipboardList, DollarSign,
+  Award, Minus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -40,6 +41,8 @@ interface Customer {
   insurancePolicyNo: string | null
   allergies: string | null
   notes: string | null
+  loyaltyPoints?: number
+  loyaltyTier?: string
 }
 
 interface Transaction {
@@ -105,6 +108,13 @@ export function CustomersView() {
   const [customerDetail, setCustomerDetail] = useState<CustomerDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
+  // Loyalty state
+  const [loyaltyAction, setLoyaltyAction] = useState<'add' | 'redeem' | null>(null)
+  const [loyaltyAmount, setLoyaltyAmount] = useState('')
+  const [loyaltyReason, setLoyaltyReason] = useState('')
+  const [loyaltyInfo, setLoyaltyInfo] = useState<any>(null)
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false)
+
   // TASK 4: CSV export state
   const [exporting, setExporting] = useState(false)
 
@@ -136,6 +146,7 @@ export function CustomersView() {
     setDetailDialog(true)
     setDetailLoading(true)
     setCustomerDetail(null)
+    setLoyaltyInfo(null)
     try {
       const res = await fetch(`/api/customers/${customer.id}?include=transactions,prescriptions`, {
         headers: authHeaders(),
@@ -149,6 +160,11 @@ export function CustomersView() {
     } finally {
       setDetailLoading(false)
     }
+    // Fetch loyalty info (non-blocking)
+    fetch(`/api/customers/${customer.id}/loyalty`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setLoyaltyInfo(data) })
+      .catch(() => {})
   }
 
   // ── Form dialogs ───────────────────────────────────────────────────────
@@ -248,6 +264,45 @@ export function CustomersView() {
   const totalSpent = txns.reduce((sum, t) => sum + (t.total || 0), 0)
   const purchaseCount = txns.length
 
+  // Loyalty computed values
+  const TIER_COLORS: Record<string, string> = {
+    BRONZE: 'bg-amber-100 text-amber-700 border-amber-200',
+    SILVER: 'bg-gray-100 text-gray-700 border-gray-200',
+    GOLD: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    PLATINUM: 'bg-violet-100 text-violet-700 border-violet-200',
+  }
+  const tierColor = TIER_COLORS[selectedCustomer?.loyaltyTier || 'BRONZE'] || TIER_COLORS.BRONZE
+  const tierDiscount = loyaltyInfo?.tierDiscount ?? 0
+
+  // ── Loyalty adjustment handler ─────────────────────────────────────────
+  const handleLoyaltyAdjust = async () => {
+    if (!selectedCustomer || !loyaltyAction) return
+    const amt = parseInt(loyaltyAmount)
+    if (!amt || amt <= 0) return
+    setLoyaltyLoading(true)
+    try {
+      const res = await fetch(`/api/customers/${selectedCustomer.id}/loyalty`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ action: loyaltyAction, amount: amt, reason: loyaltyReason }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed')
+      }
+      const data = await res.json()
+      setSelectedCustomer({ ...selectedCustomer, loyaltyPoints: data.loyaltyPoints, loyaltyTier: data.loyaltyTier })
+      setLoyaltyInfo({ ...loyaltyInfo, loyaltyPoints: data.loyaltyPoints, loyaltyTier: data.loyaltyTier, tierDiscount: data.tierDiscount })
+      setLoyaltyAction(null)
+      setLoyaltyAmount('')
+      setLoyaltyReason('')
+      addToast({ title: 'Points Updated', description: `${data.loyaltyPoints} points — ${data.loyaltyTier} tier`, variant: 'success' })
+    } catch (err) {
+      addToast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    }
+    setLoyaltyLoading(false)
+  }
+
   return (
     <div className="space-y-4 animate-fade-in">
       {/* TASK 4: PageHeader with Export CSV action */}
@@ -339,6 +394,7 @@ export function CustomersView() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden sm:table-cell">Contact</TableHead>
+                <TableHead className="hidden md:table-cell">Tier</TableHead>
                 <TableHead className="hidden md:table-cell">Insurance</TableHead>
                 <TableHead className="hidden lg:table-cell">Allergies</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -348,14 +404,14 @@ export function CustomersView() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
+                    {Array.from({ length: 6 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-0">
+                  <TableCell colSpan={6} className="p-0">
                     <EmptyState icon={Users} title="No customers found" description="Try adjusting your search or add a new customer" />
                   </TableCell>
                 </TableRow>
@@ -383,6 +439,9 @@ export function CustomersView() {
                         )}
                         {!customer.email && !customer.phone && <p className="text-muted-foreground">No contact info</p>}
                       </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge className={`text-[10px] ${TIER_COLORS[customer.loyaltyTier || 'BRONZE'] || ''}`}>{customer.loyaltyTier || 'BRONZE'}</Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {customer.insuranceProvider ? (
@@ -484,6 +543,46 @@ export function CustomersView() {
                 </div>
               )}
 
+              {/* Loyalty Points Section */}
+              <div className="rounded-lg border p-4 mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Award className="h-4 w-4 text-amber-500" />
+                    Loyalty Program
+                  </h4>
+                  <Badge className={tierColor}>{selectedCustomer.loyaltyTier || 'BRONZE'}</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Points Balance</p>
+                    <p className="font-semibold text-lg">{selectedCustomer.loyaltyPoints || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Tier Discount</p>
+                    <p className="font-semibold text-lg">{tierDiscount}%</p>
+                  </div>
+                </div>
+                {/* Progress to next tier */}
+                {loyaltyInfo?.nextTier && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>{loyaltyInfo.pointsToNextTier} pts to {loyaltyInfo.nextTier.name}</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all" style={{ width: `${Math.min(100, ((selectedCustomer.loyaltyPoints || 0) / loyaltyInfo.nextTier.minPoints) * 100)}%` }} />
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setLoyaltyAction('add')}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Points
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setLoyaltyAction('redeem')}>
+                    <Minus className="h-3.5 w-3.5 mr-1" /> Redeem Points
+                  </Button>
+                </div>
+              </div>
+
               {/* Tabs: Purchase History | Prescriptions */}
               {!detailLoading && customerDetail && (
                 <Tabs defaultValue="purchases">
@@ -584,6 +683,35 @@ export function CustomersView() {
             <Button variant="outline" onClick={() => setDetailDialog(false)}>Close</Button>
             <Button onClick={() => { setDetailDialog(false); openEditDialog(selectedCustomer!) }} className="bg-emerald-600 hover:bg-emerald-700">
               Edit Customer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Loyalty Adjustment Dialog */}
+      <Dialog open={loyaltyAction !== null} onOpenChange={() => { setLoyaltyAction(null); setLoyaltyAmount(''); setLoyaltyReason('') }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{loyaltyAction === 'add' ? 'Add' : 'Redeem'} Loyalty Points</DialogTitle>
+            <DialogDescription>
+              For {selectedCustomer?.firstName} {selectedCustomer?.lastName} (current: {selectedCustomer?.loyaltyPoints || 0} pts)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Amount</label>
+              <Input type="number" min={1} value={loyaltyAmount} onChange={e => setLoyaltyAmount(e.target.value)} placeholder="Enter points" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Reason (optional)</label>
+              <Input value={loyaltyReason} onChange={e => setLoyaltyReason(e.target.value)} placeholder="e.g. Promotional bonus" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setLoyaltyAction(null); setLoyaltyAmount(''); setLoyaltyReason('') }}>Cancel</Button>
+            <Button disabled={loyaltyLoading || !loyaltyAmount} onClick={handleLoyaltyAdjust}>
+              {loyaltyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {loyaltyAction === 'add' ? 'Add' : 'Redeem'}
             </Button>
           </DialogFooter>
         </DialogContent>

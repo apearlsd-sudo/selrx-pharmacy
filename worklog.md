@@ -158,3 +158,70 @@ Stage Summary:
 - Per-user isolation (non-admin users see only their own)
 - All mutations audit-logged
 - Dual DB path (Turso + Prisma)
+---
+Task ID: 4
+Agent: Super Z (main) + 5 parallel full-stack-developer subagents
+Task: Implement 5 features: Dark Mode, Offline PWA, Customer Loyalty Points, Dashboard Customization, Login History
+
+Work Log:
+
+Wave 1 — Dark Mode (parallel):
+- Added ThemeProvider from next-themes to layout.tsx (attribute=class, defaultTheme=system)
+- Added Sun/Moon animated toggle button to topbar in page.tsx
+- Added .dark .glass CSS variant in globals.css
+- Replaced hardcoded bg-white, text-gray-*, border-gray-* with semantic tokens (bg-card, text-foreground, border-border) across:
+  - page.tsx (sidebar, topbar, nav items, footer)
+  - dashboard-view.tsx (6 stat cards, chart tooltips, borders)
+  - pos-view.tsx (search, product cards, cart, action buttons, dialogs)
+  - settings-hub-view.tsx (nav items, mobile bottom nav)
+
+Wave 2 — Offline PWA (parallel):
+- Created public/manifest.json (PWA manifest with app name, theme color #059669)
+- Created public/sw.js service worker (cache-first for static, network-first for /api/)
+- Added manifest link and meta tags to layout.tsx
+- Added SW registration useEffect and online/offline detection in page.tsx
+- Added amber offline indicator banner between topbar and content
+
+Wave 3 — Customer Loyalty Points (parallel):
+- Added loyaltyPoints (INTEGER DEFAULT 0) and loyaltyTier (TEXT DEFAULT BRONZE) to Prisma schema
+- Added columns via addColumn() in turso-sync-schema.mjs
+- Created GET/POST /api/customers/[id]/loyalty (tier calculation, add/redeem, audit log)
+- Auto-add 1 point per currency unit on transaction completion (Turso + Prisma paths)
+- Added loyalty section to customer detail dialog (tier badge, points balance, progress bar, add/redeem buttons)
+- Added tier column to customer list table
+- Tier system: BRONZE(0), SILVER(500,2%), GOLD(2000,5%), PLATINUM(5000,10%)
+
+Wave 4 — Dashboard Customization (parallel):
+- Added DashboardCustomization interface to app-store.ts (visibleWidgets, toggle, move with localStorage)
+- Added Customize button to dashboard header with Settings2 icon
+- Created widget customization dialog with toggle switches and up/down reordering
+- Wrapped all 9 dashboard widgets with visibility checks
+- Default widgets: 6 KPI cards, sales chart, recent transactions, top products
+
+Wave 5 — Login History View (parallel):
+- Created GET /api/login-history (filters: action, userId, date range; pagination; RBAC)
+- Created login-history-view.tsx (table with Time, User, Action badge, IP, Browser, OS columns)
+- User-agent parsing for browser/OS detection
+- Added login-history to ViewName union type
+- Wired sidebar nav item (LogIn icon, audit:view permission) and switch case in page.tsx
+
+Files Created:
+- public/manifest.json, public/sw.js
+- src/app/api/customers/[id]/loyalty/route.ts
+- src/app/api/login-history/route.ts
+- src/components/gazpharm/views/login-history-view.tsx
+
+Files Modified:
+- prisma/schema.prisma, scripts/turso-sync-schema.mjs
+- src/app/layout.tsx, src/app/globals.css, src/app/page.tsx
+- src/app/api/transactions/route.ts
+- src/store/app-store.ts
+- src/components/gazpharm/views/customers-view.tsx, dashboard-view.tsx, pos-view.tsx, settings-hub-view.tsx
+
+Stage Summary:
+- 5 features implemented via 5 parallel subagents
+- Dark mode: full system with toggle, CSS variables, semantic tokens
+- PWA: manifest, service worker, offline indicator
+- Loyalty: 4-tier system with auto-earn on purchase, management UI
+- Dashboard: 9-widget customization with drag/toggle and persistence
+- Login History: filtered view of auth events from AuditLog

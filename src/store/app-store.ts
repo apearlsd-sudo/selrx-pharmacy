@@ -25,6 +25,7 @@ export type ViewName =
   | 'drug-interactions'
   | 'purchase-orders'
   | 'audit-logs'
+  | 'login-history'
 
 export type PaymentMethodType =
   | 'CASH'
@@ -254,6 +255,13 @@ export interface POState {
   setPendingPOItems: (items: { productId: string; productName: string; quantity: number; unitCost: number; vendorId: string | null; vendorName: string | null }[] | null) => void
 }
 
+export interface DashboardCustomization {
+  visibleWidgets: string[]
+  setVisibleWidgets: (widgets: string[]) => void
+  toggleWidget: (widgetId: string) => void
+  moveWidget: (widgetId: string, direction: 'up' | 'down') => void
+}
+
 export interface SuspendedCartState {
   /** Monotonic counter bumped whenever a cart is suspended/recalled/deleted */
   suspendedCartVersion: number
@@ -267,6 +275,7 @@ export type AppState = NavigationState &
   ShiftState &
   WorkstationState &
   POState &
+  DashboardCustomization &
   SuspendedCartState &
   CompanyState &
   CurrencyState &
@@ -451,6 +460,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingPOItems: null,
   setPendingPOItems: (items) => {
     set({ pendingPOItems: items })
+  },
+
+  // ---- Dashboard Customization ----
+  visibleWidgets: ['today-sales', 'pending-rx', 'low-stock', 'customers', 'inventory-value', 'total-products', 'sales-chart', 'recent-transactions', 'top-products'],
+  setVisibleWidgets: (widgets) => {
+    set({ visibleWidgets: widgets })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_dashboard_widgets', JSON.stringify(widgets))
+    }
+  },
+  toggleWidget: (widgetId) => {
+    const current = get().visibleWidgets
+    const isVisible = current.includes(widgetId)
+    const updated = isVisible ? current.filter(w => w !== widgetId) : [...current, widgetId]
+    set({ visibleWidgets: updated })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_dashboard_widgets', JSON.stringify(updated))
+    }
+  },
+  moveWidget: (widgetId, direction) => {
+    const widgets = [...get().visibleWidgets]
+    const idx = widgets.indexOf(widgetId)
+    if (idx === -1) return
+    if (direction === 'up' && idx > 0) {
+      [widgets[idx - 1], widgets[idx]] = [widgets[idx], widgets[idx - 1]]
+    } else if (direction === 'down' && idx < widgets.length - 1) {
+      [widgets[idx], widgets[idx + 1]] = [widgets[idx + 1], widgets[idx]]
+    }
+    set({ visibleWidgets: widgets })
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selrx_dashboard_widgets', JSON.stringify(widgets))
+    }
   },
 
   // ---- Suspended Cart ----

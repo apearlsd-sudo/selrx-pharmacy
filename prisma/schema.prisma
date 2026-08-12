@@ -69,6 +69,8 @@ model Customer {
   insurancePolicyNo  String?
   allergies   String?  // Comma-separated
   notes       String?
+  loyaltyPoints  Int      @default(0)
+  loyaltyTier    String   @default("BRONZE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

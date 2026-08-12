@@ -286,6 +286,11 @@ async function main() {
   console.log('📦 Syncing Company table columns...')
   await addColumn(turso, 'Company', 'settings', 'TEXT')
 
+  // ── Customer: add loyalty points column ──
+  console.log('📦 Syncing Customer loyalty columns...')
+  await addColumn(turso, 'Customer', 'loyaltyPoints', 'INTEGER NOT NULL DEFAULT 0')
+  await addColumn(turso, 'Customer', 'loyaltyTier', 'TEXT DEFAULT \'BRONZE\'')
+
   // ── PurchaseOrder table ──
   console.log('📦 Syncing PurchaseOrder table...')
   await run(turso, `

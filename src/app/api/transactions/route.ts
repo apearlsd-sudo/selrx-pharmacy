@@ -682,6 +682,34 @@ export async function POST(request: NextRequest) {
 
       const { ipAddress, userAgent } = getRequestContext(request)
       writeAuditLog({ userId, action: 'TRANSACTION_CREATED', category: 'transaction', entity: 'Transaction', entityId: transactionId, details: { totalAmount: total, paymentMethod }, ipAddress, userAgent })
+
+      // Auto-add loyalty points (1 point per 1 currency unit spent)
+      if (customerId) {
+        try {
+          const pointsToEarn = Math.floor(total)
+          if (pointsToEarn > 0) {
+            const lpResult = await tursoExecute({
+              sql: 'SELECT "loyaltyPoints" FROM Customer WHERE id = ?',
+              args: [customerId],
+            })
+            if (lpResult.rows.length > 0) {
+              const currentPts = Number(lpResult.rows[0][0]) || 0
+              const newPts = currentPts + pointsToEarn
+              let tier = 'BRONZE'
+              if (newPts >= 5000) tier = 'PLATINUM'
+              else if (newPts >= 2000) tier = 'GOLD'
+              else if (newPts >= 500) tier = 'SILVER'
+              await tursoExecute({
+                sql: 'UPDATE Customer SET "loyaltyPoints" = ?, "loyaltyTier" = ? WHERE id = ?',
+                args: [newPts, tier, customerId],
+              })
+            }
+          }
+        } catch (lpErr) {
+          console.warn('[tx] Loyalty points update failed (non-fatal):', lpErr instanceof Error ? lpErr.message : lpErr)
+        }
+      }
+
       return NextResponse.json(transaction, { status: 201 })
     }
 
@@ -746,6 +774,30 @@ export async function POST(request: NextRequest) {
         where: { productId: item.productId as string },
         data: { quantity: { decrement: effectiveQty }, lastCounted: new Date() },
       })
+    }
+
+    // Auto-add loyalty points (1 point per 1 currency unit spent)
+    if (customerId) {
+      try {
+        const pointsToEarn = Math.floor(total)
+        if (pointsToEarn > 0) {
+          const customer = await db.customer.findUnique({ where: { id: customerId } })
+          if (customer) {
+            const currentPts = customer.loyaltyPoints || 0
+            const newPts = currentPts + pointsToEarn
+            let tier = 'BRONZE'
+            if (newPts >= 5000) tier = 'PLATINUM'
+            else if (newPts >= 2000) tier = 'GOLD'
+            else if (newPts >= 500) tier = 'SILVER'
+            await db.customer.update({
+              where: { id: customerId },
+              data: { loyaltyPoints: newPts, loyaltyTier: tier },
+            })
+          }
+        }
+      } catch (lpErr) {
+        console.warn('[tx] Loyalty points update failed (non-fatal):', lpErr instanceof Error ? lpErr.message : lpErr)
+      }
     }
 
     const { ipAddress, userAgent } = getRequestContext(request)

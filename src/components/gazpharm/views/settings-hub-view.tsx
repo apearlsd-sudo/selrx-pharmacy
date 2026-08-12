@@ -72,11 +72,11 @@ export function SettingsHubView() {
               onClick={() => setActive(item.key)}
               className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all duration-150 text-xs ${
                 active === item.key
-                  ? 'bg-emerald-50 text-emerald-700 font-medium shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-medium shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
-              <item.icon className={`h-4 w-4 shrink-0 ${active === item.key ? 'text-emerald-600' : 'text-gray-400'}`} />
+              <item.icon className={`h-4 w-4 shrink-0 ${active === item.key ? 'text-emerald-600' : 'text-gray-400 dark:text-gray-500'}`} />
               <span>{item.label}</span>
             </button>
           ))}
@@ -84,7 +84,7 @@ export function SettingsHubView() {
       </nav>
 
       {/* Mobile: horizontal scroll nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-gray-200 px-3 py-2">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-700 px-3 py-2">
         <div className="flex gap-1 overflow-x-auto no-scrollbar">
           {SETTINGS_NAV.map((item) => (
             <button
@@ -92,11 +92,11 @@ export function SettingsHubView() {
               onClick={() => setActive(item.key)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-left transition-all duration-150 text-[11px] whitespace-nowrap border ${
                 active === item.key
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 font-medium'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-700 dark:text-emerald-400 font-medium'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              <item.icon className={`h-3 w-3 shrink-0 ${active === item.key ? 'text-emerald-600' : 'text-gray-400'}`} />
+              <item.icon className={`h-3 w-3 shrink-0 ${active === item.key ? 'text-emerald-600' : 'text-gray-400 dark:text-gray-500'}`} />
               <span>{item.label}</span>
             </button>
           ))}

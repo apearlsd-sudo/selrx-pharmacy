@@ -1,0 +1,12 @@
+{
+  "name": "SelRx Pharmacy",
+  "short_name": "SelRx",
+  "description": "Pharmacy Management System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#059669",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

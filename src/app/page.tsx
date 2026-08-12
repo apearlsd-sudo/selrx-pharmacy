@@ -3,6 +3,7 @@
 import { useEffect, useCallback, Component, type ReactNode, useState } from 'react'
 import { formatDateWeekday } from '@/lib/date-utils'
 import { useAppStore, type ViewName } from '@/store/app-store'
+import { useTheme } from 'next-themes'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -29,6 +30,9 @@ import {
   Monitor,
   ChevronDown,
   FileText,
+  Sun,
+  Moon,
+  LogIn,
 } from 'lucide-react'
 import {
   Select,
@@ -73,6 +77,7 @@ import { SettingsHubView } from '@/components/gazpharm/views/settings-hub-view'
 import { DrugInteractionsView } from '@/components/gazpharm/views/drug-interactions-view'
 import { PurchaseOrdersView } from '@/components/gazpharm/views/purchase-orders-view'
 import { AuditLogView } from '@/components/gazpharm/views/audit-log-view'
+import { LoginHistoryView } from '@/components/gazpharm/views/login-history-view'
 
 // ── Global fetch interceptor: auto-attach JWT to all /api/ requests ──
 if (typeof window !== 'undefined') {
@@ -158,6 +163,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, permission: 'inventory:manage' },
   { name: 'drug-interactions', label: 'Drug Interactions', icon: ShieldCheck, permission: 'prescriptions:view' },
   { name: 'audit-logs', label: 'Audit Log', icon: FileText, permission: 'audit:view' },
+  { name: 'login-history', label: 'Login History', icon: LogIn, permission: 'audit:view' },
   { name: 'settings', label: 'Settings', icon: Settings, permission: 'pos:sell' },
 ]
 
@@ -390,6 +396,7 @@ export default function Home() {
   const [endShiftLoading, setEndShiftLoading] = useState(false)
   const [endShiftOpen, setEndShiftOpen] = useState(false)
   const [endShiftCash, setEndShiftCash] = useState('')
+  const [isOnline, setIsOnline] = useState(true)
   const shiftActive = useAppStore((s) => s.shiftActive)
   const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
   const currentShiftId = useAppStore((s) => s.currentShiftId)
@@ -409,6 +416,26 @@ export default function Home() {
   // Wire the currency getter once so the shared formatCurrency works
   useEffect(() => {
     initCurrencyGetter(() => useAppStore.getState().currency)
+  }, [])
+
+  // Register service worker for offline support
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {/* SW registration failed silently */});
+    }
+  }, [])
+
+  // Track online/offline status
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
 
   // Single hydration effect: restores company + session from localStorage
@@ -588,6 +615,8 @@ export default function Home() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { theme, setTheme } = useTheme()
+
   // Show loading screen while hydrating (prevents flash)
   if (!isHydrated) {
     return (
@@ -638,6 +667,7 @@ export default function Home() {
       case 'drug-interactions': return <DrugInteractionsView />
       case 'purchase-orders': return <PurchaseOrdersView />
       case 'audit-logs': return <AuditLogView />
+      case 'login-history': return <LoginHistoryView />
       case 'master-data': return <MasterDataView />
       case 'product-sales-analytics': return <ProductSalesAnalytics />
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
@@ -656,7 +686,7 @@ export default function Home() {
     <div className="min-h-screen flex bg-mesh-light bg-grid-subtle relative">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200/80 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -693,8 +723,8 @@ export default function Home() {
                 key={item.name}
                 className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                   currentView === item.name
-                    ? 'bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
                 onClick={() => {
                   setCurrentView(item.name)
@@ -713,7 +743,7 @@ export default function Home() {
 
             {visibleNavItems.length > 2 && (
               <>
-                <Separator className="my-2.5 bg-gray-100" />
+                <Separator className="my-2.5 bg-gray-100 dark:bg-gray-800" />
                 <p className="text-[10px] font-semibold text-emerald-600/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-emerald-400" />Management
                 </p>
@@ -724,8 +754,8 @@ export default function Home() {
                 key={item.name}
                 className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                   currentView === item.name
-                    ? 'bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
                 onClick={() => {
                   setCurrentView(item.name)
@@ -740,8 +770,8 @@ export default function Home() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-gray-100 p-3">
-          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-gray-50/50">
+        <div className="border-t border-gray-100 dark:border-gray-800 p-3">
+          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-gray-50/50 dark:bg-gray-800/50">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
               <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
             </div>
@@ -751,7 +781,7 @@ export default function Home() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
+              className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
               onClick={() => setLogoutOpen(true)}
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -771,25 +801,36 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 h-14 glass border-b border-gray-200/60 flex items-center gap-3 px-4 lg:px-6">
+        <header className="sticky top-0 z-20 h-14 glass border-b border-border flex items-center gap-3 px-4 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-9 w-9 hover:bg-gray-100"
+            className="lg:hidden h-9 w-9 hover:bg-gray-100 dark:hover:bg-gray-800"
             onClick={toggleSidebar}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-gray-900 leading-tight">{company?.name || 'SelRx'}</h1>
-            <Separator orientation="vertical" className="h-4 bg-gray-200" />
+            <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">{company?.name || 'SelRx'}</h1>
+            <Separator orientation="vertical" className="h-4 bg-gray-200 dark:bg-gray-700" />
             <span className="text-xs text-muted-foreground font-medium">{currentLabel}</span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
             {/* Live Clock */}
             <TopbarClock />
+            {/* Theme Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle theme"
+            >
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+            </Button>
             {/* Workstation Selector */}
             <WorkstationSelector />
             {/* Notification Bell */}
@@ -873,7 +914,7 @@ export default function Home() {
               </Button>
             )}
             <div className="hidden sm:flex items-center gap-3">
-              <Separator orientation="vertical" className="h-6 bg-gray-200" />
+              <Separator orientation="vertical" className="h-6 bg-gray-200 dark:bg-gray-700" />
               <div className="flex items-center gap-2">
                 <span className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
                   <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
@@ -883,7 +924,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                 onClick={() => setLogoutOpen(true)}
               >
                 <LogOut className="h-4 w-4" />
@@ -891,6 +932,12 @@ export default function Home() {
             </div>
           </div>
         </header>
+
+        {!isOnline && (
+          <div className="bg-amber-500 dark:bg-amber-600 text-white text-center text-xs py-1 px-4 font-medium">
+            You are offline — some features may be limited
+          </div>
+        )}
 
         {/* Page Content */}
         <div key={currentView} className="flex-1 p-4 lg:p-6 animate-fade-in">

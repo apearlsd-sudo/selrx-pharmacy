@@ -383,7 +383,7 @@ export function POSView() {
       case 'severe': return 'bg-orange-100 text-orange-800 border-orange-200'
       case 'moderate': return 'bg-amber-100 text-amber-800 border-amber-200'
       case 'mild': return 'bg-blue-100 text-blue-800 border-blue-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+      default: return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700'
     }
   }
 
@@ -765,12 +765,12 @@ export function POSView() {
             <CardContent className="p-0">
               <div className="flex items-center gap-2.5 p-3.5">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                   <Input
                     placeholder="Search products by name, NDC, generic name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 bg-gray-50/50 border-gray-200/80 focus:bg-white"
+                    className="pl-9 h-10 bg-gray-50/50 dark:bg-gray-800/50 border-gray-200/80 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-900"
                     ref={searchInputRef}
                   />
                 </div>
@@ -826,7 +826,7 @@ export function POSView() {
                     className={`text-xs whitespace-nowrap h-7 rounded-lg transition-all duration-200 ${
                       activeCategory === cat.value
                         ? 'bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-200'
-                        : 'border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300'
+                        : 'border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                     onClick={() => setActiveCategory(cat.value)}
                   >
@@ -838,7 +838,7 @@ export function POSView() {
           </Card>
 
           {/* Keyboard Shortcuts Hint */}
-          <div className="flex items-center gap-2 text-[10px] text-gray-400 px-1">
+          <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 px-1">
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F2</span>New
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F4</span>Search
             <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">F5</span>Barcode
@@ -884,7 +884,7 @@ export function POSView() {
                     return (
                       <Card
                         key={product.id}
-                        className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-gray-200/80 ${
+                        className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-gray-200/80 dark:border-gray-700 ${
                           isOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                         } ${
                           inCart ? 'ring-2 ring-emerald-500 bg-emerald-50/40 border-emerald-200' : ''
@@ -900,10 +900,10 @@ export function POSView() {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm leading-tight truncate text-gray-800">
+                              <p className="font-semibold text-sm leading-tight truncate text-gray-800 dark:text-gray-200">
                                 {product.name}
                               </p>
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                 {[product.strength, product.dosageForm, product.unitOfMeasure]
                                   .filter(Boolean)
                                   .join(' · ') || product.category}
@@ -959,7 +959,7 @@ export function POSView() {
                             </div>
                             <Button
                               size="sm"
-                              className={`h-7 w-7 p-0 rounded-lg shadow-sm ${isOut ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                              className={`h-7 w-7 p-0 rounded-lg shadow-sm ${isOut ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed text-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                               disabled={isOut}
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -988,8 +988,8 @@ export function POSView() {
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                       <ShoppingCart className="h-4.5 w-4.5 text-emerald-600" />
                     </div>
-                    <CardTitle className="text-base font-semibold text-gray-800">Cart</CardTitle>
-                    <Badge variant="secondary" className="text-[10px] font-medium bg-gray-100 text-gray-500">
+                    <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Cart</CardTitle>
+                    <Badge variant="secondary" className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                       {cart.reduce((sum, item: CartItem) => sum + item.quantity, 0)} items
                     </Badge>
                   </div>
@@ -998,7 +998,7 @@ export function POSView() {
                       variant="ghost"
                       size="sm"
                       onClick={clearCart}
-                      className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50"
+                      className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                     >
                       Clear All
                     </Button>
@@ -1053,7 +1053,7 @@ export function POSView() {
                 {cart.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     <ShoppingCart className="h-10 w-10 mx-auto mb-3 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-400">Cart is empty</p>
+                    <p className="text-sm font-medium text-gray-400 dark:text-gray-500">Cart is empty</p>
                     <p className="text-xs mt-1 text-gray-300">Search and add products</p>
                   </div>
                 ) : (
@@ -1061,11 +1061,11 @@ export function POSView() {
                     {cart.map((item: CartItem) => (
                       <div
                         key={item.product.id}
-                        className="flex items-center gap-2 rounded-xl border border-gray-200/80 bg-card p-2.5 hover:border-gray-300 transition-colors"
+                        className="flex items-center gap-2 rounded-xl border border-gray-200/80 dark:border-gray-700 bg-card p-2.5 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate text-gray-800">{item.product.name}</p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-sm font-medium truncate text-gray-800 dark:text-gray-200">{item.product.name}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
                             {formatCurrency(item.product.sellingPrice)}
                             {item.product.sellingUnit && item.product.sellingUnit !== 'EA'
                               ? ` / ${item.product.sellingUnit.toLowerCase()}`
@@ -1119,12 +1119,12 @@ export function POSView() {
               {/* Cart Totals */}
               <div className="p-4 space-y-2.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Subtotal</span>
-                  <span className="font-medium text-gray-700">{formatCurrency(subtotal)}</span>
+                  <span className="text-gray-400 dark:text-gray-500">Subtotal</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-400">Tax</span>
+                    <span className="text-gray-400 dark:text-gray-500">Tax</span>
                     <input
                       type="number"
                       min="0"
@@ -1132,16 +1132,16 @@ export function POSView() {
                       step="0.1"
                       value={taxRate}
                       onChange={(e) => setTaxRate(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
-                      className="w-12 h-5 text-[11px] text-center border rounded px-1 bg-gray-50 text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                      className="w-12 h-5 text-[11px] text-center border rounded px-1 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-300"
                       aria-label="Tax rate percentage"
                     />
-                    <span className="text-gray-400 text-[11px]">%</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-[11px]">%</span>
                   </div>
-                  <span className="font-medium text-gray-700">{formatCurrency(tax)}</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{formatCurrency(tax)}</span>
                 </div>
-                <Separator className="bg-gray-100" />
+                <Separator className="bg-gray-100 dark:bg-gray-800" />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold text-gray-600">Total</span>
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Total</span>
                   <span className="text-xl font-bold text-emerald-600">{formatCurrency(total)}</span>
                 </div>
               </div>
@@ -1322,7 +1322,7 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-gray-200/80 text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                    className="text-xs border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
                     onClick={handleVoidTransaction}
                     disabled={cart.length === 0}
                   >
@@ -1332,7 +1332,7 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-gray-200/80 text-gray-500 hover:text-gray-800 hover:border-gray-300"
+                    className="text-xs border-gray-200/80 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600"
                     onClick={() => {
                       clearCart()
                       setAmountTendered('')
@@ -1347,7 +1347,7 @@ export function POSView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs border-blue-200/80 text-blue-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                    className="text-xs border-blue-200/80 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:text-blue-700 hover:border-blue-300"
                     onClick={handleSuspendCart}
                     disabled={cart.length === 0}
                   >
@@ -1451,7 +1451,7 @@ export function POSView() {
       }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-800">
+            <DialogTitle className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
               <Package className="h-5 w-5 text-emerald-600" />
               Set Quantity
             </DialogTitle>
@@ -1496,7 +1496,7 @@ export function POSView() {
               </div>
             </div>
             {pendingAddProduct && (
-              <div className="rounded-lg bg-gray-50 p-3 space-y-1.5 text-sm">
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Unit price</span>
                   <span className="font-medium">{formatCurrency(pendingAddProduct.sellingPrice)}</span>
@@ -1537,7 +1537,7 @@ export function POSView() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-3">
-            <div className="rounded-lg bg-blue-50 p-3 text-sm space-y-1">
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Items</span>
                 <span className="font-medium">{cart.length}</span>
@@ -1605,7 +1605,7 @@ export function POSView() {
               suspendedCarts.map((sc: any) => (
                 <div
                   key={sc.id}
-                  className="rounded-lg border border-violet-100 p-3 hover:bg-violet-50/50 transition-colors"
+                  className="rounded-lg border border-violet-100 dark:border-violet-800 p-3 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
