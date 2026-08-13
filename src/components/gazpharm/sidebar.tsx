@@ -1,3 +1,4 @@
+// Sidebar emerald theme v2 - gazpharm-sidebar class applied to aside + SheetContent
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
