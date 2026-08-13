@@ -729,7 +729,7 @@ export default function Home() {
             {visibleNavItems.slice(0, 2).map((item) => (
               <button
                 key={item.name}
-                style={{ color: '#fff', outline: '4px solid rgba(255,255,255,0.2)', outlineOffset: '-4px', background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent' }}
+                style={{ color: '#fff', outline: '1.5px solid rgba(255,255,255,0.2)', outlineOffset: '-1.5px', background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent' }}
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
                 onClick={() => {
                   setCurrentView(item.name)
@@ -757,7 +757,7 @@ export default function Home() {
             {visibleNavItems.slice(2).map((item) => (
               <button
                 key={item.name}
-                style={{ color: '#fff', outline: '4px solid rgba(255,255,255,0.2)', outlineOffset: '-4px', background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent' }}
+                style={{ color: '#fff', outline: '1.5px solid rgba(255,255,255,0.2)', outlineOffset: '-1.5px', background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent' }}
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
                 onClick={() => {
                   setCurrentView(item.name)
