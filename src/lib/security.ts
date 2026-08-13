@@ -43,7 +43,7 @@ export async function verifyPassword(plain: string, stored: string): Promise<{ v
 // ── JWT ──
 
 const JWT_ALG = 'HS256'
-const JWT_EXPIRY = '8h' // 8-hour session (covers a full shift)
+const JWT_EXPIRY = '7d' // 7-day session — avoids frequent re-logins
 
 function getJwtSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET
