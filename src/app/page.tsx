@@ -694,26 +694,26 @@ export default function Home() {
     <div className="min-h-screen flex bg-mesh-light bg-grid-subtle relative">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+        style={{ backgroundColor: '#74c476' }}
+        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-emerald-500/50 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-emerald-400/20 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+        <div className="flex items-center gap-3 px-4 h-16 border-b border-white/20 relative overflow-hidden">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
               <Pill className="h-5 w-5 text-white" />
             </div>
             <div>
               <h1 className="text-sm font-bold text-white leading-tight tracking-tight">SelRx</h1>
-              <p className="text-[10px] text-emerald-100 leading-tight font-medium">Pharmacy POS System</p>
+              <p className="text-[10px] text-white/70 leading-tight font-medium">Pharmacy POS System</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto lg:hidden h-7 w-7 text-white/80 hover:text-white hover:bg-white/10"
+            className="ml-auto lg:hidden h-7 w-7 text-white/80 hover:text-white hover:bg-white/20"
             onClick={toggleSidebar}
           >
             <X className="h-4 w-4" />
@@ -723,26 +723,23 @@ export default function Home() {
         {/* Nav Items */}
         <ScrollArea className="flex-1 h-[calc(100vh-10rem)]">
           <div className="p-3 space-y-0.5">
-            <p className="text-[10px] font-semibold text-emerald-600/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
-              <span className="h-1 w-1 rounded-full bg-emerald-400" />Main
+            <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
+              <span className="h-1 w-1 rounded-full bg-white" />Main
             </p>
             {visibleNavItems.slice(0, 2).map((item) => (
               <button
                 key={item.name}
-                className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  currentView === item.name
-                    ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
-                    : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100'
-                }`}
+                style={{ color: '#fff', outline: '4px solid rgba(255,255,255,0.2)', outlineOffset: '-4px', background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent' }}
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <item.icon className={`h-[18px] w-[18px] ${currentView === item.name ? 'text-emerald-600' : ''}`} />
+                <item.icon className="h-[18px] w-[18px]" style={{ color: '#fff' }} />
                 {item.label}
                 {item.badge && (
-                  <span className="ml-auto text-[9px] font-bold bg-emerald-600 text-white rounded-full px-1.5 py-0.5 shadow-sm shadow-emerald-200">
+                  <span className="ml-auto text-[9px] font-bold bg-white text-emerald-700 rounded-full px-1.5 py-0.5">
                     {item.badge}
                   </span>
                 )}
@@ -751,26 +748,23 @@ export default function Home() {
 
             {visibleNavItems.length > 2 && (
               <>
-                <Separator className="my-2.5 bg-gray-100 dark:bg-gray-800" />
-                <p className="text-[10px] font-semibold text-emerald-600/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-emerald-400" />Management
+                <Separator className="my-2.5 bg-white/20" />
+                <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-3 py-2 flex items-center gap-1.5">
+                  <span className="h-1 w-1 rounded-full bg-white" />Management
                 </p>
               </>
             )}
             {visibleNavItems.slice(2).map((item) => (
               <button
                 key={item.name}
-                className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  currentView === item.name
-                    ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm shadow-emerald-100'
-                    : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100'
-                }`}
+                style={{ color: '#fff', outline: '4px solid rgba(255,255,255,0.2)', outlineOffset: '-4px', background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent' }}
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <item.icon className={`h-[18px] w-[18px] ${currentView === item.name ? 'text-emerald-600' : ''}`} />
+                <item.icon className="h-[18px] w-[18px]" style={{ color: '#fff' }} />
                 {item.label}
               </button>
             ))}
@@ -778,18 +772,18 @@ export default function Home() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-gray-100 dark:border-gray-800 dark:border-gray-800 p-3">
-          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-gray-50/50 dark:bg-gray-800/50">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+        <div className="border-t border-white/20 p-3">
+          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5">
+            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
               <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-emerald-600 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
+              <p className="text-[10px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:hover:bg-red-950/30"
+              className="h-7 w-7 text-white/80 hover:text-red-200 hover:bg-white/20"
               onClick={() => setLogoutOpen(true)}
             >
               <LogOut className="h-3.5 w-3.5" />
