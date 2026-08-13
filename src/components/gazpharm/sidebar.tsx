@@ -202,10 +202,11 @@ function SidebarNavContent({
               <Tooltip key={item.view}>
                 <TooltipTrigger asChild>
                   <button
-                    className={`gazpharm-nav-btn w-full h-10 rounded-lg ${isActive ? 'gazpharm-nav-active' : ''}`}
+                    style={{ color: '#fff', outline: '4px solid rgba(255,255,255,0.2)', outlineOffset: '-4px', background: isActive ? 'rgba(255,255,255,0.25)' : 'transparent' }}
+                    className="w-full h-10 rounded-lg"
                     onClick={() => handleNavClick(item.view)}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5" style={{ color: '#fff' }} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
@@ -218,10 +219,11 @@ function SidebarNavContent({
           return (
             <button
               key={item.view}
-              className={`gazpharm-nav-btn w-full flex items-center justify-start gap-3 h-10 rounded-lg px-3 ${isActive ? 'gazpharm-nav-active' : ''}`}
+              style={{ color: '#fff', outline: '4px solid rgba(255,255,255,0.2)', outlineOffset: '-4px', background: isActive ? 'rgba(255,255,255,0.25)' : 'transparent' }}
+              className="w-full flex items-center justify-start gap-3 h-10 rounded-lg px-3"
               onClick={() => handleNavClick(item.view)}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              <Icon className="h-5 w-5 shrink-0" style={{ color: '#fff' }} />
               <span className="text-sm font-medium">{item.label}</span>
               {isActive && (
                 <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
@@ -339,7 +341,7 @@ export function Sidebar() {
                 <span className="sr-only">Open navigation</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 gazpharm-sidebar border-r-emerald-500/50">
+            <SheetContent side="left" className="w-72 p-0 border-r-emerald-500/50" style={{ backgroundColor: '#74c476' }}>
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
@@ -368,7 +370,8 @@ export function Sidebar() {
   return (
     <div className="hidden md:block">
       <aside
-        className={`gazpharm-sidebar fixed left-0 top-0 z-40 h-screen border-r border-emerald-500/50 transition-all duration-300 ease-in-out ${
+        style={{ backgroundColor: '#74c476' }}
+        className={`fixed left-0 top-0 z-40 h-screen border-r border-emerald-500/50 transition-all duration-300 ease-in-out ${
           sidebarOpen ? 'w-64' : 'w-[68px]'
         }`}
       >
