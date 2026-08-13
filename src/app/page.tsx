@@ -91,7 +91,15 @@ if (typeof window !== 'undefined') {
         if (!headers.has('Authorization')) {
           headers.set('Authorization', `Bearer ${token}`)
         }
-        return origFetch.call(this, input, { ...init, headers })
+        return origFetch.call(this, input, { ...init, headers }).then((res) => {
+          // Auto-logout on 401 (expired/invalid token)
+          if (res.status === 401 && useAppStore.getState().isAuthenticated) {
+            const store = useAppStore.getState()
+            store.addToast({ title: 'Session Expired', description: 'Please log in again', variant: 'destructive' })
+            store.logout()
+          }
+          return res
+        })
       }
     }
     return origFetch.call(this, input, init)
