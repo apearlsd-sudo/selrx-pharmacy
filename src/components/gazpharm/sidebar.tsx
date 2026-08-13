@@ -188,7 +188,7 @@ function SidebarNavContent({
         )}
       </div>
 
-      <Separator className="bg-white/20" />
+      <div className="gazpharm-separator mx-3 h-px" />
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
@@ -200,18 +200,12 @@ function SidebarNavContent({
             return (
               <Tooltip key={item.view}>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`w-full h-10 rounded-lg !outline-none ring-4 ring-inset ${
-                      isActive
-                        ? 'bg-white/25 !text-white hover:bg-white/30 ring-white/40'
-                        : '!text-white hover:bg-white/15 ring-white/20 hover:ring-white/40'
-                    }`}
+                  <button
+                    className={`gazpharm-nav-btn w-full h-10 rounded-lg ${isActive ? 'gazpharm-nav-active' : ''}`}
                     onClick={() => handleNavClick(item.view)}
                   >
                     <Icon className="h-5 w-5" />
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
                   {item.label}
@@ -221,14 +215,9 @@ function SidebarNavContent({
           }
 
           return (
-            <Button
+            <button
               key={item.view}
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 rounded-lg px-3 !outline-none ring-4 ring-inset ${
-                isActive
-                  ? 'bg-white/25 !text-white hover:bg-white/30 ring-white/40'
-                  : '!text-white hover:bg-white/15 ring-white/20 hover:ring-white/40'
-              }`}
+              className={`gazpharm-nav-btn w-full flex items-center justify-start gap-3 h-10 rounded-lg px-3 ${isActive ? 'gazpharm-nav-active' : ''}`}
               onClick={() => handleNavClick(item.view)}
             >
               <Icon className="h-5 w-5 shrink-0" />
@@ -236,13 +225,13 @@ function SidebarNavContent({
               {isActive && (
                 <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
               )}
-            </Button>
+            </button>
           )
         })}
       </nav>
 
       {/* User Section */}
-      <Separator className="bg-white/20" />
+      <div className="gazpharm-separator mx-3 h-px" />
       <div className={`p-3 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
         {user && (
           <>
@@ -256,14 +245,12 @@ function SidebarNavContent({
                 </Avatar>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-white/80 hover:bg-white/20 hover:text-red-200"
+                    <button
+                      className="gazpharm-nav-btn h-8 w-8 rounded-lg"
                       onClick={handleLogout}
                     >
                       <LogOut className="h-4 w-4" />
-                    </Button>
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8}>
                     Sign Out
@@ -286,14 +273,12 @@ function SidebarNavContent({
                     {user.role.replace('_', ' ')}
                   </Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-white/80 hover:bg-white/20 hover:text-red-200 shrink-0"
+                <button
+                  className="gazpharm-nav-btn h-8 w-8 rounded-lg shrink-0"
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             )}
           </>
@@ -353,7 +338,7 @@ export function Sidebar() {
                 <span className="sr-only">Open navigation</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 border-r-emerald-500/50" style={{ backgroundColor: '#74c476' }}>
+            <SheetContent side="left" className="w-72 p-0 gazpharm-sidebar border-r-emerald-500/50">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
@@ -382,10 +367,9 @@ export function Sidebar() {
   return (
     <div className="hidden md:block">
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen border-r border-emerald-500/50 transition-all duration-300 ease-in-out ${
+        className={`gazpharm-sidebar fixed left-0 top-0 z-40 h-screen border-r border-emerald-500/50 transition-all duration-300 ease-in-out ${
           sidebarOpen ? 'w-64' : 'w-[68px]'
         }`}
-        style={{ backgroundColor: '#74c476' }}
       >
         {/* Collapse toggle */}
         <button

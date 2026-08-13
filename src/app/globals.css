@@ -515,3 +515,31 @@ html {
   }
 }
 
+/* ── SelRx Sidebar: Emerald theme ──────────────────────────────────── */
+/* Targets the gazpharm sidebar <aside> and mobile Sheet */
+.gazpharm-sidebar {
+  background-color: #74c476 !important;
+}
+.gazpharm-sidebar .gazpharm-nav-btn {
+  color: #ffffff !important;
+  outline: 4px solid rgba(255, 255, 255, 0.2);
+  outline-offset: -4px;
+  background: transparent;
+  transition: background 0.15s ease, outline-color 0.15s ease;
+}
+.gazpharm-sidebar .gazpharm-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  outline-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff !important;
+}
+.gazpharm-sidebar .gazpharm-nav-btn.gazpharm-nav-active {
+  background: rgba(255, 255, 255, 0.25) !important;
+  outline-color: rgba(255, 255, 255, 0.4);
+}
+.gazpharm-sidebar .gazpharm-nav-btn svg {
+  color: #ffffff !important;
+}
+.gazpharm-sidebar .gazpharm-separator {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
