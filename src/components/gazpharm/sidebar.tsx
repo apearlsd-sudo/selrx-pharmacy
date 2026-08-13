@@ -173,7 +173,7 @@ function SidebarNavContent({
       <div
         className={`flex items-center gap-3 px-4 py-5 ${collapsed ? 'justify-center' : ''}`}
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
           <Pill className="h-5 w-5 text-white" />
         </div>
         {!collapsed && (
@@ -181,14 +181,14 @@ function SidebarNavContent({
             <span className="text-sm font-bold text-white tracking-tight">
               SelRx
             </span>
-            <span className="text-[10px] text-gray-400 -mt-0.5">
+            <span className="text-[10px] text-white/70 -mt-0.5">
               Pharmacy POS
             </span>
           </div>
         )}
       </div>
 
-      <Separator className="bg-gray-700/50" />
+      <Separator className="bg-white/20" />
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
@@ -203,10 +203,10 @@ function SidebarNavContent({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`w-full h-10 rounded-lg ${
+                    className={`w-full h-10 rounded-lg outline outline-4 outline-transparent ${
                       isActive
-                        ? 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-400'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                        ? 'bg-white/25 text-white hover:bg-white/30 outline-white/40'
+                        : 'text-white hover:bg-white/15 outline-white/20 hover:outline-white/40'
                     }`}
                     onClick={() => handleNavClick(item.view)}
                   >
@@ -224,17 +224,17 @@ function SidebarNavContent({
             <Button
               key={item.view}
               variant="ghost"
-              className={`w-full justify-start gap-3 h-10 rounded-lg px-3 ${
+              className={`w-full justify-start gap-3 h-10 rounded-lg px-3 outline outline-4 outline-transparent ${
                 isActive
-                  ? 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-400'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                  ? 'bg-white/25 text-white hover:bg-white/30 outline-white/40'
+                  : 'text-white hover:bg-white/15 outline-white/20 hover:outline-white/40'
               }`}
               onClick={() => handleNavClick(item.view)}
             >
               <Icon className="h-5 w-5 shrink-0" />
               <span className="text-sm font-medium">{item.label}</span>
               {isActive && (
-                <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
               )}
             </Button>
           )
@@ -242,7 +242,7 @@ function SidebarNavContent({
       </nav>
 
       {/* User Section */}
-      <Separator className="bg-gray-700/50" />
+      <Separator className="bg-white/20" />
       <div className={`p-3 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
         {user && (
           <>
@@ -259,7 +259,7 @@ function SidebarNavContent({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-gray-400 hover:bg-gray-800 hover:text-red-400"
+                      className="h-8 w-8 text-white/80 hover:bg-white/20 hover:text-red-200"
                       onClick={handleLogout}
                     >
                       <LogOut className="h-4 w-4" />
@@ -289,7 +289,7 @@ function SidebarNavContent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-gray-400 hover:bg-gray-800 hover:text-red-400 shrink-0"
+                  className="h-8 w-8 text-white/80 hover:bg-white/20 hover:text-red-200 shrink-0"
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4" />
@@ -353,7 +353,7 @@ export function Sidebar() {
                 <span className="sr-only">Open navigation</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 bg-gray-900 border-r-gray-700">
+            <SheetContent side="left" className="w-72 p-0 border-r-emerald-500/50" style={{ backgroundColor: '#74c476' }}>
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation</SheetTitle>
               </SheetHeader>
@@ -382,14 +382,15 @@ export function Sidebar() {
   return (
     <div className="hidden md:block">
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen bg-gray-900 border-r border-gray-700/50 transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 z-40 h-screen border-r border-emerald-500/50 transition-all duration-300 ease-in-out ${
           sidebarOpen ? 'w-64' : 'w-[68px]'
         }`}
+        style={{ backgroundColor: '#74c476' }}
       >
         {/* Collapse toggle */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-3 top-7 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-gray-600 bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors shadow-md"
+          className="absolute -right-3 top-7 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-emerald-500 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-md"
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? (
