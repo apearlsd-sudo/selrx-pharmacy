@@ -62,6 +62,22 @@ export const ALL_PERMISSION_KEYS = [
   'shifts:view',
   'shifts:manage',
   'shifts:reconcile',
+  // Purchase Orders
+  'po:view',
+  'po:create',
+  'po:approve',
+  'po:receive',
+  'po:delete',
+  'po:cancel',
+  // Login History
+  'login-history:view',
+  'login-history:export',
+  // Drug Interactions
+  'drug-interactions:view',
+  'drug-interactions:manage',
+  // Workstations
+  'workstations:view',
+  'workstations:manage',
   // Audit
   'audit:view',
   'audit:export',
@@ -185,6 +201,38 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
+    category: 'Purchase Orders',
+    permissions: [
+      { key: 'po:view', label: 'View Purchase Orders', description: 'View all purchase orders and their status' },
+      { key: 'po:create', label: 'Create Purchase Orders', description: 'Create new purchase orders for suppliers' },
+      { key: 'po:approve', label: 'Approve Purchase Orders', description: 'Approve POs before sending to suppliers' },
+      { key: 'po:receive', label: 'Receive Orders', description: 'Receive stock against purchase orders and add to inventory' },
+      { key: 'po:delete', label: 'Delete Purchase Orders', description: 'Permanently delete draft or cancelled purchase orders' },
+      { key: 'po:cancel', label: 'Cancel Purchase Orders', description: 'Cancel sent or in-progress purchase orders' },
+    ],
+  },
+  {
+    category: 'Login History',
+    permissions: [
+      { key: 'login-history:view', label: 'View Login History', description: 'See user login timestamps, IPs, and devices' },
+      { key: 'login-history:export', label: 'Export Login History', description: 'Export login records for security review' },
+    ],
+  },
+  {
+    category: 'Drug Interactions',
+    permissions: [
+      { key: 'drug-interactions:view', label: 'View Drug Interactions', description: 'Check drug-drug and drug-food interaction alerts' },
+      { key: 'drug-interactions:manage', label: 'Manage Interactions Database', description: 'Add, edit, and update interaction records' },
+    ],
+  },
+  {
+    category: 'Workstations',
+    permissions: [
+      { key: 'workstations:view', label: 'View Workstations', description: 'See registered workstation devices and status' },
+      { key: 'workstations:manage', label: 'Manage Workstations', description: 'Register, edit, and deactivate workstations' },
+    ],
+  },
+  {
     category: 'Audit & Compliance',
     permissions: [
       { key: 'audit:view', label: 'View Audit Log', description: 'View system audit trail and activity logs' },
@@ -220,6 +268,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'hardware:view', 'hardware:manage',
     'reports:view', 'reports:export',
     'settings:view', 'settings:receipt',
+    'po:view', 'po:create', 'po:receive',
+    'drug-interactions:view', 'drug-interactions:manage',
+    'workstations:view',
+    'login-history:view',
   ],
 
   PHARMACY_TECHNICIAN: [
@@ -231,6 +283,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'customers:view', 'customers:manage',
     'master-data:view',
     'reports:view',
+    'po:view', 'po:receive',
+    'drug-interactions:view',
   ],
 
   DISPENSER: [
@@ -268,6 +322,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'master-data:view', 'master-data:manage', 'master-data:categories', 'master-data:manufacturers', 'master-data:suppliers',
     'reports:view', 'reports:export',
     'settings:view', 'settings:receipt',
+    'po:view', 'po:create', 'po:approve', 'po:receive', 'po:delete', 'po:cancel',
+    'workstations:view', 'workstations:manage',
+    'drug-interactions:view',
+    'login-history:view',
     'audit:view',
   ],
 
@@ -283,6 +341,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'master-data:view',
     'reports:view',
     'settings:view', 'settings:receipt',
+    'po:view', 'po:create', 'po:receive',
+    'workstations:view',
+    'drug-interactions:view',
+    'login-history:view',
   ],
 
   ACCOUNTANT: [
@@ -294,7 +356,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'customers:view',
     'financial:view', 'financial:reports', 'financial:reconcile',
     'reports:view', 'reports:export',
+    'po:view',
     'audit:view', 'audit:export',
+    'login-history:view', 'login-history:export',
     'settings:view',
   ],
 
@@ -320,6 +384,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'shifts:view',
     'users:view', 'users:view-logs',
     'audit:view', 'audit:export',
+    'login-history:view', 'login-history:export',
+    'workstations:view',
     'reports:view',
   ],
 }
