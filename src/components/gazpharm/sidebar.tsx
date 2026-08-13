@@ -203,10 +203,10 @@ function SidebarNavContent({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`w-full h-10 rounded-lg outline outline-4 outline-transparent ${
+                    className={`w-full h-10 rounded-lg !outline-none ring-4 ring-inset ${
                       isActive
-                        ? 'bg-white/25 text-white hover:bg-white/30 outline-white/40'
-                        : 'text-white hover:bg-white/15 outline-white/20 hover:outline-white/40'
+                        ? 'bg-white/25 !text-white hover:bg-white/30 ring-white/40'
+                        : '!text-white hover:bg-white/15 ring-white/20 hover:ring-white/40'
                     }`}
                     onClick={() => handleNavClick(item.view)}
                   >
@@ -224,10 +224,10 @@ function SidebarNavContent({
             <Button
               key={item.view}
               variant="ghost"
-              className={`w-full justify-start gap-3 h-10 rounded-lg px-3 outline outline-4 outline-transparent ${
+              className={`w-full justify-start gap-3 h-10 rounded-lg px-3 !outline-none ring-4 ring-inset ${
                 isActive
-                  ? 'bg-white/25 text-white hover:bg-white/30 outline-white/40'
-                  : 'text-white hover:bg-white/15 outline-white/20 hover:outline-white/40'
+                  ? 'bg-white/25 !text-white hover:bg-white/30 ring-white/40'
+                  : '!text-white hover:bg-white/15 ring-white/20 hover:ring-white/40'
               }`}
               onClick={() => handleNavClick(item.view)}
             >
