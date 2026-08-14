@@ -485,7 +485,7 @@ export function PurchaseOrdersView() {
 
   // ── Render ──
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         icon={ShoppingCart}
         title="Purchase Orders"
@@ -738,7 +738,7 @@ export function PurchaseOrdersView() {
             <ScrollArea className="h-full">
               <div className="space-y-4 pb-4">
                 {/* Vendor + Date row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Vendor *</Label>
                     <Select value={selectedVendorId} onValueChange={handleVendorChange}>

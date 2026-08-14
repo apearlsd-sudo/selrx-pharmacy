@@ -279,7 +279,7 @@ export function GoodsReturnView() {
   const displayReturns = activeTab === 'pending' ? pendingReturns : returns
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader
         icon={RotateCcw}
         title="Goods Return"
@@ -298,7 +298,7 @@ export function GoodsReturnView() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         <Card className="border-none shadow-sm card-hover">
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Returns</p>
@@ -312,7 +312,7 @@ export function GoodsReturnView() {
         </Card>
 
         <Card className="border-none shadow-sm card-hover">
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pending Approval</p>
@@ -326,7 +326,7 @@ export function GoodsReturnView() {
         </Card>
 
         <Card className="border-none shadow-sm card-hover">
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completed</p>
@@ -340,7 +340,7 @@ export function GoodsReturnView() {
         </Card>
 
         <Card className="border-none shadow-sm card-hover">
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Refunded</p>
@@ -445,7 +445,7 @@ export function GoodsReturnView() {
 
       {/* Reason Breakdown (when there's data) */}
       {summary.topReasons.length > 0 && activeTab === 'all' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className="border-none shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-900 dark:text-gray-100">Return Reasons</CardTitle>
@@ -720,7 +720,7 @@ function ReturnTable({
   if (loading) {
     return (
       <Card className="border-none shadow-sm">
-        <CardContent className="p-6">
+        <CardContent className="p-4">
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4">

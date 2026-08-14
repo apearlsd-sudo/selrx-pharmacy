@@ -309,10 +309,10 @@ export function StockTakeSection() {
             <Button variant="ghost" size="sm" onClick={() => setView('list')}>
               <ArrowLeft className="h-4 w-4 mr-1" /> Back
             </Button>
-            <CardTitle className="text-base">New Stock Take</CardTitle>
+            <CardTitle className="text-sm">New Stock Take</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="space-y-2">
             <Label>Notes (optional)</Label>
             <Textarea
@@ -348,7 +348,7 @@ export function StockTakeSection() {
                 <ArrowLeft className="h-4 w-4 mr-1" /> Back
               </Button>
               <div>
-                <CardTitle className="text-base">{selectedTake.reference}</CardTitle>
+                <CardTitle className="text-sm">{selectedTake.reference}</CardTitle>
                 <p className="text-xs text-muted-foreground">
                   Created {formatDateTime(selectedTake.createdAt)}
                   {selectedTake.countedByUser && ` · By ${selectedTake.countedByUser.name}`}
@@ -360,7 +360,7 @@ export function StockTakeSection() {
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {/* Summary */}
           <div className="grid grid-cols-3 gap-3 stagger-children">
             <Card className="card-hover">
@@ -562,8 +562,8 @@ export function StockTakeSection() {
                 onClick={() => handleViewDetail(st.id)}
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                    <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
                     <p className="text-sm font-medium">{st.reference}</p>

@@ -857,7 +857,7 @@ export function ReportsView() {
   }, [userSalesData, addToast])
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       <PageHeader icon={BarChart3} title="Reports" description="Sales analytics, shift reports, and product activity" />
 
       {/* Report Type Tabs */}
@@ -884,8 +884,8 @@ export function ReportsView() {
         </div>
 
         {/* Sales Summary Tab */}
-        <TabsContent value="sales" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
+        <TabsContent value="sales" className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
@@ -940,7 +940,7 @@ export function ReportsView() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Daily Sales Trend */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
@@ -1030,7 +1030,7 @@ export function ReportsView() {
         </TabsContent>
 
         {/* ========== Per-User Sales Analytics Tab ========== */}
-        <TabsContent value="user-sales" className="space-y-6">
+        <TabsContent value="user-sales" className="space-y-4">
           {/* Header with user filter for SUPER_ADMIN */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -1058,7 +1058,7 @@ export function ReportsView() {
           </div>
 
           {/* Summary KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
@@ -1120,7 +1120,7 @@ export function ReportsView() {
           </div>
 
           {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Sales by User Bar Chart (SUPER_ADMIN only, when viewing all) */}
             {isSuperAdmin && selectedUserId === 'all' && userSalesChartData.length > 0 && (
               <Card className="card-hover transition-all duration-200">
@@ -1261,8 +1261,8 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Inventory Tab */}
-        <TabsContent value="inventory" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
+        <TabsContent value="inventory" className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
@@ -1298,7 +1298,7 @@ export function ReportsView() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Stock by Category</CardTitle>
@@ -1354,7 +1354,7 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Expired Goods Tab */}
-        <TabsContent value="expired-goods" className="space-y-6">
+        <TabsContent value="expired-goods" className="space-y-4">
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div />
@@ -1506,7 +1506,7 @@ export function ReportsView() {
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">{p.batchNumber || '—'}</TableCell>
                             <TableCell className="text-right">
-                              <span className={`font-bold text-sm ${p.processed ? 'text-orange-600' : p.stockQty > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                              <span className={`font-bold text-lg ${p.processed ? 'text-orange-600' : p.stockQty > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                                 {p.processed ? (p.removedQty || 0) : p.stockQty}
                               </span>
                             </TableCell>
@@ -1577,12 +1577,12 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Prescriptions Tab */}
-        <TabsContent value="prescriptions" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
+        <TabsContent value="prescriptions" className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{prescriptions.length}</span>
+                  <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{prescriptions.length}</span>
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.length}</p>
@@ -1593,7 +1593,7 @@ export function ReportsView() {
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
-                  <span className="text-sm font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
+                  <span className="text-lg font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
@@ -1604,7 +1604,7 @@ export function ReportsView() {
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
+                  <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
@@ -1614,7 +1614,7 @@ export function ReportsView() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Prescriptions by Status</CardTitle>
@@ -1672,7 +1672,7 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Stock Take Reports Tab */}
-        <TabsContent value="stocktake" className="space-y-6">
+        <TabsContent value="stocktake" className="space-y-4">
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -1733,13 +1733,13 @@ export function ReportsView() {
         </TabsContent>
 
         {/* Product Activity Tab */}
-        <TabsContent value="product-activity" className="space-y-6">
+        <TabsContent value="product-activity" className="space-y-4">
           {/* KPI summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
             <Card className="card-hover transition-all duration-200">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">+</span>
+                  <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">+</span>
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{products.length}</p>
@@ -2062,7 +2062,7 @@ export function ReportsView() {
         </TabsContent>
 
         {/* ── Shift Reports Tab ── */}
-        <TabsContent value="shifts" className="space-y-6 relative block w-full">
+        <TabsContent value="shifts" className="space-y-4 relative block w-full">
           {/* Shift-specific filters */}
           <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">

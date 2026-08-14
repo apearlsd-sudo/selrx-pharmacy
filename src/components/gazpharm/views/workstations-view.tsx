@@ -123,7 +123,7 @@ export function WorkstationsView() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader icon={Monitor} title="Workstations" description="Register and manage POS terminals" />
 
       {/* Current Selection Banner */}
@@ -155,7 +155,7 @@ export function WorkstationsView() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="border-none shadow-sm"><CardContent className="p-5"><div className="h-20 animate-pulse bg-gray-100 rounded-lg" /></CardContent></Card>
+            <Card key={i} className="border-none shadow-sm"><CardContent className="p-4"><div className="h-20 animate-pulse bg-gray-100 rounded-lg" /></CardContent></Card>
           ))}
         </div>
       ) : workstations.length === 0 ? (
@@ -180,13 +180,13 @@ export function WorkstationsView() {
                 }`}
                 onClick={() => handleSelect(ws.id)}
               >
-                <CardContent className="p-5">
+                <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
                         isSelected ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'
                       }`}>
-                        <Monitor className="h-5 w-5" />
+                        <Monitor className="h-4 w-4" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold">{ws.name}</p>

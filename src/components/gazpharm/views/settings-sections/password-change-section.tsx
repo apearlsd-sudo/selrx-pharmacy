@@ -73,7 +73,7 @@ export function PasswordChangeSection() {
           Update your account password. You will need to enter your current password to confirm.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Current Password</Label>
           <Input

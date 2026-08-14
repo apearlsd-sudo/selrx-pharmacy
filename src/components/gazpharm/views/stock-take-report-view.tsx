@@ -245,7 +245,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
   // ── Loading State ──
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -303,7 +303,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
   )
 
   return (
-    <div className="space-y-4 print:space-y-2 animate-fade-in">
+    <div className="space-y-3 print:space-y-2 animate-fade-in">
       {/* ── Report Header ── */}
       <PageHeader
         icon={ClipboardCheck}

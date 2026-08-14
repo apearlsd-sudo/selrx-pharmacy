@@ -153,7 +153,7 @@ export function LoginHistoryView() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {/* Header */}
       <PageHeader
         icon={LogIn}

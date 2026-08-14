@@ -353,7 +353,7 @@ export function DrugInteractionsView() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       <PageHeader
         icon={Pill}
         title="Drug Interactions"
@@ -393,7 +393,7 @@ export function DrugInteractionsView() {
       </div>
 
       {/* ── Tabs ────────────────────────────────────────────────────────── */}
-      <Tabs defaultValue="all" className="space-y-4">
+      <Tabs defaultValue="all" className="space-y-3">
         <TabsList>
           <TabsTrigger value="all">All Interactions</TabsTrigger>
           <TabsTrigger value="high-risk">
@@ -407,14 +407,14 @@ export function DrugInteractionsView() {
         </TabsList>
 
         {/* ── All Interactions Tab ──────────────────────────────────────── */}
-        <TabsContent value="all" className="space-y-4">
+        <TabsContent value="all" className="space-y-3">
           {renderFilterBar()}
           {renderTable(interactions)}
           {renderPagination()}
         </TabsContent>
 
         {/* ── High-Risk Tab ─────────────────────────────────────────────── */}
-        <TabsContent value="high-risk" className="space-y-4">
+        <TabsContent value="high-risk" className="space-y-3">
           {renderTable(
             interactions.filter(
               (i) => i.severity === 'contraindicated' || i.severity === 'critical' || i.severity === 'severe'
@@ -423,7 +423,7 @@ export function DrugInteractionsView() {
         </TabsContent>
 
         {/* ── Custom Tab ────────────────────────────────────────────────── */}
-        <TabsContent value="custom" className="space-y-4">
+        <TabsContent value="custom" className="space-y-3">
           {renderTable(interactions.filter((i) => i.isCustom))}
         </TabsContent>
       </Tabs>
@@ -443,7 +443,7 @@ export function DrugInteractionsView() {
           <ScrollArea className="max-h-[70vh] pr-1">
             <div className="space-y-4 py-1">
               {/* Drug pair */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Drug 1 *</Label>
                   <Input
@@ -463,7 +463,7 @@ export function DrugInteractionsView() {
               </div>
 
               {/* Severity & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Severity *</Label>
                   <Select
@@ -503,7 +503,7 @@ export function DrugInteractionsView() {
               </div>
 
               {/* Onset & Evidence */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Onset</Label>
                   <Select

@@ -375,7 +375,7 @@ export function PrescriptionsView() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       <PageHeader icon={ClipboardList} title="Prescriptions" description="Track and manage prescription orders" action={
         <Button
           variant="outline"

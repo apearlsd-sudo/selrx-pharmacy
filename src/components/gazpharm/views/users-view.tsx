@@ -666,14 +666,14 @@ export function UsersView() {
   })), [users])
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader icon={UserCog} title="User Management" description="Manage staff accounts, roles, and permissions" />
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 stagger-children">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <UserCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-xl sm:text-2xl font-bold">{users.length}</p>
@@ -683,8 +683,8 @@ export function UsersView() {
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+            <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-green-600" />
             </div>
             <div>
               <p className="text-xl sm:text-2xl font-bold text-green-600">{users.filter((u) => u.active).length}</p>
@@ -694,8 +694,8 @@ export function UsersView() {
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
-              <Ban className="h-5 w-5 text-gray-600" />
+            <div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Ban className="h-4 w-4 text-gray-600" />
             </div>
             <div>
               <p className="text-xl sm:text-2xl font-bold text-gray-600">{users.filter((u) => !u.active).length}</p>
@@ -705,8 +705,8 @@ export function UsersView() {
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Crown className="h-5 w-5 text-purple-600" />
+            <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Crown className="h-4 w-4 text-purple-600" />
             </div>
             <div>
               <p className="text-xl sm:text-2xl font-bold text-purple-600">{roles.length}</p>
@@ -716,8 +716,8 @@ export function UsersView() {
         </Card>
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{ALL_PERMISSIONS.length}</p>
@@ -1386,7 +1386,7 @@ export function UsersView() {
         <>
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Roles & Privileges</h2>
+              <h2 className="text-sm font-semibold">Roles & Privileges</h2>
               <p className="text-sm text-muted-foreground">Create and manage custom roles with granular permissions ({ALL_PERMISSIONS.length} total permissions across {PERMISSION_CATEGORIES.length} categories)</p>
             </div>
             <Button onClick={() => {
@@ -1476,7 +1476,7 @@ export function UsersView() {
                 <DialogDescription>Define a new role with custom permissions and access levels.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 overflow-y-auto flex-1 pr-1">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Role Name (Code) <span className="text-red-500">*</span></Label>
                     <Input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') })} placeholder="SHIFT_LEAD" className="mt-1" />

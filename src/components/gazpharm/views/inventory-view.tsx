@@ -1082,7 +1082,7 @@ export function InventoryView() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader icon={Package} title="Inventory" description="Manage your pharmacy product stock and batches" action={
         <div className="flex items-center gap-2">
           <Button
@@ -1117,7 +1117,7 @@ export function InventoryView() {
       } />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
@@ -1480,7 +1480,7 @@ export function InventoryView() {
             </DialogTitle>
             <DialogDescription>Fill in the product details. Fields marked * are required.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto pr-1">
             {/* Product Name */}
             <div className="col-span-2">
               <Label htmlFor="prod-name">Product Name <span className="text-red-500">*</span></Label>
@@ -1781,7 +1781,7 @@ export function InventoryView() {
             </DialogTitle>
             <DialogDescription>Enter the full details for the new manufacturer.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
             <div className="col-span-2">
               <Label>Company Name <span className="text-red-500">*</span></Label>
               <Input placeholder="e.g., Pfizer Inc." value={addMfgForm.name} onChange={(e) => setAddMfgForm({ ...addMfgForm, name: e.target.value })} className="mt-1" />
@@ -1840,7 +1840,7 @@ export function InventoryView() {
             </DialogTitle>
             <DialogDescription>Enter the full details for the new vendor.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
             <div className="col-span-2">
               <Label>Company Name <span className="text-red-500">*</span></Label>
               <Input placeholder="e.g., MedSupply Corp" value={addVendorForm.name} onChange={(e) => setAddVendorForm({ ...addVendorForm, name: e.target.value })} className="mt-1" />

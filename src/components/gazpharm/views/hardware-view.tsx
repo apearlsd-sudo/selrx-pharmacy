@@ -125,8 +125,8 @@ function DeviceCard({
       <div className="absolute top-0 left-0 h-1 w-full bg-emerald-600" />
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-            <Icon className="h-5 w-5 text-emerald-700" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
+            <Icon className="h-4 w-4 text-emerald-700" />
           </div>
           <div>
             <CardTitle className="text-sm font-semibold">{config.label}</CardTitle>
@@ -178,7 +178,7 @@ function DeviceCardSkeleton() {
     <Card>
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-lg" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
           <div className="space-y-1">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-3 w-16" />
@@ -326,7 +326,7 @@ export function HardwareView() {
   const deviceKeys: DeviceKey[] = ['receiptPrinter', 'barcodeScanner', 'cashDrawer', 'labelPrinter', 'scale']
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4">
       {/* Header */}
       <PageHeader
         icon={MonitorSmartphone}
@@ -342,7 +342,7 @@ export function HardwareView() {
 
       {/* Device Status Cards */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Device Status</h2>
+        <h2 className="mb-4 text-sm font-semibold text-foreground">Device Status</h2>
         <div className="stagger-children grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {loading && !hardwareStatus
             ? Array.from({ length: 5 }).map((_, i) => <DeviceCardSkeleton key={i} />)
@@ -359,7 +359,7 @@ export function HardwareView() {
       </section>
 
       {/* Hardware Log & Configuration */}
-      <Tabs defaultValue="logs" className="space-y-4">
+      <Tabs defaultValue="logs" className="space-y-3">
         <TabsList>
           <TabsTrigger value="logs">Hardware Log</TabsTrigger>
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
@@ -370,7 +370,7 @@ export function HardwareView() {
           <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle className="text-base">Hardware Activity Log</CardTitle>
+                <CardTitle className="text-sm">Hardware Activity Log</CardTitle>
                 <CardDescription>Recent hardware events and interactions</CardDescription>
               </div>
               <Select value={logFilter} onValueChange={(v) => { setLogFilter(v); setLogPage(1) }}>
@@ -467,16 +467,16 @@ export function HardwareView() {
 
         {/* Configuration */}
         <TabsContent value="configuration">
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-3">
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Printer className="h-5 w-5 text-emerald-600" />
-                  <CardTitle className="text-base">Printer Settings</CardTitle>
+                  <Printer className="h-4 w-4 text-emerald-600" />
+                  <CardTitle className="text-sm">Printer Settings</CardTitle>
                 </div>
                 <CardDescription>Configure receipt printer behavior</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="paperSize">Paper Size</Label>
                   <Select
@@ -517,12 +517,12 @@ export function HardwareView() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <ScanLine className="h-5 w-5 text-emerald-600" />
-                  <CardTitle className="text-base">Scanner Settings</CardTitle>
+                  <ScanLine className="h-4 w-4 text-emerald-600" />
+                  <CardTitle className="text-sm">Scanner Settings</CardTitle>
                 </div>
                 <CardDescription>Configure barcode scanner connection</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <Label>Scanner Type</Label>
                   <div className="grid grid-cols-3 gap-2">
@@ -545,12 +545,12 @@ export function HardwareView() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <DoorOpen className="h-5 w-5 text-emerald-600" />
-                  <CardTitle className="text-base">Cash Drawer Settings</CardTitle>
+                  <DoorOpen className="h-4 w-4 text-emerald-600" />
+                  <CardTitle className="text-sm">Cash Drawer Settings</CardTitle>
                 </div>
                 <CardDescription>Configure cash drawer behavior</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <Label>Connection Type</Label>
                   <div className="grid grid-cols-2 gap-2">

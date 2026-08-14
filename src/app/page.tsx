@@ -195,8 +195,8 @@ function TopbarClock() {
   }, [])
 
   return (
-    <div className="hidden sm:flex items-center gap-1.5 text-xs mr-2" style={{ color: '#fff' }}>
-      <Clock className="h-3.5 w-3.5" />
+    <div className="hidden sm:flex items-center gap-1 text-[11px] mr-1" style={{ color: '#fff' }}>
+      <Clock className="h-3 w-3" />
       <span className="font-medium tabular-nums">{time}</span>
     </div>
   )
@@ -218,9 +218,9 @@ function WorkstationSelector() {
 
   return (
     <Select value={currentWorkstationId || '_none'} onValueChange={(v) => setCurrentWorkstationId(v === '_none' ? null : v)}>
-      <SelectTrigger className="h-8 w-[140px] text-[11px] border-gray-200 dark:border-gray-700 bg-gray-50/50">
+      <SelectTrigger className="h-7 w-[120px] text-[11px] border-gray-200 dark:border-gray-700 bg-gray-50/50">
         <div className="flex items-center gap-1.5 truncate">
-          <Monitor className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <Monitor className="h-3 w-3 shrink-0 text-muted-foreground" />
           <SelectValue placeholder="Select terminal" />
         </div>
       </SelectTrigger>
@@ -297,8 +297,8 @@ function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-          <Bell className={`h-4 w-4 ${visibleCount > 0 ? 'text-amber-500' : ''}`} />
+        <Button variant="ghost" size="icon" className="h-8 w-8 relative">
+          <Bell className={`h-3.5 w-3.5 ${visibleCount > 0 ? 'text-amber-500' : ''}`} />
           {visibleCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
               {visibleCount > 99 ? '99+' : visibleCount}
@@ -782,19 +782,19 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)' }}
-        className={`fixed inset-y-0 left-0 z-40 w-64 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-52 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-white/20 relative overflow-hidden">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
-              <Pill className="h-5 w-5 text-white" />
+        <div className="flex items-center gap-2.5 px-3 h-12 border-b border-white/20 relative overflow-hidden">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
+              <Pill className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white leading-tight tracking-tight">SelRx</h1>
-              <p className="text-[10px] text-white/70 leading-tight font-medium">Pharmacy POS System</p>
+              <h1 className="text-xs font-bold text-white leading-tight tracking-tight">SelRx</h1>
+              <p className="text-[9px] text-white/70 leading-tight font-medium">Pharmacy POS</p>
             </div>
           </div>
           <Button
@@ -808,7 +808,7 @@ export default function Home() {
         </div>
 
         {/* Nav Items */}
-        <ScrollArea className="flex-1 h-[calc(100vh-10rem)]">
+        <ScrollArea className="flex-1 h-[calc(100vh-8.5rem)]">
           <div className="space-y-0.5">
             {visibleNavItems.map((item) => (
               <button
@@ -818,19 +818,19 @@ export default function Home() {
                   background: currentView === item.name ? '#fff' : 'transparent',
                   boxShadow: 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
                   borderRadius: '0',
-                  paddingTop: '10px',
-                  paddingBottom: '10px',
+                  paddingTop: '8px',
+                  paddingBottom: '8px',
                 }}
-                className="flex items-center gap-3 w-full px-6 text-sm font-medium transition-all duration-200"
+                className="flex items-center gap-2.5 w-full px-4 text-xs font-medium transition-all duration-200"
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '10px'; e.currentTarget.style.paddingBottom = '10px'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '8px'; e.currentTarget.style.paddingBottom = '8px'; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <span className="flex items-center justify-center h-6 w-6 rounded-md" style={{ background: '#10b981' }}>
-                  <item.icon className="h-3.5 w-3.5" style={{ color: '#000' }} />
+                <span className="flex items-center justify-center h-5 w-5 rounded-md" style={{ background: '#10b981' }}>
+                  <item.icon className="h-3 w-3" style={{ color: '#000' }} />
                 </span>
                 {item.label}
                 {item.badge && (
@@ -846,21 +846,21 @@ export default function Home() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-white/20 p-3">
-          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5">
-            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
+        <div className="border-t border-white/20 p-2">
+          <div className="flex items-center gap-2 rounded-lg px-2.5 py-2">
+            <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-white text-[10px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
+              <p className="text-[9px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-white/80 hover:text-red-200 hover:bg-white/20"
+              className="h-6 w-6 text-white/80 hover:text-red-200 hover:bg-white/20"
               onClick={() => setLogoutOpen(true)}
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-3 w-3" />
             </Button>
           </div>
         </div>
@@ -875,22 +875,22 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
+      <main className="flex-1 lg:ml-52 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-14 border-b border-white/10 flex items-center gap-3 px-4 lg:px-6">
+        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-11 border-b border-white/10 flex items-center gap-2 px-3 lg:px-4">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-9 w-9 text-white/80 hover:text-white hover:bg-white/10"
+            className="lg:hidden h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
             onClick={toggleSidebar}
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-4 w-4" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <h1 style={{ color: '#fff' }} className="text-sm font-bold leading-tight">{company?.name || 'SelRx'}</h1>
-            <Separator orientation="vertical" className="h-4 bg-white/20" />
-            <span style={{ color: 'rgba(255,255,255,0.7)' }} className="text-xs font-medium">{currentLabel}</span>
+            <h1 style={{ color: '#fff' }} className="text-xs font-bold leading-tight">{company?.name || 'SelRx'}</h1>
+            <Separator orientation="vertical" className="h-3.5 bg-white/20" />
+            <span style={{ color: 'rgba(255,255,255,0.7)' }} className="text-[11px] font-medium">{currentLabel}</span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -900,12 +900,12 @@ export default function Home() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
+              className="h-7 w-7 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label="Toggle theme"
             >
-              <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+              <Sun className="h-3.5 w-3.5 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-3.5 w-3.5 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
             </Button>
             {/* Workstation Selector */}
             <WorkstationSelector />
@@ -914,8 +914,8 @@ export default function Home() {
             {shiftActive && shiftStartedAt && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-white/20 bg-white/10 text-white hover:bg-white/20">
-                    <ClockIcon className="h-3.5 w-3.5" />
+                  <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] border-white/20 bg-white/10 text-white hover:bg-white/20">
+                    <ClockIcon className="h-3 w-3" />
                     <span className="hidden md:inline">Active</span>
                   </Button>
                 </PopoverTrigger>
@@ -985,25 +985,25 @@ export default function Home() {
                   }
                 }}
               >
-                <ClockIcon className="h-3.5 w-3.5" />
+                <ClockIcon className="h-3 w-3" />
                 <span className="hidden md:inline">Start Shift</span>
               </Button>
             )}
-            <div className="hidden sm:flex items-center gap-3">
-              <Separator orientation="vertical" className="h-6 bg-white/20" />
+            <div className="hidden sm:flex items-center gap-2">
+              <Separator orientation="vertical" className="h-5 bg-white/20" />
               <div className="flex items-center gap-2">
-                <span className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shadow-sm">
-                  <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
+                <span className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center shadow-sm">
+                  <span className="text-white text-[10px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }} className="font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }} className="font-medium uppercase text-[9px]">{user?.roleLabel || user?.role}</span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white/60 hover:text-red-300 hover:bg-white/10"
+                className="h-7 w-7 text-white/60 hover:text-red-300 hover:bg-white/10"
                 onClick={() => setLogoutOpen(true)}
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -1016,18 +1016,18 @@ export default function Home() {
         )}
 
         {/* Page Content */}
-        <div key={currentView} className="flex-1 p-4 lg:p-6 animate-fade-in">
+        <div key={currentView} className="flex-1 p-3 lg:p-4 animate-fade-in">
           {renderView()}
         </div>
 
         {/* Footer */}
-        <footer className="border-t border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-4 lg:px-6 py-3">
+        <footer className="border-t border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-3 lg:px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="h-6 w-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-sm">
-                <Pill className="h-3.5 w-3.5 text-white" />
+              <div className="h-5 w-5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-sm">
+                <Pill className="h-3 w-3 text-white" />
               </div>
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1.5 text-[11px]">
                 <span className="font-semibold text-gray-700 dark:text-gray-300">SelRx</span>
                 <span className="text-gray-300">·</span>
                 <span className="text-muted-foreground">Pharmacy Management System</span>

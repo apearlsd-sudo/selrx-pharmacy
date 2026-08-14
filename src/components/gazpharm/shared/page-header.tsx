@@ -9,15 +9,15 @@ interface PageHeaderProps {
 
 export function PageHeader({ icon: Icon, title, description, action }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-6 animate-slide-down">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-          <Icon className="h-5 w-5 text-emerald-600" />
+    <div className="flex items-start justify-between gap-4 mb-4 animate-slide-down">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
+          <Icon className="h-4 w-4 text-emerald-600" />
         </div>
         <div>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-base sm:text-lg font-bold tracking-tight">{title}</h1>
           {description && (
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{description}</p>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">{description}</p>
           )}
         </div>
       </div>

@@ -270,7 +270,7 @@ export function DashboardView() {
     {
       title: "Today's Sales",
       value: formatCurrency(data.today.sales),
-      subtitle: `${data.today.count} transactions`,
+      subtitle: data.today.count + ' transactions',
       icon: DollarSign,
       bgClass: 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
     },
@@ -284,7 +284,7 @@ export function DashboardView() {
     {
       title: 'Low Stock Alerts',
       value: data.lowStockAlerts.count.toString(),
-      subtitle: `${data.lowStockAlerts.items.length} critical items`,
+      subtitle: data.lowStockAlerts.items.length + ' critical items',
       icon: AlertTriangle,
       bgClass: 'bg-red-50 dark:bg-red-900/30 dark:bg-red-950/30 text-red-600 dark:text-red-400',
     },
@@ -312,7 +312,7 @@ export function DashboardView() {
   ]
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader
         icon={LayoutDashboard}
         title="Dashboard"
@@ -340,16 +340,16 @@ export function DashboardView() {
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
             {orderedStats.map((stat) => (
-              <Card key={stat.title} className="gap-4 card-hover overflow-hidden">
-                <CardContent className="p-6">
+              <Card key={stat.title} className="gap-3 card-hover overflow-hidden">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.title}</p>
-                    <div className={`rounded-xl p-2.5 ${stat.bgClass} shadow-sm`}>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{stat.title}</p>
+                    <div className={'rounded-lg p-2 ' + stat.bgClass + ' shadow-sm'}>
                       <stat.icon className="h-5 w-5" />
                     </div>
                   </div>
-                  <p className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stat.value}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{stat.subtitle}</p>
+                  <p className="mt-2 text-lg sm:text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stat.value}</p>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{stat.subtitle}</p>
                 </CardContent>
               </Card>
             ))}
@@ -363,33 +363,33 @@ export function DashboardView() {
         const showTransactions = visibleWidgets.includes('recent-transactions')
         if (!showChart && !showTransactions) return null
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {showChart && (
               <Card className="card-hover">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
-                      <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
+                      <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Sales Trend</CardTitle>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">Last 7 days</span>
+                    <CardTitle className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">Sales Trend</CardTitle>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500 ml-auto">Last 7 days</span>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="h-[220px] sm:h-[300px] w-full">
+                  <div className="h-[200px] sm:h-[260px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.weeklyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis
                           dataKey="date"
                           tickFormatter={formatChartDate}
-                          fontSize={12}
+                          fontSize={11}
                           tickLine={false}
                           axisLine={false}
                         />
                         <YAxis
-                          tickFormatter={(v) => `$${v}`}
-                          fontSize={12}
+                          tickFormatter={(v: number) => '$' + v}
+                          fontSize={11}
                           tickLine={false}
                           axisLine={false}
                         />
@@ -421,14 +421,14 @@ export function DashboardView() {
               <Card className="card-hover">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
-                      <ShoppingCart className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
+                      <ShoppingCart className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</CardTitle>
+                    <CardTitle className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="max-h-[300px] overflow-y-auto">
+                  <div className="max-h-[260px] overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -454,7 +454,7 @@ export function DashboardView() {
                               </TableCell>
                               <TableCell className="text-xs">
                                 {txn.customer
-                                  ? `${txn.customer.firstName} ${txn.customer.lastName}`
+                                  ? txn.customer.firstName + ' ' + txn.customer.lastName
                                   : 'Walk-in'}
                               </TableCell>
                               <TableCell className="text-xs hidden sm:table-cell">
@@ -490,33 +490,33 @@ export function DashboardView() {
         <Card className="card-hover">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
-                <Package className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+              <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
+                <Package className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Top Selling Products</CardTitle>
-              <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">This month</span>
+              <CardTitle className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">Top Selling Products</CardTitle>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500 ml-auto">This month</span>
             </div>
           </CardHeader>
           <CardContent>
             {data.topProducts.length === 0 ? (
               <EmptyState icon={TrendingUp} title="No sales data yet" description="Top selling products will appear here once you have sales." />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {data.topProducts.map((product, index) => (
                   <div
                     key={product.productId}
-                    className="rounded-xl border border-gray-200/80 dark:border-gray-700 bg-card p-4 hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800 transition-all duration-200"
+                    className="rounded-lg border border-gray-200/80 dark:border-gray-700 bg-card p-3 hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800 transition-all duration-200"
                   >
                     <div className="flex items-start justify-between">
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 h-6 w-6 rounded-lg flex items-center justify-center">
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 h-5 w-5 rounded-md flex items-center justify-center">
                         {index + 1}
                       </span>
                       <Package className="h-4 w-4 text-gray-300 dark:text-gray-600" />
                     </div>
-                    <p className="mt-2 text-sm font-medium leading-tight line-clamp-2 text-gray-800 dark:text-gray-200">
+                    <p className="mt-1.5 text-xs font-medium leading-tight line-clamp-2 text-gray-800 dark:text-gray-200">
                       {product.productName}
                     </p>
-                    <div className="mt-3 space-y-1.5">
+                    <div className="mt-2 space-y-1">
                       <p className="text-xs text-gray-400 dark:text-gray-500">
                         Qty sold{' '}
                         <span className="font-semibold text-gray-700 dark:text-gray-300">
@@ -562,7 +562,7 @@ export function DashboardView() {
                       className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                       onClick={() => moveWidget(widget.id, 'up')}
                       disabled={index === 0}
-                      aria-label={`Move ${widget.label} up`}
+                      aria-label={'Move ' + widget.label + ' up'}
                     >
                       <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
@@ -571,17 +571,17 @@ export function DashboardView() {
                       className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                       onClick={() => moveWidget(widget.id, 'down')}
                       disabled={index === WIDGET_CONFIG.length - 1}
-                      aria-label={`Move ${widget.label} down`}
+                      aria-label={'Move ' + widget.label + ' down'}
                     >
                       <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
                   </div>
                   <WidgetIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm font-medium flex-1 min-w-0">{widget.label}</span>
+                  <span className="text-xs font-medium flex-1 min-w-0">{widget.label}</span>
                   <Switch
                     checked={isVisible}
                     onCheckedChange={() => toggleWidget(widget.id)}
-                    aria-label={`Toggle ${widget.label}`}
+                    aria-label={'Toggle ' + widget.label}
                   />
                 </div>
               )

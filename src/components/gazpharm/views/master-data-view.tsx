@@ -1085,7 +1085,7 @@ export function MasterDataView() {
   const [activeSection, setActiveSection] = useState<SectionKey>('drug')
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader icon={Database} title="Drug Catalogue" description="Manage medications, categories, suppliers, and dosage forms" />
 
       {/* Section Selector Buttons */}
@@ -1103,15 +1103,15 @@ export function MasterDataView() {
                   : 'border-transparent bg-white dark:bg-gray-900 hover:border-gray-200 dark:border-gray-700 hover:shadow-sm'
               }`}
             >
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600' : 'bg-gray-100'}`}>
-                <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600' : 'bg-gray-100'}`}>
+                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-gray-700 dark:text-gray-300'}`}>{sec.label}</p>
                 <p className={`text-xs ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}>{sec.desc}</p>
               </div>
               {isActive && (
-                <ChevronRight className="h-5 w-5 text-emerald-500 shrink-0" />
+                <ChevronRight className="h-4 w-4 text-emerald-500 shrink-0" />
               )}
             </button>
           )
@@ -1186,7 +1186,7 @@ function CategorySection() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -1633,7 +1633,7 @@ function DrugSection() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Drug Registration Form */}
       <Card className="card-hover shadow-sm">
         <CardContent className="p-4">
@@ -2461,7 +2461,7 @@ function DosageFormSection() {
   const filtered = forms.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center"><Pill className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" /></div>
@@ -2613,7 +2613,7 @@ function VendorSection() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -2775,7 +2775,7 @@ function ManufacturerSection() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">

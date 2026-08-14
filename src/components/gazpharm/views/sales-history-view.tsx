@@ -373,7 +373,7 @@ export function SalesHistoryView() {
   }, [dateFrom, dateTo, selectedUserId, addToast, summary])
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {/* Page Header */}
       <PageHeader icon={History} title="Sales History" description="View and analyze past transactions" action={
         isSuperAdmin ? (
@@ -486,7 +486,7 @@ export function SalesHistoryView() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         <Card className="card-hover transition-all duration-200">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
@@ -555,10 +555,10 @@ export function SalesHistoryView() {
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4 mt-4">
+        <TabsContent value="overview" className="space-y-3 mt-4">
           {/* Sales by User - Bar Chart — SUPER_ADMIN only */}
           {isSuperAdmin && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales by User</CardTitle>
@@ -751,9 +751,9 @@ export function SalesHistoryView() {
         </TabsContent>
 
         {/* By User Tab - Detailed user cards */}
-        <TabsContent value="by-user" className="space-y-4 mt-4">
+        <TabsContent value="by-user" className="space-y-3 mt-4">
           {/* User performance pie chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sales Distribution by User</CardTitle>
@@ -859,7 +859,7 @@ export function SalesHistoryView() {
         </TabsContent>
 
         {/* Transactions Tab - Detailed list */}
-        <TabsContent value="transactions" className="space-y-4 mt-4">
+        <TabsContent value="transactions" className="space-y-3 mt-4">
           <Card className="card-hover transition-all duration-200">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -1038,8 +1038,8 @@ export function SalesHistoryView() {
         </TabsContent>
 
         {/* Trends Tab */}
-        <TabsContent value="trends" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TabsContent value="trends" className="space-y-3 mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Revenue Trend */}
             <Card className="card-hover transition-all duration-200">
               <CardHeader className="pb-2">

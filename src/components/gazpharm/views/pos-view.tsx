@@ -818,9 +818,9 @@ export function POSView() {
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left Column - Product Search & List */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-3">
           {/* Search Bar */}
           <Card className="gap-0 shadow-sm">
             <CardContent className="p-0">
@@ -831,7 +831,7 @@ export function POSView() {
                     placeholder="Search products by name, NDC, generic name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 bg-gray-50/50 dark:bg-gray-800/50 border-gray-200/80 dark:border-gray-700 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
+                    className="pl-9 h-9 bg-gray-50/50 dark:bg-gray-800/50 border-gray-200/80 dark:border-gray-700 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900"
                     ref={searchInputRef}
                   />
                 </div>
@@ -930,7 +930,7 @@ export function POSView() {
             ) : products.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <PackageX className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <PackageX className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground text-sm">No products found</p>
                 </CardContent>
               </Card>
@@ -1041,7 +1041,7 @@ export function POSView() {
 
         {/* Right Column - Cart & Checkout */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-4 space-y-4">
+          <div className="lg:sticky lg:top-4 space-y-3">
             <Card className="gap-0 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -1049,7 +1049,7 @@ export function POSView() {
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
                       <ShoppingCart className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Cart</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-800 dark:text-gray-200">Cart</CardTitle>
                     <Badge variant="secondary" className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                       {cart.reduce((sum, item: CartItem) => sum + item.quantity, 0)} items
                     </Badge>
@@ -1113,7 +1113,7 @@ export function POSView() {
               <div className="max-h-[260px] overflow-y-auto">
                 {cart.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    <ShoppingCart className="h-10 w-10 mx-auto mb-3 text-gray-200" />
+                    <ShoppingCart className="h-8 w-8 mx-auto mb-3 text-gray-200" />
                     <p className="text-sm font-medium text-gray-400 dark:text-gray-500">Cart is empty</p>
                     <p className="text-xs mt-1 text-gray-300">Search and add products</p>
                   </div>
@@ -1178,7 +1178,7 @@ export function POSView() {
               <Separator />
 
               {/* Cart Totals */}
-              <div className="p-4 space-y-2.5">
+              <div className="p-3 space-y-2.5">
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-gray-400 dark:text-gray-500">Subtotal</span>
                   <span className="font-medium text-gray-700 dark:text-gray-300">{formatCurrency(subtotal)}</span>
@@ -1210,7 +1210,7 @@ export function POSView() {
               <Separator />
 
               {/* Customer Selection */}
-              <div className="p-4 space-y-2">
+              <div className="p-3 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Customer (optional)</p>
                 {selectedCustomer ? (
                   <div className="flex items-center justify-between rounded-lg border p-2.5 bg-emerald-50 dark:bg-emerald-900/30/50">
@@ -1292,7 +1292,7 @@ export function POSView() {
               <Separator />
 
               {/* Payment Method */}
-              <div className="p-4 space-y-2">
+              <div className="p-3 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Payment Method</p>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                   {PAYMENT_OPTIONS.map((opt) => (
@@ -1316,7 +1316,7 @@ export function POSView() {
               {paymentMethod === 'CASH' && total > 0 && (
                 <>
                   <Separator />
-                  <div className="p-4 space-y-2">
+                  <div className="p-3 space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">Amount Tendered</p>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -1329,7 +1329,7 @@ export function POSView() {
                         placeholder="0.00"
                         value={amountTendered}
                         onChange={(e) => setAmountTendered(e.target.value)}
-                        className="pl-7 h-10"
+                        className="pl-7 h-9"
                       />
                     </div>
                     {changeAmount > 0 && (
@@ -1361,7 +1361,7 @@ export function POSView() {
               <Separator />
 
               {/* Action Buttons */}
-              <div className="p-4 space-y-2">
+              <div className="p-3 space-y-2">
                 <Button
                   className="w-full h-12 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-base font-semibold shadow-lg shadow-emerald-200 transition-all duration-200"
                   onClick={handleProcessPayment}

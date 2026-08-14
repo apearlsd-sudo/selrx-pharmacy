@@ -12,7 +12,7 @@ export function AccessLogsView({ initialTab = 'audit' }: AccessLogsViewProps) {
   const [activeTab, setActiveTab] = useState<'audit' | 'login'>(initialTab)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center gap-1 border-b border-gray-200">
         <button
           onClick={() => setActiveTab('audit')}

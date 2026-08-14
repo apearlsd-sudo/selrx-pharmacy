@@ -345,7 +345,7 @@ export function ReceiptSettingsSection() {
           Configure receipt printing behavior, text style, and font appearance
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
@@ -382,7 +382,7 @@ export function ReceiptSettingsSection() {
 
         <Separator />
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center gap-1.5">
             <Type className="h-4 w-4 text-blue-500" />
             <p className="text-xs font-semibold text-foreground">Print Text & Font Style</p>
@@ -437,7 +437,7 @@ export function ReceiptSettingsSection() {
           <Separator />
 
           {/* Custom Header & Footer */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-1.5">
               <FileText className="h-4 w-4 text-blue-500" />
               <p className="text-xs font-semibold text-foreground">Custom Receipt Header & Footer</p>
@@ -663,7 +663,7 @@ function _BackupSection({ autoOnly = false }: { autoOnly?: boolean }) {
           </CardTitle>
           <CardDescription className="text-xs">Automatically back up your data at set intervals. Backups are saved as downloadable files.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Enable Auto-Backup</p>

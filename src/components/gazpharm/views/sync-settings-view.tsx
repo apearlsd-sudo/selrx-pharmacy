@@ -292,15 +292,15 @@ export function SyncSettingsView() {
   // ── Not desktop? ──
   if (!isDesktop()) {
     return (
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-4 max-w-3xl">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-emerald-600" /> Device Sync
+          <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 text-emerald-600" /> Device Sync
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">Configure multi-device synchronization</p>
         </div>
         <Card><CardContent className="py-12">
-          <div className="flex flex-col items-center justify-center text-center space-y-4">
+          <div className="flex flex-col items-center justify-center text-center space-y-3">
             <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center">
               <Shield className="h-8 w-8 text-blue-500" />
             </div>
@@ -321,12 +321,12 @@ export function SyncSettingsView() {
   const StatusIcon = statusCfg.icon
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-4 max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-emerald-600" /> Device Sync
+          <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 text-emerald-600" /> Device Sync
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">Configure multi-device synchronization</p>
         </div>
@@ -352,7 +352,7 @@ export function SyncSettingsView() {
                 <Wifi className="h-4 w-4 text-emerald-500" /> Sync Status
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className={`flex items-center gap-3 rounded-lg border p-4 ${statusCfg.bg}`}>
                 <StatusIcon className={`h-6 w-6 shrink-0 ${statusCfg.color} ${info.state === 'syncing' ? 'animate-spin' : ''}`} />
                 <div className="flex-1 min-w-0">
@@ -405,12 +405,12 @@ export function SyncSettingsView() {
               <CardTitle className="text-sm font-semibold flex items-center gap-2"><Monitor className="h-4 w-4 text-violet-500" /> Device Role</CardTitle>
               <CardDescription className="text-xs">Set whether this device is the sync hub (server) or a terminal (client)</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button onClick={() => applyDeviceRole('terminal')} className={`relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-md ${deviceRole === 'terminal' ? 'border-emerald-500 bg-emerald-50/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}>
                   <div className="flex items-start gap-3">
-                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${deviceRole === 'terminal' ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                      <Monitor className={`h-5 w-5 ${deviceRole === 'terminal' ? 'text-emerald-600' : 'text-gray-400'}`} />
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${deviceRole === 'terminal' ? 'bg-emerald-100' : 'bg-gray-100'}`}>
+                      <Monitor className={`h-4 w-4 ${deviceRole === 'terminal' ? 'text-emerald-600' : 'text-gray-400'}`} />
                     </div>
                     <div>
                       <p className="text-sm font-semibold">Terminal</p>
@@ -421,8 +421,8 @@ export function SyncSettingsView() {
                 </button>
                 <button onClick={() => isSuperAdmin && applyDeviceRole('hub')} disabled={!isSuperAdmin} className={`relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-md ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : deviceRole === 'hub' ? 'border-violet-500 bg-violet-50/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}>
                   <div className="flex items-start gap-3">
-                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${deviceRole === 'hub' ? 'bg-violet-100' : 'bg-gray-100'}`}>
-                      <Server className={`h-5 w-5 ${deviceRole === 'hub' ? 'text-violet-600' : 'text-gray-400'}`} />
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${deviceRole === 'hub' ? 'bg-violet-100' : 'bg-gray-100'}`}>
+                      <Server className={`h-4 w-4 ${deviceRole === 'hub' ? 'text-violet-600' : 'text-gray-400'}`} />
                     </div>
                     <div>
                       <p className="text-sm font-semibold">Hub (Server)</p>
@@ -449,7 +449,7 @@ export function SyncSettingsView() {
                 <CardTitle className="text-sm font-semibold flex items-center gap-2"><Server className="h-4 w-4 text-blue-500" /> Hub Connection</CardTitle>
                 <CardDescription className="text-xs">Enter the URL of the hub device, or use LAN auto-discovery</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {/* mDNS Auto-Discovery */}
                 <MdnsDiscoveryPanel onSelect={handleDiscoveredHub} />
 
@@ -491,7 +491,7 @@ export function SyncSettingsView() {
                 <CardTitle className="text-sm font-semibold flex items-center gap-2"><Server className="h-4 w-4 text-violet-500" /> Hub Server Info</CardTitle>
                 <CardDescription className="text-xs">This device is running the sync server. Other terminals connect to this address.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="rounded-lg bg-muted/50 p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Address</p>
@@ -536,7 +536,7 @@ export function SyncSettingsView() {
                 </CardTitle>
                 <CardDescription className="text-xs">Expose your hub to the internet for free. No port forwarding needed.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {tunnelStatus && (
                   <div className={`flex items-center gap-3 rounded-lg border p-3 ${tunnelStatus.running ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 dark:border-gray-700 bg-gray-50/50'}`}>
                     <TowerControl className={`h-5 w-5 shrink-0 ${tunnelStatus.running ? 'text-emerald-500' : 'text-gray-400'}`} />
