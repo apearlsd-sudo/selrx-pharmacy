@@ -736,8 +736,8 @@ export default function Home() {
                   borderRadius: '0',
                 }}
                 className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
@@ -771,8 +771,8 @@ export default function Home() {
                   borderRadius: '0',
                 }}
                 className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
