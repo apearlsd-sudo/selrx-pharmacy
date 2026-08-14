@@ -721,10 +721,10 @@ export default function Home() {
           </Button>
         </div>
 
-        {/* Nav Items — compact, no scroll */}
-        <div className="flex-1 overflow-hidden flex flex-col justify-center">
-          <div>
-            <p className="text-[9px] font-semibold text-white/60 uppercase tracking-widest px-5 py-1 flex items-center gap-1.5">
+        {/* Nav Items */}
+        <ScrollArea className="flex-1 h-[calc(100vh-10rem)]">
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-6 py-2 flex items-center gap-1.5">
               <span className="h-1 w-1 rounded-full bg-white" />Main
             </p>
             {visibleNavItems.slice(0, 2).map((item) => (
@@ -733,23 +733,23 @@ export default function Home() {
                 style={{
                   color: '#fff',
                   background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent',
-                  boxShadow: 'inset 0 -1px 0 0 rgba(255,255,255,0.2)',
+                  boxShadow: 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
                   borderRadius: '0',
                 }}
-                className="flex items-center gap-2.5 w-full px-5 py-1 text-[11px] font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 -1px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
+                className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <span className="flex items-center justify-center h-5 w-5 rounded" style={{ background: '#10b981' }}>
-                  <item.icon className="h-3 w-3" style={{ color: '#000' }} />
+                <span className="flex items-center justify-center h-6 w-6 rounded-md" style={{ background: '#10b981' }}>
+                  <item.icon className="h-3.5 w-3.5" style={{ color: '#000' }} />
                 </span>
                 {item.label}
                 {item.badge && (
-                  <span className="ml-auto text-[8px] font-bold bg-white text-emerald-700 rounded-full px-1 py-0.5">
+                  <span className="ml-auto text-[9px] font-bold bg-white text-emerald-700 rounded-full px-1.5 py-0.5">
                     {item.badge}
                   </span>
                 )}
@@ -758,8 +758,8 @@ export default function Home() {
 
             {visibleNavItems.length > 2 && (
               <>
-                <Separator className="my-1 bg-white/20" />
-                <p className="text-[9px] font-semibold text-white/60 uppercase tracking-widest px-5 py-1 flex items-center gap-1.5">
+                <Separator className="my-2.5 bg-white/20" />
+                <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-6 py-2 flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-white" />Management
                 </p>
               </>
@@ -770,42 +770,42 @@ export default function Home() {
                 style={{
                   color: '#fff',
                   background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent',
-                  boxShadow: 'inset 0 -1px 0 0 rgba(255,255,255,0.2)',
+                  boxShadow: 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
                   borderRadius: '0',
                 }}
-                className="flex items-center gap-2.5 w-full px-5 py-1 text-[11px] font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 -1px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
+                className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <span className="flex items-center justify-center h-5 w-5 rounded" style={{ background: '#10b981' }}>
-                  <item.icon className="h-3 w-3" style={{ color: '#000' }} />
+                <span className="flex items-center justify-center h-6 w-6 rounded-md" style={{ background: '#10b981' }}>
+                  <item.icon className="h-3.5 w-3.5" style={{ color: '#000' }} />
                 </span>
                 {item.label}
               </button>
             ))}
           </div>
-        </div>
+        </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-white/20 px-3 py-2">
-          <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-            <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-white text-[9px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
+        <div className="border-t border-white/20 p-3">
+          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5">
+            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
+              <p className="text-[10px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-white/80 hover:text-red-200 hover:bg-white/20"
+              className="h-7 w-7 text-white/80 hover:text-red-200 hover:bg-white/20"
               onClick={() => setLogoutOpen(true)}
             >
-              <LogOut className="h-3 w-3" />
+              <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
