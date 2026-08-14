@@ -156,6 +156,30 @@ export function POSView() {
   // Search products
   const searchProducts = useCallback(async (query: string, category: string) => {
     setSearching(true)
+    // If offline, try the full offline inventory cache first
+    if (!navigator.onLine) {
+      try {
+        const offlineData = localStorage.getItem('selrx_offline_inventory')
+        if (offlineData) {
+          const allProds = JSON.parse(offlineData) as Product[]
+          const q = query.toLowerCase()
+          const filtered = q
+            ? allProds.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                p.genericName?.toLowerCase().includes(q) ||
+                p.ndc?.includes(q) ||
+                p.category.toLowerCase().includes(q)
+              )
+            : allProds
+          const catFiltered = category
+            ? filtered.filter(p => p.category === category)
+            : filtered
+          setProducts(catFiltered)
+          setSearching(false)
+          return
+        }
+      } catch { /* parse error — fall through to legacy cache */ }
+    }
     try {
       const params = new URLSearchParams()
       if (query) params.set('search', query)
@@ -175,10 +199,17 @@ export function POSView() {
     } catch {
       // Offline: load from localStorage cache
       try {
-        const cached = localStorage.getItem('selrx_pos_products')
-        if (cached) {
-          const prods = JSON.parse(cached) as Product[]
-          // Client-side filter if search query exists
+        // Try full offline inventory first
+        const offlineData = localStorage.getItem('selrx_offline_inventory')
+        let prods: Product[] | null = null
+        if (offlineData) {
+          prods = JSON.parse(offlineData) as Product[]
+        } else {
+          // Fall back to last POS search cache
+          const cached = localStorage.getItem('selrx_pos_products')
+          if (cached) prods = JSON.parse(cached) as Product[]
+        }
+        if (prods) {
           const q = query.toLowerCase()
           const filtered = q
             ? prods.filter(p =>
@@ -345,11 +376,13 @@ export function POSView() {
 
   // Real-time inventory polling: refresh product list every 8 seconds
   // so stock levels stay in sync across multiple terminals
+  // Skip polling when offline to prevent console errors
   useEffect(() => {
-    // Only poll when there's an active search to avoid unnecessary requests
+    // Only poll when online AND there's an active search to avoid unnecessary requests
     if (!searchQuery && !activeCategory) return
+    if (!navigator.onLine) return
     const interval = setInterval(() => {
-      searchProducts(searchQuery, activeCategory)
+      if (navigator.onLine) searchProducts(searchQuery, activeCategory)
     }, 8000)
     return () => clearInterval(interval)
   }, [searchQuery, activeCategory, searchProducts])

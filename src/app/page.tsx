@@ -405,6 +405,7 @@ export default function Home() {
   const [endShiftOpen, setEndShiftOpen] = useState(false)
   const [endShiftCash, setEndShiftCash] = useState('')
   const [isOnline, setIsOnline] = useState(true)
+  const [isOfflineMode, setIsOfflineMode] = useState(false)
   const shiftActive = useAppStore((s) => s.shiftActive)
   const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
   const currentShiftId = useAppStore((s) => s.currentShiftId)
@@ -436,14 +437,54 @@ export default function Home() {
   // Track online/offline status
   useEffect(() => {
     setIsOnline(navigator.onLine)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
+    if (!navigator.onLine) setIsOfflineMode(true)
+    const handleOnline = () => {
+      setIsOnline(true)
+      setIsOfflineMode(false)
+      // Re-validate session with server now that we're back online
+      const store = useAppStore.getState()
+      const sessionData = localStorage.getItem('selrx_session')
+      if (sessionData && store.authToken) {
+        const { user: savedUser } = JSON.parse(sessionData)
+        fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${store.authToken}` },
+          body: JSON.stringify({ userId: savedUser.id }),
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Session invalid')
+            return res.json()
+          })
+          .then((data) => {
+            if (data.valid && data.user) store.setUser(data.user)
+          })
+          .catch(() => {})
+        // Re-sync inventory cache
+        prefetchInventoryForOffline(store.authToken)
+      }
+    }
+    const handleOffline = () => { setIsOnline(false); setIsOfflineMode(true) }
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
+  }, [])
+
+  // Pre-fetch full product catalog for offline POS access
+  // Caches in localStorage so POS can search/filter without network
+  const prefetchInventoryForOffline = useCallback((token: string | null) => {
+    if (!token) return
+    fetch('/api/products?limit=1000', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => {
+        if (json?.products) {
+          localStorage.setItem('selrx_offline_inventory', JSON.stringify(json.products))
+          localStorage.setItem('selrx_offline_inventory_at', String(Date.now()))
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Single hydration effect: restores company + session from localStorage
@@ -598,6 +639,18 @@ export default function Home() {
               if (targetView) {
                 store.setCurrentView(targetView)
               }
+              // Pre-fetch full inventory for offline use
+              try {
+                fetch('/api/products?limit=1000', { headers: { Authorization: `Bearer ${savedToken}` } })
+                  .then((r) => r.ok ? r.json() : null)
+                  .then((json) => {
+                    if (json?.products) {
+                      localStorage.setItem('selrx_offline_inventory', JSON.stringify(json.products))
+                      localStorage.setItem('selrx_offline_inventory_at', String(Date.now()))
+                    }
+                  })
+                  .catch(() => {})
+              } catch { /* silent */ }
             } else {
               localStorage.removeItem('selrx_session')
               localStorage.removeItem('selrx_view')
@@ -606,8 +659,41 @@ export default function Home() {
             finish()
           })
           .catch(() => {
-            localStorage.removeItem('selrx_session')
-            localStorage.removeItem('selrx_view')
+            // If we're offline and have a cached session, trust it
+            if (!navigator.onLine && sessionData) {
+              try {
+                const { user: savedUser } = JSON.parse(sessionData)
+                store.setUser(savedUser)
+                // Restore saved view with permission check
+                let targetView = savedView && savedView !== 'login' && savedView !== 'company-setup'
+                  ? savedView as ViewName
+                  : null
+                const rawView = savedView as string
+                if (rawView === 'workstations' || rawView === 'sync-settings' || rawView === 'users') {
+                  targetView = 'settings'
+                }
+                if (targetView) {
+                  const perm = NAV_ITEMS.find((n) => n.name === targetView)?.permission
+                  const perms = savedUser.permissions || []
+                  if (perm && savedUser.role !== 'SUPER_ADMIN' && !perms.includes(perm)) {
+                    targetView = perms.includes('pos:sell') ? 'pos' : 'dashboard'
+                  }
+                }
+                if (targetView) store.setCurrentView(targetView)
+                // Restore workstation
+                try {
+                  const savedWsId = localStorage.getItem('selrx_workstation')
+                  if (savedWsId) store.setCurrentWorkstationId(savedWsId)
+                } catch { /* silent */ }
+              } catch { /* parse error — clear session */
+                localStorage.removeItem('selrx_session')
+                localStorage.removeItem('selrx_view')
+              }
+            } else {
+              // Online but session invalid — clear it
+              localStorage.removeItem('selrx_session')
+              localStorage.removeItem('selrx_view')
+            }
             sessionRestored = true
             finish()
           })
