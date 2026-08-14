@@ -817,20 +817,20 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 h-14 glass border-b border-border flex items-center gap-3 px-4 lg:px-6">
+        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)' }} className="sticky top-0 z-20 h-14 border-b border-white/10 flex items-center gap-3 px-4 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-9 w-9 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="lg:hidden h-9 w-9 text-white/80 hover:text-white hover:bg-white/10"
             onClick={toggleSidebar}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">{company?.name || 'SelRx'}</h1>
-            <Separator orientation="vertical" className="h-4 bg-gray-200 dark:bg-gray-700" />
-            <span className="text-xs text-muted-foreground font-medium">{currentLabel}</span>
+            <h1 style={{ color: '#fff' }} className="text-sm font-bold leading-tight">{company?.name || 'SelRx'}</h1>
+            <Separator orientation="vertical" className="h-4 bg-white/20" />
+            <span style={{ color: 'rgba(255,255,255,0.7)' }} className="text-xs font-medium">{currentLabel}</span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -840,7 +840,7 @@ export default function Home() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="h-8 w-8 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label="Toggle theme"
             >
@@ -854,7 +854,7 @@ export default function Home() {
             {shiftActive && shiftStartedAt && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 hover:bg-emerald-100">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-white/20 bg-white/10 text-white hover:bg-white/20">
                     <ClockIcon className="h-3.5 w-3.5" />
                     <span className="hidden md:inline">Active</span>
                   </Button>
@@ -878,7 +878,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-xs border-gray-200 dark:border-gray-700 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/30 hover:text-emerald-600 hover:border-emerald-200"
+                className="h-8 gap-1.5 text-xs border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white"
                 onClick={async () => {
                   if (!user) return
                   try {
@@ -930,17 +930,17 @@ export default function Home() {
               </Button>
             )}
             <div className="hidden sm:flex items-center gap-3">
-              <Separator orientation="vertical" className="h-6 bg-gray-200 dark:bg-gray-700" />
+              <Separator orientation="vertical" className="h-6 bg-white/20" />
               <div className="flex items-center gap-2">
-                <span className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-sm">
+                <span className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shadow-sm">
                   <span className="text-white text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
                 </span>
-                <span className="text-emerald-600 font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }} className="font-medium uppercase text-[10px]">{user?.roleLabel || user?.role}</span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:hover:bg-red-950/30"
+                className="h-8 w-8 text-white/60 hover:text-red-300 hover:bg-white/10"
                 onClick={() => setLogoutOpen(true)}
               >
                 <LogOut className="h-4 w-4" />
