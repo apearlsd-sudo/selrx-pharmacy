@@ -724,10 +724,7 @@ export default function Home() {
         {/* Nav Items */}
         <ScrollArea className="flex-1 h-[calc(100vh-10rem)]">
           <div className="space-y-0.5">
-            <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-6 py-2 flex items-center gap-1.5">
-              <span className="h-1 w-1 rounded-full bg-white" />Main
-            </p>
-            {visibleNavItems.slice(0, 2).map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.name}
                 style={{
@@ -758,39 +755,7 @@ export default function Home() {
               </button>
             ))}
 
-            {visibleNavItems.length > 2 && (
-              <>
-                <Separator className="my-2.5 bg-white/20" />
-                <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-6 py-2 flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-white" />Management
-                </p>
-              </>
-            )}
-            {visibleNavItems.slice(2).map((item) => (
-              <button
-                key={item.name}
-                style={{
-                  color: currentView === item.name ? '#000' : '#fff',
-                  background: currentView === item.name ? '#fff' : 'transparent',
-                  boxShadow: 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
-                  borderRadius: '0',
-                  paddingTop: '7.5px',
-                  paddingBottom: '7.5px',
-                }}
-                className="flex items-center gap-3 w-full px-6 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#000'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '7.5px'; e.currentTarget.style.paddingBottom = '7.5px'; }}
-                onClick={() => {
-                  setCurrentView(item.name)
-                  if (window.innerWidth < 1024) toggleSidebar()
-                }}
-              >
-                <span className="flex items-center justify-center h-6 w-6 rounded-md" style={{ background: '#10b981' }}>
-                  <item.icon className="h-3.5 w-3.5" style={{ color: '#000' }} />
-                </span>
-                {item.label}
-              </button>
-            ))}
+
           </div>
         </ScrollArea>
 
