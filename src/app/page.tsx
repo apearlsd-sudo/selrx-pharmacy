@@ -696,7 +696,7 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)' }}
-        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-emerald-500/50 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
