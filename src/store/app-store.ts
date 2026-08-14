@@ -24,6 +24,7 @@ export type ViewName =
   | 'advanced-reports'
   | 'drug-interactions'
   | 'purchase-orders'
+  | 'access-logs'
   | 'audit-logs'
   | 'login-history'
 

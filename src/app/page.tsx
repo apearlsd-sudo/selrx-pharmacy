@@ -29,6 +29,7 @@ import {
   Clock as ClockIcon,
   Monitor,
   ChevronDown,
+  ChevronRight,
   FileText,
   Sun,
   Moon,
@@ -152,6 +153,7 @@ interface NavItem {
   icon: typeof LayoutDashboard
   permission: string
   badge?: string
+  children?: { name: ViewName; label: string; icon: typeof LayoutDashboard }[]
 }
 
 // Permission key mapping — which granular permission grants access to which view
@@ -170,8 +172,10 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
   { name: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, permission: 'inventory:manage' },
   { name: 'drug-interactions', label: 'Drug Interactions', icon: ShieldCheck, permission: 'prescriptions:view' },
-  { name: 'audit-logs', label: 'Audit Log', icon: FileText, permission: 'audit:view' },
-  { name: 'login-history', label: 'Login History', icon: LogIn, permission: 'audit:view' },
+  { name: 'access-logs', label: 'Access Logs', icon: FileText, permission: 'audit:view', children: [
+    { name: 'audit-logs', label: 'Audit Log', icon: FileText },
+    { name: 'login-history', label: 'Login History', icon: LogIn },
+  ]},
   { name: 'settings', label: 'Settings', icon: Settings, permission: 'pos:sell' },
 ]
 
@@ -405,6 +409,7 @@ export default function Home() {
   const [endShiftOpen, setEndShiftOpen] = useState(false)
   const [endShiftCash, setEndShiftCash] = useState('')
   const [isOnline, setIsOnline] = useState(true)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['access-logs']))
   const shiftActive = useAppStore((s) => s.shiftActive)
   const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
   const currentShiftId = useAppStore((s) => s.currentShiftId)
@@ -589,7 +594,7 @@ export default function Home() {
                 localStorage.setItem('selrx_view', 'settings')
               }
               if (targetView) {
-                const perm = NAV_ITEMS.find((n) => n.name === targetView)?.permission
+                const perm = NAV_ITEMS.find((n) => n.name === targetView)?.permission || NAV_ITEMS.find(i => i.children?.some(c => c.name === targetView))?.permission
                 const perms = data.user.permissions || []
                 if (perm && data.user.role !== 'SUPER_ADMIN' && !perms.includes(perm)) {
                   targetView = perms.includes('pos:sell') ? 'pos' : 'dashboard'
@@ -655,7 +660,9 @@ export default function Home() {
   const renderView = () => {
     // Find the permission required for the current view
     const navItem = NAV_ITEMS.find((n) => n.name === currentView)
-    if (navItem && !hasPermission([navItem.permission])) {
+    const parentItem = NAV_ITEMS.find(i => i.children?.some(c => c.name === currentView))
+    const permission = navItem?.permission || parentItem?.permission
+    if (permission && !hasPermission([permission])) {
       // User doesn't have permission — redirect to POS (most users can access)
       const fallback = hasPermission(['pos:sell']) ? 'pos' : 'dashboard'
       setTimeout(() => setCurrentView(fallback as ViewName), 0)
@@ -674,6 +681,7 @@ export default function Home() {
       case 'returns': return <GoodsReturnView />
       case 'drug-interactions': return <DrugInteractionsView />
       case 'purchase-orders': return <PurchaseOrdersView />
+      case 'access-logs': return <AuditLogView />
       case 'audit-logs': return <AuditLogView />
       case 'login-history': return <LoginHistoryView />
       case 'master-data': return <MasterDataView />
@@ -688,7 +696,7 @@ export default function Home() {
   // Filter nav items based on user permissions
   const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission([item.permission]))
 
-  const currentLabel = NAV_ITEMS.find((n) => n.name === currentView)?.label || 'Dashboard'
+  const currentLabel = [...NAV_ITEMS, ...NAV_ITEMS.flatMap(i => i.children || [])].find((n) => n.name === currentView)?.label || 'Dashboard'
 
   return (
     <div className="min-h-screen flex bg-mesh-light bg-grid-subtle relative">
@@ -726,7 +734,7 @@ export default function Home() {
             <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-6 py-2 flex items-center gap-1.5">
               <span className="h-1 w-1 rounded-full bg-white" />Main
             </p>
-            {visibleNavItems.slice(0, 2).map((item) => (
+            {visibleNavItems.filter(item => !item.children).slice(0, 2).map((item) => (
               <button
                 key={item.name}
                 style={{
@@ -753,7 +761,7 @@ export default function Home() {
               </button>
             ))}
 
-            {visibleNavItems.length > 2 && (
+            {visibleNavItems.filter(item => !item.children).length > 2 && (
               <>
                 <Separator className="my-2.5 bg-white/20" />
                 <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest px-6 py-2 flex items-center gap-1.5">
@@ -761,7 +769,7 @@ export default function Home() {
                 </p>
               </>
             )}
-            {visibleNavItems.slice(2).map((item) => (
+            {visibleNavItems.filter(item => !item.children).slice(2).map((item) => (
               <button
                 key={item.name}
                 style={{
@@ -782,6 +790,65 @@ export default function Home() {
                 {item.label}
               </button>
             ))}
+
+            {/* Grouped nav items with children */}
+            {visibleNavItems.filter(item => item.children).map((item) => {
+              const isExpanded = expandedGroups.has(item.name)
+              const isChildActive = item.children!.some(c => c.name === currentView)
+              return (
+                <div key={item.name}>
+                  {visibleNavItems.filter(item => !item.children).length > 2 && (
+                    <Separator className="mt-2.5 bg-white/20" />
+                  )}
+                  <button
+                    style={{
+                      color: '#fff',
+                      background: isChildActive ? 'rgba(255,255,255,0.15)' : 'transparent',
+                      borderRadius: '0',
+                    }}
+                    className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
+                    onClick={() => {
+                      setExpandedGroups(prev => {
+                        const next = new Set(prev)
+                        if (next.has(item.name)) next.delete(item.name)
+                        else next.add(item.name)
+                        return next
+                      })
+                    }}
+                  >
+                    <item.icon className="h-[18px] w-[18px]" style={{ color: '#fff' }} />
+                    {item.label}
+                    <span className="ml-auto">
+                      {isExpanded
+                        ? <ChevronDown className="h-4 w-4 text-white/60" />
+                        : <ChevronRight className="h-4 w-4 text-white/60" />
+                      }
+                    </span>
+                  </button>
+                  {isExpanded && item.children!.map((child) => (
+                    <button
+                      key={child.name}
+                      style={{
+                        color: '#fff',
+                        background: currentView === child.name ? 'rgba(255,255,255,0.25)' : 'transparent',
+                        boxShadow: 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
+                        borderRadius: '0',
+                      }}
+                      className="flex items-center gap-3 w-full pl-12 pr-6 py-2 text-sm font-medium transition-all duration-200"
+                      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '48px'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === child.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; }}
+                      onClick={() => {
+                        setCurrentView(child.name)
+                        if (window.innerWidth < 1024) toggleSidebar()
+                      }}
+                    >
+                      <child.icon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
+                      {child.label}
+                    </button>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         </ScrollArea>
 
