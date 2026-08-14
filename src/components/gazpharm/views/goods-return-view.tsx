@@ -302,7 +302,7 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Returns</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{summary.totalReturns}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{summary.totalReturns}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <RotateCcw className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -316,7 +316,7 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pending Approval</p>
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{summary.pendingCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{summary.pendingCount}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
                 <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -330,7 +330,7 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completed</p>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{summary.completedCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{summary.completedCount}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -344,7 +344,7 @@ export function GoodsReturnView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Refunded</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{formatCurrency(summary.totalRefundAmount)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{formatCurrency(summary.totalRefundAmount)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-rose-100 flex items-center justify-center">
                 <TrendingDown className="h-5 w-5 text-rose-600" />

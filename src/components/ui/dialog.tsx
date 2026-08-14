@@ -68,7 +68,7 @@ function DialogContent({
       >
         {/* Top glow line — 21st.dev accent */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
-        <div className="p-6 pb-0 flex flex-col flex-1 min-h-0">
+        <div className="p-4 sm:p-6 pb-0 flex flex-col flex-1 min-h-0">
           {children}
         </div>
         {showCloseButton && (
@@ -101,7 +101,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 border-t border-gray-100 px-6 pb-6 pt-4 mt-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 border-t border-gray-100 px-4 sm:px-6 pb-4 sm:pb-6 pt-4 mt-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -116,7 +116,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-snug font-semibold tracking-tight text-gray-900", className)}
+      className={cn("text-base sm:text-lg leading-snug font-semibold tracking-tight text-gray-900", className)}
       {...props}
     />
   )
@@ -129,7 +129,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-sm text-muted-foreground leading-relaxed", className)}
+      className={cn("text-xs sm:text-sm text-muted-foreground leading-relaxed", className)}
       {...props}
     />
   )

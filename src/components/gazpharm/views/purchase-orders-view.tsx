@@ -824,7 +824,7 @@ export function PurchaseOrdersView() {
                                                               value={addItemIndex === index ? productSearch : ''}
                                                               onFocus={() => { setProductDropdownOpen(true); setAddItemIndex(index); setProductSearch('') }}
                                                               onChange={(e) => { setProductSearch(e.target.value); setAddItemIndex(index); setProductDropdownOpen(true) }}
-                                                              className="h-8 text-sm"
+                                                              className="h-7 text-xs sm:text-sm"
                                                             />
                                     {productDropdownOpen && addItemIndex === index && (
                                                               <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
@@ -888,7 +888,7 @@ export function PurchaseOrdersView() {
                                           {/* Order Total */}
                                           <div className="flex justify-end items-center gap-2 text-sm">
                                             <span className="text-muted-foreground">Order Total:</span>
-                                            <span className="text-lg font-bold">{formatCurrency(newOrderTotal)}</span>
+                                            <span className="text-base sm:text-lg font-bold">{formatCurrency(newOrderTotal)}</span>
                                           </div>
                                         </div>
                                       </div>
@@ -943,7 +943,7 @@ export function PurchaseOrdersView() {
                           max={item.orderedQty - item.alreadyReceived}
                           value={item.quantityReceived}
                           onChange={(e) => updateReceiveItem(index, 'quantityReceived', Math.min(item.orderedQty - item.alreadyReceived, Math.max(0, Number(e.target.value))))}
-                          className="h-8 text-sm"
+                          className="h-7 text-xs sm:text-sm"
                         />
                       </div>
                       <div className="space-y-1">
@@ -952,7 +952,7 @@ export function PurchaseOrdersView() {
                           placeholder="Auto-generated"
                           value={item.batchNumber}
                           onChange={(e) => updateReceiveItem(index, 'batchNumber', e.target.value)}
-                          className="h-8 text-sm"
+                          className="h-7 text-xs sm:text-sm"
                         />
                       </div>
                       <div className="space-y-1">
@@ -961,7 +961,7 @@ export function PurchaseOrdersView() {
                           type="date"
                           value={item.expiryDate}
                           onChange={(e) => updateReceiveItem(index, 'expiryDate', e.target.value)}
-                          className="h-8 text-sm"
+                          className="h-7 text-xs sm:text-sm"
                         />
                       </div>
                       <div className="space-y-1">
@@ -972,7 +972,7 @@ export function PurchaseOrdersView() {
                           step="0.01"
                           value={item.costPrice}
                           onChange={(e) => updateReceiveItem(index, 'costPrice', Math.max(0, Number(e.target.value)))}
-                          className="h-8 text-sm"
+                          className="h-7 text-xs sm:text-sm"
                         />
                       </div>
                     </div>

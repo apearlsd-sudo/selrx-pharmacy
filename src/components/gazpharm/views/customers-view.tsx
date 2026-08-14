@@ -336,7 +336,7 @@ export function CustomersView() {
               <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{customers.length}</p>
+              <p className="text-xl sm:text-2xl font-bold">{customers.length}</p>
               <p className="text-xs text-muted-foreground">Total Customers</p>
             </div>
           </CardContent>
@@ -347,7 +347,7 @@ export function CustomersView() {
               <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{customers.filter((c) => c.insuranceProvider).length}</p>
+              <p className="text-xl sm:text-2xl font-bold">{customers.filter((c) => c.insuranceProvider).length}</p>
               <p className="text-xs text-muted-foreground">With Insurance</p>
             </div>
           </CardContent>
@@ -358,7 +358,7 @@ export function CustomersView() {
               <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{customers.filter((c) => c.allergies).length}</p>
+              <p className="text-xl sm:text-2xl font-bold">{customers.filter((c) => c.allergies).length}</p>
               <p className="text-xs text-muted-foreground">Allergy Alerts</p>
             </div>
           </CardContent>
@@ -490,11 +490,11 @@ export function CustomersView() {
             <div className="space-y-4">
               {/* Customer Info Header */}
               <div className="flex items-center gap-3 mb-2">
-                <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-bold text-emerald-700">
+                <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-base sm:text-lg font-bold text-emerald-700">
                   {selectedCustomer.firstName[0]}{selectedCustomer.lastName[0]}
                 </div>
                 <div className="flex-1">
-                  <p className="text-lg font-semibold">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
+                  <p className="text-base sm:text-lg font-semibold">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer.gender || ''}{selectedCustomer.dateOfBirth ? ` · DOB: ${selectedCustomer.dateOfBirth}` : ''}
                   </p>
@@ -527,7 +527,7 @@ export function CustomersView() {
                       <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-emerald-700">${totalSpent.toFixed(2)}</p>
+                      <p className="text-base sm:text-lg font-bold text-emerald-700">${totalSpent.toFixed(2)}</p>
                       <p className="text-xs text-emerald-600 dark:text-emerald-400">Total Spent</p>
                     </div>
                   </div>
@@ -536,7 +536,7 @@ export function CustomersView() {
                       <ShoppingBag className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-sky-700">{purchaseCount}</p>
+                      <p className="text-base sm:text-lg font-bold text-sky-700">{purchaseCount}</p>
                       <p className="text-xs text-sky-600 dark:text-sky-400">Purchases</p>
                     </div>
                   </div>

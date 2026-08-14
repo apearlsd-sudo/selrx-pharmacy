@@ -15,9 +15,9 @@ export function PageHeader({ icon: Icon, title, description, action }: PageHeade
           <Icon className="h-5 w-5 text-emerald-600" />
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight">{title}</h1>
           {description && (
-            <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{description}</p>
           )}
         </div>
       </div>

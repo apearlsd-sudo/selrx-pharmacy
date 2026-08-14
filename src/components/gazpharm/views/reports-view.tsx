@@ -892,7 +892,7 @@ export function ReportsView() {
                   <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.today?.sales || 0)}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Today&apos;s Sales</p>
@@ -905,7 +905,7 @@ export function ReportsView() {
                   <ShoppingCart className="h-4.5 w-4.5 text-teal-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-12" /> : salesStats?.today?.count || 0}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Transactions Today</p>
@@ -918,7 +918,7 @@ export function ReportsView() {
                   <TrendingUp className="h-4.5 w-4.5 text-green-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisWeek?.sales || 0)}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">This Week</p>
@@ -931,7 +931,7 @@ export function ReportsView() {
                   <CalendarDays className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {loading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesStats?.thisMonth?.sales || 0)}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">This Month</p>
@@ -1065,7 +1065,7 @@ export function ReportsView() {
                   <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesSummary?.totalSales || 0)}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -1082,7 +1082,7 @@ export function ReportsView() {
                   <ShoppingCart className="h-4.5 w-4.5 text-teal-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-12" /> : salesSummary?.totalTransactions || 0}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Total Transactions</p>
@@ -1095,7 +1095,7 @@ export function ReportsView() {
                   <TrendingUp className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-24" /> : formatCurrency(salesSummary?.averageTransaction || 0)}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Avg Transaction</p>
@@ -1108,7 +1108,7 @@ export function ReportsView() {
                   <Users className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {userSalesLoading ? <Skeleton className="h-8 w-12" /> : userSalesData.length}
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -1269,7 +1269,7 @@ export function ReportsView() {
                   <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{inventory.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{inventory.length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Total SKUs</p>
                 </div>
               </CardContent>
@@ -1280,7 +1280,7 @@ export function ReportsView() {
                   <Badge className="bg-red-600 text-white">{lowStockItems.length}</Badge>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{lowStockItems.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">{lowStockItems.length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Low Stock Alerts</p>
                 </div>
               </CardContent>
@@ -1291,7 +1291,7 @@ export function ReportsView() {
                   <Badge className="bg-amber-600 text-white">{expiringSoon.length}</Badge>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{expiringSoon.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{expiringSoon.length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Expiring (30 days)</p>
                 </div>
               </CardContent>
@@ -1406,28 +1406,28 @@ export function ReportsView() {
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Expired</p>
-                    <p className="text-xl font-bold mt-1">{expiredSummary?.totalItems || 0}</p>
+                    <p className="text-lg sm:text-xl font-bold mt-1">{expiredSummary?.totalItems || 0}</p>
                     <p className="text-[10px] text-muted-foreground">{expiredSummary?.processedItems || 0} removed, {expiredSummary?.unprocessedItems || 0} pending</p>
                   </CardContent>
                 </Card>
                 <Card className={(expiredSummary?.unprocessedItems || 0) > 0 ? 'border-red-200 bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20/50' : ''}>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Unprocessed (In Stock)</p>
-                    <p className={`text-xl font-bold mt-1 ${(expiredSummary?.unprocessedItems || 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{expiredSummary?.unprocessedItems || 0}</p>
+                    <p className={`text-lg sm:text-xl font-bold mt-1 ${(expiredSummary?.unprocessedItems || 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{expiredSummary?.unprocessedItems || 0}</p>
                     <p className="text-[10px] text-muted-foreground">Stock qty: {expiredSummary?.totalStockQty || 0}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Qty Removed</p>
-                    <p className="text-xl font-bold mt-1 text-orange-600">{expiredSummary?.totalRemovedQty || 0}</p>
+                    <p className="text-lg sm:text-xl font-bold mt-1 text-orange-600">{expiredSummary?.totalRemovedQty || 0}</p>
                     <p className="text-[10px] text-muted-foreground">Units written off</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost Value at Risk</p>
-                    <p className="text-xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
+                    <p className="text-lg sm:text-xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalCostValue || 0)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1437,19 +1437,19 @@ export function ReportsView() {
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Retail Value</p>
-                    <p className="text-xl font-bold mt-1">{formatCurrency(expiredSummary?.totalRetailValue || 0)}</p>
+                    <p className="text-lg sm:text-xl font-bold mt-1">{formatCurrency(expiredSummary?.totalRetailValue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Potential Loss</p>
-                    <p className="text-xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
+                    <p className="text-lg sm:text-xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(expiredSummary?.totalLossValue || 0)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sold Before Expiry</p>
-                    <p className="text-xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{expiredSummary?.totalQtySold || 0}</p>
+                    <p className="text-lg sm:text-xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{expiredSummary?.totalQtySold || 0}</p>
                     <p className="text-[10px] text-muted-foreground">Revenue: {formatCurrency(expiredSummary?.totalSalesRevenue || 0)}</p>
                   </CardContent>
                 </Card>
@@ -1585,7 +1585,7 @@ export function ReportsView() {
                   <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{prescriptions.length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Total Prescriptions</p>
                 </div>
               </CardContent>
@@ -1596,7 +1596,7 @@ export function ReportsView() {
                   <span className="text-sm font-bold text-green-600">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.status === 'DISPENSED').length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Dispensed</p>
                 </div>
               </CardContent>
@@ -1607,7 +1607,7 @@ export function ReportsView() {
                   <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{prescriptions.filter((r: any) => r.priority === 'STAT' || r.priority === 'URGENT').length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Urgent/STAT</p>
                 </div>
               </CardContent>
@@ -1742,7 +1742,7 @@ export function ReportsView() {
                   <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">+</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{products.length}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{products.length}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Active Products</p>
                 </div>
               </CardContent>
@@ -1753,7 +1753,7 @@ export function ReportsView() {
                   <Clock className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'UPDATED').length : '—'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Edits (this page)</p>
                 </div>
               </CardContent>
@@ -1764,7 +1764,7 @@ export function ReportsView() {
                   <Trash2 className="h-4.5 w-4.5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{activityLog.length > 0 ? activityLog.filter((a: any) => a.action === 'DELETED').length : '—'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">Deleted (this page)</p>
                 </div>
               </CardContent>
@@ -2113,7 +2113,7 @@ export function ReportsView() {
                       <DollarSign className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Total Sales</span>
                     </div>
-                    <p className="text-lg font-bold text-emerald-800">{formatCurrency(shiftReport.summary.totalSales)}</p>
+                    <p className="text-base sm:text-lg font-bold text-emerald-800">{formatCurrency(shiftReport.summary.totalSales)}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-blue-200">
@@ -2122,7 +2122,7 @@ export function ReportsView() {
                       <ShoppingCart className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Transactions</span>
                     </div>
-                    <p className="text-lg font-bold text-blue-800">{shiftReport.summary.totalTransactions}</p>
+                    <p className="text-base sm:text-lg font-bold text-blue-800">{shiftReport.summary.totalTransactions}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-amber-200">
@@ -2131,7 +2131,7 @@ export function ReportsView() {
                       <Package className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Items Sold</span>
                     </div>
-                    <p className="text-lg font-bold text-amber-800">{shiftReport.summary.totalItemsSold}</p>
+                    <p className="text-base sm:text-lg font-bold text-amber-800">{shiftReport.summary.totalItemsSold}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-gray-200 dark:border-gray-700">
@@ -2140,7 +2140,7 @@ export function ReportsView() {
                       <TrendingUp className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Products Sold</span>
                     </div>
-                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{shiftReport.summary.totalProductsSold}</p>
+                    <p className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-200">{shiftReport.summary.totalProductsSold}</p>
                   </CardContent>
                 </Card>
               </div>

@@ -401,7 +401,7 @@ export function PrescriptionsView() {
               <Clock className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-amber-700">{statusCounts.pending}</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-700">{statusCounts.pending}</p>
               <p className="text-xs text-amber-600">Pending Verification</p>
             </div>
           </CardContent>
@@ -412,7 +412,7 @@ export function PrescriptionsView() {
               <Play className="h-5 w-5 text-sky-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-sky-700">{statusCounts.inProgress}</p>
+              <p className="text-xl sm:text-2xl font-bold text-sky-700">{statusCounts.inProgress}</p>
               <p className="text-xs text-sky-600">In Progress</p>
             </div>
           </CardContent>
@@ -423,7 +423,7 @@ export function PrescriptionsView() {
               <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-emerald-700">{statusCounts.ready}</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-700">{statusCounts.ready}</p>
               <p className="text-xs text-emerald-600">Ready for Pickup</p>
             </div>
           </CardContent>

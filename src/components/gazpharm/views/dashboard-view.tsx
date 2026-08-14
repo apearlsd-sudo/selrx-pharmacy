@@ -348,7 +348,7 @@ export function DashboardView() {
                       <stat.icon className="h-5 w-5" />
                     </div>
                   </div>
-                  <p className="mt-3 text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stat.value}</p>
+                  <p className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stat.value}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{stat.subtitle}</p>
                 </CardContent>
               </Card>
@@ -371,7 +371,7 @@ export function DashboardView() {
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
                       <TrendingUp className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Sales Trend</CardTitle>
+                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Sales Trend</CardTitle>
                     <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">Last 7 days</span>
                   </div>
                 </CardHeader>
@@ -424,7 +424,7 @@ export function DashboardView() {
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
                       <ShoppingCart className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</CardTitle>
+                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -493,7 +493,7 @@ export function DashboardView() {
               <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 flex items-center justify-center">
                 <Package className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Top Selling Products</CardTitle>
+              <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Top Selling Products</CardTitle>
               <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">This month</span>
             </div>
           </CardHeader>

@@ -493,7 +493,7 @@ export function SalesHistoryView() {
               <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
                 {loading ? <Skeleton className="h-7 w-24" /> : formatCurrency(summary.totalSales || 0)}
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500">Total Sales</p>
@@ -506,7 +506,7 @@ export function SalesHistoryView() {
               <Receipt className="h-5 w-5 text-teal-600" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                 {loading ? <Skeleton className="h-7 w-12" /> : summary.totalTransactions || 0}
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500">Total Transactions</p>
@@ -519,7 +519,7 @@ export function SalesHistoryView() {
               <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                 {loading ? <Skeleton className="h-7 w-20" /> : formatCurrency(summary.averageTransaction || 0)}
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500">Avg. Transaction</p>

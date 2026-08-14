@@ -676,7 +676,7 @@ export function UsersView() {
               <UserCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{users.length}</p>
+              <p className="text-xl sm:text-2xl font-bold">{users.length}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Total Users</p>
             </div>
           </CardContent>
@@ -687,7 +687,7 @@ export function UsersView() {
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-600">{users.filter((u) => u.active).length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{users.filter((u) => u.active).length}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Active</p>
             </div>
           </CardContent>
@@ -698,7 +698,7 @@ export function UsersView() {
               <Ban className="h-5 w-5 text-gray-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-600">{users.filter((u) => !u.active).length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-600">{users.filter((u) => !u.active).length}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Inactive</p>
             </div>
           </CardContent>
@@ -709,7 +709,7 @@ export function UsersView() {
               <Crown className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-purple-600">{roles.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-purple-600">{roles.length}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Total Roles</p>
             </div>
           </CardContent>
@@ -720,7 +720,7 @@ export function UsersView() {
               <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ALL_PERMISSIONS.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{ALL_PERMISSIONS.length}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Permissions</p>
             </div>
           </CardContent>

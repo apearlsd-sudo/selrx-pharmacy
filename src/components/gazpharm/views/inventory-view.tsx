@@ -1124,7 +1124,7 @@ export function InventoryView() {
               <Package className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{items.length}</p>
+              <p className="text-xl sm:text-2xl font-bold">{items.length}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Total Products</p>
             </div>
           </CardContent>
@@ -1135,7 +1135,7 @@ export function InventoryView() {
               <AlertTriangle className="h-4.5 w-4.5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{lowStockCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">{lowStockCount}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Low Stock Alerts</p>
             </div>
           </CardContent>
@@ -1146,7 +1146,7 @@ export function InventoryView() {
               <AlertTriangle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{outOfStockCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{outOfStockCount}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Out of Stock</p>
             </div>
           </CardContent>
@@ -1157,7 +1157,7 @@ export function InventoryView() {
               <TrendingUp className="h-4.5 w-4.5 text-teal-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
+              <p className="text-xl sm:text-2xl font-bold">{formatCurrency(totalValue)}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Inventory Value</p>
             </div>
           </CardContent>
@@ -1962,7 +1962,7 @@ export function InventoryView() {
 
               {/* ── Batch / Lot Management ── */}
               <div className="border rounded-lg p-3 space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <h4 className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
                   <Package className="h-3.5 w-3.5" />
                   Stock Batches (Lots)
                 </h4>
@@ -2155,7 +2155,7 @@ export function InventoryView() {
               <EmptyState icon={ClipboardCheck} title="No products added yet" description="Search and add products above to begin counting stock" />
             ) : (
               <div className="overflow-auto max-h-[40vh]">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs sm:text-sm">
                   <thead className="bg-muted/60 sticky top-0">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">Product</th>
@@ -2274,7 +2274,7 @@ export function InventoryView() {
             <div className="flex items-center gap-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
               <FileSpreadsheet className="h-5 w-5 text-teal-600 shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-teal-800">Download Import Template</p>
+                <p className="text-xs sm:text-sm font-medium text-teal-800">Download Import Template</p>
                 <p className="text-xs text-teal-600">Contains columns guide, example data, and reference sheets for categories and dosage forms.</p>
               </div>
               <Button
@@ -2334,7 +2334,7 @@ export function InventoryView() {
                   {importFile ? (
                     <div className="space-y-2">
                       <FileSpreadsheet className="h-10 w-10 text-teal-600 mx-auto" />
-                      <p className="text-sm font-medium text-teal-800">{importFile.name}</p>
+                      <p className="text-xs sm:text-sm font-medium text-teal-800">{importFile.name}</p>
                       {importPreview && (
                         <p className="text-xs text-muted-foreground">
                           {importPreview.rows} rows &middot; {importPreview.size}
@@ -2505,7 +2505,7 @@ export function InventoryView() {
 
             {/* ── Quick Stock Adjustment ── */}
             <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+              <h4 className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
                 <Edit className="h-3.5 w-3.5" />
                 Quick Stock Adjustment
               </h4>
@@ -2513,7 +2513,7 @@ export function InventoryView() {
                 <div>
                   <Label className="text-xs">Adjustment Type</Label>
                   <Select value={editBatchAdjType} onValueChange={setEditBatchAdjType}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs sm:text-sm mt-0.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ADD">Add Stock</SelectItem>
                       <SelectItem value="SET">Set Quantity</SelectItem>
@@ -2523,22 +2523,22 @@ export function InventoryView() {
                 </div>
                 <div>
                   <Label className="text-xs">{editBatchAdjType === 'SET' ? 'New Total' : 'Units'}</Label>
-                  <Input type="number" min="0" placeholder={editBatchAdjType === 'SET' ? 'New total qty' : 'Units to adjust'} value={editBatchAdjAmount} onChange={(e) => setEditBatchAdjAmount(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  <Input type="number" min="0" placeholder={editBatchAdjType === 'SET' ? 'New total qty' : 'Units to adjust'} value={editBatchAdjAmount} onChange={(e) => setEditBatchAdjAmount(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" />
                 </div>
                 <div>
                   <Label className="text-xs">Selling Price</Label>
-                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={editBatchSellingPrice} onChange={(e) => setEditBatchSellingPrice(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  <Input type="number" step="0.01" min="0" placeholder="Leave blank to keep" value={editBatchSellingPrice} onChange={(e) => setEditBatchSellingPrice(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" />
                 </div>
                 <div>
                   <Label className="text-xs">Reason {editBatchAdjAmount && Number(editBatchAdjAmount) !== 0 && <span className="text-red-500">*</span>}</Label>
-                  <Input placeholder="e.g., Restocked, Damaged" value={editBatchReason} onChange={(e) => setEditBatchReason(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  <Input placeholder="e.g., Restocked, Damaged" value={editBatchReason} onChange={(e) => setEditBatchReason(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" />
                 </div>
               </div>
             </div>
 
             {/* ── Batch Details ── */}
             <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+              <h4 className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
                 <Package className="h-3.5 w-3.5" />
                 Batch Details
               </h4>
@@ -2555,23 +2555,23 @@ export function InventoryView() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs">Set Quantity</Label>
-                  <Input type="number" min="0" placeholder={String(editingBatch?.quantity || 0)} value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  <Input type="number" min="0" placeholder={String(editingBatch?.quantity || 0)} value={editBatchQty} onChange={(e) => setEditBatchQty(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" />
                   <p className="text-[10px] text-muted-foreground mt-0.5">Direct set (or use adjustment above)</p>
                 </div>
                 <div>
                   <Label className="text-xs">Expiry Date</Label>
-                  <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-8 text-sm mt-0.5" />
+                  <Input type="date" value={editBatchExpiry} onChange={(e) => setEditBatchExpiry(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" />
                 </div>
                 <div>
                   <Label className="text-xs">Cost Price</Label>
-                  <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-8 text-sm mt-0.5" placeholder="0.00" />
+                  <Input type="number" step="0.01" min="0" value={editBatchCost} onChange={(e) => setEditBatchCost(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" placeholder="0.00" />
                 </div>
               </div>
             </div>
 
             {/* ── Sell As (Unit Sales) ── */}
             <div className="border rounded-lg p-3 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+              <h4 className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
                 <PackagePlus className="h-3.5 w-3.5" />
                 Sell As (Unit Sales)
               </h4>
@@ -2582,7 +2582,7 @@ export function InventoryView() {
                 <div>
                   <Label className="text-xs">Selling Unit</Label>
                   <Select value={editBatchSellingUnit} onValueChange={setEditBatchSellingUnit}>
-                    <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs sm:text-sm mt-0.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="EA">Each / Piece</SelectItem>
                       <SelectItem value="Tablet">Tablet</SelectItem>
@@ -2601,7 +2601,7 @@ export function InventoryView() {
                 </div>
                 <div>
                   <Label className="text-xs">Items Per {editBatchSellingUnit === 'EA' ? 'Unit' : editBatchSellingUnit}</Label>
-                  <Input type="number" min="1" step="1" placeholder="e.g., 10" value={editBatchItemsPerUnit} onChange={(e) => setEditBatchItemsPerUnit(e.target.value)} className="h-8 text-sm mt-0.5" disabled={editBatchSellingUnit === 'EA'} />
+                  <Input type="number" min="1" step="1" placeholder="e.g., 10" value={editBatchItemsPerUnit} onChange={(e) => setEditBatchItemsPerUnit(e.target.value)} className="h-7 text-xs sm:text-sm mt-0.5" disabled={editBatchSellingUnit === 'EA'} />
                 </div>
               </div>
               {editBatchSellingUnit !== 'EA' && editBatchItemsPerUnit && parseInt(editBatchItemsPerUnit) > 1 && (

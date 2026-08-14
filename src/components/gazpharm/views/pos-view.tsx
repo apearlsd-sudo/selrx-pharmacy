@@ -1049,7 +1049,7 @@ export function POSView() {
                     <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
                       <ShoppingCart className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-200">Cart</CardTitle>
+                    <CardTitle className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">Cart</CardTitle>
                     <Badge variant="secondary" className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                       {cart.reduce((sum, item: CartItem) => sum + item.quantity, 0)} items
                     </Badge>
@@ -1179,11 +1179,11 @@ export function POSView() {
 
               {/* Cart Totals */}
               <div className="p-4 space-y-2.5">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-gray-400 dark:text-gray-500">Subtotal</span>
                   <span className="font-medium text-gray-700 dark:text-gray-300">{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm">
+                <div className="flex justify-between items-center text-xs sm:text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400 dark:text-gray-500">Tax</span>
                     <input
@@ -1202,8 +1202,8 @@ export function POSView() {
                 </div>
                 <Separator className="bg-gray-100 dark:bg-gray-800" />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Total</span>
-                  <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(total)}</span>
+                  <span className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-400">Total</span>
+                  <span className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(total)}</span>
                 </div>
               </div>
 

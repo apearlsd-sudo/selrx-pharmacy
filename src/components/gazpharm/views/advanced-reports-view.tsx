@@ -63,7 +63,7 @@ function KpiCard({ icon: Icon, label, value, sub, color = 'emerald' }: {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
             {sub && <div className="mt-1">{sub}</div>}
           </div>
           <div className={`h-10 w-10 rounded-lg ${bgMap[color] || bgMap.emerald} flex items-center justify-center`}>

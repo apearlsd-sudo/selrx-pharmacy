@@ -346,7 +346,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold">{report.totalItemsChecked}</p>
+            <p className="text-xl sm:text-2xl font-bold">{report.totalItemsChecked}</p>
             <p className="text-[11px] text-muted-foreground">Items Checked</p>
           </CardContent>
         </Card>
@@ -357,7 +357,7 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                 <BarChart3 className="h-4 w-4 text-emerald-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-emerald-600">{accuracyRate}%</p>
+            <p className="text-xl sm:text-2xl font-bold text-emerald-600">{accuracyRate}%</p>
             <p className="text-[11px] text-muted-foreground">Accuracy Rate</p>
           </CardContent>
         </Card>
