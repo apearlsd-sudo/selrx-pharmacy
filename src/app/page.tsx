@@ -818,7 +818,7 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.8 }} className="sticky top-0 z-20 h-14 border-b border-white/10 flex items-center gap-3 px-4 lg:px-6">
+        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-14 border-b border-white/10 flex items-center gap-3 px-4 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
