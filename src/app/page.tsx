@@ -782,7 +782,7 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)' }}
-        className={`fixed inset-y-0 left-0 z-40 w-52 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-44 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -821,7 +821,7 @@ export default function Home() {
                   paddingTop: '8px',
                   paddingBottom: '8px',
                 }}
-                className="flex items-center gap-2.5 w-full px-4 text-xs font-medium transition-all duration-200"
+                className="flex items-center gap-2 w-full px-3 text-xs font-medium transition-all duration-200"
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '8px'; e.currentTarget.style.paddingBottom = '8px'; }}
                 onClick={() => {
@@ -875,9 +875,9 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-52 min-h-screen flex flex-col">
+      <main className="flex-1 lg:ml-44 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-11 border-b border-white/10 flex items-center gap-2 px-3 lg:px-4">
+        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-10 border-b border-white/10 flex items-center gap-2 px-3">
           <Button
             variant="ghost"
             size="icon"
@@ -1016,7 +1016,7 @@ export default function Home() {
         )}
 
         {/* Page Content */}
-        <div key={currentView} className="flex-1 p-3 lg:p-4 animate-fade-in">
+        <div key={currentView} className="flex-1 p-2 lg:p-3 animate-fade-in">
           {renderView()}
         </div>
 

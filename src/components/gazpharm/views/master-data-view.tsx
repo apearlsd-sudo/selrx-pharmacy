@@ -1910,16 +1910,16 @@ function DrugSection() {
                 <TableHead>Drug Name</TableHead>
                 <TableHead className="hidden sm:table-cell">SKU</TableHead>
                 <TableHead className="hidden sm:table-cell">Category</TableHead>
-                <TableHead className="hidden lg:table-cell">Manufacturer</TableHead>
+                <TableHead className="hidden xl:table-cell">Manufacturer</TableHead>
                 <TableHead className="hidden 2xl:table-cell">Vendor</TableHead>
-                <TableHead className="hidden xl:table-cell">Dosage Form</TableHead>
+                <TableHead className="hidden 2xl:table-cell">Dosage Form</TableHead>
                 <TableHead className="text-right">Stock Qty</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden 2xl:table-cell text-right">Reorder Lvl</TableHead>
-                <TableHead className="hidden xl:table-cell text-right">Cost</TableHead>
+                <TableHead className="hidden 2xl:table-cell text-right">Cost</TableHead>
                 <TableHead className="text-right">Retail</TableHead>
                 <TableHead className="hidden 2xl:table-cell">Sell As</TableHead>
-                <TableHead className="hidden lg:table-cell">Expiry</TableHead>
+                <TableHead className="hidden xl:table-cell">Expiry</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -1968,11 +1968,11 @@ function DrugSection() {
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-[10px]">{drug.category.replace(/_/g, ' ')}</Badge>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm text-gray-600">
+                      <TableCell className="hidden xl:table-cell text-sm text-gray-600">
                         {drug.manufacturerRef?.name || drug.manufacturer || '—'}
                       </TableCell>
                       <TableCell className="hidden 2xl:table-cell text-sm text-gray-600">{drug.vendor?.name || '—'}</TableCell>
-                      <TableCell className="hidden xl:table-cell">
+                      <TableCell className="hidden 2xl:table-cell">
                         {drug.dosageForm ? (
                           <Badge variant="outline" className="text-[10px]">{drug.dosageForm}</Badge>
                         ) : '—'}
@@ -1998,7 +1998,7 @@ function DrugSection() {
                         )}
                       </TableCell>
                       <TableCell className="hidden 2xl:table-cell text-right text-gray-600">{reorderLvl}</TableCell>
-                      <TableCell className="hidden xl:table-cell text-right text-xs text-gray-600">
+                      <TableCell className="hidden 2xl:table-cell text-right text-xs text-gray-600">
                         {drug.costPrice != null ? formatCurrency(drug.costPrice) : '—'}
                       </TableCell>
                       <TableCell className="text-right text-sm font-medium">
@@ -2010,7 +2010,7 @@ function DrugSection() {
                       <TableCell className="hidden 2xl:table-cell text-xs text-muted-foreground">
                         {drug.sellingUnit === 'EA' || !drug.sellingUnit ? 'Each' : `${drug.itemsPerUnit || 1}x ${drug.sellingUnit.toLowerCase()}`}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
                         {formatDate(activeExpiry)}
                       </TableCell>
                       <TableCell className="text-right">

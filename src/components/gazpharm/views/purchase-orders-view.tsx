@@ -559,8 +559,8 @@ export function PurchaseOrdersView() {
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center hidden sm:table-cell">Items</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="hidden md:table-cell">Expected</TableHead>
-                  <TableHead className="hidden md:table-cell">Created</TableHead>
+                  <TableHead className="hidden lg:table-cell">Expected</TableHead>
+                  <TableHead className="hidden lg:table-cell">Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -572,10 +572,10 @@ export function PurchaseOrdersView() {
                     <TableCell>{statusBadge(order.status)}</TableCell>
                     <TableCell className="text-center hidden sm:table-cell">{order._count?.items ?? '—'}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(order.totalAmount)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
+                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
                       {order.expectedDate ? formatDate(order.expectedDate) : '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{formatDateTime(order.createdAt)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{formatDateTime(order.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetail(order) }}>
                         <Eye className="h-4 w-4" />

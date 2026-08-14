@@ -359,7 +359,7 @@ function RevenueTab({ data }: { data: Record<string, unknown> | null }) {
   return (
     <div className="space-y-3 mt-3">
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Transactions" value={String(s.totalTx || 0)} color="blue" />
         <KpiCard icon={Percent} label="Avg Transaction" value={formatCurrency(Number(s.avgTxValue || 0))} color="violet" />
@@ -474,7 +474,7 @@ function ProfitTab({ data }: { data: Record<string, unknown> | null }) {
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Total Cost" value={formatCurrency(Number(s.totalCost || 0))} color="amber" />
         <KpiCard icon={TrendingUp} label="Gross Profit" value={formatCurrency(Number(s.totalProfit || 0))} color="blue" />
@@ -882,7 +882,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
   return (
     <div className="space-y-3 mt-3">
       {/* Comparison KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <Card className="border-none shadow-sm">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenue</p>
@@ -1181,7 +1181,7 @@ function UserPerformanceTab({ data }: { data: Record<string, unknown> | null }) 
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={Users} label="Total Staff" value={String(s.totalUsers || 0)} color="blue" />
         <KpiCard icon={Activity} label="Active Staff" value={String(s.activeUsers || 0)} color="emerald" />
         <KpiCard icon={DollarSign} label="Avg Sales/User" value={formatCurrency(Number(s.avgSalesPerUser || 0))} color="violet" />
@@ -1259,7 +1259,7 @@ function PrescriptionAnalyticsTab({ data }: { data: Record<string, unknown> | nu
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={FileText} label="Total Prescriptions" value={String(s.totalRx || 0)} color="blue" />
         <KpiCard icon={CheckCircle2} label="Filled" value={String(s.filled || 0)} color="emerald" />
         <KpiCard icon={Clock} label="Pending" value={String(s.pending || 0)} color="amber" />
@@ -1473,7 +1473,7 @@ function DiscountAnalysisTab({ data }: { data: Record<string, unknown> | null })
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={Tag} label="Total Discounts" value={formatCurrency(Number(s.totalDiscount || 0))} color="amber" />
         <KpiCard icon={Percent} label="Discount Rate" value={`${s.discountRate || 0}%`} color="blue" />
         <KpiCard icon={DollarSign} label="Avg Discount/Tx" value={formatCurrency(Number(s.avgDiscountPerTx || 0))} color="violet" />
@@ -1775,14 +1775,14 @@ function ExecutiveSummaryTab({ data }: { data: Record<string, unknown> | null })
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={DollarSign} label="Period Revenue" value={formatCurrency(Number(kpis.revenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Transactions" value={String(kpis.completedTx || 0)} color="blue" />
         <KpiCard icon={TrendingUp} label="Avg Transaction" value={formatCurrency(Number(kpis.avgTxValue || 0))} color="violet" />
         <KpiCard icon={Percent} label="Void Rate" value={`${kpis.voidRate || 0}%`} color={Number(kpis.voidRate || 0) > 3 ? 'rose' : 'cyan'} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={CalendarDays} label="Today Revenue" value={formatCurrency(Number(kpis.todayRevenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Today Txns" value={String(kpis.todayTx || 0)} color="blue" />
         <KpiCard icon={Package} label="Low Stock Items" value={String(kpis.lowStockCount || 0)} color="amber" />
@@ -2028,7 +2028,7 @@ function CustomerSegmentationTab({ data }: { data: Record<string, unknown> | nul
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={Users} label="Customers" value={String(s.totalCustomers || 0)} color="emerald" />
         <KpiCard icon={DollarSign} label="Total Spend" value={formatCurrency(Number(s.totalSpend || 0))} color="blue" />
         <KpiCard icon={ShoppingBag} label="Avg Spend" value={formatCurrency(Number(s.avgSpend || 0))} color="violet" />
@@ -2255,7 +2255,7 @@ function StockTakeAccuracyTab({ data }: { data: Record<string, unknown> | null }
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={CheckCircle2} label="Stock Takes" value={String(s.totalStockTakes || 0)} color="blue" />
         <KpiCard icon={Target} label="Overall Accuracy" value={`${Number(s.overallAccuracy || 0).toFixed(1)}%`} color={Number(s.overallAccuracy || 0) >= 95 ? 'emerald' : Number(s.overallAccuracy || 0) >= 80 ? 'amber' : 'rose'} />
         <KpiCard icon={ShoppingBag} label="Items Counted" value={String(Number(s.totalItemsCounted || 0).toLocaleString())} color="violet" />
@@ -2360,7 +2360,7 @@ function ManufacturerPerformanceTab({ data }: { data: Record<string, unknown> | 
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={Factory} label="Manufacturers" value={String(s.totalManufacturers || 0)} color="blue" />
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={Award} label="Top Mfr" value={String((s.topManufacturer as Record<string, unknown>)?.name || 'N/A')} color="violet" />
@@ -2658,7 +2658,7 @@ function HourlyHeatmapTab({ data }: { data: Record<string, unknown> | null }) {
 
   return (
     <div className="space-y-3 mt-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={Clock} label="Peak Hour" value={String(s.peakHour || 'N/A')} color="blue" />
         <KpiCard icon={TrendingUp} label="Peak Day" value={String(s.peakDay || 'N/A')} color="violet" />

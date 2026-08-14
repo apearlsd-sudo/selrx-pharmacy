@@ -173,7 +173,7 @@ function DashboardSkeleton() {
         <StatSkeleton />
         <StatSkeleton />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
             <Skeleton className="h-5 w-40" />
@@ -376,7 +376,7 @@ export function DashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="h-[200px] sm:h-[260px] w-full">
+                  <div className="h-[180px] sm:h-[220px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.weeklyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -428,7 +428,7 @@ export function DashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="max-h-[260px] overflow-y-auto">
+                  <div className="max-h-[220px] overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -501,7 +501,7 @@ export function DashboardView() {
             {data.topProducts.length === 0 ? (
               <EmptyState icon={TrendingUp} title="No sales data yet" description="Top selling products will appear here once you have sales." />
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {data.topProducts.map((product, index) => (
                   <div
                     key={product.productId}
@@ -547,7 +547,7 @@ export function DashboardView() {
               Toggle widgets on or off and drag to reorder them.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
             {WIDGET_CONFIG.map((widget, index) => {
               const isVisible = visibleWidgets.includes(widget.id)
               const WidgetIcon = widget.icon

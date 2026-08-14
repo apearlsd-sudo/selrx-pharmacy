@@ -754,18 +754,19 @@ function ReturnTable({
   return (
     <Card className="border-none shadow-sm">
       <CardContent className="p-0">
+        <div className="overflow-x-auto">
         <Table className="table-header-standard">
           <TableHeader>
             <TableRow className="bg-gray-50 dark:bg-gray-800/50/80">
               <TableHead className="text-xs font-semibold">Return #</TableHead>
               <TableHead className="text-xs font-semibold">Product</TableHead>
-              <TableHead className="text-xs font-semibold">Customer</TableHead>
+              <TableHead className="text-xs font-semibold hidden lg:table-cell">Customer</TableHead>
               <TableHead className="text-xs font-semibold text-right">Qty</TableHead>
               <TableHead className="text-xs font-semibold text-right">Refund</TableHead>
-              <TableHead className="text-xs font-semibold">Reason</TableHead>
+              <TableHead className="text-xs font-semibold hidden md:table-cell">Reason</TableHead>
               <TableHead className="text-xs font-semibold">Status</TableHead>
-              <TableHead className="text-xs font-semibold">Processed By</TableHead>
-              <TableHead className="text-xs font-semibold">Date</TableHead>
+              <TableHead className="text-xs font-semibold hidden xl:table-cell">Processed By</TableHead>
+              <TableHead className="text-xs font-semibold hidden lg:table-cell">Date</TableHead>
               <TableHead className="text-xs font-semibold text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -779,19 +780,19 @@ function ReturnTable({
                     <p className="text-gray-600">{formatCurrency(ret.unitPrice)}/ea</p>
                   </div>
                 </TableCell>
-                <TableCell className="text-xs text-gray-600">
+                <TableCell className="text-xs text-gray-600 hidden lg:table-cell">
                   {ret.customerName ? ret.customerName : <span className="italic">Walk-in</span>}
                 </TableCell>
                 <TableCell className="text-xs font-medium text-right">{ret.quantity}</TableCell>
                 <TableCell className="text-xs font-semibold text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(ret.refundAmount)}</TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   <Badge className={`text-[10px] ${reasonBadgeColor(ret.reason)}`}>
                     {reasonLabel(ret.reason)}
                   </Badge>
                 </TableCell>
                 <TableCell>{statusBadge(ret.status)}</TableCell>
-                <TableCell className="text-xs text-gray-600">{ret.user?.name}</TableCell>
-                <TableCell className="text-xs text-gray-600">{formatShortDate(ret.createdAt)}</TableCell>
+                <TableCell className="text-xs text-gray-600 hidden xl:table-cell">{ret.user?.name}</TableCell>
+                <TableCell className="text-xs text-gray-600 hidden lg:table-cell">{formatShortDate(ret.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -839,6 +840,7 @@ function ReturnTable({
             ))}
           </TableBody>
         </Table>
+        </div>
 
         {/* Pagination */}
         {totalPages > 1 && (

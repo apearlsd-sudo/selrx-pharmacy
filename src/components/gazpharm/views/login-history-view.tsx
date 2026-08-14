@@ -291,12 +291,12 @@ export function LoginHistoryView() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50/80">
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Time</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">User</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Action</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">IP Address</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Browser</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">OS</TableHead>
+                      <TableHead className="text-xs font-semibold">Time</TableHead>
+                      <TableHead className="text-xs font-semibold">User</TableHead>
+                      <TableHead className="text-xs font-semibold">Action</TableHead>
+                      <TableHead className="text-xs font-semibold hidden lg:table-cell">IP Address</TableHead>
+                      <TableHead className="text-xs font-semibold hidden xl:table-cell">Browser</TableHead>
+                      <TableHead className="text-xs font-semibold hidden xl:table-cell">OS</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -339,7 +339,7 @@ export function LoginHistoryView() {
                           </TableCell>
 
                           {/* IP Address */}
-                          <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                          <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap hidden lg:table-cell">
                             <div className="flex items-center gap-1.5">
                               <Globe className="h-3 w-3" />
                               {entry.ipAddress || '—'}
@@ -347,7 +347,7 @@ export function LoginHistoryView() {
                           </TableCell>
 
                           {/* Browser */}
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap hidden xl:table-cell">
                             <div className="flex items-center gap-1.5">
                               <Monitor className="h-3 w-3" />
                               {browser}
@@ -355,7 +355,7 @@ export function LoginHistoryView() {
                           </TableCell>
 
                           {/* OS */}
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap hidden xl:table-cell">
                             {os}
                           </TableCell>
                         </TableRow>

@@ -360,13 +360,13 @@ export function AuditLogView() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50 dark:bg-gray-800/50/80">
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Timestamp</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">User</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Action</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Category</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Entity</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">Details</TableHead>
-                      <TableHead className="text-xs font-semibold whitespace-nowrap">IP Address</TableHead>
+                      <TableHead className="text-xs font-semibold">Timestamp</TableHead>
+                      <TableHead className="text-xs font-semibold">User</TableHead>
+                      <TableHead className="text-xs font-semibold">Action</TableHead>
+                      <TableHead className="text-xs font-semibold hidden lg:table-cell">Category</TableHead>
+                      <TableHead className="text-xs font-semibold">Entity</TableHead>
+                      <TableHead className="text-xs font-semibold hidden xl:table-cell">Details</TableHead>
+                      <TableHead className="text-xs font-semibold hidden xl:table-cell">IP Address</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -396,7 +396,7 @@ export function AuditLogView() {
                         </TableCell>
 
                         {/* Category */}
-                        <TableCell className="whitespace-nowrap">
+                        <TableCell className="whitespace-nowrap hidden lg:table-cell">
                           <Badge
                             variant="secondary"
                             className={`text-[10px] font-medium capitalize ${
@@ -414,7 +414,7 @@ export function AuditLogView() {
 
                         {/* Details */}
                         <TableCell
-                          className="text-xs text-muted-foreground max-w-[200px]"
+                          className="text-xs text-muted-foreground max-w-[200px] hidden xl:table-cell"
                         >
                           {isJsonString(log.details) ? (
                             <button
@@ -431,7 +431,7 @@ export function AuditLogView() {
                         </TableCell>
 
                         {/* IP Address */}
-                        <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+                        <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap hidden xl:table-cell">
                           {log.ipAddress || '—'}
                         </TableCell>
                       </TableRow>

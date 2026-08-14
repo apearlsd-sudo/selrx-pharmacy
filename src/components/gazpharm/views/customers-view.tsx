@@ -389,6 +389,7 @@ export function CustomersView() {
       {/* Customers Table */}
       <Card>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
@@ -396,7 +397,7 @@ export function CustomersView() {
                 <TableHead className="hidden sm:table-cell">Contact</TableHead>
                 <TableHead className="hidden md:table-cell">Tier</TableHead>
                 <TableHead className="hidden md:table-cell">Insurance</TableHead>
-                <TableHead className="hidden lg:table-cell">Allergies</TableHead>
+                <TableHead className="hidden xl:table-cell">Allergies</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -477,6 +478,7 @@ export function CustomersView() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

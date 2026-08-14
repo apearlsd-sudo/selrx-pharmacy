@@ -879,15 +879,15 @@ export function SalesHistoryView() {
                     <TableRow>
                       <TableHead>Transaction #</TableHead>
                       <TableHead>Date &amp; Time</TableHead>
-                      <TableHead>Cashier</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                      <TableHead className="text-right">Discount</TableHead>
+                      <TableHead className="hidden lg:table-cell">Cashier</TableHead>
+                      <TableHead className="hidden xl:table-cell">Customer</TableHead>
+                      <TableHead className="hidden md:table-cell">Payment</TableHead>
+                      <TableHead className="hidden md:table-cell">Items</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">Subtotal</TableHead>
+                      <TableHead className="text-right hidden xl:table-cell">Discount</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-[80px]">Actions</TableHead>
+                      <TableHead className="w-[70px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -912,7 +912,7 @@ export function SalesHistoryView() {
                               </p>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden lg:table-cell">
                             <div className="flex items-center gap-1.5">
                               <div className="h-6 w-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                                 <UserCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -923,19 +923,19 @@ export function SalesHistoryView() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="text-xs hidden xl:table-cell">
                             {txn.customer
                               ? `${txn.customer.firstName} ${txn.customer.lastName}`
                               : 'Walk-in'}
                           </TableCell>
-                          <TableCell>{paymentBadge(txn.paymentMethod)}</TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className="hidden md:table-cell">{paymentBadge(txn.paymentMethod)}</TableCell>
+                          <TableCell className="text-center hidden md:table-cell">
                             <Badge variant="outline" className="text-[10px]">
                               {txn.items?.length || 0}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(txn.subtotal ?? 0)}</TableCell>
-                          <TableCell className="text-right text-xs text-amber-600 dark:text-amber-400">
+                          <TableCell className="text-right text-xs hidden lg:table-cell">{formatCurrency(txn.subtotal ?? 0)}</TableCell>
+                          <TableCell className="text-right text-xs text-amber-600 dark:text-amber-400 hidden xl:table-cell">
                             {txn.discount > 0 ? `-${formatCurrency(txn.discount)}` : '-'}
                           </TableCell>
                           <TableCell className="text-right font-semibold text-sm">

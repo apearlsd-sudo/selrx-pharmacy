@@ -467,13 +467,14 @@ export function PrescriptionsView() {
       {/* Prescriptions Table */}
       <Card>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
                 <TableHead>Rx #</TableHead>
                 <TableHead>Patient</TableHead>
                 <TableHead className="hidden md:table-cell">Medication</TableHead>
-                <TableHead className="hidden lg:table-cell">Prescriber</TableHead>
+                <TableHead className="hidden xl:table-cell">Prescriber</TableHead>
                 <TableHead className="hidden sm:table-cell">Refills</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
@@ -562,6 +563,7 @@ export function PrescriptionsView() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

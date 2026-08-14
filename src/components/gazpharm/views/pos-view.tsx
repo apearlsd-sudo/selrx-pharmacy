@@ -818,7 +818,7 @@ export function POSView() {
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Left Column - Product Search & List */}
         <div className="lg:col-span-2 space-y-3">
           {/* Search Bar */}
@@ -909,7 +909,7 @@ export function POSView() {
           </div>
 
           {/* Product Results */}
-          <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
             {searching ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[...Array(6)].map((_, i) => (
@@ -1110,7 +1110,7 @@ export function POSView() {
               )}
 
               {/* Cart Items */}
-              <div className="max-h-[260px] overflow-y-auto">
+              <div className="max-h-[200px] overflow-y-auto">
                 {cart.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     <ShoppingCart className="h-8 w-8 mx-auto mb-3 text-gray-200" />

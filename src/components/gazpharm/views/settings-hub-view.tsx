@@ -63,7 +63,7 @@ export function SettingsHubView() {
   return (
     <div className="flex gap-3 animate-fade-in">
       {/* Sidebar nav */}
-      <nav className="hidden md:block w-40 shrink-0">
+      <nav className="hidden md:block w-36 shrink-0">
         <div className="sticky top-20 space-y-1">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mb-3">Settings</p>
           {SETTINGS_NAV.map((item) => (

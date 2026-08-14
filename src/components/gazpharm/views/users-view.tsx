@@ -848,6 +848,7 @@ export function UsersView() {
       {/* Users Table */}
       <Card className="card-hover transition-all duration-200">
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
@@ -973,6 +974,7 @@ export function UsersView() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
