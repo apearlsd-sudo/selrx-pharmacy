@@ -1316,6 +1316,7 @@ export function InventoryView() {
       {/* Inventory Table */}
       <Card className="card-hover">
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table className="table-header-standard">
             <TableHeader>
               <TableRow>
@@ -1326,19 +1327,19 @@ export function InventoryView() {
                 <TableHead className="cursor-pointer hidden sm:table-cell" onClick={() => { setSortBy('category'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
                   <span className="flex items-center gap-1">Category <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
-                <TableHead className="hidden md:table-cell">Manufacturer</TableHead>
-                <TableHead className="hidden md:table-cell">Vendor</TableHead>
-                <TableHead className="hidden md:table-cell">Dosage Form</TableHead>
-                <TableHead className="hidden md:table-cell">Sell As</TableHead>
+                <TableHead className="hidden lg:table-cell">Manufacturer</TableHead>
+                <TableHead className="hidden 2xl:table-cell">Vendor</TableHead>
+                <TableHead className="hidden xl:table-cell">Dosage Form</TableHead>
+                <TableHead className="hidden 2xl:table-cell">Sell As</TableHead>
                 <TableHead className="cursor-pointer text-right" onClick={() => { setSortBy('stock'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }}>
                   <span className="flex items-center justify-end gap-1">Stock Qty <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="hidden lg:table-cell text-right">Reorder Lvl</TableHead>
-                <TableHead className="hidden lg:table-cell text-right">Cost</TableHead>
+                <TableHead className="hidden 2xl:table-cell text-right">Reorder Lvl</TableHead>
+                <TableHead className="hidden xl:table-cell text-right">Cost</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Retail</TableHead>
-                <TableHead className="hidden md:table-cell">Batch</TableHead>
-                <TableHead className="hidden md:table-cell">Expiry</TableHead>
+                <TableHead className="hidden lg:table-cell">Batch</TableHead>
+                <TableHead className="hidden lg:table-cell">Expiry</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -1396,10 +1397,10 @@ export function InventoryView() {
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-xs">{item.product.category.replace(/_/g, ' ')}</Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.vendor?.name || '—'}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-gray-600">{item.product.dosageForm || '—'}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-gray-600">
+                      <TableCell className="hidden lg:table-cell text-xs text-gray-600">{item.product.manufacturerRef?.name || item.product.manufacturer || '—'}</TableCell>
+                      <TableCell className="hidden 2xl:table-cell text-xs text-gray-600">{item.product.vendor?.name || '—'}</TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs text-gray-600">{item.product.dosageForm || '—'}</TableCell>
+                      <TableCell className="hidden 2xl:table-cell text-xs text-gray-600">
                         {item.product.sellingUnit && item.product.sellingUnit !== 'EA' ? (
                           <span>{item.product.sellingUnit} ({item.product.itemsPerUnit})</span>
                         ) : (
@@ -1429,10 +1430,10 @@ export function InventoryView() {
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">In Stock</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-right text-gray-600">{reorder}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
+                      <TableCell className="hidden 2xl:table-cell text-right text-gray-600">{reorder}</TableCell>
+                      <TableCell className="hidden xl:table-cell text-right">{item.product.costPrice != null ? formatCurrency(item.product.costPrice) : '—'}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right">{formatCurrency(item.product.sellingPrice)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-gray-600">
+                      <TableCell className="hidden lg:table-cell text-xs text-gray-600">
                         {primaryBatchNo ? (
                           <span className="font-mono" title={totalBatches > 1 ? `${totalBatches} batches` : undefined}>
                             {primaryBatchNo}{totalBatches > 1 ? ` +${totalBatches - 1}` : ''}
@@ -1465,6 +1466,7 @@ export function InventoryView() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

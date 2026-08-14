@@ -63,7 +63,7 @@ function KpiCard({ icon: Icon, label, value, sub, color = 'emerald' }: {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
+            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
             {sub && <div className="mt-1">{sub}</div>}
           </div>
           <div className={`h-8 w-8 rounded-lg ${bgMap[color] || bgMap.emerald} flex items-center justify-center`}>
@@ -181,7 +181,7 @@ function NavbarDropdown({
       {/* Trigger */}
       <button
         type="button"
-        className={`flex items-center gap-1.5 h-10 px-3 text-xs font-medium rounded-none border-b-2 transition-colors whitespace-nowrap ${
+        className={`flex items-center gap-1 h-9 px-2.5 text-[11px] font-medium rounded-none border-b-2 transition-colors whitespace-nowrap shrink-0 ${
           isActiveGroup
             ? 'border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30/50'
             : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:bg-gray-800/50'
@@ -273,7 +273,7 @@ export function AdvancedReportsView() {
         <CardContent className="p-0">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-0">
             {/* Category Navbar with hover dropdowns */}
-            <div className="flex items-center gap-0">
+            <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
               {REPORT_GROUPS.map((group) => (
                 <NavbarDropdown
                   key={group.label}
@@ -285,14 +285,14 @@ export function AdvancedReportsView() {
             </div>
 
             {/* Date Range + Presets — right side */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 px-4 py-3 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-800">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 px-3 py-2 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-800 shrink-0">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
+                  className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
                 <span className="text-[10px] text-muted-foreground">to</span>
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                  className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
+                  className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {PRESETS.map((p) => (
@@ -357,7 +357,7 @@ function RevenueTab({ data }: { data: Record<string, unknown> | null }) {
   const topProducts = (data?.topProducts as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
@@ -378,7 +378,7 @@ function RevenueTab({ data }: { data: Record<string, unknown> | null }) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={daily}>
                   <defs><linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#059669" stopOpacity={0.3}/><stop offset="95%" stopColor="#059669" stopOpacity={0}/></linearGradient></defs>
@@ -397,7 +397,7 @@ function RevenueTab({ data }: { data: Record<string, unknown> | null }) {
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Revenue by Day</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-72">
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dayOfWeek}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -473,7 +473,7 @@ function ProfitTab({ data }: { data: Record<string, unknown> | null }) {
   const productProfit = (data?.productProfit as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Total Cost" value={formatCurrency(Number(s.totalCost || 0))} color="amber" />
@@ -485,7 +485,7 @@ function ProfitTab({ data }: { data: Record<string, unknown> | null }) {
       <Card className="border-none shadow-sm">
         <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Daily Profit Trend</CardTitle></CardHeader>
         <CardContent>
-          <div className="h-72">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={dailyProfit}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -575,7 +575,7 @@ function CustomerTab({ data }: { data: Record<string, unknown> | null }) {
   const basketDistribution = (data?.basketDistribution as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard icon={Users} label="Active Customers" value={String(s.totalCustomers || 0)} color="blue" />
         <KpiCard icon={DollarSign} label="Total Spent" value={formatCurrency(Number(s.totalSpent || 0))} color="emerald" />
@@ -680,7 +680,7 @@ function ExpiryTab({ data }: { data: Record<string, unknown> | null }) {
   const bucketChartData = buckets.map((b) => ({ name: String(b.label), value: Number(b.totalValue), count: Number(b.count) }))
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard icon={AlertTriangle} label="At-Risk Value" value={formatCurrency(Number(s.totalAtRisk || 0))} color="amber" />
         <KpiCard icon={AlertTriangle} label="Expired Value" value={formatCurrency(Number(s.totalExpired || 0))} color="rose" />
@@ -802,7 +802,7 @@ function PaymentTab({ data }: { data: Record<string, unknown> | null }) {
   })
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Payment Method Distribution</CardTitle></CardHeader>
@@ -880,7 +880,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
   const dailyComparison = (data?.dailyComparison as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       {/* Comparison KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-none shadow-sm">
@@ -923,7 +923,7 @@ function ComparisonTab({ data }: { data: Record<string, unknown> | null }) {
           <CardTitle className="text-sm font-semibold">Daily Comparison — Current vs Previous Period</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-72">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={dailyComparison}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -989,7 +989,7 @@ function StockVelocityTab({ data }: { data: Record<string, unknown> | null }) {
   }
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={Package} label="Products Tracked" value={String(s.totalProducts || 0)} color="blue" />
         <KpiCard icon={Zap} label="Fast Moving" value={String(s.fastMoving || 0)} color="emerald" />
@@ -1074,7 +1074,7 @@ function ReturnsAnalysisTab({ data }: { data: Record<string, unknown> | null }) 
   const topProducts = (data?.topProducts as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard icon={RotateCcw} label="Total Returns" value={String(s.totalReturns || 0)} color="amber" />
         <KpiCard icon={DollarSign} label="Total Refunded" value={formatCurrency(Number(s.totalRefundAmount || 0))} color="rose" />
@@ -1180,7 +1180,7 @@ function UserPerformanceTab({ data }: { data: Record<string, unknown> | null }) 
   const topPerformer = s.topPerformer as Record<string, unknown> | null
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Users} label="Total Staff" value={String(s.totalUsers || 0)} color="blue" />
         <KpiCard icon={Activity} label="Active Staff" value={String(s.activeUsers || 0)} color="emerald" />
@@ -1258,7 +1258,7 @@ function PrescriptionAnalyticsTab({ data }: { data: Record<string, unknown> | nu
   }
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={FileText} label="Total Prescriptions" value={String(s.totalRx || 0)} color="blue" />
         <KpiCard icon={CheckCircle2} label="Filled" value={String(s.filled || 0)} color="emerald" />
@@ -1363,7 +1363,7 @@ function InventoryValuationTab({ data }: { data: Record<string, unknown> | null 
   const lowValueItems = (data?.lowValueItems as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={Package} label="Total Products" value={String(s.totalProducts || 0)} color="blue" />
         <KpiCard icon={ShoppingBag} label="Products in Stock" value={String(s.stockedProducts || 0)} color="emerald" />
@@ -1408,7 +1408,7 @@ function InventoryValuationTab({ data }: { data: Record<string, unknown> | null 
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={byCategory} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -1472,7 +1472,7 @@ function DiscountAnalysisTab({ data }: { data: Record<string, unknown> | null })
   const discountDistribution = (data?.discountDistribution as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Tag} label="Total Discounts" value={formatCurrency(Number(s.totalDiscount || 0))} color="amber" />
         <KpiCard icon={Percent} label="Discount Rate" value={`${s.discountRate || 0}%`} color="blue" />
@@ -1585,7 +1585,7 @@ function ShiftAnalysisTab({ data }: { data: Record<string, unknown> | null }) {
   })
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Total Transactions" value={String(s.totalTx || 0)} color="blue" />
@@ -1672,7 +1672,7 @@ function CategoryDeepDiveTab({ data }: { data: Record<string, unknown> | null })
   const topProductsByCategory = (data?.topProductsByCategory as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard icon={LayoutGrid} label="Categories" value={String(s.totalCategories || 0)} color="blue" />
         <KpiCard icon={TrendingUp} label="Top Category" value={String((s.topCategory as Record<string, unknown>)?.name || 'N/A')} color="emerald" />
@@ -1774,7 +1774,7 @@ function ExecutiveSummaryTab({ data }: { data: Record<string, unknown> | null })
   }
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={DollarSign} label="Period Revenue" value={formatCurrency(Number(kpis.revenue || 0))} color="emerald" />
         <KpiCard icon={ShoppingBag} label="Transactions" value={String(kpis.completedTx || 0)} color="blue" />
@@ -1839,7 +1839,7 @@ function ProductAffinityTab({ data }: { data: Record<string, unknown> | null }) 
   const pairs = (data?.pairs as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <KpiCard icon={Link2} label="Product Pairs Found" value={String(s.totalPairs || 0)} color="blue" />
 
       <Card className="border-none shadow-sm">
@@ -1913,7 +1913,7 @@ function SalesForecastTab({ data }: { data: Record<string, unknown> | null }) {
   ]
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={DollarSign} label="Period Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={TrendingUp} label="Avg Daily" value={formatCurrency(Number(s.avgDailyRevenue || 0))} color="blue" />
@@ -2027,7 +2027,7 @@ function CustomerSegmentationTab({ data }: { data: Record<string, unknown> | nul
   const customers = (data?.customers as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Users} label="Customers" value={String(s.totalCustomers || 0)} color="emerald" />
         <KpiCard icon={DollarSign} label="Total Spend" value={formatCurrency(Number(s.totalSpend || 0))} color="blue" />
@@ -2126,7 +2126,7 @@ function BatchExpiryTab({ data }: { data: Record<string, unknown> | null }) {
   const batchDiversity = (data?.batchDiversity as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={Package} label="Total Batches" value={String(s.totalBatches || 0)} color="blue" />
         <KpiCard icon={ShoppingBag} label="Total Units" value={String(Number(s.totalUnits || 0).toLocaleString())} color="emerald" />
@@ -2254,7 +2254,7 @@ function StockTakeAccuracyTab({ data }: { data: Record<string, unknown> | null }
   const categoryAccuracy = (data?.categoryAccuracy as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={CheckCircle2} label="Stock Takes" value={String(s.totalStockTakes || 0)} color="blue" />
         <KpiCard icon={Target} label="Overall Accuracy" value={`${Number(s.overallAccuracy || 0).toFixed(1)}%`} color={Number(s.overallAccuracy || 0) >= 95 ? 'emerald' : Number(s.overallAccuracy || 0) >= 80 ? 'amber' : 'rose'} />
@@ -2359,7 +2359,7 @@ function ManufacturerPerformanceTab({ data }: { data: Record<string, unknown> | 
   const trendColors = ['#059669', '#0891b2', '#7c3aed']
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Factory} label="Manufacturers" value={String(s.totalManufacturers || 0)} color="blue" />
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
@@ -2374,7 +2374,7 @@ function ManufacturerPerformanceTab({ data }: { data: Record<string, unknown> | 
             <CardTitle className="text-sm font-semibold">Daily Revenue: Top 3 Manufacturers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
+            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dailyTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -2491,7 +2491,7 @@ function TaxComplianceTab({ data }: { data: Record<string, unknown> | null }) {
   const exemptTransactions = (data?.exemptTransactions as Array<Record<string, unknown>>) || []
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={DollarSign} label="Taxable Revenue" value={formatCurrency(Number(s.taxableRevenue || 0))} color="emerald" />
         <KpiCard icon={Shield} label="Tax Collected" value={formatCurrency(Number(s.totalTax || 0))} color="blue" />
@@ -2657,7 +2657,7 @@ function HourlyHeatmapTab({ data }: { data: Record<string, unknown> | null }) {
   }
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={DollarSign} label="Total Revenue" value={formatCurrency(Number(s.totalRevenue || 0))} color="emerald" />
         <KpiCard icon={Clock} label="Peak Hour" value={String(s.peakHour || 'N/A')} color="blue" />

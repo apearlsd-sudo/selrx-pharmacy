@@ -301,11 +301,11 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 bg-white dark:bg-gray-900 z-10 min-w-[160px]">Permission</TableHead>
+                <TableHead className="sticky left-0 bg-white dark:bg-gray-900 z-10 min-w-[130px]">Permission</TableHead>
                 {roles.filter(r => r.isActive).map((role) => {
                   const meta = ROLE_METADATA[role.name]
                   return (
-                    <TableHead key={role.id} className="text-center min-w-[80px]">
+                    <TableHead key={role.id} className="text-center min-w-[60px]">
                       <div className="flex flex-col items-center gap-0.5">
                         <Badge className={`text-[10px] px-1.5 py-0 border ${meta?.color || role.color}`}>
                           {meta?.label || role.label}
@@ -329,7 +329,7 @@ function RoleComparisonMatrix({ roles }: { roles: SystemRoleItem[] }) {
                   </TableRow>
                   {cat.permissions.map((perm) => (
                     <TableRow key={perm.key} className="hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors">
-                      <TableCell className="font-medium text-xs sticky left-0 bg-white dark:bg-gray-900 z-10">{perm.label}</TableCell>
+                      <TableCell className="font-medium text-[11px] sticky left-0 bg-white dark:bg-gray-900 z-10">{perm.label}</TableCell>
                       {roles.filter(r => r.isActive).map((role) => {
                         const hasPerm = DEFAULT_ROLE_PERMISSIONS[role.name]?.includes(perm.key)
                         return (
@@ -806,7 +806,7 @@ export function UsersView() {
             </div>
             <div className="flex gap-2">
               <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="h-9 w-[150px]">
+                <SelectTrigger className="h-8 w-[120px]">
                   <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
@@ -818,7 +818,7 @@ export function UsersView() {
                 </SelectContent>
               </Select>
               <Select value={filterTier} onValueChange={setFilterTier}>
-                <SelectTrigger className="h-9 w-[140px]">
+                <SelectTrigger className="h-8 w-[110px]">
                   <Crown className="h-3.5 w-3.5 mr-1" />
                   <SelectValue placeholder="Tier" />
                 </SelectTrigger>
@@ -830,7 +830,7 @@ export function UsersView() {
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="h-9 w-[120px]">
+                <SelectTrigger className="h-8 w-[95px]">
                   <Filter className="h-3.5 w-3.5 mr-1" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -908,7 +908,7 @@ export function UsersView() {
                         {tier && <TierBadge tier={tier} />}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        <div className="flex items-center gap-1 flex-wrap max-w-[160px]">
+                        <div className="flex items-center gap-1 flex-wrap max-w-[120px]">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                             {perms.length}/{ALL_PERMISSIONS.length}
                           </Badge>
