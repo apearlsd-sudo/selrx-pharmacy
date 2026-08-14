@@ -195,7 +195,7 @@ function TopbarClock() {
   }, [])
 
   return (
-    <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
+    <div className="hidden sm:flex items-center gap-1.5 text-xs mr-2" style={{ color: '#fff' }}>
       <Clock className="h-3.5 w-3.5" />
       <span className="font-medium tabular-nums">{time}</span>
     </div>
@@ -818,7 +818,7 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         {/* Top Bar */}
-        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)' }} className="sticky top-0 z-20 h-14 border-b border-white/10 flex items-center gap-3 px-4 lg:px-6">
+        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.8 }} className="sticky top-0 z-20 h-14 border-b border-white/10 flex items-center gap-3 px-4 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
