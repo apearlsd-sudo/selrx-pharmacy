@@ -732,12 +732,12 @@ export default function Home() {
                   background: currentView === item.name ? '#fff' : 'transparent',
                   boxShadow: 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
                   borderRadius: '0',
-                  paddingTop: '7.5px',
-                  paddingBottom: '7.5px',
+                  paddingTop: '10px',
+                  paddingBottom: '10px',
                 }}
                 className="flex items-center gap-3 w-full px-6 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#000'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '7.5px'; e.currentTarget.style.paddingBottom = '7.5px'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '10px'; e.currentTarget.style.paddingBottom = '10px'; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
