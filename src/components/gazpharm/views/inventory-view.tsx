@@ -189,9 +189,37 @@ export function InventoryView() {
       if (res.ok) {
         const data = await res.json()
         setItems(data)
+        // Cache for offline use (store unfiltered full list)
+        if (!searchQuery && categoryFilter === 'ALL') {
+          try {
+            localStorage.setItem('selrx_inventory_cache', JSON.stringify(data))
+            localStorage.setItem('selrx_inventory_cached_at', String(Date.now()))
+          } catch { /* storage full */ }
+        }
       }
     } catch {
-      addToast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
+      // Offline: load from localStorage cache
+      try {
+        const cached = localStorage.getItem('selrx_inventory_cache')
+        if (cached) {
+          const data = JSON.parse(cached) as InventoryItem[]
+          // Client-side filter
+          const q = searchQuery.toLowerCase()
+          const filtered = q
+            ? data.filter(item =>
+                item.product.name.toLowerCase().includes(q) ||
+                item.product.ndc?.toLowerCase().includes(q) ||
+                item.product.category.toLowerCase().includes(q)
+              )
+            : data
+          const catFiltered = categoryFilter !== 'ALL'
+            ? filtered.filter(item => item.product.category === categoryFilter)
+            : filtered
+          setItems(catFiltered)
+        } else {
+          addToast({ title: 'Offline', description: 'No cached inventory available. Connect to the internet first.', variant: 'destructive' })
+        }
+      } catch { /* parse error */ }
     } finally {
       setLoading(false)
     }
@@ -200,27 +228,48 @@ export function InventoryView() {
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/categories')
-      if (res.ok) setCategories(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(data)
+        try { localStorage.setItem('selrx_categories_cache', JSON.stringify(data)) } catch { /* */ }
+      }
     } catch {
-      // silent
+      try {
+        const c = localStorage.getItem('selrx_categories_cache')
+        if (c) setCategories(JSON.parse(c))
+      } catch { /* */ }
     }
   }, [])
 
   const fetchManufacturers = useCallback(async () => {
     try {
       const res = await fetch('/api/manufacturers')
-      if (res.ok) setManufacturers(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setManufacturers(data)
+        try { localStorage.setItem('selrx_manufacturers_cache', JSON.stringify(data)) } catch { /* */ }
+      }
     } catch {
-      // silent
+      try {
+        const c = localStorage.getItem('selrx_manufacturers_cache')
+        if (c) setManufacturers(JSON.parse(c))
+      } catch { /* */ }
     }
   }, [])
 
   const fetchVendors = useCallback(async () => {
     try {
       const res = await fetch('/api/vendors')
-      if (res.ok) setVendors(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setVendors(data)
+        try { localStorage.setItem('selrx_vendors_cache', JSON.stringify(data)) } catch { /* */ }
+      }
     } catch {
-      // silent
+      try {
+        const c = localStorage.getItem('selrx_vendors_cache')
+        if (c) setVendors(JSON.parse(c))
+      } catch { /* */ }
     }
   }, [])
 

@@ -164,10 +164,38 @@ export function POSView() {
       const res = await fetch(`/api/products?${params.toString()}`, { headers: authHeaders() })
       if (res.ok) {
         const json = await res.json()
-        setProducts(json.products || [])
+        const prods = json.products || []
+        setProducts(prods)
+        // Cache for offline use
+        try {
+          localStorage.setItem('selrx_pos_products', JSON.stringify(prods))
+          localStorage.setItem('selrx_pos_products_cached_at', String(Date.now()))
+        } catch { /* storage full or unavailable */ }
       }
     } catch {
-      addToast({ title: 'Error', description: 'Failed to search products', variant: 'destructive' })
+      // Offline: load from localStorage cache
+      try {
+        const cached = localStorage.getItem('selrx_pos_products')
+        if (cached) {
+          const prods = JSON.parse(cached) as Product[]
+          // Client-side filter if search query exists
+          const q = query.toLowerCase()
+          const filtered = q
+            ? prods.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                p.genericName?.toLowerCase().includes(q) ||
+                p.ndc?.includes(q) ||
+                p.category.toLowerCase().includes(q)
+              )
+            : prods
+          const catFiltered = category
+            ? filtered.filter(p => p.category === category)
+            : filtered
+          setProducts(catFiltered)
+        } else {
+          addToast({ title: 'Offline', description: 'No cached products available. Connect to the internet first.', variant: 'destructive' })
+        }
+      } catch { /* parse error */ }
     } finally {
       setSearching(false)
     }
