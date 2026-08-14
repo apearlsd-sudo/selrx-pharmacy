@@ -879,7 +879,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-xs border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white"
+                className="h-8 gap-1.5 text-xs border-emerald-500 text-black bg-emerald-500 hover:bg-emerald-600 hover:border-emerald-600"
                 onClick={async () => {
                   if (!user) return
                   try {
