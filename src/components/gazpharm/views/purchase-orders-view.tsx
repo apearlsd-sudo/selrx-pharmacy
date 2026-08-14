@@ -554,14 +554,14 @@ export function PurchaseOrdersView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">PO ID</TableHead>
+                  <TableHead>PO ID</TableHead>
                   <TableHead>Vendor</TableHead>
-                  <TableHead className="w-[110px]">Status</TableHead>
-                  <TableHead className="w-[60px] text-center">Items</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-center hidden sm:table-cell">Items</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="w-[110px]">Expected</TableHead>
-                  <TableHead className="w-[150px]">Created</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
+                  <TableHead className="hidden md:table-cell">Expected</TableHead>
+                  <TableHead className="hidden md:table-cell">Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -570,13 +570,13 @@ export function PurchaseOrdersView() {
                     <TableCell className="font-mono text-xs">{truncId(order.id)}</TableCell>
                     <TableCell className="font-medium">{order.vendorName}</TableCell>
                     <TableCell>{statusBadge(order.status)}</TableCell>
-                    <TableCell className="text-center">{order._count?.items ?? '—'}</TableCell>
+                    <TableCell className="text-center hidden sm:table-cell">{order._count?.items ?? '—'}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(order.totalAmount)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
                       {order.expectedDate ? formatDate(order.expectedDate) : '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDateTime(order.createdAt)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{formatDateTime(order.createdAt)}</TableCell>
+                    <TableCell className="text-right">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetail(order) }}>
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -626,7 +626,7 @@ export function PurchaseOrdersView() {
               <ScrollArea className="h-full">
                 <div className="px-1 pb-4 space-y-4">
                   {/* PO Info */}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-muted-foreground">Vendor</span>
                       <p className="font-medium">{detailOrder.vendorName}</p>
@@ -795,11 +795,11 @@ export function PurchaseOrdersView() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[200px]">Product</TableHead>
-                          <TableHead className="w-[80px] text-right">Qty</TableHead>
-                          <TableHead className="w-[110px] text-right">Unit Cost</TableHead>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right hidden sm:table-cell">Qty</TableHead>
+                          <TableHead className="text-right hidden sm:table-cell">Unit Cost</TableHead>
                           <TableHead className="text-right">Line Total</TableHead>
-                          <TableHead className="w-[40px]"></TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -850,7 +850,7 @@ export function PurchaseOrdersView() {
                                                         )}
                                                       </div>
                                                     </TableCell>
-                                                    <TableCell>
+                                                    <TableCell className="hidden sm:table-cell">
                                                       <Input
                                                         type="number"
                                                         min={1}
@@ -859,7 +859,7 @@ export function PurchaseOrdersView() {
                                                         className="h-8 text-right text-sm"
                                                       />
                                                     </TableCell>
-                                                    <TableCell>
+                                                    <TableCell className="hidden sm:table-cell">
                                                       <Input
                                                         type="number"
                                                         min={0}

@@ -376,7 +376,7 @@ export function DashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="h-[300px] w-full">
+                  <div className="h-[220px] sm:h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.weeklyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -434,11 +434,11 @@ export function DashboardView() {
                         <TableRow>
                           <TableHead className="text-xs">Txn #</TableHead>
                           <TableHead className="text-xs">Customer</TableHead>
-                          <TableHead className="text-xs">Items</TableHead>
+                          <TableHead className="text-xs hidden sm:table-cell">Items</TableHead>
                           <TableHead className="text-xs">Total</TableHead>
-                          <TableHead className="text-xs">Payment</TableHead>
+                          <TableHead className="text-xs hidden md:table-cell">Payment</TableHead>
                           <TableHead className="text-xs">Status</TableHead>
-                          <TableHead className="text-xs">Time</TableHead>
+                          <TableHead className="text-xs hidden md:table-cell">Time</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -457,19 +457,19 @@ export function DashboardView() {
                                   ? `${txn.customer.firstName} ${txn.customer.lastName}`
                                   : 'Walk-in'}
                               </TableCell>
-                              <TableCell className="text-xs">
+                              <TableCell className="text-xs hidden sm:table-cell">
                                 {txn.items?.length ?? 0}
                               </TableCell>
                               <TableCell className="text-xs font-medium">
                                 {formatCurrency(txn.total)}
                               </TableCell>
-                              <TableCell className="text-xs">
+                              <TableCell className="text-xs hidden md:table-cell">
                                 {(txn.paymentMethod || '').replace(/_/g, ' ')}
                               </TableCell>
                               <TableCell>
                                 <StatusBadge status={txn.status} />
                               </TableCell>
-                              <TableCell className="text-xs text-gray-600 dark:text-gray-400">
+                              <TableCell className="text-xs text-gray-600 dark:text-gray-400 hidden md:table-cell">
                                 {formatDate(txn.createdAt)}
                               </TableCell>
                             </TableRow>

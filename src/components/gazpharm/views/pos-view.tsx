@@ -1294,7 +1294,7 @@ export function POSView() {
               {/* Payment Method */}
               <div className="p-4 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Payment Method</p>
-                <div className="grid grid-cols-5 gap-1.5">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                   {PAYMENT_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
@@ -1341,7 +1341,7 @@ export function POSView() {
                       </div>
                     )}
                     {/* Quick cash buttons */}
-                    <div className="flex gap-1.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                       {[Math.ceil(total), 20, 50, 100].map((amt) => (
                         <Button
                           key={amt}
