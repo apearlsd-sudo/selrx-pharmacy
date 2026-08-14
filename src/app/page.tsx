@@ -744,7 +744,9 @@ export default function Home() {
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <item.icon className="h-[18px] w-[18px]" style={{ color: '#fff' }} />
+                <span className="flex items-center justify-center h-7 w-7 rounded-md" style={{ background: '#10b981' }}>
+                  <item.icon className="h-[18px] w-[18px]" style={{ color: '#000' }} />
+                </span>
                 {item.label}
                 {item.badge && (
                   <span className="ml-auto text-[9px] font-bold bg-white text-emerald-700 rounded-full px-1.5 py-0.5">
@@ -779,7 +781,9 @@ export default function Home() {
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <item.icon className="h-[18px] w-[18px]" style={{ color: '#fff' }} />
+                <span className="flex items-center justify-center h-7 w-7 rounded-md" style={{ background: '#10b981' }}>
+                  <item.icon className="h-[18px] w-[18px]" style={{ color: '#000' }} />
+                </span>
                 {item.label}
               </button>
             ))}
