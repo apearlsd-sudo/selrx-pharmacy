@@ -736,7 +736,7 @@ export default function Home() {
                   borderRadius: '0',
                 }}
                 className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 4px 0 12px rgba(0,0,0,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 12px rgba(0,0,0,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; }}
                 onClick={() => {
                   setCurrentView(item.name)
@@ -771,7 +771,7 @@ export default function Home() {
                   borderRadius: '0',
                 }}
                 className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 4px 0 12px rgba(0,0,0,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 12px rgba(0,0,0,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; }}
                 onClick={() => {
                   setCurrentView(item.name)
