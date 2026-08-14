@@ -732,12 +732,12 @@ export default function Home() {
                 style={{
                   color: '#fff',
                   background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent',
-                  boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,0.2)',
+                  boxShadow: 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
                   borderRadius: '0',
                 }}
                 className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
@@ -767,12 +767,12 @@ export default function Home() {
                 style={{
                   color: '#fff',
                   background: currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent',
-                  boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,0.2)',
+                  boxShadow: 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2)',
                   borderRadius: '0',
                 }}
                 className="flex items-center gap-3 w-full px-6 py-2.5 text-sm font-medium transition-all duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1.5px rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2), 0 4px 4px 0 rgba(0,0,0,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'inset 1.5px 0 0 0 rgba(255,255,255,0.2), inset -1.5px 0 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? 'rgba(255,255,255,0.25)' : 'transparent'; e.currentTarget.style.zIndex = 'auto'; }}
                 onClick={() => {
                   setCurrentView(item.name)
                   if (window.innerWidth < 1024) toggleSidebar()
