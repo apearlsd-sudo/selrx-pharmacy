@@ -883,7 +883,7 @@ export function CompanySetupView() {
         {/* Footer */}
         <div className="text-center py-4">
           <p className="text-xs text-emerald-200/40">
-            SelRx Pharmacy Management System v1.0
+            SelRx Pharmacy Management System
           </p>
         </div>
       </div>
