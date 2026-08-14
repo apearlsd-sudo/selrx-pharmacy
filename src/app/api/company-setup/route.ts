@@ -374,12 +374,15 @@ export async function POST(req: NextRequest) {
     } = body
 
     // Validation
-    if (!companyName || !ownerName || !ownerEmail || !ownerPassword) {
+    if (!companyName || !ownerName || !ownerPassword) {
       return NextResponse.json(
-        { error: 'Company name, owner name, email, and password are required' },
+        { error: 'Company name, owner name, and password are required' },
         { status: 400 }
       )
     }
+
+    // Generate a fallback email if not provided (used as username/login)
+    const effectiveEmail = ownerEmail || `${ownerName.toLowerCase().replace(/\s+/g, '.')}@local`
 
     // Hash the password with bcrypt before storing
     const hashedPassword = await hashPassword(ownerPassword)
@@ -402,7 +405,7 @@ export async function POST(req: NextRequest) {
       // Check if owner email is already taken
       const existingUser = await turso.execute({
         sql: `SELECT 1 FROM "User" WHERE "email" = ? LIMIT 1`,
-        args: [ownerEmail],
+        args: [effectiveEmail],
       })
       if (existingUser.rows.length > 0) {
         return NextResponse.json(
@@ -428,7 +431,7 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO "User" ("id", "email", "password", "name", "role", "phone", "active", "permissions", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, 'SUPER_ADMIN', ?, 1, ?, ?, ?)`,
         args: [
           ownerId,
-          ownerEmail,
+          effectiveEmail,
           hashedPassword,
           ownerName,
           ownerPhone || null,
@@ -457,7 +460,7 @@ export async function POST(req: NextRequest) {
           pharmacyLicense || null,
           taxId || null,
           phone || null,
-          companyEmail || ownerEmail,
+          companyEmail || effectiveEmail,
           website || null,
           address || null,
           city || null,
@@ -489,7 +492,7 @@ export async function POST(req: NextRequest) {
           owner: {
             id: ownerId,
             name: ownerName,
-            email: ownerEmail,
+            email: effectiveEmail,
             role: 'SUPER_ADMIN',
           },
         },
@@ -509,7 +512,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Check if owner email is already taken
-      const existingUser = await db.user.findUnique({ where: { email: ownerEmail } })
+      const existingUser = await db.user.findUnique({ where: { email: effectiveEmail } })
       if (existingUser) {
         return NextResponse.json(
           { error: 'An account with this email already exists' },
@@ -532,7 +535,7 @@ export async function POST(req: NextRequest) {
         const ownerUser = await tx.user.create({
           data: {
             name: ownerName,
-            email: ownerEmail,
+            email: effectiveEmail,
             password: hashedPassword,
             phone: ownerPhone || null,
             role: 'SUPER_ADMIN',
@@ -556,7 +559,7 @@ export async function POST(req: NextRequest) {
             pharmacyLicense: pharmacyLicense || null,
             taxId: taxId || null,
             phone: phone || null,
-            email: companyEmail || ownerEmail,
+            email: companyEmail || effectiveEmail,
             website: website || null,
             address: address || null,
             city: city || null,
@@ -590,7 +593,7 @@ export async function POST(req: NextRequest) {
           owner: {
             id: result.owner.id,
             name: result.owner.name,
-            email: result.owner.email,
+            email: effectiveEmail,
             role: result.owner.role,
           },
         },

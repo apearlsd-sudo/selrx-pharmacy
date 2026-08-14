@@ -122,8 +122,7 @@ export function CompanySetupView() {
         return ''
       case 3:
         if (!ownerName.trim()) return 'Owner name is required'
-        if (!ownerEmail.trim()) return 'Email is required'
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) return 'Please enter a valid email'
+        if (ownerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) return 'Please enter a valid email'
         if (!ownerPassword) return 'Password is required'
         if (ownerPassword.length < 6) return 'Password must be at least 6 characters'
         if (ownerPassword !== confirmPassword) return 'Passwords do not match'
@@ -176,7 +175,7 @@ export function CompanySetupView() {
           pharmacyLicense: pharmacyLicense || null,
           taxId: taxId || null,
           phone: phone || null,
-          email: ownerEmail,
+          email: ownerEmail || null,
           website: website || null,
           address,
           city,
@@ -522,7 +521,7 @@ export function CompanySetupView() {
                       <div className="space-y-2">
                         <Label htmlFor="ownerEmail" className="text-sm font-medium">
                           <Mail className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
-                          Email Address <span className="text-red-500">*</span>
+                          Email Address
                         </Label>
                         <Input
                           id="ownerEmail"
