@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, createPortal } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays,
