@@ -223,6 +223,14 @@ export function StockTakeSection() {
   }
 
   const handleCountedChange = (productId: string, value: string) => {
+    if (value === '' || value === undefined || value === null) {
+      setCountedItems((prev) => {
+        const next = { ...prev }
+        delete next[productId]
+        return next
+      })
+      return
+    }
     const qty = parseInt(value, 10)
     if (!isNaN(qty) && qty >= 0) {
       setCountedItems((prev) => ({ ...prev, [productId]: qty }))
