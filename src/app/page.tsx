@@ -782,19 +782,19 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)' }}
-        className={`fixed inset-y-0 left-0 z-40 w-44 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-44 xl:w-64 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center gap-2.5 px-3 h-12 border-b border-white/20 relative overflow-hidden">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-              <Pill className="h-4 w-4 text-white" />
+        <div className="flex items-center gap-2.5 px-3 xl:px-4 xl:gap-3 h-12 xl:h-16 border-b border-white/20 relative overflow-hidden">
+          <div className="flex items-center gap-2 xl:gap-2.5">
+            <div className="h-7 w-7 xl:h-8 xl:w-8 rounded-lg bg-white/20 flex items-center justify-center">
+              <Pill className="h-4 w-4 xl:h-5 xl:w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xs font-bold text-white leading-tight tracking-tight">SelRx</h1>
-              <p className="text-[9px] text-white/70 leading-tight font-medium">Pharmacy POS</p>
+              <h1 className="text-xs xl:text-sm font-bold text-white leading-tight tracking-tight">SelRx</h1>
+              <p className="text-[9px] xl:text-[10px] text-white/70 leading-tight font-medium">Pharmacy POS<span className="hidden xl:inline"> System</span></p>
             </div>
           </div>
           <Button
@@ -808,7 +808,7 @@ export default function Home() {
         </div>
 
         {/* Nav Items */}
-        <ScrollArea className="flex-1 h-[calc(100vh-8.5rem)]">
+        <ScrollArea className="flex-1 h-[calc(100vh-8.5rem)] xl:h-[calc(100vh-10rem)]">
           <div className="space-y-0.5">
             {visibleNavItems.map((item) => (
               <button
@@ -821,7 +821,7 @@ export default function Home() {
                   paddingTop: '8px',
                   paddingBottom: '8px',
                 }}
-                className="flex items-center gap-2 w-full px-3 text-xs font-medium transition-all duration-200"
+                className="flex items-center gap-2 xl:gap-3 w-full px-3 xl:px-6 text-xs xl:text-sm font-medium transition-all duration-200"
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 4px 0 rgba(0,50,30,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.position = 'relative'; e.currentTarget.style.zIndex = '10'; e.currentTarget.style.paddingLeft = '32px'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = currentView === item.name ? 'none' : 'inset 0 -1.5px 0 0 rgba(255,255,255,0.2)'; e.currentTarget.style.background = currentView === item.name ? '#fff' : 'transparent'; e.currentTarget.style.color = currentView === item.name ? '#000' : '#fff'; e.currentTarget.style.zIndex = 'auto'; e.currentTarget.style.paddingLeft = ''; e.currentTarget.style.paddingTop = '8px'; e.currentTarget.style.paddingBottom = '8px'; }}
                 onClick={() => {
@@ -829,8 +829,8 @@ export default function Home() {
                   if (window.innerWidth < 1024) toggleSidebar()
                 }}
               >
-                <span className="flex items-center justify-center h-5 w-5 rounded-md" style={{ background: '#10b981' }}>
-                  <item.icon className="h-3 w-3" style={{ color: '#000' }} />
+                <span className="flex items-center justify-center h-5 w-5 xl:h-6 xl:w-6 rounded-md" style={{ background: '#10b981' }}>
+                  <item.icon className="h-3 w-3 xl:h-3.5 xl:w-3.5" style={{ color: '#000' }} />
                 </span>
                 {item.label}
                 {item.badge && (
@@ -846,21 +846,21 @@ export default function Home() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="border-t border-white/20 p-2">
-          <div className="flex items-center gap-2 rounded-lg px-2.5 py-2">
-            <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-white text-[10px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
+        <div className="border-t border-white/20 p-2 xl:p-3">
+          <div className="flex items-center gap-2 rounded-lg xl:rounded-xl px-2.5 xl:px-3 py-2 xl:py-2.5">
+            <div className="h-6 w-6 xl:h-8 xl:w-8 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-white text-[10px] xl:text-xs font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
+              <p className="text-[9px] xl:text-[10px] text-white/80 font-medium uppercase">{user?.roleLabel || user?.role || 'STAFF'}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-white/80 hover:text-red-200 hover:bg-white/20"
+              className="h-6 w-6 xl:h-7 xl:w-7 text-white/80 hover:text-red-200 hover:bg-white/20"
               onClick={() => setLogoutOpen(true)}
             >
-              <LogOut className="h-3 w-3" />
+              <LogOut className="h-3 w-3 xl:h-3.5 xl:w-3.5" />
             </Button>
           </div>
         </div>
@@ -875,22 +875,22 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-44 h-screen flex flex-col overflow-hidden">
+      <main className="flex-1 lg:ml-44 xl:ml-64 h-screen flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-10 border-b border-white/10 flex items-center gap-2 px-3">
+        <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-10 xl:h-14 border-b border-white/10 flex items-center gap-2 xl:gap-3 px-3 xl:px-4">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
+            className="lg:hidden h-8 w-8 xl:h-9 xl:w-9 text-white/80 hover:text-white hover:bg-white/10"
             onClick={toggleSidebar}
           >
-            <Menu className="h-4 w-4" />
+            <Menu className="h-4 w-4 xl:h-5 xl:w-5" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <h1 style={{ color: '#fff' }} className="text-xs font-bold leading-tight">{company?.name || 'SelRx'}</h1>
-            <Separator orientation="vertical" className="h-3.5 bg-white/20" />
-            <span style={{ color: 'rgba(255,255,255,0.7)' }} className="text-[11px] font-medium">{currentLabel}</span>
+            <h1 style={{ color: '#fff' }} className="text-xs xl:text-sm font-bold leading-tight">{company?.name || 'SelRx'}</h1>
+            <Separator orientation="vertical" className="h-3.5 xl:h-4 bg-white/20" />
+            <span style={{ color: 'rgba(255,255,255,0.7)' }} className="text-[11px] xl:text-xs font-medium">{currentLabel}</span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
