@@ -864,14 +864,14 @@ export function ReportsView() {
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <TabsList className="flex-wrap p-0 rounded-none gap-0" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">User Sales</TabsTrigger>
-            <TabsTrigger value="inventory" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Shift Reports</TabsTrigger>
+            <TabsTrigger value="sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">User Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Inventory</TabsTrigger>
+            <TabsTrigger value="prescriptions" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Stock Take</TabsTrigger>
+            <TabsTrigger value="expired-goods" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Expired Goods</TabsTrigger>
+            <TabsTrigger value="product-activity" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full hover:rounded-none">Shift Reports</TabsTrigger>
           </TabsList>
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
