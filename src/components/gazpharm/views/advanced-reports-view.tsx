@@ -194,7 +194,7 @@ function NavbarDropdown({
       {/* Dropdown — positioned directly beneath the trigger */}
       {open && (
         <div
-          className="absolute top-full left-0 z-50 mt-0 w-52 bg-white dark:bg-gray-900 rounded-b-lg border border-t-0 border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          className="absolute bottom-full left-0 z-50 mb-0 w-52 bg-white dark:bg-gray-900 rounded-t-lg border border-b-0 border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
