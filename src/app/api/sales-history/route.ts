@@ -44,8 +44,7 @@ export async function GET(request: NextRequest) {
     let effectiveFrom = from
     let effectiveTo = to
     if (!isSuperAdmin) {
-      const now = new Date()
-      const todayStr = now.toISOString().slice(0, 10)
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' })
       effectiveFrom = todayStr
       effectiveTo = todayStr
     }
@@ -59,14 +58,12 @@ export async function GET(request: NextRequest) {
       const args: unknown[] = []
 
       if (effectiveFrom) {
-        conditions.push(`t."createdAt" >= ?`)
-        args.push(new Date(effectiveFrom).toISOString())
+        conditions.push(`date(t."createdAt") >= ?`)
+        args.push(effectiveFrom)
       }
       if (effectiveTo) {
-        const toDate = new Date(effectiveTo)
-        toDate.setHours(23, 59, 59, 999)
-        conditions.push(`t."createdAt" <= ?`)
-        args.push(toDate.toISOString())
+        conditions.push(`date(t."createdAt") <= ?`)
+        args.push(effectiveTo)
       }
       if (effectiveUserId) {
         conditions.push(`t."userId" = ?`)
@@ -332,12 +329,8 @@ export async function GET(request: NextRequest) {
 
     // Build date filter (non-admin forced to today)
     const dateFilter: Record<string, unknown> = {}
-    if (effectiveFrom) dateFilter.gte = new Date(effectiveFrom)
-    if (effectiveTo) {
-      const toDate = new Date(effectiveTo)
-      toDate.setHours(23, 59, 59, 999)
-      dateFilter.lte = toDate
-    }
+    if (effectiveFrom) dateFilter.gte = new Date(effectiveFrom + 'T00:00:00')
+    if (effectiveTo) dateFilter.lte = new Date(effectiveTo + 'T23:59:59')
 
     const baseWhere: Record<string, unknown> = {
       status: 'COMPLETED',

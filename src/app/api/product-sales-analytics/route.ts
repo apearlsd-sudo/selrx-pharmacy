@@ -51,12 +51,12 @@ export async function GET(req: NextRequest) {
         args.push(effectiveUserId)
       }
       if (startDate) {
-        conditions.push(`t."createdAt" >= ?`)
-        args.push(new Date(startDate).toISOString())
+        conditions.push(`date(t."createdAt") >= ?`)
+        args.push(startDate)
       }
       if (endDate) {
-        conditions.push(`t."createdAt" <= ?`)
-        args.push(new Date(endDate).toISOString())
+        conditions.push(`date(t."createdAt") <= ?`)
+        args.push(endDate)
       }
 
       const txWhere = conditions.join(' AND ')
@@ -155,8 +155,8 @@ export async function GET(req: NextRequest) {
     // Build where clause for transactions
     const txWhere: any = { status: 'COMPLETED' }
     if (effectiveUserId) txWhere.userId = effectiveUserId
-    if (startDate) txWhere.createdAt = { ...txWhere.createdAt, gte: new Date(startDate) }
-    if (endDate) txWhere.createdAt = { ...txWhere.createdAt, lte: new Date(endDate) }
+    if (startDate) txWhere.createdAt = { ...txWhere.createdAt, gte: new Date(startDate + 'T00:00:00') }
+    if (endDate) txWhere.createdAt = { ...txWhere.createdAt, lte: new Date(endDate + 'T23:59:59') }
 
     // Build where clause for transaction items
     const itemWhere: any = { transaction: txWhere }
