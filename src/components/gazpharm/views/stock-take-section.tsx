@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ClipboardCheck, Play, Save, AlertTriangle, Eye, ArrowLeft, RefreshCw,
-  Search, CheckCircle2, XCircle, Clock, Plus, Trash2, FileText,
+  Search, CheckCircle2, XCircle, Clock, Plus, Trash2, FileText, Info,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAppStore, type DateFormatOption } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatDateTime, formatDateInput, parseDateInput, autoFormatDateInput, getDatePlaceholder, getDateInputMaxLength } from '@/lib/date-utils'
@@ -571,7 +572,43 @@ export function StockTakeSection() {
                               <TableRow key={inv.productId} className={isExpiredGoods ? 'bg-red-50/30' : ''}>
                                 <TableCell className="text-sm">
                                   <div className="flex flex-col gap-0.5">
-                                    <span>{inv.product.name}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span>{inv.product.name}</span>
+                                      {hasZeroedExpired && bs?.zeroedExpiryDate && (
+                                        <TooltipProvider delayDuration={200}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 cursor-help" />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-xs">
+                                              <div className="text-xs space-y-1">
+                                                <p className="font-medium text-amber-600">Expired batch(es) removed from system</p>
+                                                <p>{bs.zeroedExpiredBatches} batch{bs.zeroedExpiredBatches! > 1 ? 'es' : ''} expired and was zeroed out automatically.</p>
+                                                <p>Nearest expired: {formatDateInput(bs.zeroedExpiryDate)}</p>
+                                                <p className="text-muted-foreground pt-0.5">Check shelf — these goods may still be physically present.</p>
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                      {!hasZeroedExpired && bs?.expiredBatches > 0 && bs?.nearestExpiredDate && (
+                                        <TooltipProvider delayDuration={200}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 cursor-help" />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-xs">
+                                              <div className="text-xs space-y-1">
+                                                <p className="font-medium text-amber-600">Batch with past expiry date</p>
+                                                <p>{bs.expiredBatches} batch{bs.expiredBatches! > 1 ? 'es' : ''} has expiry date in the past but still has system stock.</p>
+                                                <p>Expired: {formatDateInput(bs.nearestExpiredDate)}</p>
+                                                <p className="text-muted-foreground pt-0.5">Verify if these goods are still on shelf and sellable.</p>
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </div>
                                     {batchBreakdown && (
                                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                         <Clock className="h-2.5 w-2.5" />
