@@ -71,6 +71,20 @@ interface ProductInventory {
   batchExpirySummary?: BatchExpirySummary
 }
 
+  // Convert yyyy-mm-dd → dd/mm/yyyy for display
+  const toDDMMYYYY = (iso: string) => {
+    if (!iso || !iso.match(/^\d{4}-\d{2}-\d{2}/)) return iso
+    const [, y, m, d] = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)!
+    return `${d}/${m}/${y}`
+  }
+
+  // Convert dd/mm/yyyy → yyyy-mm-dd for storage
+  const toISO = (ddmmyyyy: string) => {
+    if (!ddmmyyyy || !ddmmyyyy.match(/^\d{2}\/\d{2}\/\d{4}$/)) return ddmmyyyy
+    const [, d, m, y] = ddmmyyyy.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)!
+    return `${y}-${m}-${d}`
+  }
+
 export function StockTakeSection() {
   const [stockTakes, setStockTakes] = useState<StockTake[]>([])
   const [loading, setLoading] = useState(true)
@@ -128,20 +142,20 @@ export function StockTakeSection() {
           const bs = item.batchExpirySummary
           // Priority 1: nearest expired batch date
           if (bs?.nearestExpiredDate) {
-            prefill[pid] = bs.nearestExpiredDate.split('T')[0]
+            prefill[pid] = toDDMMYYYY(bs.nearestExpiredDate.split('T')[0])
           }
           // Priority 2: nearest active expiry within 90 days
           else if (bs?.nearestActiveExpiry) {
             const expiry = new Date(bs.nearestActiveExpiry)
             if (expiry <= ninetyDaysFromNow) {
-              prefill[pid] = bs.nearestActiveExpiry.split('T')[0]
+              prefill[pid] = toDDMMYYYY(bs.nearestActiveExpiry.split('T')[0])
             }
           }
           // Priority 3: product-level expiryDate if expired or within 90 days
           else if (item.product.expiryDate) {
             const expiry = new Date(item.product.expiryDate)
             if (expiry <= ninetyDaysFromNow) {
-              prefill[pid] = item.product.expiryDate.split('T')[0]
+              prefill[pid] = toDDMMYYYY(item.product.expiryDate.split('T')[0])
             }
           }
         }
@@ -195,7 +209,7 @@ export function StockTakeSection() {
         if (detail.items) {
           for (const item of detail.items) {
             if (item.countedQty !== null) counts[item.productId] = item.countedQty
-            if (item.notes && item.notes.match(/^\d{4}-\d{2}-\d{2}$/)) expiries[item.productId] = item.notes
+            if (item.notes && item.notes.match(/^\d{4}-\d{2}-\d{2}$/)) expiries[item.productId] = toDDMMYYYY(item.notes)
           }
         }
         setCountedItems(counts)
@@ -221,8 +235,15 @@ export function StockTakeSection() {
     }
   }
 
-  const handleExpiryChange = (productId: string, value: string) => {
-    setExpiryDates((prev) => ({ ...prev, [productId]: value }))
+  const handleExpiryChange = (productId: string, raw: string) => {
+    // Auto-insert slashes: dd/mm/yyyy
+    let digits = raw.replace(/[^0-9]/g, '').slice(0, 8)
+    let formatted = ''
+    for (let i = 0; i < digits.length; i++) {
+      if (i === 2 || i === 4) formatted += '/'
+      formatted += digits[i]
+    }
+    setExpiryDates((prev) => ({ ...prev, [productId]: formatted }))
   }
 
   const handleSaveCounts = async () => {
@@ -233,7 +254,7 @@ export function StockTakeSection() {
         productId: inv.productId,
         systemQty: inv.quantity,
         countedQty: countedItems[inv.productId] ?? null,
-        expiryDate: expiryDates[inv.productId] || null,
+        expiryDate: expiryDates[inv.productId] ? toISO(expiryDates[inv.productId]) : null,
       }))
 
       await fetch(`/api/stock-take/${selectedTake.id}`, {
@@ -540,10 +561,12 @@ export function StockTakeSection() {
                                 </TableCell>
                                 <TableCell>
                                   <input
-                                    type="date"
+                                    type="text"
                                     value={expiryDates[inv.productId] || ''}
                                     onChange={(e) => handleExpiryChange(inv.productId, e.target.value)}
-                                    className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
+                                    placeholder="dd/mm/yyyy"
+                                    maxLength={10}
+                                    className="h-8 w-[110px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900 placeholder:text-muted-foreground"
                                   />
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium">
