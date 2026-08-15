@@ -864,14 +864,14 @@ export function ReportsView() {
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <TabsList className="flex-wrap" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">User Sales</TabsTrigger>
-            <TabsTrigger value="inventory" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background">Shift Reports</TabsTrigger>
+            <TabsTrigger value="sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">User Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Inventory</TabsTrigger>
+            <TabsTrigger value="prescriptions" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Stock Take</TabsTrigger>
+            <TabsTrigger value="expired-goods" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Expired Goods</TabsTrigger>
+            <TabsTrigger value="product-activity" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className="hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-200">Shift Reports</TabsTrigger>
           </TabsList>
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
