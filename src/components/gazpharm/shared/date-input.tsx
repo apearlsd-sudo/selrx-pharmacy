@@ -106,7 +106,7 @@ export function DateInput({ value, onChange, className, max, min }: DateInputPro
         onFocus={(e) => e.target.select()}
         placeholder={getDatePlaceholder()}
         maxLength={getDateInputMaxLength()}
-        className={`${className || ''} pr-7 rounded-md focus:outline-none focus:ring-0 focus:border-gray-400 dark:focus:border-gray-500`}
+        className={`${className || ''} pr-7 rounded-md focus:outline-none focus:ring-0 focus:border-[#a1d99b] focus:border-[0.3px]`}
       />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
