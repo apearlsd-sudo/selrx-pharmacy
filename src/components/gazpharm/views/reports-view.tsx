@@ -864,14 +864,14 @@ export function ReportsView() {
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <TabsList className="flex-wrap" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales">Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales">User Sales</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake">Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods">Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity">Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts">Shift Reports</TabsTrigger>
+            <TabsTrigger value="sales" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">User Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Inventory</TabsTrigger>
+            <TabsTrigger value="prescriptions" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Stock Take</TabsTrigger>
+            <TabsTrigger value="expired-goods" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Expired Goods</TabsTrigger>
+            <TabsTrigger value="product-activity" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className="hover:bg-emerald-500/20 data-[state=active]:hover:bg-background">Shift Reports</TabsTrigger>
           </TabsList>
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
