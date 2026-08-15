@@ -374,6 +374,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             const system = Number(item.systemQty) || 0
             const variance = counted - system
             const costPrice = Number(item.product.costPrice) || 0
+            const isExpired = item.product.expiryDate && new Date(item.product.expiryDate) < now
             return {
               productId: item.productId,
               productName: item.product.name,
@@ -384,17 +385,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               systemQty: system,
               countedQty: counted,
               variance,
-              varianceType: variance < 0 ? 'SHORTAGE' : 'SURPLUS',
+              varianceType: variance < 0 ? 'SHORTAGE' : isExpired ? 'EXPIRED_LOSS' : 'SURPLUS',
               unitCost: costPrice,
               totalCost: Math.abs(variance) * costPrice,
             }
           })
           .sort((a, b) => a.variance - b.variance) // shortages first
 
-        const shortageItems = varianceItems.filter((v) => v.variance < 0)
-        const surplusItems = varianceItems.filter((v) => v.variance > 0)
+        const shortageItems = varianceItems.filter((v) => v.varianceType === 'SHORTAGE')
+        const surplusItems = varianceItems.filter((v) => v.varianceType === 'SURPLUS')
+        const expiredLossItems = varianceItems.filter((v) => v.varianceType === 'EXPIRED_LOSS')
         const shortageTotalCost = shortageItems.reduce((sum, v) => sum + v.totalCost, 0)
         const surplusTotalCost = surplusItems.reduce((sum, v) => sum + v.totalCost, 0)
+        const expiredLossTotalCost = expiredLossItems.reduce((sum, v) => sum + v.totalCost, 0)
 
         const report = {
           generatedAt: now.toISOString(),
@@ -413,6 +416,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             shortageTotalCost,
             surplusCount: surplusItems.length,
             surplusTotalCost,
+            expiredLossCount: expiredLossItems.length,
+            expiredLossTotalCost,
+            netVarianceCost: shortageTotalCost + expiredLossTotalCost - surplusTotalCost,
             items: varianceItems,
           },
         }
@@ -552,6 +558,7 @@ function buildCompletionReport(countedItems: any[], now: string, reference: stri
       const system = Number(item.systemQty) || 0
       const variance = counted - system
       const costPrice = Number(item.product.costPrice) || 0
+      const isExpired = item.product.expiryDate && new Date(item.product.expiryDate) < new Date(now)
       return {
         productId: item.productId,
         productName: item.product.name,
@@ -562,17 +569,19 @@ function buildCompletionReport(countedItems: any[], now: string, reference: stri
         systemQty: system,
         countedQty: counted,
         variance,
-        varianceType: variance < 0 ? 'SHORTAGE' : 'SURPLUS',
+        varianceType: variance < 0 ? 'SHORTAGE' : isExpired ? 'EXPIRED_LOSS' : 'SURPLUS',
         unitCost: costPrice,
         totalCost: Math.abs(variance) * costPrice,
       }
     })
     .sort((a, b) => a.variance - b.variance)
 
-  const shortageItems = varianceItems.filter((v) => v.variance < 0)
-  const surplusItems = varianceItems.filter((v) => v.variance > 0)
+  const shortageItems = varianceItems.filter((v) => v.varianceType === 'SHORTAGE')
+  const surplusItems = varianceItems.filter((v) => v.varianceType === 'SURPLUS')
+  const expiredLossItems = varianceItems.filter((v) => v.varianceType === 'EXPIRED_LOSS')
   const shortageTotalCost = shortageItems.reduce((sum, v) => sum + v.totalCost, 0)
   const surplusTotalCost = surplusItems.reduce((sum, v) => sum + v.totalCost, 0)
+  const expiredLossTotalCost = expiredLossItems.reduce((sum, v) => sum + v.totalCost, 0)
 
   return {
     generatedAt: now,
@@ -591,6 +600,9 @@ function buildCompletionReport(countedItems: any[], now: string, reference: stri
       shortageTotalCost,
       surplusCount: surplusItems.length,
       surplusTotalCost,
+      expiredLossCount: expiredLossItems.length,
+      expiredLossTotalCost,
+      netVarianceCost: shortageTotalCost + expiredLossTotalCost - surplusTotalCost,
       items: varianceItems,
     },
   }

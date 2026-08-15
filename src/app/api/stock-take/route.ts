@@ -271,18 +271,20 @@ function buildReport(countedItems: any[], now: Date, stockTake: any) {
         productId: item.productId, productName: item.product.name, ndc: item.product.ndc,
         category: item.product.category, dosageForm: item.product.dosageForm, strength: item.product.strength,
         systemQty: system, countedQty: counted, variance,
-        varianceType: variance < 0 ? 'SHORTAGE' : 'SURPLUS' as const,
+        varianceType: (variance < 0 ? 'SHORTAGE' : (item.product.expiryDate && new Date(item.product.expiryDate) < now ? 'EXPIRED_LOSS' : 'SURPLUS')) as 'SHORTAGE' | 'EXPIRED_LOSS' | 'SURPLUS',
         variancePercent, unitCost: costPrice,
         totalCost: Math.abs(variance) * costPrice,
-        manufacturer: mfgName, vendor: vendorName,
+        manufacturer: mfgName, vendor: vendorName, expiryDate: item.product.expiryDate || null,
       }
     })
     .sort((a, b) => a.variance - b.variance)
 
-  const shortageItems = varianceItems.filter((v) => v.variance < 0)
-  const surplusItems = varianceItems.filter((v) => v.variance > 0)
+  const shortageItems = varianceItems.filter((v) => v.varianceType === 'SHORTAGE')
+  const surplusItems = varianceItems.filter((v) => v.varianceType === 'SURPLUS')
+  const expiredLossItems = varianceItems.filter((v) => v.varianceType === 'EXPIRED_LOSS')
   const shortageTotalCost = shortageItems.reduce((s, v) => s + v.totalCost, 0)
   const surplusTotalCost = surplusItems.reduce((s, v) => s + v.totalCost, 0)
+  const expiredLossTotalCost = expiredLossItems.reduce((s, v) => s + v.totalCost, 0)
 
   // Reorder alerts
   const reorderAlerts = countedItems
@@ -333,7 +335,7 @@ function buildReport(countedItems: any[], now: Date, stockTake: any) {
     inventoryValuation: { totalItems: countedItems.length, totalCostValue, totalRetailValue, potentialProfit, profitMargin },
     expiredGoods: { count: expiredGoods.length, totalCost: expiredTotalCost, totalPotentialRevenue: expiredTotalRevenue, items: expiredGoods },
     nearExpiryGoods: { count: nearExpiryGoods.length, totalCost: nearExpiryTotalCost, totalPotentialRevenue: nearExpiryTotalRevenue, items: nearExpiryGoods },
-    stockVariance: { totalVarianceItems: varianceItems.length, shortageCount: shortageItems.length, shortageTotalCost, surplusCount: surplusItems.length, surplusTotalCost, netVarianceCost: shortageTotalCost - surplusTotalCost, items: varianceItems },
+    stockVariance: { totalVarianceItems: varianceItems.length, shortageCount: shortageItems.length, shortageTotalCost, surplusCount: surplusItems.length, surplusTotalCost, expiredLossCount: expiredLossItems.length, expiredLossTotalCost, netVarianceCost: shortageTotalCost + expiredLossTotalCost - surplusTotalCost, items: varianceItems },
     reorderAlerts: { count: reorderAlerts.length, totalReorderCost: reorderTotalCost, items: reorderAlerts },
   }
 }

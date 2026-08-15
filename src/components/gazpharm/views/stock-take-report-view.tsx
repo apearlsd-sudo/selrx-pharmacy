@@ -69,7 +69,7 @@ interface VarianceItem {
   systemQty: number
   countedQty: number
   variance: number
-  varianceType: 'SHORTAGE' | 'SURPLUS'
+  varianceType: 'SHORTAGE' | 'SURPLUS' | 'EXPIRED_LOSS'
   variancePercent: number
   unitCost: number
   totalCost: number
@@ -627,8 +627,13 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {report.stockVariance.items.map((item, i) => (
-                      <TableRow key={item.productId} className={item.varianceType === 'SHORTAGE' ? 'bg-orange-50/20 hover:bg-orange-50/40' : 'bg-emerald-50/20 hover:bg-emerald-50/40'}>
+                    {report.stockVariance.items.map((item, i) => {
+                      const isExpiredLoss = item.varianceType === 'EXPIRED_LOSS'
+                      const isShortage = item.varianceType === 'SHORTAGE'
+                      const rowColor = isExpiredLoss ? 'bg-red-50/20 hover:bg-red-50/40' : isShortage ? 'bg-orange-50/20 hover:bg-orange-50/40' : 'bg-emerald-50/20 hover:bg-emerald-50/40'
+                      const textColor = isExpiredLoss ? 'text-red-600' : isShortage ? 'text-orange-600' : 'text-emerald-600'
+                      return (
+                      <TableRow key={item.productId} className={rowColor}>
                         <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="text-sm font-medium">{item.productName}</TableCell>
                         <TableCell className="text-xs font-mono text-muted-foreground hidden xl:table-cell">{item.ndc || '—'}</TableCell>
@@ -638,20 +643,21 @@ export function StockTakeReportView({ stockTakeId }: { stockTakeId?: string }) {
                         <TableCell className="text-right text-sm text-muted-foreground">{item.systemQty}</TableCell>
                         <TableCell className="text-right text-sm font-medium">{item.countedQty}</TableCell>
                         <TableCell className="text-right text-sm font-bold">
-                          <span className={`inline-flex items-center gap-1 ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
-                            {item.varianceType === 'SHORTAGE' ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+                          <span className={`inline-flex items-center gap-1 ${textColor}`}>
+                            {isShortage ? <TrendingDown className="h-3 w-3" /> : isExpiredLoss ? <PackageX className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
                             {item.variance > 0 ? '+' : ''}{item.variance}
                           </span>
                         </TableCell>
                         <TableCell className="text-right text-xs hidden md:table-cell">
-                          <span className={`font-medium ${item.varianceType === 'SHORTAGE' ? 'text-orange-600' : 'text-emerald-600'}`}>
+                          <span className={`font-medium ${textColor}`}>
                             {item.variance > 0 ? '+' : ''}{item.variancePercent}%
                           </span>
                         </TableCell>
                         <TableCell className="text-right text-xs hidden md:table-cell">{formatCurrency(item.unitCost)}</TableCell>
                         <TableCell className="text-right text-sm font-semibold">{formatCurrency(item.totalCost)}</TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                   <TableFooter>
                     <TableRow className="bg-amber-100/50 font-bold">

@@ -527,6 +527,11 @@ export function StockTakeSection() {
                             const counted = countedItems[inv.productId] ?? ''
                             const countedNum = typeof counted === 'number' ? counted : (counted !== '' ? parseInt(String(counted), 10) : null)
                             const variance = countedNum !== null && !isNaN(countedNum) ? countedNum - inv.quantity : null
+                            const expiryStr = expiryDates[inv.productId] || inv.product.expiryDate
+                            const isExpiredGoods = variance !== null && variance > 0 && expiryStr && (() => {
+                              const iso = expiryStr.includes('/') ? parseDateInput(expiryStr) : expiryStr
+                              return !!iso && new Date(iso + 'T12:00:00') < new Date()
+                            })()
                             return (
                               <TableRow key={inv.productId}>
                                 <TableCell className="text-sm">{inv.product.name}</TableCell>
@@ -554,7 +559,7 @@ export function StockTakeSection() {
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium">
                                   {variance !== null ? (
-                                    <span className={variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
+                                    <span className={isExpiredGoods ? 'text-red-600' : variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
                                       {variance > 0 ? '+' : ''}{variance}
                                     </span>
                                   ) : '—'}
