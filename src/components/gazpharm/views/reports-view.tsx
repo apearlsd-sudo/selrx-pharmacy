@@ -863,15 +863,15 @@ export function ReportsView() {
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <TabsList className="flex-wrap" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales">Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales">User Sales</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake">Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods">Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity">Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts">Shift Reports</TabsTrigger>
+          <TabsList className="flex-wrap items-center gap-0" style={{ backgroundColor: '#a1d99b' }}>
+            <TabsTrigger value="sales" className="border-r border-white/50 rounded-none">Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className="border-r border-white/50 rounded-none">User Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="border-r border-white/50 rounded-none">Inventory</TabsTrigger>
+            <TabsTrigger value="prescriptions" className="border-r border-white/50 rounded-none">Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake" className="border-r border-white/50 rounded-none">Stock Take</TabsTrigger>
+            <TabsTrigger value="expired-goods" className="border-r border-white/50 rounded-none">Expired Goods</TabsTrigger>
+            <TabsTrigger value="product-activity" className="border-r border-white/50 rounded-none">Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className="rounded-none">Shift Reports</TabsTrigger>
           </TabsList>
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
