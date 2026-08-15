@@ -158,15 +158,15 @@ interface NavItem {
 // Permission key mapping — which granular permission grants access to which view
 const NAV_ITEMS: NavItem[] = [
   { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
-  { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, permission: 'pos:sell', badge: 'LIVE' },
+  { name: 'pos', label: 'POS Terminal', icon: ShoppingCart, permission: 'pos:sell', badge: undefined },
   { name: 'master-data', label: 'Drug Catalogue', icon: Database, permission: 'master-data:view' },
   { name: 'inventory', label: 'Inventory', icon: Package, permission: 'inventory:view' },
   { name: 'prescriptions', label: 'Prescriptions', icon: ClipboardList, permission: 'prescriptions:view' },
   { name: 'customers', label: 'Customers', icon: Users, permission: 'customers:view' },
   { name: 'reports', label: 'Reports', icon: BarChart3, permission: 'reports:view' },
   { name: 'advanced-reports', label: 'Advanced Reports', icon: TrendingUp, permission: 'reports:view' },
-  { name: 'product-sales-analytics', label: 'Product Sales Analytics', icon: TrendingUp, permission: 'inventory:analytics' },
-  { name: 'stock-take', label: 'Periodic Stock Taking', icon: ClipboardCheck, permission: 'inventory:stocktake' },
+  { name: 'product-sales-analytics', label: 'Sales Analytics', icon: TrendingUp, permission: 'inventory:analytics' },
+  { name: 'stock-take', label: 'Stock Taking', icon: ClipboardCheck, permission: 'inventory:stocktake' },
   { name: 'sales-history', label: 'Sales History', icon: History, permission: 'pos:history' },
   { name: 'returns', label: 'Goods Return', icon: RotateCcw, permission: 'pos:refund' },
   { name: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, permission: 'inventory:manage' },
