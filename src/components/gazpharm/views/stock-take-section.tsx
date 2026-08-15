@@ -64,6 +64,7 @@ export function StockTakeSection() {
   const [creating, setCreating] = useState(false)
   const [inventory, setInventory] = useState<ProductInventory[]>([])
   const [countedItems, setCountedItems] = useState<Record<string, number>>({})
+  const [expiryDates, setExpiryDates] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StockTake | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -142,12 +143,15 @@ export function StockTakeSection() {
         setView('detail')
         // Initialize counted items from existing data
         const counts: Record<string, number> = {}
+        const expiries: Record<string, string> = {}
         if (detail.items) {
           for (const item of detail.items) {
             if (item.countedQty !== null) counts[item.productId] = item.countedQty
+            if (item.notes && item.notes.match(/^\d{4}-\d{2}-\d{2}$/)) expiries[item.productId] = item.notes
           }
         }
         setCountedItems(counts)
+        setExpiryDates(expiries)
       } else {
         addToast({ title: 'Error', description: 'Failed to load stock take details', variant: 'destructive' })
       }
@@ -169,6 +173,10 @@ export function StockTakeSection() {
     }
   }
 
+  const handleExpiryChange = (productId: string, value: string) => {
+    setExpiryDates((prev) => ({ ...prev, [productId]: value }))
+  }
+
   const handleSaveCounts = async () => {
     if (!selectedTake) return
     setSaving(true)
@@ -177,6 +185,7 @@ export function StockTakeSection() {
         productId: inv.productId,
         systemQty: inv.quantity,
         countedQty: countedItems[inv.productId] ?? null,
+        expiryDate: expiryDates[inv.productId] || null,
       }))
 
       await fetch(`/api/stock-take/${selectedTake.id}`, {
@@ -449,6 +458,7 @@ export function StockTakeSection() {
                       <TableHeader className="sticky top-0">
                         <TableRow className="bg-gray-50">
                           <TableHead className="text-xs">Product</TableHead>
+                          <TableHead className="text-xs">Expiry Date</TableHead>
                           <TableHead className="text-xs text-right">System Qty</TableHead>
                           <TableHead className="text-xs">Physical Count</TableHead>
                           <TableHead className="text-xs text-right">Variance</TableHead>
@@ -457,7 +467,7 @@ export function StockTakeSection() {
                       <TableBody>
                         {filteredInventory.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} className="p-0">
+                            <TableCell colSpan={5} className="p-0">
                               <EmptyState icon={Search} title="No products found" description="No products match your search" />
                             </TableCell>
                           </TableRow>
@@ -469,6 +479,14 @@ export function StockTakeSection() {
                             return (
                               <TableRow key={inv.productId}>
                                 <TableCell className="text-sm">{inv.product.name}</TableCell>
+                                <TableCell>
+                                  <input
+                                    type="date"
+                                    value={expiryDates[inv.productId] || ''}
+                                    onChange={(e) => handleExpiryChange(inv.productId, e.target.value)}
+                                    className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
+                                  />
+                                </TableCell>
                                 <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
                                 <TableCell>
                                   <Input

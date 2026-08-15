@@ -123,7 +123,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const countedResult = await turso.execute({
           sql: `
             SELECT
-              sti."id" AS "stiId", sti."stockTakeId", sti."productId", sti."systemQty", sti."countedQty", sti."variance",
+              sti."id" AS "stiId", sti."stockTakeId", sti."productId", sti."systemQty", sti."countedQty", sti."variance", sti."notes" AS "stiNotes",
               p."id" AS "pId", p."name" AS "pName", p."ndc", p."category", p."unitOfMeasure",
               p."expiryDate", p."costPrice", p."sellingPrice", p."dosageForm", p."strength",
               p."reorderPoint", p."reorderQty", p."manufacturer",
@@ -145,13 +145,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           systemQty: row.systemQty as number | null,
           countedQty: row.countedQty as number | null,
           variance: row.variance as number | null,
+          notes: row.stiNotes as string | null,
           product: {
             id: row.pId as string,
             name: row.pName as string | null,
             ndc: row.ndc as string | null,
             category: row.category as string | null,
             unitOfMeasure: row.unitOfMeasure as string | null,
-            expiryDate: row.expiryDate as string | null,
+            expiryDate: (row.stiNotes as string | null)?.match(/^\d{4}-\d{2}-\d{2}$/) ? row.stiNotes as string : row.expiryDate as string | null,
             costPrice: row.costPrice as number | null,
             sellingPrice: row.sellingPrice as number | null,
             dosageForm: row.dosageForm as string | null,
@@ -245,6 +246,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const countedQty = Number(item.countedQty)
           const systemQty = Number(item.systemQty)
           const variance = item.countedQty !== null ? countedQty - systemQty : null
+          const notes = item.expiryDate || item.notes || null
           const now = new Date().toISOString()
 
           // Check if item exists
@@ -256,13 +258,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           if (existingItem.rows.length > 0) {
             await turso.execute({
               sql: `UPDATE "StockTakeItem" SET "countedQty" = ?, "variance" = ?, "notes" = ?, "updatedAt" = ? WHERE "stockTakeId" = ? AND "productId" = ?`,
-              args: [item.countedQty, variance, item.notes || null, now, id, item.productId],
+              args: [item.countedQty, variance, notes, now, id, item.productId],
             })
           } else {
             const stiId = generateId()
             await turso.execute({
               sql: `INSERT INTO "StockTakeItem" ("id", "stockTakeId", "productId", "systemQty", "countedQty", "variance", "notes", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              args: [stiId, id, item.productId, item.systemQty, item.countedQty, variance, item.notes || null, now, now],
+              args: [stiId, id, item.productId, item.systemQty, item.countedQty, variance, notes, now, now],
             })
           }
         }
@@ -295,6 +297,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             },
           },
         })
+
+        // Prefer stock-take entered expiry date (stored in notes) over product expiry
+        for (const item of countedItems) {
+          if (item.notes?.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            (item.product as any).expiryDate = item.notes
+          }
+        }
 
         // 2) Update Inventory table: set quantity = countedQty
         let updatedInventoryCount = 0
@@ -432,6 +441,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           const countedQty = Number(item.countedQty)
           const systemQty = Number(item.systemQty)
           const variance = item.countedQty !== null ? countedQty - systemQty : null
+          const notes = item.expiryDate || item.notes || null
           await db.stockTakeItem.upsert({
             where: {
               stockTakeId_productId: { stockTakeId: id, productId: item.productId },
@@ -442,12 +452,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               systemQty: item.systemQty,
               countedQty: item.countedQty,
               variance,
-              notes: item.notes || null,
+              notes,
             },
             update: {
               countedQty: item.countedQty,
               variance,
-              notes: item.notes || null,
+              notes,
             },
           })
         }
