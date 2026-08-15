@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, createPortal } from 'react'
 import {
   BarChart3, TrendingUp, Users, AlertTriangle, CreditCard, ArrowLeftRight,
   Download, DollarSign, ShoppingBag, Percent, CalendarDays,
@@ -161,16 +161,33 @@ function NavbarDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
   const isActiveGroup = group.items.some((i) => i.value === activeTab)
   const GroupIcon = group.items[0].icon
 
+  const updatePos = () => {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom, left: r.left })
+    }
+  }
+
   const handleMouseEnter = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    updatePos()
     setOpen(true)
   }
   const handleMouseLeave = () => {
     timeoutRef.current = setTimeout(() => setOpen(false), 150)
   }
+
+  useEffect(() => {
+    if (!open) return
+    const onScroll = () => updatePos()
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [open])
 
   return (
     <div
@@ -180,6 +197,7 @@ function NavbarDropdown({
     >
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         className={`flex items-center gap-1 h-9 px-2.5 text-[11px] font-medium rounded-none border-b-2 transition-colors whitespace-nowrap shrink-0 ${
           isActiveGroup
@@ -191,10 +209,11 @@ function NavbarDropdown({
         {group.label}
         <ChevronDown className={`h-3 w-3 ml-0.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
-      {/* Dropdown — positioned directly beneath the trigger */}
-      {open && (
+      {/* Dropdown — rendered via portal to escape overflow clipping */}
+      {open && createPortal(
         <div
-          className="absolute top-full left-0 z-50 mt-0 w-52 bg-white dark:bg-gray-900 rounded-b-lg border border-t-0 border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          className="fixed z-[9999] w-52 bg-white dark:bg-gray-900 rounded-b-lg border border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          style={{ top: pos.top, left: pos.left }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
@@ -214,10 +233,11 @@ function NavbarDropdown({
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span>{item.label}</span>
-              {activeTab === item.value && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/300" />}
+              {activeTab === item.value && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-500" />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
