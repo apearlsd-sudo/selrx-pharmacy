@@ -580,7 +580,7 @@ export function StockTakeSection() {
 
                             return (
                               <TableRow key={inv.productId} className={isExpiredGoods ? 'bg-red-50/30' : ''}>
-                                <TableCell className="text-sm">
+                                <TableCell className="text-xs">
                                   <div className="flex flex-col gap-0.5 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
                                       <span className="truncate">{inv.product.name}</span>
@@ -588,7 +588,7 @@ export function StockTakeSection() {
                                         <TooltipProvider delayDuration={200}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 cursor-help" />
+                                              <Info className="h-3 w-3 text-amber-500 shrink-0 cursor-help" />
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-xs">
                                               <div className="text-xs space-y-1">
@@ -610,7 +610,7 @@ export function StockTakeSection() {
                                         <TooltipProvider delayDuration={200}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 cursor-help" />
+                                              <Info className="h-3 w-3 text-amber-500 shrink-0 cursor-help" />
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-xs">
                                               <div className="text-xs space-y-1">
