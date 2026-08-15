@@ -118,7 +118,7 @@ export function DateInput({ value, onChange, className, max, min }: DateInputPro
             <CalendarIcon className="h-3.5 w-3.5" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
+        <PopoverContent className="w-auto p-0 rounded-2xl border-[0.5px] border-gray-300/60 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.1)]" align="end">
           <Calendar
             mode="single"
             captionLayout="dropdown"
