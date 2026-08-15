@@ -215,7 +215,25 @@ export async function GET(request: NextRequest) {
         batchSummaryMap.set(r.productId as string, r)
       }
 
-      // Fetch the primary batch number (earliest-created non-null batchNumber per product) for display
+      // Recently-expired (zeroed) batches — needed for stock take to detect expired goods still on shelf
+      // We look at batches zeroed (quantity=0) with an expiry date in the past, updated recently
+      const expiredZeroedResult = await turso.execute({
+        sql: `SELECT b."productId",
+             COUNT(*) as zeroedBatchCount,
+             MIN(b."expiryDate") as nearestZeroedExpiryDate,
+             MAX(b."updatedAt") as lastZeroedAt
+      FROM "Batch" b
+      WHERE b.quantity = 0
+        AND b."expiryDate" IS NOT NULL
+        AND date(b."expiryDate") <= date('now')
+        AND b."updatedAt" >= date('now', '-90 days')
+      GROUP BY b."productId"`,
+        args: [],
+      })
+      const expiredZeroedMap = new Map<string, Record<string, unknown>>() 
+      for (const r of toObjs(expiredZeroedResult)) {
+        expiredZeroedMap.set(r.productId as string, r)
+      }
       const batchNumbersResult = await turso.execute({
         sql: `SELECT b."productId", b."batchNumber"
               FROM "Batch" b
@@ -238,8 +256,15 @@ export async function GET(request: NextRequest) {
       // Attach batch summary to each inventory row
       const inventory = inventoryRows.map((row) => {
         const bs = batchSummaryMap.get(row.productId)
+        const ez = expiredZeroedMap.get(row.productId)
         const primaryBatchNo = batchNumberMap.get(row.productId) || null
         const noExpiry = Number(bs?.noExpiryBatches) || 0
+        const zeroedBatchCount = Number(ez?.zeroedBatchCount) || 0
+        const nearestZeroedExpiry = ez?.nearestZeroedExpiryDate as string | null
+        // Combine: if there are expired active batches (quantity>0, past expiry) OR recently zeroed batches
+        const hasAnyExpired = ((Number(bs?.expiredBatches) || 0) > 0) || (zeroedBatchCount > 0)
+        // Use nearestExpiredDate from active batches (quantity>0), fallback to zeroed batch expiry
+        const combinedNearestExpired = (bs?.nearestExpiredDate as string | null) || nearestZeroedExpiry
         const summary = bs ? {
           hasBatches: true,
           totalBatches: Number(bs.totalBatches) || 0,
@@ -247,13 +272,31 @@ export async function GET(request: NextRequest) {
           expiredBatches: Number(bs.expiredBatches) || 0,
           activeBatches: Number(bs.activeBatches) || 0,
           allBatchesExpired: (Number(bs.activeBatches) || 0) === 0,
-          hasExpiredBatches: (Number(bs.expiredBatches) || 0) > 0,
+          hasExpiredBatches: hasAnyExpired,
           nearExpiryBatches: Number(bs.nearExpiryBatches) || 0,
           nearestActiveExpiry: bs.nearestActiveExpiry as string | null,
-          nearestExpiredDate: bs.nearestExpiredDate as string | null,
+          nearestExpiredDate: combinedNearestExpired,
           primaryBatchNumber: primaryBatchNo,
           allBatchesNoExpiry: noExpiry > 0 && (Number(bs.expiredBatches) || 0) === 0 && (Number(bs.activeBatches) || 0) === 0,
-        } : { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false }
+          // New fields for stock take multi-batch expired goods detection
+          zeroedExpiredBatches: zeroedBatchCount,
+          zeroedExpiryDate: nearestZeroedExpiry,
+        } : (zeroedBatchCount > 0 ? {
+          hasBatches: true,
+          totalBatches: zeroedBatchCount,
+          noExpiryBatches: 0,
+          expiredBatches: 0,
+          activeBatches: 0,
+          allBatchesExpired: true,
+          hasExpiredBatches: true,
+          nearExpiryBatches: 0,
+          nearestActiveExpiry: null,
+          nearestExpiredDate: nearestZeroedExpiry,
+          primaryBatchNumber: null,
+          allBatchesNoExpiry: false,
+          zeroedExpiredBatches: zeroedBatchCount,
+          zeroedExpiryDate: nearestZeroedExpiry,
+        } : { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false, zeroedExpiredBatches: 0, zeroedExpiryDate: null })
         return { ...row, batchExpirySummary: summary }
       })
 
@@ -268,15 +311,28 @@ export async function GET(request: NextRequest) {
         args: [],
       })
 
-      const noInvProducts = toObjs(noInvResult).map((r) => ({
-        id: `no-inv-${r.p_id}`,
-        productId: r.p_id,
-        quantity: 0,
-        lastCounted: null,
-        createdAt: r.p_createdAt,
-        updatedAt: r.p_updatedAt,
-        product: mapProduct(r),
-      }))
+      const noInvProducts = toObjs(noInvResult).map((r) => {
+        const ez = expiredZeroedMap.get(r.p_id as string)
+        const zCount = Number(ez?.zeroedBatchCount) || 0
+        const zExpiry = ez?.nearestZeroedExpiryDate as string | null
+        return {
+          id: `no-inv-${r.p_id}`,
+          productId: r.p_id,
+          quantity: 0,
+          lastCounted: null,
+          createdAt: r.p_createdAt,
+          updatedAt: r.p_updatedAt,
+          product: mapProduct(r),
+          batchExpirySummary: zCount > 0 ? {
+            hasBatches: true, totalBatches: zCount, noExpiryBatches: 0,
+            expiredBatches: 0, activeBatches: 0, allBatchesExpired: true,
+            hasExpiredBatches: true, nearExpiryBatches: 0,
+            nearestActiveExpiry: null, nearestExpiredDate: zExpiry,
+            primaryBatchNumber: null, allBatchesNoExpiry: false,
+            zeroedExpiredBatches: zCount, zeroedExpiryDate: zExpiry,
+          } : { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false, zeroedExpiredBatches: 0, zeroedExpiryDate: null },
+        }
+      })
 
       return NextResponse.json([...inventory, ...noInvProducts])
     }
@@ -333,9 +389,30 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const defaultSummary = { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false }
+    // Also fetch recently-zeroed expired batches for stock take
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000)
+    const zeroedBatchRecords = await db.batch.findMany({
+      where: { quantity: 0, expiryDate: { lte: now }, updatedAt: { gte: ninetyDaysAgo } },
+      select: { productId: true, expiryDate: true },
+    })
+    const zeroedGrouped = new Map<string, { count: number; nearestExpiry: string | null }>()
+    for (const b of zeroedBatchRecords) {
+      if (!zeroedGrouped.has(b.productId)) zeroedGrouped.set(b.productId, { count: 0, nearestExpiry: null })
+      const zg = zeroedGrouped.get(b.productId)!
+      zg.count++
+      if (b.expiryDate && (!zg.nearestExpiry || new Date(b.expiryDate) < new Date(zg.nearestExpiry))) {
+        zg.nearestExpiry = b.expiryDate
+      }
+    }
+
+    const defaultSummary = { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false, zeroedExpiredBatches: 0, zeroedExpiryDate: null }
     const attachSummary = (row: any) => {
       const g = batchGrouped.get(row.productId)
+      const zg = zeroedGrouped.get(row.productId)
+      const zCount = zg?.count || 0
+      const zExpiry = zg?.nearestExpiry || null
+      const hasAnyExpired = (g?.expired || 0) > 0 || zCount > 0
+      const combinedNearestExpired = (g?.nearestExpired || null) || zExpiry
       row.batchExpirySummary = g ? {
         hasBatches: true,
         totalBatches: g.total,
@@ -343,13 +420,22 @@ export async function GET(request: NextRequest) {
         expiredBatches: g.expired,
         activeBatches: g.active,
         allBatchesExpired: g.active === 0,
-        hasExpiredBatches: g.expired > 0,
+        hasExpiredBatches: hasAnyExpired,
         nearExpiryBatches: g.nearExpiry,
         nearestActiveExpiry: g.nearestActive,
-        nearestExpiredDate: g.nearestExpired,
+        nearestExpiredDate: combinedNearestExpired,
         primaryBatchNumber: g.primaryBatch,
         allBatchesNoExpiry: g.noExpiry > 0 && g.expired === 0 && g.active === 0,
-      } : defaultSummary
+        zeroedExpiredBatches: zCount,
+        zeroedExpiryDate: zExpiry,
+      } : (zCount > 0 ? {
+        hasBatches: true,
+        totalBatches: zCount,
+        noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0,
+        allBatchesExpired: true, hasExpiredBatches: true, nearExpiryBatches: 0,
+        nearestActiveExpiry: null, nearestExpiredDate: zExpiry, primaryBatchNumber: null,
+        allBatchesNoExpiry: false, zeroedExpiredBatches: zCount, zeroedExpiryDate: zExpiry,
+      } : defaultSummary)
       return row
     }
 

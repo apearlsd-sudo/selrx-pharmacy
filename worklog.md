@@ -254,3 +254,29 @@ Stage Summary:
 - Status badge no longer falsely shows "Expired" for no-expiry products
 - New Batch column shows primary batch number with multi-batch indicator
 - Build verified passing
+
+---
+Task ID: 1
+Agent: main
+Task: Multi-batch expired goods variance logic in stock take
+
+Work Log:
+- Analyzed current stock take variance logic and batch system
+- Identified gap: expired/zeroed batches excluded from batchExpirySummary, causing false profit display
+- Enhanced inventory API (Turso + Prisma paths) to query recently-zeroed expired batches (within 90 days)
+- Added zeroedExpiredBatches and zeroedExpiryDate fields to BatchExpirySummary
+- Updated batch summary builder to combine expired+zeroed batch data for hasExpiredBatches and nearestExpiredDate
+- Updated stock take frontend: batch breakdown display ("2 active · 1 expired") under product name
+- Enhanced isExpiredGoods detection: checks both entered expiry date AND zeroed batch presence
+- Added "expired loss" label below variance in red for expired goods
+- Applied same expired loss display to completed stock take detail view
+- Backend report already had EXPIRED_LOSS classification (verified both Turso and Prisma paths)
+- Build verified passing
+
+Stage Summary:
+- Multi-batch products now show batch breakdown in stock take (active/expired/near-exp counts)
+- When expired batches were zeroed by auto-expiry but goods remain on shelf, variance is detected as expired loss
+- Expiry date prepopulation uses combined nearestExpiredDate (from both active-expired and zeroed batches)
+- Frontend shows red "expired loss" label, red row highlight, and red variance text
+- Completed stock take detail view also shows expired loss labels from stored notes/expiry data
+- Report classifies as EXPIRED_LOSS and includes in netVarianceCost calculation

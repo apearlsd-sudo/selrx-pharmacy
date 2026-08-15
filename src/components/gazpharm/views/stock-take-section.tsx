@@ -61,6 +61,9 @@ interface BatchExpirySummary {
   hasExpiredBatches: boolean
   allBatchesNoExpiry: boolean
   noExpiryBatches: number
+  // New: recently-zeroed expired batches (goods removed from system but may still be on shelf)
+  zeroedExpiredBatches: number
+  zeroedExpiryDate: string | null
 }
 
 interface ProductInventory {
@@ -456,20 +459,30 @@ export function StockTakeSection() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedTake.items.map((item) => (
-                    <TableRow key={item.id} className={item.variance && item.variance !== 0 ? 'bg-amber-50/50' : ''}>
+                  {selectedTake.items.map((item) => {
+                    // Check if variance is from expired goods (notes may contain ISO expiry date)
+                    const itemExpiryIso = item.notes?.match(/^(\d{4}-\d{2}-\d{2})$/)?.[1]
+                    const isExpiredLoss = item.variance !== null && item.variance > 0 && itemExpiryIso && new Date(itemExpiryIso + 'T12:00:00') < new Date()
+                    return (
+                    <TableRow key={item.id} className={isExpiredLoss ? 'bg-red-50/30' : item.variance && item.variance !== 0 ? 'bg-amber-50/50' : ''}>
                       <TableCell className="text-sm">{item.product?.name || item.productId}</TableCell>
                       <TableCell className="text-right text-sm">{item.systemQty}</TableCell>
                       <TableCell className="text-right text-sm font-medium">{item.countedQty ?? '—'}</TableCell>
                       <TableCell className="text-right text-sm">
                         {item.variance !== null ? (
-                          <span className={item.variance > 0 ? 'text-emerald-600' : item.variance < 0 ? 'text-red-600' : 'text-gray-600'}>
-                            {item.variance > 0 ? '+' : ''}{item.variance}
-                          </span>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className={isExpiredLoss ? 'text-red-600' : item.variance > 0 ? 'text-emerald-600' : item.variance < 0 ? 'text-red-600' : 'text-gray-600'}>
+                              {item.variance > 0 ? '+' : ''}{item.variance}
+                            </span>
+                            {isExpiredLoss && (
+                              <span className="text-[10px] text-red-500 font-normal">expired loss</span>
+                            )}
+                          </div>
                         ) : '—'}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -527,14 +540,46 @@ export function StockTakeSection() {
                             const counted = countedItems[inv.productId] ?? ''
                             const countedNum = typeof counted === 'number' ? counted : (counted !== '' ? parseInt(String(counted), 10) : null)
                             const variance = countedNum !== null && !isNaN(countedNum) ? countedNum - inv.quantity : null
+                            const bs = inv.batchExpirySummary
+
+                            // Determine if positive variance is expired goods loss
+                            // Check: (1) expiry date entered/prefilled is past, OR
+                            //         (2) product has zeroed expired batches in system
                             const expiryStr = expiryDates[inv.productId] || inv.product.expiryDate
-                            const isExpiredGoods = variance !== null && variance > 0 && expiryStr && (() => {
+                            const hasZeroedExpired = (bs?.zeroedExpiredBatches || 0) > 0
+                            const expiryDateIsPast = expiryStr && (() => {
                               const iso = expiryStr.includes('/') ? parseDateInput(expiryStr) : expiryStr
                               return !!iso && new Date(iso + 'T12:00:00') < new Date()
                             })()
+                            const isExpiredGoods = variance !== null && variance > 0 && (expiryDateIsPast || hasZeroedExpired)
+
+                            // Build batch breakdown text
+                            const batchParts: string[] = []
+                            if (bs?.hasBatches) {
+                              const total = bs.totalBatches + (bs.zeroedExpiredBatches || 0)
+                              if (total > 1 || hasZeroedExpired) {
+                                if (bs.activeBatches > 0) batchParts.push(`${bs.activeBatches} active`)
+                                if (bs.nearExpiryBatches > 0) batchParts.push(`${bs.nearExpiryBatches} near-exp`)
+                                if (hasZeroedExpired) batchParts.push(`${bs.zeroedExpiredBatches} expired`)
+                                else if (bs.expiredBatches > 0) batchParts.push(`${bs.expiredBatches} expired`)
+                                if (bs.noExpiryBatches > 0) batchParts.push(`${bs.noExpiryBatches} no-exp`)
+                              }
+                            }
+                            const batchBreakdown = batchParts.length > 0 ? batchParts.join(' · ') : null
+
                             return (
-                              <TableRow key={inv.productId}>
-                                <TableCell className="text-sm">{inv.product.name}</TableCell>
+                              <TableRow key={inv.productId} className={isExpiredGoods ? 'bg-red-50/30' : ''}>
+                                <TableCell className="text-sm">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>{inv.product.name}</span>
+                                    {batchBreakdown && (
+                                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <Clock className="h-2.5 w-2.5" />
+                                        {batchBreakdown}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
                                 <TableCell>
                                   <Input
@@ -559,9 +604,14 @@ export function StockTakeSection() {
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium">
                                   {variance !== null ? (
-                                    <span className={isExpiredGoods ? 'text-red-600' : variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
-                                      {variance > 0 ? '+' : ''}{variance}
-                                    </span>
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <span className={isExpiredGoods ? 'text-red-600' : variance > 0 ? 'text-emerald-600' : variance < 0 ? 'text-red-600' : 'text-gray-500'}>
+                                        {variance > 0 ? '+' : ''}{variance}
+                                      </span>
+                                      {isExpiredGoods && variance > 0 && (
+                                        <span className="text-[10px] text-red-500 font-normal">expired loss</span>
+                                      )}
+                                    </div>
                                   ) : '—'}
                                 </TableCell>
                               </TableRow>
