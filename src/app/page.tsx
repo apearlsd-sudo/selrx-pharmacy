@@ -875,7 +875,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-44 min-h-screen flex flex-col">
+      <main className="flex-1 lg:ml-44 h-screen flex flex-col overflow-hidden">
         {/* Top Bar */}
         <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-10 border-b border-white/10 flex items-center gap-2 px-3">
           <Button
@@ -1016,7 +1016,7 @@ export default function Home() {
         )}
 
         {/* Page Content */}
-        <div key={currentView} className="flex-1 p-2 lg:p-3 animate-fade-in">
+        <div key={currentView} className="flex-1 p-2 lg:p-3 animate-fade-in overflow-y-auto">
           {renderView()}
         </div>
 
