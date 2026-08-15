@@ -190,7 +190,7 @@ export function LoginScreen() {
         <p
           className="mt-6 text-center text-xs text-emerald-200/60"
         >
-          SelRx Pharmacy Management System v1.0
+          SelRx Pharmacy Management System
         </p>
       </div>
     </div>

@@ -1033,9 +1033,6 @@ export default function Home() {
                 <span className="text-muted-foreground">Pharmacy Management System</span>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-medium text-muted-foreground border-gray-200 dark:border-gray-700 h-5 px-2">
-              v1.0
-            </Badge>
           </div>
         </footer>
       </main>
