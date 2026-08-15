@@ -280,3 +280,22 @@ Stage Summary:
 - Frontend shows red "expired loss" label, red row highlight, and red variance text
 - Completed stock take detail view also shows expired loss labels from stored notes/expiry data
 - Report classifies as EXPIRED_LOSS and includes in netVarianceCost calculation
+---
+Task ID: 1
+Agent: Main Agent
+Task: Enhance expired batch tooltip in stock take with quantity, removal date, and improved messaging
+
+Work Log:
+- Added ProductHistory query (Turso SQL + Prisma) to fetch total expired quantity from EXPIRED action records within 90 days
+- Added `lastZeroedAt` (date when batches were zeroed) to both Turso and Prisma summary builders
+- Added `zeroedTotalQty` (total units expired) to both Turso and Prisma summary builders
+- Extended `BatchExpirySummary` interface with `lastZeroedAt: string | null` and `zeroedTotalQty: number`
+- Enhanced zeroed-expired tooltip: now shows "X units expired and were removed from the system on [date]" (with formatDateTime for the removal date) when quantity is available, falling back to batch count message
+- Improved tooltip wording to match user's requested style
+- Fixed pre-existing TS error: `bs?.expiredBatches > 0` → `(bs?.expiredBatches ?? 0) > 0`
+- Verified build compiles successfully
+
+Stage Summary:
+- Tooltip now displays: expired unit count, removal date (lastZeroedAt), expiry date, and shelf check reminder
+- Both Turso and Prisma API paths return `lastZeroedAt` and `zeroedTotalQty` in batchExpirySummary
+- Build passes with no new errors

@@ -65,6 +65,8 @@ interface BatchExpirySummary {
   // New: recently-zeroed expired batches (goods removed from system but may still be on shelf)
   zeroedExpiredBatches: number
   zeroedExpiryDate: string | null
+  lastZeroedAt: string | null
+  zeroedTotalQty: number
 }
 
 interface ProductInventory {
@@ -582,16 +584,21 @@ export function StockTakeSection() {
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-xs">
                                               <div className="text-xs space-y-1">
-                                                <p className="font-medium text-amber-600">Expired batch(es) removed from system</p>
-                                                <p>{bs.zeroedExpiredBatches} batch{bs.zeroedExpiredBatches! > 1 ? 'es' : ''} expired and was zeroed out automatically.</p>
-                                                <p>Nearest expired: {formatDateInput(bs.zeroedExpiryDate)}</p>
-                                                <p className="text-muted-foreground pt-0.5">Check shelf — these goods may still be physically present.</p>
+                                                <p className="font-medium text-amber-600">Expired stock removed from system</p>
+                                                {bs.zeroedTotalQty > 0 && (
+                                                  <p>{bs.zeroedTotalQty} unit{bs.zeroedTotalQty !== 1 ? 's' : ''} expired and were removed from the system{bs.lastZeroedAt ? ` on ${formatDateTime(bs.lastZeroedAt)}` : ''}.</p>
+                                                )}
+                                                {bs.zeroedTotalQty === 0 && (
+                                                  <p>{bs.zeroedExpiredBatches} batch{bs.zeroedExpiredBatches! > 1 ? 'es' : ''} expired and were zeroed out automatically{bs.lastZeroedAt ? ` on ${formatDateTime(bs.lastZeroedAt)}` : ''}.</p>
+                                                )}
+                                                <p>Expired: {formatDateInput(bs.zeroedExpiryDate)}</p>
+                                                <p className="text-muted-foreground pt-0.5">Check shelf for remaining expired stock.</p>
                                               </div>
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
                                       )}
-                                      {!hasZeroedExpired && bs?.expiredBatches > 0 && bs?.nearestExpiredDate && (
+                                      {!hasZeroedExpired && (bs?.expiredBatches ?? 0) > 0 && bs?.nearestExpiredDate && (
                                         <TooltipProvider delayDuration={200}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
@@ -600,8 +607,8 @@ export function StockTakeSection() {
                                             <TooltipContent side="top" className="max-w-xs">
                                               <div className="text-xs space-y-1">
                                                 <p className="font-medium text-amber-600">Batch with past expiry date</p>
-                                                <p>{bs.expiredBatches} batch{bs.expiredBatches! > 1 ? 'es' : ''} has expiry date in the past but still has system stock.</p>
-                                                <p>Expired: {formatDateInput(bs.nearestExpiredDate)}</p>
+                                                <p>{bs!.expiredBatches} batch{bs!.expiredBatches! > 1 ? 'es' : ''} has expiry date in the past but still has system stock.</p>
+                                                <p>Expired: {formatDateInput(bs!.nearestExpiredDate)}</p>
                                                 <p className="text-muted-foreground pt-0.5">Verify if these goods are still on shelf and sellable.</p>
                                               </div>
                                             </TooltipContent>
