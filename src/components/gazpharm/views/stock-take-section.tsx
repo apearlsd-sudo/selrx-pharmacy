@@ -582,13 +582,13 @@ export function StockTakeSection() {
                               <TableRow key={inv.productId} className={isExpiredGoods ? 'bg-red-50/30' : ''}>
                                 <TableCell className="text-xs">
                                   <div className="flex flex-col gap-0.5 min-w-0">
-                                    <div className="flex items-center gap-1 min-w-0">
-                                      <span className="truncate">{inv.product.name}</span>
+                                    <span className="truncate">{inv.product.name}</span>
+                                    <div className="flex items-center gap-1">
                                       {hasZeroedExpired && bs?.zeroedExpiryDate && (
                                         <TooltipProvider delayDuration={200}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Info className="h-3 w-3 text-amber-500 shrink-0 cursor-help" />
+                                              <Info className="h-2.5 w-2.5 text-amber-500 shrink-0 cursor-help" />
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-xs">
                                               <div className="text-xs space-y-1">
@@ -610,7 +610,7 @@ export function StockTakeSection() {
                                         <TooltipProvider delayDuration={200}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Info className="h-3 w-3 text-amber-500 shrink-0 cursor-help" />
+                                              <Info className="h-2.5 w-2.5 text-amber-500 shrink-0 cursor-help" />
                                             </TooltipTrigger>
                                             <TooltipContent side="top" className="max-w-xs">
                                               <div className="text-xs space-y-1">
@@ -623,13 +623,12 @@ export function StockTakeSection() {
                                           </Tooltip>
                                         </TooltipProvider>
                                       )}
+                                      {batchBreakdown && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {batchBreakdown}
+                                        </span>
+                                      )}
                                     </div>
-                                    {batchBreakdown && (
-                                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                        <Clock className="h-2.5 w-2.5" />
-                                        {batchBreakdown}
-                                      </span>
-                                    )}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
