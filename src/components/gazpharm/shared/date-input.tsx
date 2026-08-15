@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   formatDateInput,
   parseDateInput,
@@ -33,9 +33,15 @@ interface DateInputProps {
  */
 export function DateInput({ value, onChange, className, max, min }: DateInputProps) {
   const [open, setOpen] = useState(false)
+  const [localText, setLocalText] = useState('')
+  const isTyping = useRef(false)
 
-  // Convert ISO → display format
-  const displayValue = value ? formatDateInput(value) : ''
+  // When the parent value changes externally (not from typing), sync display
+  useEffect(() => {
+    if (!isTyping.current) {
+      setLocalText(value ? formatDateInput(value) : '')
+    }
+  }, [value])
 
   // Parse ISO → Date object for calendar (noon to avoid DST issues)
   const selectedDate: DateType = value ? (() => {
@@ -49,22 +55,43 @@ export function DateInput({ value, onChange, className, max, min }: DateInputPro
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      isTyping.current = true
       const raw = e.target.value
       const formatted = autoFormatDateInput(raw)
+      setLocalText(formatted)
+
+      // Only propagate to parent when we have a complete valid date
       const iso = parseDateInput(formatted)
-      onChange(iso || '')
+      if (iso) {
+        onChange(iso)
+      }
+      // Reset typing flag after a tick so the effect can re-sync if needed
+      setTimeout(() => { isTyping.current = false }, 0)
     },
     [onChange],
   )
 
+  const handleBlur = useCallback(() => {
+    isTyping.current = false
+    // If the user left an incomplete date, revert to the parent value
+    const iso = parseDateInput(localText)
+    if (!iso && value) {
+      setLocalText(formatDateInput(value))
+    } else if (!iso) {
+      setLocalText('')
+    }
+  }, [localText, value])
+
   const handleSelect = useCallback(
     (date: DateType) => {
- setOpen(false)
-      if (!date) { onChange(''); return }
+      setOpen(false)
+      if (!date) { onChange(''); setLocalText(''); return }
       const y = date.getFullYear()
       const m = String(date.getMonth() + 1).padStart(2, '0')
       const d = String(date.getDate()).padStart(2, '0')
-      onChange(`${y}-${m}-${d}`)
+      const iso = `${y}-${m}-${d}`
+      onChange(iso)
+      setLocalText(formatDateInput(iso))
     },
     [onChange],
   )
@@ -73,13 +100,13 @@ export function DateInput({ value, onChange, className, max, min }: DateInputPro
     <div className="relative flex items-center">
       <input
         type="text"
-        value={displayValue}
+        value={localText}
         onChange={handleChange}
+        onBlur={handleBlur}
         onFocus={(e) => e.target.select()}
         placeholder={getDatePlaceholder()}
         maxLength={getDateInputMaxLength()}
         className={`${className || ''} pr-7`}
-        data-date-iso={value || undefined}
       />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
