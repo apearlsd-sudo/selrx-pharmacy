@@ -863,7 +863,7 @@ export function ReportsView() {
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <TabsList className="flex-wrap">
+          <TabsList className="flex-wrap" style={{ backgroundColor: '#a1d99b' }}>
             <TabsTrigger value="sales">Sales Summary</TabsTrigger>
             <TabsTrigger value="user-sales">User Sales</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
