@@ -22,6 +22,7 @@ import { formatCurrency } from '@/lib/currency'
 import { getTodayWAT } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { DateInput } from '@/components/gazpharm/shared/date-input'
 
 interface AnalyticsRow {
   productId: string
@@ -296,18 +297,16 @@ export function ProductSalesAnalytics() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Input
-              type="date"
+            <DateInput
               value={startDate}
-              onChange={(e) => startTransition(() => setStartDate(e.target.value))}
+              onChange={(iso) => startTransition(() => setStartDate(iso))}
               className="h-8 w-[140px] text-xs"
               max={endDate || undefined}
             />
             <span className="text-xs text-muted-foreground">to</span>
-            <Input
-              type="date"
+            <DateInput
               value={endDate}
-              onChange={(e) => startTransition(() => setEndDate(e.target.value))}
+              onChange={(iso) => startTransition(() => setEndDate(iso))}
               className="h-8 w-[140px] text-xs"
               min={startDate || undefined}
             />

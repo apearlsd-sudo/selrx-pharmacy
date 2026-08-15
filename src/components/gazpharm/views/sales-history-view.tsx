@@ -18,6 +18,7 @@ import {
   Printer,
 } from 'lucide-react'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { DateInput } from '@/components/gazpharm/shared/date-input'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -418,17 +419,15 @@ export function SalesHistoryView() {
               <>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Label className="text-xs whitespace-nowrap">From:</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
+                    onChange={(iso) => setDateFrom(iso)}
                     className="h-8 w-32 text-xs"
                   />
                   <Label className="text-xs whitespace-nowrap">To:</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
+                    onChange={(iso) => setDateTo(iso)}
                     className="h-8 w-32 text-xs"
                   />
                 </div>

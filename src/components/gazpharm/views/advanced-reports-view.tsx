@@ -25,6 +25,7 @@ import { formatCurrency } from '@/lib/currency'
 import { formatDateShort } from '@/lib/date-utils'
 import { authHeaders } from '@/lib/auth-headers'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { DateInput } from '@/components/gazpharm/shared/date-input'
 import { useAppStore } from '@/store/app-store'
 
 // Palette
@@ -291,11 +292,11 @@ export function AdvancedReportsView() {
         action={
           <div className="flex items-center gap-2">
             <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
+            <DateInput value={from} onChange={setFrom}
+              className="h-7 w-[120px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900 placeholder:text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground">to</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
+            <DateInput value={to} onChange={setTo}
+              className="h-7 w-[120px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900 placeholder:text-muted-foreground" />
             <div className="flex items-center gap-1">
               {PRESETS.map((p) => (
                 <Button key={p.label} variant="outline" size="sm" className="h-7 text-[11px] px-2"

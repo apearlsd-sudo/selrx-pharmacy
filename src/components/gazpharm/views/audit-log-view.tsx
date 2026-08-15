@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { DateInput } from '@/components/gazpharm/shared/date-input'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatDateTime } from '@/lib/date-utils'
 
@@ -296,10 +297,9 @@ export function AuditLogView() {
 
             {/* From date */}
             <div className="w-[150px]">
-              <Input
-                type="date"
+              <DateInput
                 value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                onChange={(iso) => setFromDate(iso)}
                 className="h-9 text-sm"
                 max={toDate || undefined}
               />
@@ -307,10 +307,9 @@ export function AuditLogView() {
 
             {/* To date */}
             <div className="w-[150px]">
-              <Input
-                type="date"
+              <DateInput
                 value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                onChange={(iso) => setToDate(iso)}
                 className="h-9 text-sm"
                 min={fromDate || undefined}
               />

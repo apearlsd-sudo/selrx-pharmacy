@@ -130,5 +130,134 @@ export function getDaysToExpiry(expiryDate: string | null | undefined): number |
   return daysToExpiryFrom(expiryDate, getTodayWAT())
 }
 
+/**
+ * Format a date (ISO string) for display in a text input field according to user's dateFormat.
+ * E.g. '2026-08-15' → '15/08/2026' (dd/mm/yyyy) or '08/15/2026' (mm/dd/yyyy)
+ */
+export function formatDateInput(isoStr: string | null | undefined): string {
+  if (!isoStr) return ''
+  const d = new Date((isoStr.split('T')[0]) + 'T12:00:00')
+  if (isNaN(d.getTime())) return ''
+  const f = getDateFormat()
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = String(d.getFullYear())
+  switch (f) {
+    case 'mm/dd/yyyy': return `${month}/${day}/${year}`
+    case 'yyyy-mm-dd':  return `${year}-${month}-${day}`
+    case 'dd Mon yyyy': {
+      const mon = d.toLocaleDateString('en-GB', { month: 'short' })
+      return `${day} ${mon} ${year}`
+    }
+    case 'Mon dd, yyyy': {
+      const mon = d.toLocaleDateString('en-US', { month: 'short' })
+      return `${mon} ${day}, ${year}`
+    }
+    case 'dd/mm/yyyy':
+    default: return `${day}/${month}/${year}`
+  }
+}
+
+/**
+ * Parse a user-typed date string (in the user's dateFormat) back to YYYY-MM-DD.
+ * Returns null if unparseable.
+ */
+export function parseDateInput(raw: string): string | null {
+  if (!raw || !raw.trim()) return null
+  const s = raw.trim()
+  const f = getDateFormat()
+  // Try to parse based on format
+  let day: number, month: number, year: number
+  if (f === 'yyyy-mm-dd') {
+    const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+    if (!m) return null
+    year = +m[1]; month = +m[2]; day = +m[3]
+  } else if (f === 'mm/dd/yyyy') {
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (!m) return null
+    month = +m[1]; day = +m[2]; year = +m[3]
+  } else if (f === 'dd/mm/yyyy') {
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (!m) return null
+    day = +m[1]; month = +m[2]; year = +m[3]
+  } else if (f === 'dd Mon yyyy') {
+    const m = s.match(/^(\d{1,2})\s+(\w{3})\s+(\d{4})$/)
+    if (!m) return null
+    day = +m[1]; year = +m[3]
+    const d = new Date(`${m[2]} 1, ${year}`)
+    month = d.getMonth() + 1
+    if (isNaN(month)) return null
+  } else if (f === 'Mon dd, yyyy') {
+    const m = s.match(/^(\w{3})\s+(\d{1,2}),?\s+(\d{4})$/)
+    if (!m) return null
+    year = +m[3]; day = +m[2]
+    const d = new Date(`${m[1]} 1, ${year}`)
+    month = d.getMonth() + 1
+    if (isNaN(month)) return null
+  } else {
+    return null
+  }
+  // Validate
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) return null
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+/**
+ * Get the placeholder text for a date input based on user's dateFormat.
+ */
+export function getDatePlaceholder(): string {
+  const f = getDateFormat()
+  switch (f) {
+    case 'mm/dd/yyyy': return 'mm/dd/yyyy'
+    case 'yyyy-mm-dd':  return 'yyyy-mm-dd'
+    case 'dd Mon yyyy': return 'dd Mon yyyy'
+    case 'Mon dd, yyyy': return 'Mon dd, yyyy'
+    case 'dd/mm/yyyy':
+    default: return 'dd/mm/yyyy'
+  }
+}
+
+/**
+ * Auto-format a date input value as the user types, inserting separators.
+ * Works for dd/mm/yyyy, mm/dd/yyyy, and yyyy-mm-dd.
+ * For month-name formats (dd Mon, Mon dd), returns the raw digits (user types full format).
+ */
+export function autoFormatDateInput(raw: string): string {
+  const f = getDateFormat()
+  let digits = raw.replace(/[^0-9]/g, '').slice(0, 8)
+  if (f === 'yyyy-mm-dd') {
+    let formatted = ''
+    for (let i = 0; i < digits.length; i++) {
+      if (i === 4 || i === 6) formatted += '-'
+      formatted += digits[i]
+    }
+    return formatted
+  }
+  // dd/mm/yyyy and mm/dd/yyyy — same separator pattern
+  if (f === 'dd/mm/yyyy' || f === 'mm/dd/yyyy') {
+    let formatted = ''
+    for (let i = 0; i < digits.length; i++) {
+      if (i === 2 || i === 4) formatted += '/'
+      formatted += digits[i]
+    }
+    return formatted
+  }
+  // For month-name formats, don't auto-format (user types alpha chars)
+  return raw
+}
+
+/** Get the max length for a date input based on format */
+export function getDateInputMaxLength(): number {
+  const f = getDateFormat()
+  switch (f) {
+    case 'yyyy-mm-dd':  return 10
+    case 'dd Mon yyyy': return 11  // '02 Aug 2026'
+    case 'Mon dd, yyyy': return 12 // 'Aug 02, 2026'
+    case 'dd/mm/yyyy':
+    case 'mm/dd/yyyy':
+    default: return 10
+  }
+}
+
 // ── Legacy alias (kept for backward compat) ──
 export const WAT_TZ = DEFAULT_TZ

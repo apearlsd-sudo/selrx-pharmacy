@@ -41,6 +41,7 @@ import { formatDate, formatDateTimeShort } from '@/lib/date-utils'
 import { format } from 'date-fns'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { DateInput } from '@/components/gazpharm/shared/date-input'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#0891b2', '#06b6d4']
 
@@ -876,9 +877,9 @@ export function ReportsView() {
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
               <Label className="text-xs">From:</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
+              <DateInput value={dateFrom} onChange={(iso) => setDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
               <Label className="text-xs">To:</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
+              <DateInput value={dateTo} onChange={(iso) => setDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
             </div>
           </div>
         </div>
@@ -2071,11 +2072,11 @@ export function ReportsView() {
             </div>
             <div className="flex-1 min-w-[130px]">
               <Label className="text-[11px]">From</Label>
-              <Input type="date" value={shiftFilterFrom} onChange={(e) => setShiftFilterFrom(e.target.value)} className="h-8 text-xs" />
+              <DateInput value={shiftFilterFrom} onChange={(iso) => setShiftFilterFrom(iso)} className="h-8 text-xs" />
             </div>
             <div className="flex-1 min-w-[130px]">
               <Label className="text-[11px]">To</Label>
-              <Input type="date" value={shiftFilterTo} onChange={(e) => setShiftFilterTo(e.target.value)} className="h-8 text-xs" />
+              <DateInput value={shiftFilterTo} onChange={(iso) => setShiftFilterTo(iso)} className="h-8 text-xs" />
             </div>
             {isSuperAdmin && shiftReport?.users && (
               <div className="flex-1 min-w-[150px]">
@@ -2337,10 +2338,9 @@ export function ReportsView() {
                   )}
                 </CardTitle>
                 <div className="flex items-center gap-1.5">
-                  <Input
-                    type="date"
+                  <DateInput
                     value={snapshotDate}
-                    onChange={(e) => setSnapshotDate(e.target.value)}
+                    onChange={(iso) => setSnapshotDate(iso)}
                     className="h-7 text-[11px] w-[130px]"
                   />
                   <Button

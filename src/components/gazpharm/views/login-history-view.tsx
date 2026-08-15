@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { DateInput } from '@/components/gazpharm/shared/date-input'
 import { authHeaders } from '@/lib/auth-headers'
 import { formatDateTime } from '@/lib/date-utils'
 import { useAppStore } from '@/store/app-store'
@@ -231,10 +232,9 @@ export function LoginHistoryView() {
 
             {/* Start date */}
             <div className="w-[150px]">
-              <Input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(iso) => setStartDate(iso)}
                 className="h-9 text-sm"
                 max={endDate || undefined}
               />
@@ -242,10 +242,9 @@ export function LoginHistoryView() {
 
             {/* End date */}
             <div className="w-[150px]">
-              <Input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(iso) => setEndDate(iso)}
                 className="h-9 text-sm"
                 min={startDate || undefined}
               />

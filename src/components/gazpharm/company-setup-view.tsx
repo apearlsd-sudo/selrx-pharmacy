@@ -32,8 +32,16 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { useAppStore } from '@/store/app-store'
+import { useAppStore, type DateFormatOption } from '@/store/app-store'
 import { CURRENCIES, WEST_AFRICAN_COUNTRIES, currencyForCountry, type CurrencyCode } from '@/lib/currency'
+
+const DATE_FORMATS = [
+  { value: 'dd/mm/yyyy',   label: 'DD/MM/YYYY',   example: '02/08/2026' },
+  { value: 'mm/dd/yyyy',   label: 'MM/DD/YYYY',   example: '08/02/2026' },
+  { value: 'yyyy-mm-dd',   label: 'YYYY-MM-DD',    example: '2026-08-02' },
+  { value: 'dd Mon yyyy',  label: 'DD Mon YYYY',   example: '02 Aug 2026' },
+  { value: 'Mon dd, yyyy', label: 'Mon DD, YYYY',  example: 'Aug 02, 2026' },
+]
 
 // Step configuration
 const STEPS = [
@@ -79,6 +87,7 @@ export function CompanySetupView() {
   const setIsCompanySetup = useAppStore((s) => s.setIsCompanySetup)
   const setCurrency = useAppStore((s) => s.setCurrency)
   const setTimezone = useAppStore((s) => s.setTimezone)
+  const setDateFormatStore = useAppStore((s) => s.setDateFormat)
   const setUser = useAppStore((s) => s.setUser)
   const addToast = useAppStore((s) => s.addToast)
 
@@ -112,6 +121,7 @@ export function CompanySetupView() {
 
   const [currency, setCurrencyState] = useState<CurrencyCode>('GHS')
   const [timezone, setTimezoneState] = useState('Africa/Accra')
+  const [dateFormat, setDateFormatState] = useState<DateFormatOption>('dd/mm/yyyy')
 
   // Validate step
   const getStepError = (): string => {
@@ -216,6 +226,7 @@ export function CompanySetupView() {
       setIsCompanySetup(true)
       setCurrency(currency)
       setTimezone(timezone)
+      setDateFormatStore(dateFormat)
 
       // Auto-login the owner
       setUser({
@@ -749,7 +760,7 @@ export function CompanySetupView() {
                         </div>
                         <div>
                           <h3 className="text-lg font-bold text-white">Preferences</h3>
-                          <p className="text-xs text-emerald-100/80">Set your currency and timezone</p>
+                          <p className="text-xs text-emerald-100/80">Set your currency, timezone, and date format</p>
                         </div>
                       </div>
                     </div>
@@ -793,6 +804,23 @@ export function CompanySetupView() {
                         </Select>
                       </div>
 
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Date Format</Label>
+                        <Select value={dateFormat} onValueChange={(val) => setDateFormatState(val as DateFormatOption)}>
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select date format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DATE_FORMATS.map((df) => (
+                              <SelectItem key={df.value} value={df.value}>
+                                <span className="font-medium">{df.label}</span>
+                                <span className="ml-2 text-muted-foreground">e.g. {df.example}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       {/* Summary */}
                       <div className="border-t pt-5 mt-6">
                         <h4 className="text-sm font-semibold text-gray-900 mb-4">Review Summary</h4>
@@ -820,6 +848,10 @@ export function CompanySetupView() {
                           <div className="grid grid-cols-2 gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                             <span className="text-muted-foreground">Currency</span>
                             <span className="font-semibold text-emerald-700 text-right">{CURRENCIES[currency].symbol} {CURRENCIES[currency].name}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg">
+                            <span className="text-muted-foreground">Date Format</span>
+                            <span className="font-medium text-right">{DATE_FORMATS.find((d) => d.value === dateFormat)?.example}</span>
                           </div>
                         </div>
                       </div>
