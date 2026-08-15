@@ -285,25 +285,26 @@ export function AdvancedReportsView() {
         }
       />
 
-      {/* Navigation Bar */}
-      <div className="relative z-10 flex items-center overflow-visible">
-          {REPORT_GROUPS.map((group) => (
-            <NavbarDropdown
-              key={group.label}
-              group={group}
-              activeTab={activeTab}
-              onSelect={selectReport}
-            />
-          ))}
-      </div>
+      <Card className="border-none shadow-sm overflow-visible">
+        <CardContent className="p-0 overflow-visible">
+          <div className="flex items-center overflow-x-auto no-scrollbar">
+              {REPORT_GROUPS.map((group) => (
+                <NavbarDropdown
+                  key={group.label}
+                  group={group}
+                  activeTab={activeTab}
+                  onSelect={selectReport}
+                />
+              ))}
+          </div>
 
-      {/* Active report indicator bar */}
-      <Card className="border-none shadow-sm">
-        <CardContent className="flex items-center gap-2 px-4 py-2">
-          {activeReport && <activeReport.icon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-            {activeGroup?.label && <span className="text-muted-foreground mr-1.5">{activeGroup.label} /</span>}
-            {activeReport?.label || 'Select a report'}</span>
+          {/* Active report indicator bar */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50/80 border-t border-gray-100 dark:border-gray-800">
+            {activeReport && <activeReport.icon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {activeGroup?.label && <span className="text-muted-foreground mr-1.5">{activeGroup.label} /</span>}
+              {activeReport?.label || 'Select a report'}</span>
+          </div>
         </CardContent>
       </Card>
 
