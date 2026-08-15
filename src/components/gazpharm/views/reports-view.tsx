@@ -863,15 +863,15 @@ export function ReportsView() {
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <TabsList className="flex-wrap items-center gap-0 border-0 p-0 rounded-none py-1" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales" className="border-r border-white/50 rounded-none">Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales" className="border-r border-white/50 rounded-none">User Sales</TabsTrigger>
-            <TabsTrigger value="inventory" className="border-r border-white/50 rounded-none">Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions" className="border-r border-white/50 rounded-none">Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake" className="border-r border-white/50 rounded-none">Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods" className="border-r border-white/50 rounded-none">Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity" className="border-r border-white/50 rounded-none">Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts" className="rounded-none">Shift Reports</TabsTrigger>
+          <TabsList className="flex-wrap items-center gap-0 border-0 p-0 rounded-none py-1 shadow-none outline-none" style={{ backgroundColor: '#a1d99b' }}>
+            <TabsTrigger value="sales" className="border-r border-white/50 rounded-none border-y-0 shadow-none">Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className="border-r border-white/50 rounded-none border-y-0 shadow-none">User Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="border-r border-white/50 rounded-none border-y-0 shadow-none">Inventory</TabsTrigger>
+            <TabsTrigger value="prescriptions" className="border-r border-white/50 rounded-none border-y-0 shadow-none">Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake" className="border-r border-white/50 rounded-none border-y-0 shadow-none">Stock Take</TabsTrigger>
+            <TabsTrigger value="expired-goods" className="border-r border-white/50 rounded-none border-y-0 shadow-none">Expired Goods</TabsTrigger>
+            <TabsTrigger value="product-activity" className="border-r border-white/50 rounded-none border-y-0 shadow-none">Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className="rounded-none border-y-0 shadow-none">Shift Reports</TabsTrigger>
           </TabsList>
           <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
