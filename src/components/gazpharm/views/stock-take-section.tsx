@@ -573,9 +573,9 @@ export function StockTakeSection() {
                             return (
                               <TableRow key={inv.productId} className={isExpiredGoods ? 'bg-red-50/30' : ''}>
                                 <TableCell className="text-sm">
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-1">
-                                      <span>{inv.product.name}</span>
+                                  <div className="flex flex-col gap-0.5 min-w-0">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="truncate">{inv.product.name}</span>
                                       {hasZeroedExpired && bs?.zeroedExpiryDate && (
                                         <TooltipProvider delayDuration={200}>
                                           <Tooltip>
