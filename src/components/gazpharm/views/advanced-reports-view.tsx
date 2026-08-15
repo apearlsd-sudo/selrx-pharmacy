@@ -266,14 +266,29 @@ export function AdvancedReportsView() {
 
   return (
     <div className="space-y-3 animate-fade-in">
-      <PageHeader icon={BarChart3} title="Advanced Reports" description="Deep analytics and insights" />
+      <PageHeader icon={BarChart3} title="Advanced Reports" description="Deep analytics and insights"
+        action={
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+              className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
+            <span className="text-[10px] text-muted-foreground">to</span>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+              className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
+            <div className="flex items-center gap-1">
+              {PRESETS.map((p) => (
+                <Button key={p.label} variant="outline" size="sm" className="h-7 text-[11px] px-2"
+                  onClick={() => applyPreset(p)}>{p.label}</Button>
+              ))}
+            </div>
+          </div>
+        }
+      />
 
       {/* Navigation Bar + Date Range Controls */}
       <Card className="border-none shadow-sm">
         <CardContent className="p-0">
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-0">
-            {/* Category Navbar with hover dropdowns */}
-            <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center overflow-x-auto no-scrollbar">
               {REPORT_GROUPS.map((group) => (
                 <NavbarDropdown
                   key={group.label}
@@ -283,25 +298,6 @@ export function AdvancedReportsView() {
                 />
               ))}
             </div>
-
-            {/* Date Range + Presets — right side */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 px-3 py-2 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-800 shrink-0">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                  className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
-                <span className="text-[10px] text-muted-foreground">to</span>
-                <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                  className="h-7 w-[115px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900" />
-              </div>
-              <div className="flex items-center gap-1 flex-wrap">
-                {PRESETS.map((p) => (
-                  <Button key={p.label} variant="outline" size="sm" className="h-7 text-[11px] px-2"
-                    onClick={() => applyPreset(p)}>{p.label}</Button>
-                ))}
-              </div>
-            </div>
-          </div>
 
           {/* Active report indicator bar */}
           <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50/80 border-t border-gray-100 dark:border-gray-800">

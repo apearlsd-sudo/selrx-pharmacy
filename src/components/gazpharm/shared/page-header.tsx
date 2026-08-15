@@ -9,7 +9,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ icon: Icon, title, description, action }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-4 animate-slide-down">
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 animate-slide-down">
       <div className="flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
           <Icon className="h-4 w-4 text-emerald-600" />
