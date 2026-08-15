@@ -632,7 +632,7 @@ export function StockTakeSection() {
                                     value={counted}
                                     onChange={(e) => handleCountedChange(inv.productId, e.target.value)}
                                     placeholder="—"
-                                    className="h-8 w-24"
+                                    className="h-8 w-24 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                   />
                                 </TableCell>
                                 <TableCell>
