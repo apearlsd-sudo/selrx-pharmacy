@@ -48,11 +48,27 @@ interface StockTake {
   items: StockTakeItem[]
 }
 
+interface BatchExpirySummary {
+  hasBatches: boolean
+  totalBatches: number
+  expiredBatches: number
+  activeBatches: number
+  nearExpiryBatches: number
+  nearestActiveExpiry: string | null
+  nearestExpiredDate: string | null
+  primaryBatchNumber: string | null
+  allBatchesExpired: boolean
+  hasExpiredBatches: boolean
+  allBatchesNoExpiry: boolean
+  noExpiryBatches: number
+}
+
 interface ProductInventory {
   id: string
   productId: string
   quantity: number
-  product: { id: string; name: string; ndc: string | null; category: string; unitOfMeasure: string }
+  product: { id: string; name: string; ndc: string | null; category: string; unitOfMeasure: string; expiryDate?: string | null }
+  batchExpirySummary?: BatchExpirySummary
 }
 
 export function StockTakeSection() {
@@ -99,12 +115,44 @@ export function StockTakeSection() {
       const res = await fetch('/api/inventory', { headers: authHeaders() })
       if (res.ok) {
         const json = await res.json()
-        setInventory(Array.isArray(json) ? json : json.items || [])
+        const items: ProductInventory[] = Array.isArray(json) ? json : json.items || []
+        setInventory(items)
+        // Prepopulate expiry dates for expired or near-expiry (within 90 days) products
+        const now = new Date()
+        const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
+        const prefill: Record<string, string> = {}
+        for (const item of items) {
+          const pid = item.productId
+          // Skip if user already entered a date for this product
+          if (expiryDates[pid]) continue
+          const bs = item.batchExpirySummary
+          // Priority 1: nearest expired batch date
+          if (bs?.nearestExpiredDate) {
+            prefill[pid] = bs.nearestExpiredDate.split('T')[0]
+          }
+          // Priority 2: nearest active expiry within 90 days
+          else if (bs?.nearestActiveExpiry) {
+            const expiry = new Date(bs.nearestActiveExpiry)
+            if (expiry <= ninetyDaysFromNow) {
+              prefill[pid] = bs.nearestActiveExpiry.split('T')[0]
+            }
+          }
+          // Priority 3: product-level expiryDate if expired or within 90 days
+          else if (item.product.expiryDate) {
+            const expiry = new Date(item.product.expiryDate)
+            if (expiry <= ninetyDaysFromNow) {
+              prefill[pid] = item.product.expiryDate.split('T')[0]
+            }
+          }
+        }
+        if (Object.keys(prefill).length > 0) {
+          setExpiryDates((prev) => ({ ...prev, ...prefill }))
+        }
       }
     } catch (err) {
       console.error('Failed to fetch inventory:', err)
     }
-  }, [])
+  }, [expiryDates])
 
   const handleCreate = async () => {
     setCreating(true)
@@ -458,9 +506,9 @@ export function StockTakeSection() {
                       <TableHeader className="sticky top-0">
                         <TableRow className="bg-gray-50">
                           <TableHead className="text-xs">Product</TableHead>
-                          <TableHead className="text-xs">Expiry Date</TableHead>
                           <TableHead className="text-xs text-right">System Qty</TableHead>
                           <TableHead className="text-xs">Physical Count</TableHead>
+                          <TableHead className="text-xs">Expiry Date</TableHead>
                           <TableHead className="text-xs text-right">Variance</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -479,14 +527,6 @@ export function StockTakeSection() {
                             return (
                               <TableRow key={inv.productId}>
                                 <TableCell className="text-sm">{inv.product.name}</TableCell>
-                                <TableCell>
-                                  <input
-                                    type="date"
-                                    value={expiryDates[inv.productId] || ''}
-                                    onChange={(e) => handleExpiryChange(inv.productId, e.target.value)}
-                                    className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
-                                  />
-                                </TableCell>
                                 <TableCell className="text-right text-sm text-muted-foreground">{inv.quantity}</TableCell>
                                 <TableCell>
                                   <Input
@@ -496,6 +536,14 @@ export function StockTakeSection() {
                                     onChange={(e) => handleCountedChange(inv.productId, e.target.value)}
                                     placeholder="—"
                                     className="h-8 w-24"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <input
+                                    type="date"
+                                    value={expiryDates[inv.productId] || ''}
+                                    onChange={(e) => handleExpiryChange(inv.productId, e.target.value)}
+                                    className="h-8 w-[130px] text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
                                   />
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium">
