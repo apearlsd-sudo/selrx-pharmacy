@@ -94,6 +94,7 @@ export function DateInput({ value, onChange, className, max, min }: DateInputPro
         <PopoverContent className="w-auto p-0" align="end">
           <Calendar
             mode="single"
+            captionLayout="dropdown"
             selected={selectedDate}
             onSelect={handleSelect}
             disabled={(d) => {
@@ -102,6 +103,8 @@ export function DateInput({ value, onChange, className, max, min }: DateInputPro
               return false
             }}
             defaultMonth={selectedDate}
+            fromYear={minDate ? minDate.getFullYear() : 2000}
+            toYear={maxDate ? maxDate.getFullYear() : 2035}
           />
         </PopoverContent>
       </Popover>
