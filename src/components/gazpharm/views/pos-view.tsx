@@ -11,7 +11,6 @@ import {
   CreditCard,
   Banknote,
   Shield,
-  HeartPulse,
   X,
   ChevronDown,
   Loader2,
@@ -82,7 +81,6 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
   { value: 'CREDIT_CARD', label: 'Credit Card', icon: CreditCard },
   { value: 'DEBIT_CARD', label: 'Debit Card', icon: CreditCard },
   { value: 'INSURANCE', label: 'Insurance', icon: Shield },
-  { value: 'FSA_HSA', label: 'FSA/HSA', icon: HeartPulse },
 ]
 
 export function POSView() {
