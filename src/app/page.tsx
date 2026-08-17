@@ -914,7 +914,7 @@ export default function Home() {
             {shiftActive && shiftStartedAt && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] border-white/20 bg-white/10 text-white hover:bg-white/20">
+                  <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] border-orange-400/50 bg-orange-500/80 text-white hover:bg-orange-500 hover:border-orange-400">
                     <ClockIcon className="h-3 w-3" />
                     <span className="hidden md:inline">Active</span>
                   </Button>
