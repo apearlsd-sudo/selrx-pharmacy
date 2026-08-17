@@ -940,16 +940,16 @@ export default function Home() {
                 <span className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center shadow-sm">
                   <span className="text-white text-[10px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }} className="font-medium uppercase text-[9px]">{user?.roleLabel || user?.role}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-[11px] border-white/20 bg-white/10 text-white hover:bg-red-500/80 hover:border-red-400/50"
+                  onClick={() => setLogoutOpen(true)}
+                >
+                  <LogOut className="h-3 w-3" />
+                  <span className="hidden md:inline">Sign Out</span>
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-white/60 hover:text-red-300 hover:bg-white/10"
-                onClick={() => setLogoutOpen(true)}
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </Button>
             </div>
           </div>
         </header>
