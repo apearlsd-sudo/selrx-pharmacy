@@ -1,11 +1,25 @@
 import { NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
 
+/**
+ * Ensure the "logo" column exists on the Turso Company table.
+ * Older Turso databases may have been pushed before this column was added.
+ * SQLite doesn't support ADD COLUMN IF NOT EXISTS, so we try/catch.
+ */
+async function ensureLogoColumn() {
+  try {
+    await turso.execute({ sql: `ALTER TABLE "Company" ADD COLUMN "logo" TEXT`, args: [] })
+  } catch {
+    // Column already exists — safe to ignore
+  }
+}
+
 // GET /api/company-branding — public endpoint for login page
 // Returns company name and logo (no auth required)
 export async function GET() {
   try {
     if (isTurso()) {
+      await ensureLogoColumn()
       const result = await turso.execute({
         sql: `SELECT "name", "logo", "tagline" FROM "Company" WHERE "active" = 1 LIMIT 1`,
         args: [],
