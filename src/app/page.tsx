@@ -934,61 +934,6 @@ export default function Home() {
                 </PopoverContent>
               </Popover>
             )}
-            {!shiftActive && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-xs border-emerald-500 text-black bg-emerald-500 hover:bg-emerald-600 hover:border-emerald-600"
-                onClick={async () => {
-                  if (!user) return
-                  try {
-                    const res = await fetch('/api/shifts', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
-                      body: JSON.stringify({ action: 'start' }),
-                    })
-                    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to start shift') }
-                    const result = await res.json()
-                    // If a stuck shift was auto-ended, show warning and retry
-                    if (result.status === 'AUTO_ENDED') {
-                      addToast({ title: 'Stuck Shift Auto-Closed', description: result.warning, variant: 'default' })
-                      // Clear local state and retry start immediately
-                      setShift(null)
-                      const retry = await fetch('/api/shifts', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
-                        body: JSON.stringify({ action: 'start' }),
-                      })
-                      if (!retry.ok) { const err = await retry.json(); throw new Error(err.error || 'Failed to start shift') }
-                      const retryResult = await retry.json()
-                      setShift({ id: retryResult.id, startedAt: retryResult.startedAt })
-                      if (retryResult.dayOpening?.inventorySynced) {
-                        addToast({ title: 'Shift Started', description: `Inventory synced from ${retryResult.dayOpening.sourceDate} closing (${retryResult.dayOpening.productsUpdated} products). Your shift has begun.`, variant: 'success' })
-                      } else {
-                        addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
-                      }
-                      return
-                    }
-                    setShift({ id: result.id, startedAt: result.startedAt })
-                    // Show inventory sync info if day opening synced from previous shift
-                    if (result.dayOpening?.inventorySynced) {
-                      addToast({
-                        title: 'Shift Started',
-                        description: `Inventory synced from ${result.dayOpening.sourceDate} closing (${result.dayOpening.productsUpdated} products). Your shift has begun.`,
-                        variant: 'success',
-                      })
-                    } else {
-                      addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
-                    }
-                  } catch (err: any) {
-                    addToast({ title: 'Error Starting Shift', description: err.message || 'Unknown error. Check your connection and try again.', variant: 'destructive' })
-                  }
-                }}
-              >
-                <ClockIcon className="h-3 w-3" />
-                <span className="hidden md:inline">Start Shift</span>
-              </Button>
-            )}
             <div className="hidden sm:flex items-center gap-2">
               <Separator orientation="vertical" className="h-5 bg-white/20" />
               <div className="flex items-center gap-2">

@@ -22,6 +22,7 @@ import {
   Pause,
   Play,
   Clock,
+  ClockIcon,
   StickyNote,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -135,6 +136,8 @@ export function POSView() {
   const setIsProcessingPayment = useAppStore((s) => s.setIsProcessingPayment)
   const addToast = useAppStore((s) => s.addToast)
   const shiftActive = useAppStore((s) => s.shiftActive)
+  const setShift = useAppStore((s) => s.setShift)
+  const user = useAppStore((s) => s.user)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
   const showReceiptModal = useAppStore((s) => s.showReceiptModal)
   const autoPrintReceipt = useAppStore((s) => s.autoPrintReceipt)
@@ -803,6 +806,54 @@ export function POSView() {
       ? parseFloat(amountTendered) - total
       : 0
 
+  const [startingShift, setStartingShift] = useState(false)
+
+  const handleStartShift = async () => {
+    if (!user) return
+    setStartingShift(true)
+    try {
+      const res = await fetch('/api/shifts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+        body: JSON.stringify({ action: 'start' }),
+      })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to start shift') }
+      const result = await res.json()
+      if (result.status === 'AUTO_ENDED') {
+        addToast({ title: 'Stuck Shift Auto-Closed', description: result.warning, variant: 'default' })
+        setShift(null)
+        const retry = await fetch('/api/shifts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-name': user.name, 'x-user-role': user.role },
+          body: JSON.stringify({ action: 'start' }),
+        })
+        if (!retry.ok) { const err = await retry.json(); throw new Error(err.error || 'Failed to start shift') }
+        const retryResult = await retry.json()
+        setShift({ id: retryResult.id, startedAt: retryResult.startedAt })
+        if (retryResult.dayOpening?.inventorySynced) {
+          addToast({ title: 'Shift Started', description: `Inventory synced from ${retryResult.dayOpening.sourceDate} closing (${retryResult.dayOpening.productsUpdated} products). Your shift has begun.`, variant: 'success' })
+        } else {
+          addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+        }
+        return
+      }
+      setShift({ id: result.id, startedAt: result.startedAt })
+      if (result.dayOpening?.inventorySynced) {
+        addToast({
+          title: 'Shift Started',
+          description: `Inventory synced from ${result.dayOpening.sourceDate} closing (${result.dayOpening.productsUpdated} products). Your shift has begun.`,
+          variant: 'success',
+        })
+      } else {
+        addToast({ title: 'Shift Started', description: 'Your shift has begun. Track your sales throughout the day.', variant: 'success' })
+      }
+    } catch (err: any) {
+      addToast({ title: 'Error Starting Shift', description: err.message || 'Unknown error. Check your connection and try again.', variant: 'destructive' })
+    } finally {
+      setStartingShift(false)
+    }
+  }
+
   return (
     <>
       {!shiftActive && (
@@ -812,8 +863,17 @@ export function POSView() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold text-amber-800">No Active Shift</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400/80 mt-0.5">You must start a shift before processing sales. Click "Start Shift" in the top bar.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400/80 mt-0.5">You must start a shift before processing sales.</p>
           </div>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
+            disabled={startingShift}
+            onClick={handleStartShift}
+          >
+            {startingShift ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClockIcon className="h-3 w-3" />}
+            Start Shift
+          </Button>
         </div>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
