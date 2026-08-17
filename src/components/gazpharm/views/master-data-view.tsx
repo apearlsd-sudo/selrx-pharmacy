@@ -2016,19 +2016,23 @@ function DrugSection() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {isDiscontinued ? (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/30 dark:bg-emerald-900/20" onClick={() => handleReactivateDrug(drug)} title="Reactivate">
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }} title="Edit">
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/30 dark:bg-emerald-900/20" onClick={() => handleReactivateDrug(drug)} title="Reactivate">
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }} title="Edit">
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           ) : (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }} title="Edit">
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20" onClick={() => setDeleteDrug(drug)} title="Discontinue">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingDrug(drug); setDrugEditOpen(true) }} title="Edit">
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20" onClick={() => setDeleteDrug(drug)} title="Discontinue">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
