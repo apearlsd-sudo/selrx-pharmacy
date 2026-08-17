@@ -104,6 +104,42 @@ const EMPTY_FORM: CompanyFormData = {
   taxRate: '',
 }
 
+/**
+ * Resize an image file to max dimension, compress, and return a base64 data URL.
+ * SVG files are passed through without resizing (they're already vector).
+ */
+function resizeImageToBase64(file: File, maxDim: number, quality: number): Promise<string> {
+  // SVG: read as-is, no resizing needed
+  if (file.type === 'image/svg+xml') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      let w = img.naturalWidth
+      let h = img.naturalHeight
+      // Only downscale, never upscale
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = Math.round((h / w) * maxDim); w = maxDim }
+        else { w = Math.round((w / h) * maxDim); h = maxDim }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 export function CompanyProfileSection() {
   const addToast = useAppStore((s) => s.addToast)
   const setCompany = useAppStore((s) => s.setCompany)
@@ -161,25 +197,20 @@ export function CompanyProfileSection() {
   }
 
   async function handleLogoUpload(file: File) {
-    // Validate file type and size
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       addToast({ title: 'Invalid File', description: 'Please select an image file (PNG, JPG, SVG, WebP)', variant: 'destructive' })
       return
     }
-    if (file.size > 2 * 1024 * 1024) {
-      addToast({ title: 'File Too Large', description: 'Logo must be under 2MB', variant: 'destructive' })
+    if (file.size > 5 * 1024 * 1024) {
+      addToast({ title: 'File Too Large', description: 'Logo must be under 5MB', variant: 'destructive' })
       return
     }
 
     setUploadingLogo(true)
     try {
-      // Convert image to base64 data URL
-      const reader = new FileReader()
-      const base64: string = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
+      // Resize & compress image client-side before uploading
+      const base64 = await resizeImageToBase64(file, 300, 0.85)
 
       const res = await fetch('/api/company-setup', {
         method: 'PUT',
@@ -330,7 +361,7 @@ export function CompanyProfileSection() {
             <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
             Login Page Logo
           </p>
-          <p className="text-[11px] text-muted-foreground">Upload your company logo to display on the login page. Recommended: square image, at least 200x200px, max 2MB.</p>
+          <p className="text-[11px] text-muted-foreground">Upload your company logo to display on the login page. Images are auto-resized to 300px. Max 5MB.</p>
           <div className="flex items-center gap-4 mt-2">
             {company?.logo ? (
               <div className="relative group">
