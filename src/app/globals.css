@@ -301,6 +301,14 @@ th[data-slot="table-header"] {
   font-size: 0.6875rem;
 }
 
+/* ── Table header background color ── */
+thead[data-slot="table-header"] tr {
+  background-color: #a1d99b;
+}
+thead[data-slot="table-header"] tr th {
+  color: #1a3a1a;
+}
+
 /* Compact card content */
 [data-slot="card-content"].p-6 {
   padding: 1rem;
