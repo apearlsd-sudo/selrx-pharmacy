@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Pill, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,18 +14,33 @@ import {
 } from '@/components/ui/card'
 import { useAppStore, type UserState } from '@/store/app-store'
 
+interface CompanyBranding {
+  name: string | null
+  logo: string | null
+  tagline: string | null
+}
+
 export function LoginScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [branding, setBranding] = useState<CompanyBranding>({ name: null, logo: null, tagline: null })
 
   const setUser = useAppStore((s) => s.setUser)
   const setAuthToken = useAppStore((s) => s.setAuthToken)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
   const setShift = useAppStore((s) => s.setShift)
   const addToast = useAppStore((s) => s.addToast)
+
+  // Fetch company branding (logo + name) for login page
+  useEffect(() => {
+    fetch('/api/company-branding')
+      .then((r) => r.json())
+      .then((data) => setBranding({ name: data.name || null, logo: data.logo || null, tagline: data.tagline || null }))
+      .catch(() => { /* silent */ })
+  }, [])
 
   const handleLogin = async (loginUser: string, loginPassword: string) => {
     setIsLoading(true)
@@ -87,18 +102,24 @@ export function LoginScreen() {
       <div
         className="relative z-10 w-full max-w-md"
       >
-        {/* Logo and Branding */}
+        {/* Company Logo / Branding */}
         <div
           className="mb-8 text-center"
         >
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-lg shadow-emerald-500/10">
-            <Pill className="h-10 w-10 text-emerald-300" />
-          </div>
+          {branding.logo ? (
+            <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-lg shadow-emerald-500/10">
+              <img
+                src={branding.logo}
+                alt={branding.name || 'Company logo'}
+                className="h-18 w-18 object-contain"
+              />
+            </div>
+          ) : null}
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            SelRx
+            {branding.name || 'SelRx'}
           </h1>
           <p className="mt-1.5 text-emerald-200/70 text-sm font-medium">
-            Pharmacy Management System
+            {branding.tagline || 'Pharmacy Management System'}
           </p>
         </div>
 
@@ -190,7 +211,7 @@ export function LoginScreen() {
         <p
           className="mt-6 text-center text-xs text-emerald-200/60"
         >
-          SelRx Pharmacy Management System
+          {branding.name ? `${branding.name}  ·  Pharmacy Management System` : 'SelRx Pharmacy Management System'}
         </p>
       </div>
     </div>

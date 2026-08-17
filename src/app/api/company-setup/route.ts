@@ -106,6 +106,7 @@ export async function PUT(req: NextRequest) {
     const {
       name,
       tagline,
+      logo,
       phone,
       email,
       website,
@@ -128,6 +129,7 @@ export async function PUT(req: NextRequest) {
     const FIELD_MAP: Record<string, string> = {
       name: '"name"',
       tagline: '"tagline"',
+      logo: '"logo"',
       phone: '"phone"',
       email: '"email"',
       website: '"website"',
@@ -290,6 +292,7 @@ export async function PUT(req: NextRequest) {
         data: {
           ...(name !== undefined && { name }),
           ...(tagline !== undefined && { tagline: tagline || null }),
+          ...(logo !== undefined && { logo: logo || null }),
           ...(phone !== undefined && { phone: phone || null }),
           ...(email !== undefined && { email: email || null }),
           ...(website !== undefined && { website: website || null }),

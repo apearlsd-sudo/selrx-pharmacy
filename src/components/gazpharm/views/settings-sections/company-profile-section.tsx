@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Building2, Loader2, Save } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Building2, Loader2, Save, Upload, X, ImageIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -108,10 +108,13 @@ export function CompanyProfileSection() {
   const addToast = useAppStore((s) => s.addToast)
   const setCompany = useAppStore((s) => s.setCompany)
   const setTimezone = useAppStore((s) => s.setTimezone)
+  const company = useAppStore((s) => s.company)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [form, setForm] = useState<CompanyFormData>(EMPTY_FORM)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch company data on mount
   useEffect(() => {
@@ -155,6 +158,74 @@ export function CompanyProfileSection() {
 
   function updateField(field: keyof CompanyFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  async function handleLogoUpload(file: File) {
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      addToast({ title: 'Invalid File', description: 'Please select an image file (PNG, JPG, SVG, WebP)', variant: 'destructive' })
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      addToast({ title: 'File Too Large', description: 'Logo must be under 2MB', variant: 'destructive' })
+      return
+    }
+
+    setUploadingLogo(true)
+    try {
+      // Convert image to base64 data URL
+      const reader = new FileReader()
+      const base64: string = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const res = await fetch('/api/company-setup', {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logo: base64 }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        addToast({ title: 'Upload Failed', description: data.error || 'Failed to upload logo', variant: 'destructive' })
+        return
+      }
+
+      // Update Zustand store
+      if (company) {
+        setCompany({ ...company, logo: data.logo || null })
+      }
+      addToast({ title: 'Logo Updated', description: 'Company logo has been saved. It will appear on the login page.', variant: 'success' })
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to upload logo', variant: 'destructive' })
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  async function handleRemoveLogo() {
+    setUploadingLogo(true)
+    try {
+      const res = await fetch('/api/company-setup', {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logo: null }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        addToast({ title: 'Remove Failed', description: data.error || 'Failed to remove logo', variant: 'destructive' })
+        return
+      }
+      if (company) {
+        setCompany({ ...company, logo: null })
+      }
+      addToast({ title: 'Logo Removed', description: 'Company logo has been removed.', variant: 'success' })
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to remove logo', variant: 'destructive' })
+    } finally {
+      setUploadingLogo(false)
+    }
   }
 
   async function handleSave() {
@@ -253,6 +324,76 @@ export function CompanyProfileSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* ── Company Logo (Login Page) ── */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            Login Page Logo
+          </p>
+          <p className="text-[11px] text-muted-foreground">Upload your company logo to display on the login page. Recommended: square image, at least 200x200px, max 2MB.</p>
+          <div className="flex items-center gap-4 mt-2">
+            {company?.logo ? (
+              <div className="relative group">
+                <img
+                  src={company.logo}
+                  alt="Company logo"
+                  className="h-20 w-20 rounded-xl object-contain bg-white border border-gray-200 shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  disabled={uploadingLogo}
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                </button>
+              </div>
+            ) : (
+              <div className="h-20 w-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                <ImageIcon className="h-6 w-6 text-gray-400" />
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleLogoUpload(file)
+                  e.target.value = ''
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 w-fit"
+                disabled={uploadingLogo}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {company?.logo ? 'Replace Logo' : 'Upload Logo'}
+              </Button>
+              {company?.logo && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50 w-fit"
+                  disabled={uploadingLogo}
+                  onClick={handleRemoveLogo}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
         {/* ── Business Information ── */}
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
