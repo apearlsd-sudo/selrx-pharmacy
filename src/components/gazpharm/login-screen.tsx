@@ -142,7 +142,7 @@ export function LoginScreen({ initialBranding }: LoginScreenProps) {
                   <Input
                     id="email"
                     type="text"
-                    placeholder="username or you@selrx.com"
+                    placeholder="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="pl-10 h-11"
