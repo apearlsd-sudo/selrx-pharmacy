@@ -107,11 +107,11 @@ export function LoginScreen() {
           className="mb-8 text-center"
         >
           {branding.logo ? (
-            <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-lg shadow-emerald-500/10">
+            <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center">
               <img
                 src={branding.logo}
                 alt={branding.name || 'Company logo'}
-                className="h-18 w-18 object-contain"
+                className="h-20 w-20 object-contain"
               />
             </div>
           ) : null}

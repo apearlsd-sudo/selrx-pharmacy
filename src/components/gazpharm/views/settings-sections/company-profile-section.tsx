@@ -132,6 +132,26 @@ function resizeImageToBase64(file: File, maxDim: number, quality: number): Promi
       canvas.width = w
       canvas.height = h
       const ctx = canvas.getContext('2d')!
+      // Check if image has transparency by sampling alpha channel
+      const hasAlpha = file.type === 'image/png' || file.type === 'image/webp'
+      if (hasAlpha) {
+        // Draw on transparent background to preserve alpha
+        ctx.clearRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        // Sample pixels to detect actual transparency
+        const pixels = ctx.getImageData(0, 0, w, h).data
+        let hasTransparentPixels = false
+        for (let i = 3; i < pixels.length; i += 4) {
+          if (pixels[i] < 255) { hasTransparentPixels = true; break }
+        }
+        if (hasTransparentPixels) {
+          resolve(canvas.toDataURL('image/png'))
+          return
+        }
+      }
+      // No transparency — use JPEG for smaller size
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, w, h)
       ctx.drawImage(img, 0, 0, w, h)
       resolve(canvas.toDataURL('image/jpeg', quality))
     }
@@ -437,7 +457,7 @@ export function CompanyProfileSection() {
               <Input className="h-9 text-xs" value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="e.g. HealthPlus Pharmacy" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Tagline</Label>
+              <Label className="text-xs font-medium">Company Slogan</Label>
               <Input className="h-9 text-xs" value={form.tagline} onChange={(e) => updateField('tagline', e.target.value)} placeholder="e.g. Your health, our priority" />
             </div>
           </div>
