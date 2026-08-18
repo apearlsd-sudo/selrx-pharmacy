@@ -427,6 +427,14 @@ export default function AppShell({ initialBranding }: AppShellProps) {
   const isHydrated = useAppStore((s) => s.isHydrated)
   const setHydrated = useAppStore((s) => s.setHydrated)
 
+  // Synchronous check: does the browser have a cached company?
+  // On a fresh install (desktop or web), localStorage is empty, so we skip
+  // the loading spinner and go straight to the company setup page.
+  const [hasCachedCompany] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try { return !!localStorage.getItem('selrx_company') } catch { return true }
+  })
+
   // Wire the currency getter once so the shared formatCurrency works
   useEffect(() => {
     initCurrencyGetter(() => useAppStore.getState().currency)
@@ -717,6 +725,12 @@ export default function AppShell({ initialBranding }: AppShellProps) {
   const { theme, setTheme } = useTheme()
 
   // Show loading screen while hydrating (prevents flash)
+  // Fresh install — no cached company, go straight to setup (no loading delay)
+  if (!isCompanySetup && !hasCachedCompany) {
+    return <CompanySetupView />
+  }
+
+  // Loading state while hydrating (only when we have a cached company to restore)
   if (!isHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-mesh-light bg-grid-subtle relative">
@@ -733,7 +747,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
     )
   }
 
-  // Show company setup if not yet configured (only on first setup, not on reload)
+  // After hydration: show company setup if API confirmed no company exists
   if (!isCompanySetup) {
     return <CompanySetupView />
   }
