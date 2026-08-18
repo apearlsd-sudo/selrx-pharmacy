@@ -1,8 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
-  "productName": "GazPharm POS",
+  "productName": "SelRx Pharmacy",
   "version": "0.2.1",
-  "identifier": "com.gazpharm.pos",
+  "identifier": "com.selrx.pharmacy",
+  "copyright": "Copyright \u00a9 2026 SelRx Pharmacy",
+  "authors": ["SelRx"],
+  "shortDescription": "SelRx Pharmacy Management System",
+  "longDescription": "A comprehensive pharmacy POS and inventory management system for retail pharmacies. Manage sales, inventory, prescriptions, customers, and reports.",
   "build": {
     "beforeDevCommand": "npm run dev:tauri",
     "beforeBuildCommand": "npm run build:tauri",
@@ -10,10 +14,10 @@
     "frontendDist": "../out"
   },
   "app": {
-    "title": "GazPharm POS",
+    "title": "SelRx Pharmacy",
     "windows": [
       {
-        "title": "GazPharm POS",
+        "title": "SelRx Pharmacy",
         "width": 1400,
         "height": 900,
         "minWidth": 1024,
@@ -40,7 +44,7 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": "",
+      "timestampUrl": "http://timestamp.digicert.com",
       "wix": {
         "language": "en-US"
       }
