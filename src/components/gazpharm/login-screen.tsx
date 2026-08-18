@@ -211,7 +211,7 @@ export function LoginScreen() {
         <p
           className="mt-6 text-center text-xs text-emerald-200/60"
         >
-          {branding.name ? `${branding.name}  ·  Pharmacy Management System` : 'SelRx Pharmacy Management System'}
+          SelRx Pharmacy Management System
         </p>
       </div>
     </div>
