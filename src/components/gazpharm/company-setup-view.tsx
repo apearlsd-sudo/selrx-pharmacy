@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Pill,
@@ -24,6 +24,8 @@ import {
   Briefcase,
   ChevronRight,
   Sparkles,
+  Upload,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,6 +96,13 @@ export function CompanySetupView() {
   const [currentStep, setCurrentStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Restore from backup state
+  const [restoring, setRestoring] = useState(false)
+  const [restoreProgress, setRestoreProgress] = useState('')
+  const [restoreSuccess, setRestoreSuccess] = useState(false)
+  const [restoreResult, setRestoreResult] = useState<{ companyName: string; adminName: string } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form fields
   const [companyName, setCompanyName] = useState('')
@@ -166,6 +175,67 @@ export function CompanySetupView() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
+  }
+
+  // Restore from backup file
+  const handleRestoreBackup = async (file: File) => {
+    if (!file.name.endsWith('.json')) {
+      setError('Please select a valid backup file (.json)')
+      return
+    }
+
+    setRestoring(true)
+    setRestoreProgress('Reading backup file...')
+    setError('')
+
+    try {
+      const text = await file.text()
+      let backupData: any
+      try {
+        backupData = JSON.parse(text)
+      } catch {
+        setError('Could not read the backup file. The file may be corrupted.')
+        setRestoring(false)
+        setRestoreProgress('')
+        return
+      }
+
+      // The file might be wrapped in { meta, data } or just be the data directly
+      const payload = backupData.data ? { data: backupData.data } : { data: backupData }
+
+      setRestoreProgress('Restoring data... This may take a moment.')
+
+      const res = await fetch('/api/backup/restore-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await res.json()
+
+      if (!res.ok) {
+        setError(result.error || 'Restore failed')
+        setRestoring(false)
+        setRestoreProgress('')
+        return
+      }
+
+      setRestoreResult({
+        companyName: result.company?.name || 'Your pharmacy',
+        adminName: result.adminUser?.name || 'Admin',
+      })
+      setRestoreSuccess(true)
+      setRestoreProgress('')
+    } catch {
+      setError('Failed to read the backup file')
+      setRestoring(false)
+      setRestoreProgress('')
+    }
+  }
+
+  // After successful restore, go to login
+  const handleRestoreComplete = () => {
+    setIsCompanySetup(true)
+    setCurrentView('login')
   }
 
   // Submit the full form
@@ -350,7 +420,18 @@ export function CompanySetupView() {
                     ))}
                   </div>
 
-                  <div className="pt-6">
+                  <div className="pt-6 space-y-3">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleRestoreBackup(file)
+                        e.target.value = ''
+                      }}
+                    />
                     <Button
                       onClick={goNext}
                       size="lg"
@@ -359,10 +440,58 @@ export function CompanySetupView() {
                       Get Started
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
-                    <p className="mt-3 text-xs text-emerald-200/50">
+                    <p className="text-xs text-emerald-200/50">
                       This will take about 3-5 minutes
                     </p>
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={restoring}
+                        className="inline-flex items-center gap-2 text-sm text-emerald-200/70 hover:text-white transition-colors disabled:opacity-50"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {restoring ? 'Restoring...' : 'Restore from a previous backup'}
+                      </button>
+                    </div>
                   </div>
+
+                  {restoreProgress && (
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-emerald-200/80">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {restoreProgress}
+                    </div>
+                  )}
+                  {error && currentStep === 1 && (
+                    <div className="mt-4 flex items-start justify-center gap-2 text-sm text-red-300">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      {error}
+                    </div>
+                  )}
+                  {restoreSuccess && restoreResult && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-6 mx-auto max-w-sm bg-white/10 backdrop-blur-sm rounded-xl p-5 ring-1 ring-white/20 text-center space-y-3"
+                    >
+                      <div className="mx-auto h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <Check className="h-5 w-5 text-emerald-300" />
+                      </div>
+                      <p className="text-sm font-medium text-white">Backup restored successfully!</p>
+                      <p className="text-xs text-emerald-200/70">
+                        <strong>{restoreResult.companyName}</strong> has been restored.<br />
+                        Admin account: <strong>{restoreResult.adminName}</strong>
+                      </p>
+                      <Button
+                        onClick={handleRestoreComplete}
+                        size="sm"
+                        className="bg-white text-emerald-800 hover:bg-emerald-50 font-semibold h-9 px-6 rounded-lg mt-2"
+                      >
+                        Go to Login
+                        <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                      </Button>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
 

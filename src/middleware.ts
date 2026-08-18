@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/company-setup',
   '/api/company-branding',
+  '/api/backup/restore-setup',
   '/api/health',
   // Static assets and Next.js internals
   '/_next/',
