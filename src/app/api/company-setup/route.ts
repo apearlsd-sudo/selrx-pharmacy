@@ -149,9 +149,14 @@ export async function PUT(req: NextRequest) {
     if (isTurso()) {
       // --- Raw SQL path (Turso / libsql) ---
 
-      // Ensure logo column exists (may be missing on older Turso databases)
+      // Ensure logo and tagline columns exist (may be missing on older Turso databases)
       try {
         await turso.execute({ sql: `ALTER TABLE "Company" ADD COLUMN "logo" TEXT`, args: [] })
+      } catch {
+        // Column already exists — safe to ignore
+      }
+      try {
+        await turso.execute({ sql: `ALTER TABLE "Company" ADD COLUMN "tagline" TEXT`, args: [] })
       } catch {
         // Column already exists — safe to ignore
       }
