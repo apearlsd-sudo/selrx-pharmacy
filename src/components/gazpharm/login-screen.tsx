@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,33 +14,25 @@ import {
 } from '@/components/ui/card'
 import { useAppStore, type UserState } from '@/store/app-store'
 
-interface CompanyBranding {
-  name: string | null
-  logo: string | null
-  tagline: string | null
+import type { CompanyBranding } from '@/lib/get-branding'
+
+interface LoginScreenProps {
+  initialBranding: CompanyBranding
 }
 
-export function LoginScreen() {
+export function LoginScreen({ initialBranding }: LoginScreenProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [branding, setBranding] = useState<CompanyBranding>({ name: null, logo: null, tagline: null })
+  const branding = initialBranding
 
   const setUser = useAppStore((s) => s.setUser)
   const setAuthToken = useAppStore((s) => s.setAuthToken)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
   const setShift = useAppStore((s) => s.setShift)
   const addToast = useAppStore((s) => s.addToast)
-
-  // Fetch company branding (logo + name) for login page
-  useEffect(() => {
-    fetch('/api/company-branding')
-      .then((r) => r.json())
-      .then((data) => setBranding({ name: data.name || null, logo: data.logo || null, tagline: data.tagline || null }))
-      .catch(() => { /* silent */ })
-  }, [])
 
   const handleLogin = async (loginUser: string, loginPassword: string) => {
     setIsLoading(true)
