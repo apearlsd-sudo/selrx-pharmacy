@@ -101,7 +101,7 @@ export function CompanySetupView() {
   const [restoring, setRestoring] = useState(false)
   const [restoreProgress, setRestoreProgress] = useState('')
   const [restoreSuccess, setRestoreSuccess] = useState(false)
-  const [restoreResult, setRestoreResult] = useState<{ companyName: string; adminName: string } | null>(null)
+  const [restoreResult, setRestoreResult] = useState<{ companyName: string; adminName: string; tempPassword: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form fields
@@ -222,6 +222,7 @@ export function CompanySetupView() {
       setRestoreResult({
         companyName: result.company?.name || 'Your pharmacy',
         adminName: result.adminUser?.name || 'Admin',
+        tempPassword: result.tempPassword || '',
       })
       setRestoreSuccess(true)
       setRestoreProgress('')
@@ -482,6 +483,21 @@ export function CompanySetupView() {
                         <strong>{restoreResult.companyName}</strong> has been restored.<br />
                         Admin account: <strong>{restoreResult.adminName}</strong>
                       </p>
+                      {restoreResult.tempPassword && (
+                        <div className="bg-amber-500/15 border border-amber-400/30 rounded-lg p-3 mt-2 space-y-1.5">
+                          <p className="text-xs font-semibold text-amber-200">
+                            Your temporary login password:
+                          </p>
+                          <div className="flex items-center justify-center gap-2">
+                            <code className="text-base font-bold text-white tracking-wider bg-black/20 px-3 py-1.5 rounded select-all">
+                              {restoreResult.tempPassword}
+                            </code>
+                          </div>
+                          <p className="text-[10px] text-amber-200/60 leading-relaxed">
+                            Write this down now. You will be asked to change it after logging in.
+                          </p>
+                        </div>
+                      )}
                       <Button
                         onClick={handleRestoreComplete}
                         size="sm"

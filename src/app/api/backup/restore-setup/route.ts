@@ -7,12 +7,17 @@
  * It is intended ONLY for the initial setup flow when a user is
  * re-installing the app and has a previous backup file.
  *
- * Security: This endpoint is rate-limited by checking that NO company
- * exists yet. If a company is already set up, it returns 409.
+ * Security:
+ * - This endpoint only works when NO company exists yet (returns 409 otherwise).
+ * - Passwords are NEVER included in backup files (the User table excludes
+ *   the password column). After restore, a temporary password is generated
+ *   for the SUPER_ADMIN and returned in the response for one-time display.
+ * - Users must change their password after first login.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, tursoBatch, generateId } from '@/lib/turso'
+import { hashPassword } from '@/lib/security'
 
 // Same table definitions as the main backup route
 const BACKUP_TABLES = [
@@ -25,7 +30,7 @@ const BACKUP_TABLES = [
   { name: 'Inventory',   columns: ['id','productId','quantity','lastCounted','createdAt','updatedAt'] },
   { name: 'Batch',       columns: ['id','productId','batchNumber','expiryDate','quantity','costPrice','receivedAt','receivedBy','createdAt','updatedAt'] },
   { name: 'Customer',    columns: ['id','firstName','lastName','email','phone','dateOfBirth','gender','address','insuranceProvider','insurancePolicyNo','allergies','notes','createdAt','updatedAt'] },
-  { name: 'User',        columns: ['id','email','name','role','phone','licenseNumber','password','permissions','department','shift','hireDate','active','lastLogin','createdAt','updatedAt'] },
+  { name: 'User',        columns: ['id','email','name','role','phone','licenseNumber','permissions','department','shift','hireDate','active','lastLogin','createdAt','updatedAt'] },
   { name: 'Prescription', columns: ['id','rxNumber','customerId','patientName','prescriberName','prescriberNPI','prescriberPhone','prescriberFax','productName','productNdc','dosage','quantity','refillsRemaining','refillsTotal','daysSupply','dispenseAsWritten','priority','status','notes','filledById','verifiedById','filledAt','expiresAt','createdAt','updatedAt'] },
   { name: 'Transaction', columns: ['id','transactionNo','customerId','userId','subtotal','tax','discount','total','paymentMethod','paymentAmount','changeAmount','status','prescriptionId','notes','createdAt','updatedAt'] },
   { name: 'TransactionItem', columns: ['id','transactionId','productId','productName','quantity','unitPrice','subtotal','requiresRx','dispensedQty','createdAt'] },
@@ -192,8 +197,28 @@ export async function POST(request: NextRequest) {
     const company = data.Company[0]
     const adminUser = data.User.find((u: any) => u.role === 'SUPER_ADMIN') || data.User[0]
 
+    // Generate a temporary password for the admin user so they can log in
+    // (passwords are never stored in backup files for security)
+    const tempPassword = 'SelRx' + Math.random().toString(36).slice(2, 10)
+    const hashedPw = await hashPassword(tempPassword)
+
+    try {
+      if (isTurso()) {
+        await turso.execute({
+          sql: `UPDATE "User" SET "password" = ? WHERE "id" = ?`,
+          args: [hashedPw, adminUser.id],
+        })
+      } else {
+        const { db } = await import('@/lib/db')
+        await db.user.update({ where: { id: adminUser.id }, data: { password: hashedPw } })
+      }
+    } catch (err) {
+      console.error('[restore-setup] Failed to set temp password:', err)
+    }
+
     return NextResponse.json({
       success: true,
+      tempPassword,
       company: {
         name: company.name,
         email: company.email,
