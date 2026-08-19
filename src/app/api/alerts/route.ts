@@ -2,10 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface ExpiringAlertItem {
+  productId: string
+  productName: string
+  expiryDate: string
+  quantity: number
+  batchQty: number
+  batchNumber: string | null
+  batchId: string
+  daysToExpiry: number
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
+function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> | Array<Record<string, unknown>> }) {
   const names = result.columns.map((c) => c)
   return result.rows.map((row) => {
     const obj: Record<string, unknown> = {}
@@ -20,6 +35,19 @@ function daysUntilExpiry(expiryDate: string): number {
   const exp = new Date(expiryDate)
   exp.setHours(0, 0, 0, 0)
   return Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function mapRowToExpiring(r: Record<string, unknown>): ExpiringAlertItem {
+  return {
+    productId: String(r.productId ?? r.id),
+    productName: (r.name ?? '') as string,
+    expiryDate: (r.expiryDate ?? '') as string,
+    quantity: Number(r.quantity ?? 0),
+    batchQty: Number(r.batchQty ?? r.quantity ?? 0),
+    batchNumber: r.batchNumber != null ? String(r.batchNumber) : null,
+    batchId: r.batchId != null ? String(r.batchId) : '',
+    daysToExpiry: daysUntilExpiry((r.expiryDate ?? '') as string),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -38,11 +66,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const alertType = searchParams.get('type') // 'expiringSoon' | 'belowReorder' | null
+    const alertType = searchParams.get('type')
     const limit = Math.min(Number(searchParams.get('limit')) || 50, 50)
 
+    // ── Turso path ──────────────────────────────────────────────────────────
     if (isTurso()) {
-      const fetchExpiring = async () => {
+      const fetchExpiring = async (): Promise<ExpiringAlertItem[]> => {
         const result = await turso.execute({
           sql: `SELECT b.id AS "batchId", b."productId", b."batchNumber", b."expiryDate",
                  b.quantity AS "batchQty",
@@ -61,19 +90,10 @@ export async function GET(request: NextRequest) {
           LIMIT ?`,
           args: [String(limit)],
         })
-        return toObjs(result).map((r) => ({
-          productId: String(r.productId),
-          productName: r.name,
-          expiryDate: r.expiryDate as string,
-          quantity: Number(r.quantity),
-          batchQty: Number(r.batchQty),
-          batchNumber: r.batchNumber,
-          batchId: r.batchId,
-          daysToExpiry: daysUntilExpiry(r.expiryDate as string),
-        }))
+        return toObjs(result).map(mapRowToExpiring)
       }
 
-      const fetchExpiringFromProduct = async () => {
+      const fetchExpiringFromProduct = async (): Promise<ExpiringAlertItem[]> => {
         const result = await turso.execute({
           sql: `SELECT p."id", p."name", p."expiryDate",
                  COALESCE(i."quantity", 0) AS "quantity"
@@ -89,16 +109,7 @@ export async function GET(request: NextRequest) {
           LIMIT ?`,
           args: [String(limit)],
         })
-        return toObjs(result).map((r) => ({
-          productId: String(r.id),
-          productName: r.name as string,
-          expiryDate: r.expiryDate as string,
-          quantity: Number(r.quantity),
-          batchQty: Number(r.quantity),
-          batchNumber: null as string | null,
-          batchId: null as string | null,
-          daysToExpiry: daysUntilExpiry(r.expiryDate as string),
-        }))
+        return toObjs(result).map(mapRowToExpiring)
       }
 
       const fetchReorder = async () => {
@@ -130,19 +141,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ items })
       }
 
-      // No type specified — return both
       let [expiringSoon, belowReorder] = await Promise.all([fetchExpiring(), fetchReorder()])
       if (expiringSoon.length === 0) expiringSoon = await fetchExpiringFromProduct()
       return NextResponse.json({ expiringSoon, belowReorder })
     }
 
-    // Prisma fallback
+    // ── Prisma fallback ────────────────────────────────────────────────────
     const { db } = await import('@/lib/db')
     const now = new Date()
     const in14Days = new Date(now)
     in14Days.setDate(in14Days.getDate() + 14)
 
-    const fetchExpiring = async () => {
+    const fetchExpiring = async (): Promise<ExpiringAlertItem[]> => {
       const rows = await db.$queryRaw<Array<Record<string, unknown>>>`
         SELECT b.id AS "batchId", b."productId", b."batchNumber", b."expiryDate",
                b.quantity AS "batchQty",
@@ -159,19 +169,10 @@ export async function GET(request: NextRequest) {
         ORDER BY b."expiryDate" ASC
         LIMIT ${limit}
       `
-      return rows.map((r) => ({
-        productId: String(r.productId),
-        productName: r.name as string,
-        expiryDate: r.expiryDate as string,
-        quantity: Number(r.quantity),
-        batchQty: Number(r.batchQty),
-        batchNumber: r.batchNumber as string,
-        batchId: r.batchId,
-        daysToExpiry: daysUntilExpiry(r.expiryDate as string),
-      }))
+      return rows.map(mapRowToExpiring)
     }
 
-    const fetchExpiringFromProduct = async () => {
+    const fetchExpiringFromProduct = async (): Promise<ExpiringAlertItem[]> => {
       const rows = await db.$queryRaw<Array<Record<string, unknown>>>`
         SELECT p."id", p."name", p."expiryDate",
                COALESCE(i.quantity, 0) AS "quantity"
@@ -186,16 +187,7 @@ export async function GET(request: NextRequest) {
         ORDER BY p."expiryDate" ASC
         LIMIT ${limit}
       `
-      return rows.map((r) => ({
-        productId: r.id as string,
-        productName: r.name as string,
-        expiryDate: r.expiryDate as string,
-        quantity: Number(r.quantity),
-        batchQty: Number(r.quantity),
-        batchNumber: null as string | null,
-        batchId: null as string | null,
-        daysToExpiry: daysUntilExpiry(r.expiryDate as string),
-      }))
+      return rows.map(mapRowToExpiring)
     }
 
     const fetchReorder = async () => {
