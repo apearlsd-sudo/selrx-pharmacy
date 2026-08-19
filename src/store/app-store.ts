@@ -27,6 +27,7 @@ export type ViewName =
   | 'access-logs'
   | 'audit-logs'
   | 'login-history'
+  | 'my-profile'
 
 export type PaymentMethodType =
   | 'CASH'

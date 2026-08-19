@@ -10,7 +10,6 @@ import {
   Menu,
   X,
   LogOut,
-  KeyRound,
   Package,
   ClipboardList,
   Users,
@@ -49,14 +48,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -90,6 +81,7 @@ import { AuditLogView } from '@/components/gazpharm/views/audit-log-view'
 import { LoginHistoryView } from '@/components/gazpharm/views/login-history-view'
 import { AccessLogsView } from '@/components/gazpharm/views/access-logs-view'
 import { BarcodeLabelPrintOverlay } from '@/components/gazpharm/shared/barcode-label-printer'
+import { MyProfileView } from '@/components/gazpharm/views/my-profile-view'
 
 // ── Global fetch interceptor: auto-attach JWT to all /api/ requests ──
 if (typeof window !== 'undefined') {
@@ -433,12 +425,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
   const logout = useAppStore((s) => s.logout)
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const [pwOpen, setPwOpen] = useState(false)
-  const [pwCurrent, setPwCurrent] = useState('')
-  const [pwNew, setPwNew] = useState('')
-  const [pwConfirm, setPwConfirm] = useState('')
-  const [pwSaving, setPwSaving] = useState(false)
-  const [pwError, setPwError] = useState('')
+
   const [endShiftLoading, setEndShiftLoading] = useState(false)
   const [endShiftOpen, setEndShiftOpen] = useState(false)
   const [endShiftCash, setEndShiftCash] = useState('')
@@ -820,6 +807,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
       case 'stock-take': return <ViewErrorBoundary><StockTakeSection /></ViewErrorBoundary>
       case 'stock-take-report': return <ViewErrorBoundary><StockTakeReportViewWrapper /></ViewErrorBoundary>
       case 'settings': return <SettingsHubView />
+      case 'my-profile': return <MyProfileView />
       default: return <DashboardView />
     }
   }
@@ -989,18 +977,13 @@ export default function AppShell({ initialBranding }: AppShellProps) {
             <div className="hidden sm:flex items-center gap-2">
               <Separator orientation="vertical" className="h-5 bg-white/20" />
               <div className="flex items-center gap-2">
-                <span className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center shadow-sm">
-                  <span className="text-white text-[10px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1 text-[11px] border-white/20 bg-white/10 text-white hover:bg-white/20 hover:border-white/30"
-                  onClick={() => { setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwError(''); setPwOpen(true) }}
+                <button
+                  className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center shadow-sm cursor-pointer hover:bg-white/30 transition-colors"
+                  onClick={() => setCurrentView('my-profile')}
+                  title="My Profile"
                 >
-                  <KeyRound className="h-3 w-3" />
-                  <span className="hidden lg:inline">Password</span>
-                </Button>
+                  <span className="text-white text-[10px] font-bold">{(user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</span>
+                </button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1103,62 +1086,6 @@ export default function AppShell({ initialBranding }: AppShellProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Change Password Dialog — accessible to ALL users */}
-      <Dialog open={pwOpen} onOpenChange={(open) => { if (!open) setPwOpen(false) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <KeyRound className="h-4 w-4 text-rose-500" />
-              Change Password
-            </DialogTitle>
-            <DialogDescription className="text-xs">Update your account password.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Current Password</label>
-              <Input className="h-9 text-xs" type="password" placeholder="Enter current password" value={pwCurrent} onChange={(e) => { setPwCurrent(e.target.value); setPwError('') }} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">New Password</label>
-              <Input className="h-9 text-xs" type="password" placeholder="Min. 6 characters" value={pwNew} onChange={(e) => { setPwNew(e.target.value); setPwError('') }} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Confirm New Password</label>
-              <Input className="h-9 text-xs" type="password" placeholder="Re-enter new password" value={pwConfirm} onChange={(e) => { setPwConfirm(e.target.value); setPwError('') }} />
-            </div>
-            {pwError && <p className="text-[11px] text-red-500">{pwError}</p>}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setPwOpen(false)}>Cancel</Button>
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
-              disabled={pwSaving}
-              onClick={async () => {
-                if (!pwCurrent) { setPwError('Current password is required'); return }
-                if (!pwNew || pwNew.length < 6) { setPwError('New password must be at least 6 characters'); return }
-                if (pwNew !== pwConfirm) { setPwError('Passwords do not match'); return }
-                setPwSaving(true)
-                try {
-                  const res = await fetch('/api/users?action=change-password', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': user?.id || '', 'x-user-name': user?.name || '', 'x-user-role': user?.role || '' },
-                    body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
-                  })
-                  const data = await res.json()
-                  if (!res.ok) { setPwError(data.error || 'Failed to change password'); return }
-                  addToast({ title: 'Password Changed', description: 'Your password has been updated successfully.', variant: 'success' })
-                  setPwOpen(false)
-                } catch { setPwError('Network error') }
-                finally { setPwSaving(false) }
-              }}
-            >
-              {pwSaving ? 'Changing...' : 'Change Password'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
