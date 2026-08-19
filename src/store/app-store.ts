@@ -465,7 +465,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // ---- Dashboard Customization ----
-  visibleWidgets: ['today-sales', 'pending-rx', 'low-stock', 'customers', 'inventory-value', 'total-products', 'sales-chart', 'recent-transactions', 'top-products'],
+  visibleWidgets: ['today-sales', 'pending-rx', 'low-stock', 'expiry-alerts', 'reorder-alerts', 'customers', 'inventory-value', 'total-products', 'sales-chart', 'recent-transactions', 'top-products'],
   setVisibleWidgets: (widgets) => {
     set({ visibleWidgets: widgets })
     if (typeof window !== 'undefined') {

@@ -53,6 +53,8 @@ import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
 
 interface DashboardData {
+  expiringCount?: number
+  reorderCount?: number
   today: {
     sales: number
     count: number
@@ -118,12 +120,14 @@ function formatChartDate(dateStr: string): string {
   return formatDateWeekday(dateStr)
 }
 
-const DEFAULT_WIDGETS = ['today-sales', 'pending-rx', 'low-stock', 'customers', 'inventory-value', 'total-products', 'sales-chart', 'recent-transactions', 'top-products']
+const DEFAULT_WIDGETS = ['today-sales', 'pending-rx', 'low-stock', 'expiry-alerts', 'reorder-alerts', 'customers', 'inventory-value', 'total-products', 'sales-chart', 'recent-transactions', 'top-products']
 
 const WIDGET_CONFIG = [
   { id: 'today-sales', label: "Today's Sales", icon: DollarSign },
   { id: 'pending-rx', label: 'Pending Prescriptions', icon: FileText },
   { id: 'low-stock', label: 'Low Stock Alerts', icon: AlertTriangle },
+  { id: 'expiry-alerts', label: 'Expiring Soon', icon: AlertTriangle },
+  { id: 'reorder-alerts', label: 'Reorder Needed', icon: Package },
   { id: 'customers', label: 'Registered Customers', icon: Users },
   { id: 'inventory-value', label: 'Inventory Value', icon: Wallet },
   { id: 'total-products', label: 'Total Products', icon: BoxesIcon },
@@ -132,7 +136,7 @@ const WIDGET_CONFIG = [
   { id: 'top-products', label: 'Top Selling Products', icon: TrendingUp },
 ]
 
-const STAT_WIDGET_IDS = ['today-sales', 'pending-rx', 'low-stock', 'customers', 'inventory-value', 'total-products']
+const STAT_WIDGET_IDS = ['today-sales', 'pending-rx', 'low-stock', 'expiry-alerts', 'reorder-alerts', 'customers', 'inventory-value', 'total-products']
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -222,6 +226,8 @@ export function DashboardView() {
         totalCustomers: json.totalCustomers ?? undefined,
         inventoryValue: json.inventoryValue ?? undefined,
         totalProducts: json.totalProducts ?? undefined,
+        expiringCount: json.expiringCount ?? 0,
+        reorderCount: json.reorderCount ?? 0,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -287,6 +293,20 @@ export function DashboardView() {
       subtitle: data.lowStockAlerts.items.length + ' critical items',
       icon: AlertTriangle,
       bgClass: 'bg-red-50 dark:bg-red-900/30 dark:bg-red-950/30 text-red-600 dark:text-red-400',
+    },
+    {
+      title: 'Expiring Soon',
+      value: (data.expiringCount ?? 0).toString(),
+      subtitle: 'Products nearing expiry',
+      icon: AlertTriangle,
+      bgClass: 'bg-orange-50 dark:bg-orange-900/30 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400',
+    },
+    {
+      title: 'Reorder Needed',
+      value: (data.reorderCount ?? 0).toString(),
+      subtitle: 'Below reorder point',
+      icon: Package,
+      bgClass: 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
     },
     {
       title: 'Registered Customers',

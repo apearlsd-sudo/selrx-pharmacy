@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
       const userArgs: unknown[] = isSuperAdmin ? [] : requesterId ? [requesterId] : []
 
       // Run all dashboard queries in parallel
+      const in30Days = new Date(now)
+      in30Days.setDate(in30Days.getDate() + 30)
+
       const [
         todayResult,
         weekResult,
@@ -48,7 +51,10 @@ export async function GET(request: NextRequest) {
         totalCustomersResult,
         inventoryValueResult,
         totalProductsResult,
+        expiringCountResult,
+        reorderCountResult,
       ] = await Promise.all([
+
         // 1. Today's completed transactions
         turso.execute({
           sql: `SELECT total FROM "Transaction"
@@ -129,6 +135,25 @@ export async function GET(request: NextRequest) {
           sql: `SELECT COUNT(*) as cnt FROM Product WHERE status = 'ACTIVE'`,
           args: [],
         }),
+
+        // 10. Products expiring within 30 days
+        turso.execute({
+          sql: `SELECT COUNT(*) as cnt FROM Product p
+                JOIN Inventory i ON i."productId" = p.id
+                WHERE p.status = 'ACTIVE' AND p."expiryDate" IS NOT NULL
+                  AND p."expiryDate" != ''
+                  AND date(p."expiryDate") >= date('now')
+                  AND date(p."expiryDate") <= date('now', '+30 days')`,
+          args: [],
+        }),
+
+        // 11. Products below reorder point
+        turso.execute({
+          sql: `SELECT COUNT(*) as cnt FROM Product p
+                JOIN Inventory i ON i."productId" = p.id
+                WHERE p.status = 'ACTIVE' AND i.quantity <= p.reorderPoint`,
+          args: [],
+        }),
       ])
 
       // ---- Process today's transactions ----
@@ -193,6 +218,8 @@ export async function GET(request: NextRequest) {
       const totalCustomers = (toObjs(totalCustomersResult)[0]?.cnt as number) ?? 0
       const inventoryValue = (toObjs(inventoryValueResult)[0]?.val as number) ?? 0
       const totalProducts = (toObjs(totalProductsResult)[0]?.cnt as number) ?? 0
+      const expiringCount = (toObjs(expiringCountResult)[0]?.cnt as number) ?? 0
+      const reorderCount = (toObjs(reorderCountResult)[0]?.cnt as number) ?? 0
 
       return NextResponse.json({
         today: { sales: todaySales, count: todayCount },
@@ -212,12 +239,17 @@ export async function GET(request: NextRequest) {
         totalCustomers,
         inventoryValue,
         totalProducts,
+        expiringCount,
+        reorderCount,
       })
     }
 
     // Prisma fallback
     const { db } = await import('@/lib/db')
     const userFilter = isSuperAdmin ? {} : (requesterId ? { userId: requesterId } : { userId: '__none__' })
+
+    const in30Days = new Date(now)
+    in30Days.setDate(in30Days.getDate() + 30)
 
     const [
       todayTransactions,
@@ -229,7 +261,10 @@ export async function GET(request: NextRequest) {
       totalCustomersCount,
       inventoryValueAgg,
       totalActiveProducts,
+      expiringCountPrisma,
+      reorderCountPrisma,
     ] = await Promise.all([
+
       db.transaction.findMany({
         where: { createdAt: { gte: startOfDay }, status: 'COMPLETED', ...userFilter },
       }),
@@ -274,6 +309,19 @@ export async function GET(request: NextRequest) {
       `,
 
       db.product.count({ where: { status: 'ACTIVE' } }),
+
+      db.product.count({
+        where: {
+          status: 'ACTIVE',
+          expiryDate: { not: null, gte: now, lte: in30Days },
+        },
+      }),
+
+      db.$queryRaw<Array<{ cnt: bigint }>>`
+        SELECT COUNT(*) as cnt FROM Product p
+        JOIN Inventory i ON i."productId" = p.id
+        WHERE p."status" = 'ACTIVE' AND i.quantity <= p."reorderPoint"
+      `,
     ])
 
     const todaySales = todayTransactions.reduce((sum, t) => sum + t.total, 0)
@@ -319,6 +367,8 @@ export async function GET(request: NextRequest) {
       totalCustomers: totalCustomersCount,
       inventoryValue: Number(inventoryValueAgg[0]?.val || 0),
       totalProducts: totalActiveProducts,
+      expiringCount: expiringCountPrisma,
+      reorderCount: Number(reorderCountPrisma[0]?.cnt || 0),
     })
   } catch (error) {
     console.error('Error fetching dashboard data:', error)

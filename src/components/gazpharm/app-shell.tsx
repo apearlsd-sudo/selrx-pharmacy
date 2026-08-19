@@ -239,14 +239,17 @@ function WorkstationSelector() {
 
 // ── Notification Bell with live alerts ──────────────────────────────
 function NotificationBell() {
-  const [notifications, setNotifications] = useState<Array<{
-    id: string; type: string; title: string; message: string; severity: string; productName: string; productId: string; meta: Record<string, unknown>
+  const [expiring, setExpiring] = useState<Array<{
+    id: string; name: string; quantity: number; expiryDate: string; batchNumber: string; category: string
+  }>>([])
+  const [reorder, setReorder] = useState<Array<{
+    id: string; name: string; quantity: number; reorderPoint: number; reorderQty: number; category: string
   }>>([])
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set())
-  const [count, setCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
 
   // Load dismissed keys from localStorage on mount
   useEffect(() => {
@@ -265,13 +268,13 @@ function NotificationBell() {
     })
   }, [])
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications')
+      const res = await fetch('/api/alerts', { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
-        setNotifications(data.notifications || [])
-        setCount(data.count || 0)
+        setExpiring(data.expiringSoon || [])
+        setReorder(data.belowReorder || [])
       }
     } catch { /* silent */ } finally {
       setLoading(false)
@@ -280,26 +283,30 @@ function NotificationBell() {
 
   // Initial fetch + polling every 60s
   useEffect(() => {
-    fetchNotifications()
-    const id = setInterval(fetchNotifications, 60000)
+    fetchAlerts()
+    const id = setInterval(fetchAlerts, 60000)
     return () => clearInterval(id)
-  }, [fetchNotifications])
+  }, [fetchAlerts])
 
   // Refresh when popover opens or inventory changes
   useEffect(() => {
-    fetchNotifications()
-  }, [open, inventoryVersion, fetchNotifications])
+    fetchAlerts()
+  }, [open, inventoryVersion, fetchAlerts])
 
-  const visibleNotifications = notifications.filter((n) => !dismissedKeys.has(n.id))
-  const visibleCount = visibleNotifications.length
-  const expiryNotifs = visibleNotifications.filter((n) => n.type === 'expiry')
-  const stockNotifs = visibleNotifications.filter((n) => n.type === 'low-stock')
+  const visibleExpiry = expiring.filter((n) => !dismissedKeys.has('exp-' + n.id))
+  const visibleReorder = reorder.filter((n) => !dismissedKeys.has('reorder-' + n.id))
+  const visibleCount = visibleExpiry.length + visibleReorder.length
+
+  const getDaysToExpiry = (dateStr: string) => {
+    const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
+    return diff
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8 relative">
-          <Bell className={`h-3.5 w-3.5 ${visibleCount > 0 ? 'text-amber-500' : ''}`} />
+          <Bell className={`h-3.5 w-3.5 ${visibleCount > 0 ? 'text-amber-500' : 'text-white/80'}`} />
           {visibleCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
               {visibleCount > 99 ? '99+' : visibleCount}
@@ -309,7 +316,7 @@ function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="w-80 p-0">
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
+          <h3 className="text-sm font-semibold">Alerts</h3>
           {visibleCount > 0 && (
             <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200">
               {visibleCount} alert{visibleCount !== 1 ? 's' : ''}
@@ -323,60 +330,70 @@ function NotificationBell() {
             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
               <Bell className="h-8 w-8 text-gray-300 mb-2" />
               <p className="text-sm font-medium text-gray-500">All clear</p>
-              <p className="text-xs text-muted-foreground mt-0.5">No expiry or low stock alerts</p>
+              <p className="text-xs text-muted-foreground mt-0.5">No expiry or reorder alerts</p>
             </div>
           ) : (
             <div className="divide-y">
-              {expiryNotifs.length > 0 && (
+              {visibleExpiry.length > 0 && (
                 <>
-                  <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30/60">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" /> Near Expiry
+                  <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" /> Near Expiry ({visibleExpiry.length})
                     </span>
                   </div>
-                  {expiryNotifs.map((n) => (
-                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group">
-                      <div className="flex items-start gap-2.5">
-                        <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-amber-100'}`}>
-                          <AlertTriangle className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                  {visibleExpiry.map((p) => {
+                    const days = getDaysToExpiry(p.expiryDate)
+                    const severity = days <= 0 ? 'danger' : days <= 30 ? 'warning' : 'info'
+                    return (
+                      <div key={p.id} className="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+                        <div className="flex items-start gap-2.5">
+                          <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${severity === 'danger' ? 'bg-red-100 dark:bg-red-900/40' : severity === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'}`}>
+                            <AlertTriangle className={`h-3.5 w-3.5 ${severity === 'danger' ? 'text-red-600 dark:text-red-400' : severity === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-yellow-600'}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">{p.name}</p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                              {days <= 0 ? 'EXPIRED' : `${days} day${days !== 1 ? 's' : ''} left`} · Qty: {p.quantity}
+                              {p.expiryDate && ` · ${p.expiryDate}`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); dismissNotification('exp-' + p.id) }}
+                            className="shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all"
+                            aria-label="Dismiss"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{n.productName}</p>
-                          <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); dismissNotification(n.id) }}
-                          className="shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
-                          aria-label="Dismiss notification"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </>
               )}
-              {stockNotifs.length > 0 && (
+              {visibleReorder.length > 0 && (
                 <>
-                  <div className="px-4 py-2 bg-orange-50/60">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 flex items-center gap-1">
-                      <PackageX className="h-3 w-3" /> Low Stock
+                  <div className="px-4 py-2 bg-orange-50/60 dark:bg-orange-900/20">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 dark:text-orange-400 flex items-center gap-1">
+                      <PackageX className="h-3 w-3" /> Reorder Needed ({visibleReorder.length})
                     </span>
                   </div>
-                  {stockNotifs.map((n) => (
-                    <div key={n.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group">
+                  {visibleReorder.map((p) => (
+                    <div key={p.id} className="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
                       <div className="flex items-start gap-2.5">
-                        <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${n.severity === 'danger' ? 'bg-red-100' : 'bg-orange-100'}`}>
-                          <PackageX className={`h-3.5 w-3.5 ${n.severity === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-orange-600'}`} />
+                        <div className={`mt-0.5 h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${p.quantity === 0 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
+                          <PackageX className={`h-3.5 w-3.5 ${p.quantity === 0 ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{n.productName}</p>
-                          <p className="text-xs text-gray-600 mt-0.5">{n.message}</p>
+                          <p className="text-xs font-medium truncate">{p.name}</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            Stock: {p.quantity} / Reorder at: {p.reorderPoint}
+                            {p.reorderQty ? ` · Suggest: ${p.reorderQty}` : ''}
+                          </p>
                         </div>
                         <button
-                          onClick={(e) => { e.stopPropagation(); dismissNotification(n.id) }}
-                          className="shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
-                          aria-label="Dismiss notification"
+                          onClick={(e) => { e.stopPropagation(); dismissNotification('reorder-' + p.id) }}
+                          className="shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all"
+                          aria-label="Dismiss"
                         >
                           <X className="h-3 w-3" />
                         </button>
