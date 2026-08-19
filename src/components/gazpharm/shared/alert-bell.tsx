@@ -46,6 +46,7 @@ export function AlertBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [debugInfo, setDebugInfo] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
@@ -63,37 +64,36 @@ export function AlertBell() {
         fetch('/api/notifications?status=UNREAD&limit=10', { headers }),
       ])
 
+      const debugParts: string[] = []
+
       if (expiringRes.status === 'fulfilled' && expiringRes.value.ok) {
         const json = await expiringRes.value.json()
         const items = json.items || json.expiringSoon || []
         setExpiringProducts(items)
-        console.log('[AlertBell] expiringSoon:', items.length, 'items')
+        debugParts.push('Expiring: ' + items.length)
       } else if (expiringRes.status === 'fulfilled') {
-        console.warn('[AlertBell] expiringSoon HTTP', expiringRes.value.status)
-        try { const j = await expiringRes.value.json(); console.warn('[AlertBell] expiringSoon body:', j) } catch {}
+        debugParts.push('Expiring HTTP ' + expiringRes.value.status)
       } else {
-        console.warn('[AlertBell] expiringSoon rejected:', expiringRes.reason)
+        debugParts.push('Expiring failed')
       }
 
       if (reorderRes.status === 'fulfilled' && reorderRes.value.ok) {
         const json = await reorderRes.value.json()
         const items = json.items || json.belowReorder || []
         setReorderProducts(items)
-        console.log('[AlertBell] belowReorder:', items.length, 'items')
+        debugParts.push('Reorder: ' + items.length)
       } else if (reorderRes.status === 'fulfilled') {
-        console.warn('[AlertBell] belowReorder HTTP', reorderRes.value.status)
+        debugParts.push('Reorder HTTP ' + reorderRes.value.status)
       } else {
-        console.warn('[AlertBell] belowReorder rejected:', reorderRes.reason)
+        debugParts.push('Reorder failed')
       }
 
       if (notifRes.status === 'fulfilled' && notifRes.value.ok) {
         const json = await notifRes.value.json()
         setNotifications(json.notifications || json.items || json || [])
-      } else if (notifRes.status === 'fulfilled') {
-        console.warn('[AlertBell] notifications HTTP', notifRes.value.status)
-      } else {
-        console.warn('[AlertBell] notifications rejected:', notifRes.reason)
       }
+
+      setDebugInfo(debugParts.join(' | '))
     } catch (err) {
       console.error('[AlertBell] Failed to fetch alerts:', err)
     } finally {
@@ -222,8 +222,13 @@ export function AlertBell() {
                 <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
                   <Bell className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                 </div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">All caught up</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No new alerts or notifications</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">No alerts found</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  {debugInfo.includes('HTTP')
+                    ? 'Error fetching alerts'
+                    : 'No products expiring within 14 days or at reorder level'}
+                </p>
+                <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-2 font-mono">{debugInfo}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
