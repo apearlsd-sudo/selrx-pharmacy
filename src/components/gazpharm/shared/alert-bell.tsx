@@ -75,8 +75,8 @@ export function AlertBell() {
         const json = await notifRes.value.json()
         setNotifications(json.notifications || json.items || json || [])
       }
-    } catch {
-      // Silently fail — alerts are non-critical
+    } catch (err) {
+      console.error('[AlertBell] Failed to fetch alerts:', err)
     } finally {
       setLoading(false)
     }
@@ -254,7 +254,7 @@ export function AlertBell() {
                                   }
                                 </span>
                                 <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                  · Qty: {item.quantity}
+                                  · Batch qty: {item.batchQty ?? item.quantity}
                                 </span>
                                 {item.expiryDate && (
                                   <span className="text-[11px] text-gray-400 dark:text-gray-500">
