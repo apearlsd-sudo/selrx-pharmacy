@@ -73,6 +73,34 @@ export async function GET(request: NextRequest) {
         }))
       }
 
+      const fetchExpiringFromProduct = async () => {
+        const result = await turso.execute({
+          sql: `SELECT p."id", p."name", p."expiryDate",
+                 COALESCE(i."quantity", 0) AS "quantity"
+          FROM Product p
+          LEFT JOIN Inventory i ON i."productId" = p."id"
+          WHERE p."status" = 'ACTIVE'
+            AND p."expiryDate" IS NOT NULL
+            AND p."expiryDate" != ''
+            AND date(p."expiryDate") >= date('now')
+            AND date(p."expiryDate") <= date('now', '+14 days')
+            AND COALESCE(i."quantity", 0) > 0
+          ORDER BY date(p."expiryDate") ASC
+          LIMIT ?`,
+          args: [String(limit)],
+        })
+        return toObjs(result).map((r) => ({
+          productId: String(r.id),
+          productName: r.name as string,
+          expiryDate: r.expiryDate as string,
+          quantity: Number(r.quantity),
+          batchQty: Number(r.quantity),
+          batchNumber: null as string | null,
+          batchId: null as string | null,
+          daysToExpiry: daysUntilExpiry(r.expiryDate as string),
+        }))
+      }
+
       const fetchReorder = async () => {
         const result = await turso.execute({
           sql: `SELECT p."id", p."name",
@@ -93,7 +121,8 @@ export async function GET(request: NextRequest) {
       }
 
       if (alertType === 'expiringSoon') {
-        const items = await fetchExpiring()
+        let items = await fetchExpiring()
+        if (items.length === 0) items = await fetchExpiringFromProduct()
         return NextResponse.json({ items })
       }
       if (alertType === 'belowReorder') {
@@ -102,7 +131,8 @@ export async function GET(request: NextRequest) {
       }
 
       // No type specified — return both
-      const [expiringSoon, belowReorder] = await Promise.all([fetchExpiring(), fetchReorder()])
+      let [expiringSoon, belowReorder] = await Promise.all([fetchExpiring(), fetchReorder()])
+      if (expiringSoon.length === 0) expiringSoon = await fetchExpiringFromProduct()
       return NextResponse.json({ expiringSoon, belowReorder })
     }
 
@@ -141,6 +171,33 @@ export async function GET(request: NextRequest) {
       }))
     }
 
+    const fetchExpiringFromProduct = async () => {
+      const rows = await db.$queryRaw<Array<Record<string, unknown>>>`
+        SELECT p."id", p."name", p."expiryDate",
+               COALESCE(i.quantity, 0) AS "quantity"
+        FROM "Product" p
+        LEFT JOIN "Inventory" i ON i."productId" = p."id"
+        WHERE p."status" = 'ACTIVE'
+          AND p."expiryDate" IS NOT NULL
+          AND p."expiryDate" != ''
+          AND p."expiryDate" >= ${now.toISOString()}
+          AND p."expiryDate" <= ${in14Days.toISOString()}
+          AND COALESCE(i.quantity, 0) > 0
+        ORDER BY p."expiryDate" ASC
+        LIMIT ${limit}
+      `
+      return rows.map((r) => ({
+        productId: r.id as string,
+        productName: r.name as string,
+        expiryDate: r.expiryDate as string,
+        quantity: Number(r.quantity),
+        batchQty: Number(r.quantity),
+        batchNumber: null as string | null,
+        batchId: null as string | null,
+        daysToExpiry: daysUntilExpiry(r.expiryDate as string),
+      }))
+    }
+
     const fetchReorder = async () => {
       const rows = await db.$queryRaw<Array<Record<string, unknown>>>`
         SELECT p."id", p."name",
@@ -160,7 +217,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (alertType === 'expiringSoon') {
-      const items = await fetchExpiring()
+      let items = await fetchExpiring()
+      if (items.length === 0) items = await fetchExpiringFromProduct()
       return NextResponse.json({ items })
     }
     if (alertType === 'belowReorder') {
@@ -168,7 +226,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items })
     }
 
-    const [expiringSoon, belowReorder] = await Promise.all([fetchExpiring(), fetchReorder()])
+    let [expiringSoon, belowReorder] = await Promise.all([fetchExpiring(), fetchReorder()])
+    if (expiringSoon.length === 0) expiringSoon = await fetchExpiringFromProduct()
     return NextResponse.json({ expiringSoon, belowReorder })
   } catch (error) {
     console.error('Error fetching alerts:', error)

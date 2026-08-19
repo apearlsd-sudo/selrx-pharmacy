@@ -16,7 +16,9 @@ interface ExpiringProduct {
   productName: string
   expiryDate: string | null
   quantity: number
+  batchQty: number | null
   daysToExpiry: number
+  batchNumber?: string | null
 }
 
 interface ReorderProduct {
@@ -63,17 +65,34 @@ export function AlertBell() {
 
       if (expiringRes.status === 'fulfilled' && expiringRes.value.ok) {
         const json = await expiringRes.value.json()
-        setExpiringProducts(json.items || json.expiringSoon || [])
+        const items = json.items || json.expiringSoon || []
+        setExpiringProducts(items)
+        console.log('[AlertBell] expiringSoon:', items.length, 'items')
+      } else if (expiringRes.status === 'fulfilled') {
+        console.warn('[AlertBell] expiringSoon HTTP', expiringRes.value.status)
+        try { const j = await expiringRes.value.json(); console.warn('[AlertBell] expiringSoon body:', j) } catch {}
+      } else {
+        console.warn('[AlertBell] expiringSoon rejected:', expiringRes.reason)
       }
 
       if (reorderRes.status === 'fulfilled' && reorderRes.value.ok) {
         const json = await reorderRes.value.json()
-        setReorderProducts(json.items || json.belowReorder || [])
+        const items = json.items || json.belowReorder || []
+        setReorderProducts(items)
+        console.log('[AlertBell] belowReorder:', items.length, 'items')
+      } else if (reorderRes.status === 'fulfilled') {
+        console.warn('[AlertBell] belowReorder HTTP', reorderRes.value.status)
+      } else {
+        console.warn('[AlertBell] belowReorder rejected:', reorderRes.reason)
       }
 
       if (notifRes.status === 'fulfilled' && notifRes.value.ok) {
         const json = await notifRes.value.json()
         setNotifications(json.notifications || json.items || json || [])
+      } else if (notifRes.status === 'fulfilled') {
+        console.warn('[AlertBell] notifications HTTP', notifRes.value.status)
+      } else {
+        console.warn('[AlertBell] notifications rejected:', notifRes.reason)
       }
     } catch (err) {
       console.error('[AlertBell] Failed to fetch alerts:', err)
