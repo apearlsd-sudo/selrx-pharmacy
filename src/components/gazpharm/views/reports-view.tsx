@@ -3334,119 +3334,9 @@ export function ReportsView() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
-      {/* Set Target Dialog */}
-      <Dialog open={showTargetDialog} onOpenChange={(open) => { if (!open) { setShowTargetDialog(false); setTargetForm({ userId: '', targetType: 'SALES_AMOUNT', targetValue: '' }) } }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Set Staff Target</DialogTitle>
-            <DialogDescription>For period: {targetPeriod}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label className="text-xs">Target Type</Label>
-              <Select value={targetForm.targetType} onValueChange={(v) => setTargetForm(f => ({ ...f, targetType: v }))}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SALES_AMOUNT">Sales Amount</SelectItem>
-                  <SelectItem value="TRANSACTIONS_COUNT">Transaction Count</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Target Value</Label>
-              <Input
-                type="number"
-                min={1}
-                value={targetForm.targetValue}
-                onChange={(e) => setTargetForm(f => ({ ...f, targetValue: e.target.value }))}
-                placeholder={targetForm.targetType === 'SALES_AMOUNT' ? 'e.g. 5000' : 'e.g. 100'}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">User ID</Label>
-              <Input
-                value={targetForm.userId}
-                onChange={(e) => setTargetForm(f => ({ ...f, userId: e.target.value }))}
-                placeholder="Enter staff user ID"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowTargetDialog(false)}>Cancel</Button>
-            <Button disabled={targetSaving || !targetForm.userId || !targetForm.targetValue} onClick={handleSaveTarget} className="bg-emerald-600 hover:bg-emerald-700">
-              {targetSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save Target
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Claim Review Dialog */}
-      <Dialog open={showClaimDialog} onOpenChange={(open) => { if (!open) { setShowClaimDialog(false); setSelectedClaim(null) } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Review Insurance Claim
-            </DialogTitle>
-            <DialogDescription>
-              {selectedClaim?.customerName} — {selectedClaim?.insuranceProvider || 'No provider'}
-              {selectedClaim?.policyNumber && ` • Policy: ${selectedClaim.policyNumber}`}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedClaim && (
-            <div className="space-y-3 py-2">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><p className="text-muted-foreground text-xs">Total Amount</p><p className="font-semibold">{formatCurrency(selectedClaim.totalAmount)}</p></div>
-                <div><p className="text-muted-foreground text-xs">Co-pay</p><p className="font-semibold">{formatCurrency(selectedClaim.coPayAmount)}</p></div>
-              </div>
-              {selectedClaim.approvedAmount !== null && (
-                <div className="text-sm"><p className="text-muted-foreground text-xs">Previously Approved</p><p className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedClaim.approvedAmount)}</p></div>
-              )}
-              <div>
-                <Label className="text-xs">Action *</Label>
-                <Select value={claimAction} onValueChange={setClaimAction}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Select action" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="APPROVED">Approve (Full)</SelectItem>
-                    <SelectItem value="PARTIALLY_APPROVED">Partially Approve</SelectItem>
-                    <SelectItem value="REJECTED">Reject</SelectItem>
-                    <SelectItem value="PAID">Mark as Paid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {(claimAction === 'APPROVED' || claimAction === 'PARTIALLY_APPROVED') && (
-                <div>
-                  <Label className="text-xs">Approved Amount</Label>
-                  <Input type="number" value={claimApprovedAmount} onChange={e => setClaimApprovedAmount(e.target.value)} placeholder={String(selectedClaim.totalAmount)} />
-                </div>
-              )}
-              {claimAction === 'REJECTED' && (
-                <div>
-                  <Label className="text-xs">Rejection Reason *</Label>
-                  <Textarea value={claimRejectionReason} onChange={e => setClaimRejectionReason(e.target.value)} placeholder="Reason for rejection..." rows={2} />
-                </div>
-              )}
-              <div>
-                <Label className="text-xs">Notes (optional)</Label>
-                <Input value={claimNotes} onChange={e => setClaimNotes(e.target.value)} placeholder="Internal notes..." />
-              </div>
-            </div>
-          )}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowClaimDialog(false)}>Cancel</Button>
-            <Button disabled={claimUpdating || !claimAction} onClick={handleUpdateClaim} className="bg-emerald-600 hover:bg-emerald-700">
-              {claimUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Update Claim
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Financial P&L Tab */}
-      <TabsContent value="financial" className="space-y-4">
+        {/* Financial P&L Tab */}
+        <TabsContent value="financial" className="space-y-4">
         {/* Period selector */}
         <Card>
           <CardContent className="p-4">
@@ -3629,10 +3519,10 @@ export function ReportsView() {
         ) : (
           <EmptyState icon={FileText} title="No financial data" description="Select a period and click refresh to load" />
         )}
-      </TabsContent>
+        </TabsContent>
 
-      {/* Controlled Substances Tab */}
-      <TabsContent value="controlled-substances" className="space-y-4">
+        {/* Controlled Substances Tab */}
+        <TabsContent value="controlled-substances" className="space-y-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -3732,7 +3622,117 @@ export function ReportsView() {
             )}
           </CardContent>
         </Card>
-      </TabsContent>
+        </TabsContent>
+      </Tabs>
+
+      {/* Set Target Dialog */}
+      <Dialog open={showTargetDialog} onOpenChange={(open) => { if (!open) { setShowTargetDialog(false); setTargetForm({ userId: '', targetType: 'SALES_AMOUNT', targetValue: '' }) } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Staff Target</DialogTitle>
+            <DialogDescription>For period: {targetPeriod}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs">Target Type</Label>
+              <Select value={targetForm.targetType} onValueChange={(v) => setTargetForm(f => ({ ...f, targetType: v }))}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SALES_AMOUNT">Sales Amount</SelectItem>
+                  <SelectItem value="TRANSACTIONS_COUNT">Transaction Count</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Target Value</Label>
+              <Input
+                type="number"
+                min={1}
+                value={targetForm.targetValue}
+                onChange={(e) => setTargetForm(f => ({ ...f, targetValue: e.target.value }))}
+                placeholder={targetForm.targetType === 'SALES_AMOUNT' ? 'e.g. 5000' : 'e.g. 100'}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">User ID</Label>
+              <Input
+                value={targetForm.userId}
+                onChange={(e) => setTargetForm(f => ({ ...f, userId: e.target.value }))}
+                placeholder="Enter staff user ID"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowTargetDialog(false)}>Cancel</Button>
+            <Button disabled={targetSaving || !targetForm.userId || !targetForm.targetValue} onClick={handleSaveTarget} className="bg-emerald-600 hover:bg-emerald-700">
+              {targetSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save Target
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Claim Review Dialog */}
+      <Dialog open={showClaimDialog} onOpenChange={(open) => { if (!open) { setShowClaimDialog(false); setSelectedClaim(null) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Review Insurance Claim
+            </DialogTitle>
+            <DialogDescription>
+              {selectedClaim?.customerName} — {selectedClaim?.insuranceProvider || 'No provider'}
+              {selectedClaim?.policyNumber && ` • Policy: ${selectedClaim.policyNumber}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedClaim && (
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><p className="text-muted-foreground text-xs">Total Amount</p><p className="font-semibold">{formatCurrency(selectedClaim.totalAmount)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Co-pay</p><p className="font-semibold">{formatCurrency(selectedClaim.coPayAmount)}</p></div>
+              </div>
+              {selectedClaim.approvedAmount !== null && (
+                <div className="text-sm"><p className="text-muted-foreground text-xs">Previously Approved</p><p className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedClaim.approvedAmount)}</p></div>
+              )}
+              <div>
+                <Label className="text-xs">Action *</Label>
+                <Select value={claimAction} onValueChange={setClaimAction}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select action" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="APPROVED">Approve (Full)</SelectItem>
+                    <SelectItem value="PARTIALLY_APPROVED">Partially Approve</SelectItem>
+                    <SelectItem value="REJECTED">Reject</SelectItem>
+                    <SelectItem value="PAID">Mark as Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(claimAction === 'APPROVED' || claimAction === 'PARTIALLY_APPROVED') && (
+                <div>
+                  <Label className="text-xs">Approved Amount</Label>
+                  <Input type="number" value={claimApprovedAmount} onChange={e => setClaimApprovedAmount(e.target.value)} placeholder={String(selectedClaim.totalAmount)} />
+                </div>
+              )}
+              {claimAction === 'REJECTED' && (
+                <div>
+                  <Label className="text-xs">Rejection Reason *</Label>
+                  <Textarea value={claimRejectionReason} onChange={e => setClaimRejectionReason(e.target.value)} placeholder="Reason for rejection..." rows={2} />
+                </div>
+              )}
+              <div>
+                <Label className="text-xs">Notes (optional)</Label>
+                <Input value={claimNotes} onChange={e => setClaimNotes(e.target.value)} placeholder="Internal notes..." />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowClaimDialog(false)}>Cancel</Button>
+            <Button disabled={claimUpdating || !claimAction} onClick={handleUpdateClaim} className="bg-emerald-600 hover:bg-emerald-700">
+              {claimUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Update Claim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteProduct} onOpenChange={(open) => { if (!open) setDeleteProduct(null) }}>
