@@ -5,6 +5,7 @@ import {
   Tags, Pill, Truck, Plus, Trash2, Search, Package, ChevronRight,
   AlertCircle, CheckCircle2, Factory, Edit, Edit2, Save, X, RefreshCw, Pencil,
   Upload, FileSpreadsheet, Download, History, Clock, RotateCcw, Database, PackagePlus,
+  FileText, DollarSign, GitCompareArrows, ChevronDown, Eye, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -102,6 +103,7 @@ const SECTIONS = [
   { key: 'dosage-form', label: 'Add Dosage Form', icon: Pill, desc: 'Tablet, capsule, syrup, etc.', color: 'bg-cyan-600 hover:bg-cyan-700' },
   { key: 'vendor', label: 'Add Vendor', icon: Truck, desc: 'Suppliers & distributors', color: 'bg-green-600 hover:bg-green-700' },
   { key: 'manufacturer', label: 'Add Manufacturer', icon: Factory, desc: 'Drug manufacturers & producers', color: 'bg-indigo-600 hover:bg-indigo-700' },
+  { key: 'price-lists', label: 'Price Lists', icon: FileText, desc: 'Supplier price lists & comparison', color: 'bg-amber-600 hover:bg-amber-700' },
 ] as const
 
 type SectionKey = typeof SECTIONS[number]['key']
@@ -1124,6 +1126,7 @@ export function MasterDataView() {
       {activeSection === 'dosage-form' && <DosageFormSection />}
       {activeSection === 'vendor' && <VendorSection />}
       {activeSection === 'manufacturer' && <ManufacturerSection />}
+      {activeSection === 'price-lists' && <PriceListSection />}
     </div>
   )
 }
@@ -2886,6 +2889,437 @@ function ManufacturerSection() {
         editingManufacturer={editingManufacturer}
         onSaved={handleModalSaved}
       />
+    </div>
+  )
+}
+
+// ── PRICE LIST SECTION ───────────────────────────────────────────────
+
+interface PriceListItem {
+  id: string
+  productName: string
+  productId: string | null
+  unitCost: number
+  packSize: string | null
+  minOrderQty: number | null
+  createdAt: string
+}
+
+interface PriceList {
+  id: string
+  vendorId: string
+  vendorName: string
+  validFrom: string | null
+  validTo: string | null
+  notes: string | null
+  createdAt: string
+  _count: { items: number }
+}
+
+function PriceListSection() {
+  const [priceLists, setPriceLists] = useState<PriceList[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [itemsOpen, setItemsOpen] = useState(false)
+  const [itemsList, setItemsList] = useState<PriceListItem[]>([])
+  const [itemsListName, setItemsListName] = useState('')
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [compareResults, setCompareResults] = useState<any[]>([])
+  const [compareSearch, setCompareSearch] = useState('')
+  const [compareLoading, setCompareLoading] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+
+  // Import form state
+  const [vendors, setVendors] = useState<{ id: string; name: string }[]>([])
+  const [importVendorId, setImportVendorId] = useState('')
+  const [importValidFrom, setImportValidFrom] = useState('')
+  const [importValidTo, setImportValidTo] = useState('')
+  const [importNotes, setImportNotes] = useState('')
+  const [importItems, setImportItems] = useState<{ productName: string; unitCost: string; packSize: string; minOrderQty: string }[]>([
+    { productName: '', unitCost: '', packSize: '', minOrderQty: '' },
+  ])
+  const [importSaving, setImportSaving] = useState(false)
+
+  const fetchPriceLists = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/supplier-prices')
+      if (res.ok) setPriceLists(await res.json())
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load price lists', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [addToast])
+
+  const fetchVendors = useCallback(async () => {
+    try {
+      const res = await fetch('/api/vendors')
+      if (res.ok) setVendors(await res.json())
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { fetchPriceLists(); fetchVendors() }, [fetchPriceLists, fetchVendors])
+
+  const handleViewItems = async (list: PriceList) => {
+    setItemsListName(`${list.vendorName} — ${list.validFrom || 'No start date'} to ${list.validTo || 'No end date'}`)
+    setItemsOpen(true)
+    try {
+      const res = await fetch(`/api/supplier-prices?listId=${list.id}&items=true`, { method: 'PUT' })
+      if (res.ok) setItemsList(await res.json())
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load items', variant: 'destructive' })
+    }
+  }
+
+  const handleDelete = async (list: PriceList) => {
+    try {
+      const res = await fetch(`/api/supplier-prices?priceListId=${list.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      addToast({ title: 'Deleted', description: `Price list for ${list.vendorName} removed`, variant: 'success' })
+      fetchPriceLists()
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to delete price list', variant: 'destructive' })
+    }
+  }
+
+  const handleCompareSearch = async () => {
+    if (!compareSearch.trim()) return
+    setCompareLoading(true)
+    try {
+      const res = await fetch(`/api/supplier-prices?compare=true&productId=${encodeURIComponent(compareSearch.trim())}`)
+      if (res.ok) {
+        const data = await res.json()
+        setCompareResults(data)
+        if (data.length === 0) {
+          addToast({ title: 'No Results', description: 'No price list entries found for this product', variant: 'destructive' })
+        }
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to compare prices', variant: 'destructive' })
+    } finally {
+      setCompareLoading(false)
+    }
+  }
+
+  const openImport = () => {
+    setImportVendorId('')
+    setImportValidFrom('')
+    setImportValidTo('')
+    setImportNotes('')
+    setImportItems([{ productName: '', unitCost: '', packSize: '', minOrderQty: '' }])
+    setImportOpen(true)
+  }
+
+  const handleImportSave = async () => {
+    const selectedVendor = vendors.find(v => v.id === importVendorId)
+    if (!importVendorId || !selectedVendor) {
+      addToast({ title: 'Error', description: 'Select a vendor', variant: 'destructive' })
+      return
+    }
+    const validItems = importItems.filter(i => i.productName.trim() && i.unitCost.trim())
+    if (validItems.length === 0) {
+      addToast({ title: 'Error', description: 'Add at least one item with name and cost', variant: 'destructive' })
+      return
+    }
+    setImportSaving(true)
+    try {
+      const res = await fetch('/api/supplier-prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorId: importVendorId,
+          vendorName: selectedVendor.name,
+          validFrom: importValidFrom || null,
+          validTo: importValidTo || null,
+          notes: importNotes || null,
+          items: validItems.map(i => ({
+            productName: i.productName.trim(),
+            unitCost: parseFloat(i.unitCost),
+            packSize: i.packSize.trim() || null,
+            minOrderQty: i.minOrderQty.trim() ? parseInt(i.minOrderQty) : null,
+          })),
+        }),
+      })
+      if (!res.ok) throw new Error()
+      addToast({ title: 'Price List Created', description: `${validItems.length} items for ${selectedVendor.name}`, variant: 'success' })
+      setImportOpen(false)
+      fetchPriceLists()
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to create price list', variant: 'destructive' })
+    } finally {
+      setImportSaving(false)
+    }
+  }
+
+  const filtered = priceLists.filter((l) =>
+    l.vendorName.toLowerCase().includes(search.toLowerCase()) ||
+    (l.notes && l.notes.toLowerCase().includes(search.toLowerCase()))
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20 flex items-center justify-center">
+            <FileText className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          Supplier Price Lists ({priceLists.length})
+        </h3>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setCompareOpen(true); setCompareResults([]); setCompareSearch('') }}>
+            <GitCompareArrows className="h-4 w-4 mr-2" /> Compare Prices
+          </Button>
+          <Button onClick={openImport} size="sm" className="bg-amber-600 hover:bg-amber-700">
+            <Plus className="h-4 w-4 mr-2" /> New Price List
+          </Button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Input placeholder="Search price lists..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
+      </div>
+
+      {/* Price Lists Table */}
+      <Card className="card-hover">
+        <CardContent className="p-0">
+          <Table className="table-header-standard">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Valid From</TableHead>
+                <TableHead className="hidden sm:table-cell">Valid To</TableHead>
+                <TableHead className="text-center">Items</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>{Array.from({ length: 5 }).map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}</TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState icon={FileText} title="No price lists yet" description="Import your first supplier price list" />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((list) => (
+                  <TableRow key={list.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                          <Truck className="h-3.5 w-3.5 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{list.vendorName}</p>
+                          {list.notes && <p className="text-[10px] text-muted-foreground">{list.notes}</p>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{list.validFrom ? formatDate(list.validFrom) : '—'}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm">{list.validTo ? formatDate(list.validTo) : '—'}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary" className="text-xs">{list._count.items}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewItems(list)} title="View items">
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/30 dark:hover:bg-red-900/30 dark:bg-red-900/20" onClick={() => handleDelete(list)} title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* View Items Dialog */}
+      <Dialog open={itemsOpen} onOpenChange={setItemsOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[80vh] rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
+              <DollarSign className="h-4 w-4 text-amber-600" />
+              Price List Items
+            </DialogTitle>
+            <DialogDescription>{itemsListName}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[55vh] pr-2">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Unit Cost</TableHead>
+                  <TableHead className="hidden sm:table-cell">Pack Size</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Min Order</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {itemsList.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="text-sm font-medium">{item.productName}</TableCell>
+                    <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(item.unitCost)}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm">{item.packSize || '—'}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-right text-sm">{item.minOrderQty || '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Compare Prices Dialog */}
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
+              <GitCompareArrows className="h-4 w-4 text-amber-600" />
+              Compare Prices
+            </DialogTitle>
+            <DialogDescription>Enter a product ID or search by name to compare vendor prices</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Input placeholder="Product ID" value={compareSearch} onChange={(e) => setCompareSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCompareSearch() }} />
+            <Button onClick={handleCompareSearch} disabled={compareLoading} className="bg-amber-600 hover:bg-amber-700">
+              {compareLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
+          </div>
+          {compareResults.length > 0 && (
+            <div className="mt-2">
+              <p className="text-xs text-emerald-600 font-medium mb-2">
+                <CheckCircle2 className="h-3 w-3 inline mr-1" />
+                Best price: {formatCurrency(compareResults[0].unitCost)} ({compareResults[0].vendorName})
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead className="text-right">Unit Cost</TableHead>
+                    <TableHead className="hidden sm:table-cell">Valid From</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {compareResults.map((r, i) => (
+                    <TableRow key={r.id} className={i === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}>
+                      <TableCell className="text-sm">{r.vendorName}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(r.unitCost)}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{r.validFrom || '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Price List Dialog */}
+      <Dialog open={importOpen} onOpenChange={(open) => { if (!open) setImportOpen(false) }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
+              <FileSpreadsheet className="h-5 w-5 text-amber-600" />
+              New Supplier Price List
+            </DialogTitle>
+            <DialogDescription>Enter vendor details and price list items</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[65vh] pr-2">
+            <div className="space-y-4">
+              {/* Vendor selector */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Vendor *</Label>
+                  <Select value={importVendorId} onValueChange={(v) => { setImportVendorId(v); setImportVendorName(vendors.find(vnd => vnd.id === v)?.name || '') }}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select vendor" /></SelectTrigger>
+                    <SelectContent>
+                      {vendors.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Valid From</Label>
+                  <Input type="date" value={importValidFrom} onChange={(e) => setImportValidFrom(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Valid To</Label>
+                  <Input type="date" value={importValidTo} onChange={(e) => setImportValidTo(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Notes</Label>
+                  <Input value={importNotes} onChange={(e) => setImportNotes(e.target.value)} placeholder="Optional notes" className="mt-1" />
+                </div>
+              </div>
+
+              {/* Items table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs font-semibold">Price List Items ({importItems.filter(i => i.productName.trim()).length})</Label>
+                  <Button variant="outline" size="sm" onClick={() => setImportItems([...importItems, { productName: '', unitCost: '', packSize: '', minOrderQty: '' }])}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Row
+                  </Button>
+                </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Product Name *</TableHead>
+                        <TableHead className="text-xs text-right">Unit Cost *</TableHead>
+                        <TableHead className="hidden sm:table-cell text-xs">Pack Size</TableHead>
+                        <TableHead className="hidden sm:table-cell text-xs text-right">Min Qty</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importItems.map((item, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="p-1">
+                            <Input placeholder="Product name" value={item.productName} onChange={(e) => { const n = [...importItems]; n[idx] = { ...n[idx], productName: e.target.value }; setImportItems(n) }} className="h-8 text-xs" />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input type="number" placeholder="0.00" value={item.unitCost} onChange={(e) => { const n = [...importItems]; n[idx] = { ...n[idx], unitCost: e.target.value }; setImportItems(n) }} className="h-8 text-xs text-right" />
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell p-1">
+                            <Input placeholder="e.g. 100 tabs" value={item.packSize} onChange={(e) => { const n = [...importItems]; n[idx] = { ...n[idx], packSize: e.target.value }; setImportItems(n) }} className="h-8 text-xs" />
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell p-1">
+                            <Input type="number" placeholder="0" value={item.minOrderQty} onChange={(e) => { const n = [...importItems]; n[idx] = { ...n[idx], minOrderQty: e.target.value }; setImportItems(n) }} className="h-8 text-xs text-right" />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            {importItems.length > 1 && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setImportItems(importItems.filter((_, i) => i !== idx))}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+            <Button onClick={handleImportSave} disabled={importSaving} className="bg-amber-600 hover:bg-amber-700">
+              {importSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save Price List
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

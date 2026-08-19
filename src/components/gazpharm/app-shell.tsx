@@ -80,6 +80,7 @@ import { PurchaseOrdersView } from '@/components/gazpharm/views/purchase-orders-
 import { AuditLogView } from '@/components/gazpharm/views/audit-log-view'
 import { LoginHistoryView } from '@/components/gazpharm/views/login-history-view'
 import { AccessLogsView } from '@/components/gazpharm/views/access-logs-view'
+import { BarcodeLabelPrintOverlay } from '@/components/gazpharm/shared/barcode-label-printer'
 
 // ── Global fetch interceptor: auto-attach JWT to all /api/ requests ──
 if (typeof window !== 'undefined') {
@@ -1118,6 +1119,8 @@ export default function AppShell({ initialBranding }: AppShellProps) {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Barcode Label Print Overlay */}
+      <BarcodeLabelPrintOverlay />
 
 
 

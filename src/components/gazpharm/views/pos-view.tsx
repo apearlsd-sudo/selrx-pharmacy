@@ -24,6 +24,8 @@ import {
   Clock,
   ClockIcon,
   StickyNote,
+  Percent,
+  Printer,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,6 +33,9 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -47,6 +52,8 @@ import { AlertCircle, Copy, ShieldAlert } from 'lucide-react'
 import { POS_SHORTCUTS, matchesShortcut, formatShortcut } from '@/lib/keyboard-shortcuts'
 import { ReceiptModal } from './receipt-modal'
 import { NewReturnDialog } from './new-return-dialog'
+import { PinApprovalDialog, type ApprovalAction } from '@/components/gazpharm/shared/pin-approval-dialog'
+import { generateAndPrintLabel } from '@/components/gazpharm/shared/barcode-label-printer'
 
 interface Product {
   id: string
@@ -60,6 +67,8 @@ interface Product {
   itemsPerUnit: number
   sellingPrice: number
   requiresPrescription: boolean
+  controlledSubstance?: boolean
+  deaSchedule?: string | null
   category: string
   status: string
   inventory?: {
@@ -75,6 +84,14 @@ interface CustomerOption {
   email?: string | null
   phone?: string | null
   insuranceProvider?: string | null
+  insurancePolicyNo?: string | null
+}
+
+interface PricingTierOption {
+  id: string
+  name: string
+  discountPercent: number
+  isDefault: boolean
 }
 
 const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof CreditCard }[] = [
@@ -82,6 +99,7 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
   { value: 'CREDIT_CARD', label: 'Credit Card', icon: CreditCard },
   { value: 'DEBIT_CARD', label: 'Debit Card', icon: CreditCard },
   { value: 'INSURANCE', label: 'Insurance', icon: Shield },
+  { value: 'CREDIT', label: 'On Credit', icon: Clock },
 ]
 
 export function POSView() {
@@ -109,6 +127,20 @@ export function POSView() {
   const [cartDuplicates, setCartDuplicates] = useState<Array<{drugClass: string; drugs: string[]}>>([])
   const [checkingInteractions, setCheckingInteractions] = useState(false)
   const [taxRate, setTaxRate] = useState<number>(0)
+  // Pricing tier state
+  const [pricingTiers, setPricingTiers] = useState<PricingTierOption[]>([])
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(null)
+
+  // Customer credit state
+  const [creditBalance, setCreditBalance] = useState<number | null>(null)
+  const [loadingCreditBalance, setLoadingCreditBalance] = useState(false)
+
+  // Insurance co-pay state
+  const [insuranceCoPay, setInsuranceCoPay] = useState('0')
+
+  // PIN approval state
+  const [pinDialog, setPinDialog] = useState<{ open: boolean; action: ApprovalAction; entityType: string; entityId?: string; title?: string; description?: string; onApproved: () => void }>({ open: false, action: 'VOID_TRANSACTION', entityType: '', onApproved: () => {} })
+
   // Suspended cart state
   const [showRecallDialog, setShowRecallDialog] = useState(false)
   const [showSuspendNoteDialog, setShowSuspendNoteDialog] = useState(false)
@@ -151,8 +183,12 @@ export function POSView() {
     const current = cartStockMap.get(item.product.id) || 0
     cartStockMap.set(item.product.id, current + item.quantity * item.product.itemsPerUnit)
   }
-  const tax = subtotal * (taxRate / 100)
-  const total = subtotal + tax
+  const selectedTier = pricingTiers.find((t) => t.id === selectedTierId)
+  const tierDiscount = selectedTier ? selectedTier.discountPercent / 100 : 0
+  const discountAmount = subtotal * tierDiscount
+  const afterDiscount = subtotal - discountAmount
+  const tax = afterDiscount * (taxRate / 100)
+  const total = afterDiscount + tax
 
   // Search products
   const searchProducts = useCallback(async (query: string, category: string) => {
@@ -342,6 +378,21 @@ export function POSView() {
       .catch(() => {})
   }, [])
 
+  // Fetch pricing tiers on mount
+  useEffect(() => {
+    fetch('/api/pricing-tiers?active=true', { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : [])
+      .then((tiers: PricingTierOption[]) => {
+        setPricingTiers(tiers)
+        // Auto-select the default tier
+        const defaultTier = tiers.find((t) => t.isDefault)
+        if (defaultTier) {
+          setSelectedTierId(defaultTier.id)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   // Debounced product search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -506,6 +557,22 @@ export function POSView() {
     })
   }
 
+  // Fetch customer credit balance when CREDIT payment is selected
+  useEffect(() => {
+    if (paymentMethod === 'CREDIT' && selectedCustomer?.id) {
+      setLoadingCreditBalance(true)
+      fetch(`/api/customer-credits?action=summary&customerId=${selectedCustomer.id}`, { headers: authHeaders() })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          setCreditBalance(data?.outstandingBalance ?? 0)
+        })
+        .catch(() => setCreditBalance(0))
+        .finally(() => setLoadingCreditBalance(false))
+    } else {
+      setCreditBalance(null)
+    }
+  }, [paymentMethod, selectedCustomer?.id])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -565,6 +632,37 @@ export function POSView() {
       return
     }
 
+    // Require PIN approval if discount > 20%
+    if (tierDiscount > 0.2) {
+      setPinDialog({
+        open: true,
+        action: 'DISCOUNT_OVERRIDE',
+        entityType: 'Transaction',
+        title: 'Discount Override Approval',
+        description: `Discount of ${selectedTier?.discountPercent || 0}% exceeds the 20% limit. Supervisor PIN required.`,
+        onApproved: () => { doProcessPayment() },
+      })
+      return
+    }
+
+    // Require PIN approval for credit sales
+    if (paymentMethod === 'CREDIT') {
+      setPinDialog({
+        open: true,
+        action: 'CREDIT_SALE',
+        entityType: 'Transaction',
+        title: 'Credit Sale Approval',
+        description: 'Credit sales require supervisor authorization. Enter supervisor PIN to proceed.',
+        onApproved: () => { doProcessPayment() },
+      })
+      return
+    }
+
+    await doProcessPayment()
+  }
+
+  const doProcessPayment = async () => {
+
     if (paymentMethod === 'CASH') {
       const tendered = parseFloat(amountTendered)
       if (isNaN(tendered) || tendered < total) {
@@ -575,6 +673,16 @@ export function POSView() {
         })
         return
       }
+    }
+
+    if (paymentMethod === 'CREDIT' && !selectedCustomer?.id) {
+      addToast({ title: 'Customer Required', description: 'Select a customer for credit sales', variant: 'destructive' })
+      return
+    }
+
+    if (paymentMethod === 'INSURANCE' && !selectedCustomer?.id) {
+      addToast({ title: 'Customer Required', description: 'Select a customer with insurance for insurance sales', variant: 'destructive' })
+      return
     }
 
     setIsProcessingPayment(true)
@@ -612,6 +720,60 @@ export function POSView() {
       }
 
       const transaction = await res.json()
+
+      // If CREDIT payment, create a credit entry
+      if (paymentMethod === 'CREDIT' && selectedCustomer?.id) {
+        fetch('/api/customer-credits', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: selectedCustomer.id,
+            transactionId: transaction.id,
+            amount: total,
+            description: `Credit sale ${transaction.transactionNo}`,
+          }),
+        }).catch((creditErr) => {
+          console.error('Failed to record credit entry:', creditErr)
+          addToast({ title: 'Credit Warning', description: 'Sale completed but credit entry may not have been recorded', variant: 'destructive' })
+        })
+      }
+
+      // Auto-earn loyalty points for customer sales
+      let ptsEarned = 0
+      if (selectedCustomer?.id && total > 0) {
+        ptsEarned = Math.round(total)
+        fetch('/api/loyalty', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: selectedCustomer.id,
+            points: ptsEarned,
+            action: 'EARNED',
+            description: `Purchase ${transaction.transactionNo} (${ptsEarned} pts)`,
+            transactionId: transaction.id,
+          }),
+        }).catch(() => {})
+      }
+
+      // If INSURANCE payment, auto-create insurance claim
+      if (paymentMethod === 'INSURANCE' && selectedCustomer?.id) {
+        fetch('/api/insurance-claims', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transactionId: transaction.id,
+            customerId: selectedCustomer.id,
+            insuranceProvider: selectedCustomer.insuranceProvider || null,
+            policyNumber: selectedCustomer.insurancePolicyNo || null,
+            totalAmount: total,
+            coPayAmount: parseFloat(insuranceCoPay) || 0,
+          }),
+        }).catch((claimErr) => {
+          console.error('Failed to create insurance claim:', claimErr)
+          addToast({ title: 'Insurance Warning', description: 'Sale completed but claim may not have been recorded', variant: 'destructive' })
+        })
+      }
+
       clearCart()
       setSearchQuery('')
       setProducts([])
@@ -622,7 +784,7 @@ export function POSView() {
       setAmountTendered('')
       addToast({
         title: 'Payment Successful',
-        description: `Transaction ${transaction.transactionNo} completed`,
+        description: `Transaction ${transaction.transactionNo} completed${ptsEarned > 0 ? ` • Points earned: +${ptsEarned}` : ''}`,
         variant: 'success',
         duration: 3000,
       })
@@ -657,13 +819,22 @@ export function POSView() {
 
   const handleVoidTransaction = () => {
     if (cart.length === 0) return
-    addToast({
-      title: 'Transaction Voided',
-      description: 'Cart has been cleared',
-      variant: 'destructive',
+    setPinDialog({
+      open: true,
+      action: 'VOID_TRANSACTION',
+      entityType: 'Transaction',
+      title: 'Void Transaction',
+      description: 'Enter supervisor PIN to void the current cart and clear all items.',
+      onApproved: () => {
+        addToast({
+          title: 'Transaction Voided',
+          description: 'Cart has been cleared',
+          variant: 'destructive',
+        })
+        clearCart()
+        setAmountTendered('')
+      },
     })
-    clearCart()
-    setAmountTendered('')
   }
 
   // ── Suspend / Recall handlers ──
@@ -1076,17 +1247,38 @@ export function POSView() {
                                 </Badge>
                               )}
                             </div>
-                            <Button
-                              size="sm"
-                              className={`h-7 w-7 p-0 rounded-lg shadow-sm ${isOut ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed text-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-                              disabled={isOut}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (!isOut) handleAddToCart(product)
-                              }}
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  generateAndPrintLabel({
+                                    id: product.id,
+                                    name: product.name,
+                                    strength: product.strength,
+                                    dosageForm: product.dosageForm,
+                                    barcode: (product as any).barcode || null,
+                                    sellingPrice: product.sellingPrice,
+                                  })
+                                }}
+                                title="Print Label"
+                              >
+                                <Printer className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                className={`h-7 w-7 p-0 rounded-lg shadow-sm ${isOut ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed text-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                                disabled={isOut}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!isOut) handleAddToCart(product)
+                                }}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -1183,7 +1375,14 @@ export function POSView() {
                         className="flex items-center gap-2 rounded-xl border border-gray-200/80 dark:border-gray-700 bg-card p-2.5 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate text-gray-800 dark:text-gray-200">{item.product.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium truncate text-gray-800 dark:text-gray-200">{item.product.name}</p>
+                            {(item.product as any).controlledSubstance && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 shrink-0">
+                                <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />CS
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-400 dark:text-gray-500">
                             {formatCurrency(item.product.sellingPrice)}
                             {item.product.sellingUnit && item.product.sellingUnit !== 'EA'
@@ -1241,6 +1440,15 @@ export function POSView() {
                   <span className="text-gray-400 dark:text-gray-500">Subtotal</span>
                   <span className="font-medium text-gray-700 dark:text-gray-300">{formatCurrency(subtotal)}</span>
                 </div>
+                {tierDiscount > 0 && (
+                  <div className="flex justify-between items-center text-xs sm:text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <Percent className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-emerald-600 dark:text-emerald-400">Discount ({selectedTier?.discountPercent}%)</span>
+                    </div>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">-{formatCurrency(discountAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-xs sm:text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400 dark:text-gray-500">Tax</span>
@@ -1325,6 +1533,7 @@ export function POSView() {
                                 email: cust.email,
                                 phone: cust.phone,
                                 insuranceProvider: cust.insuranceProvider,
+                                insurancePolicyNo: cust.insurancePolicyNo,
                               })
                               setCustomerSearch('')
                               setCustomerDropdownOpen(false)
@@ -1349,6 +1558,38 @@ export function POSView() {
 
               <Separator />
 
+              {/* Pricing Tier */}
+              {pricingTiers.length > 0 && (
+                <div className="p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Pricing Tier</p>
+                  <Select
+                    value={selectedTierId || '_none'}
+                    onValueChange={(val) => setSelectedTierId(val === '_none' ? null : val)}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="No tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">No tier</SelectItem>
+                      {pricingTiers.map((tier) => (
+                        <SelectItem key={tier.id} value={tier.id}>
+                          <span className="flex items-center gap-2">
+                            {tier.name}
+                            {tier.discountPercent > 0 && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-auto">
+                                -{tier.discountPercent}%
+                              </Badge>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Separator />
+
               {/* Payment Method */}
               <div className="p-3 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Payment Method</p>
@@ -1369,6 +1610,86 @@ export function POSView() {
                   ))}
                 </div>
               </div>
+
+              {/* Insurance details — shown when INSURANCE payment is selected */}
+              {paymentMethod === 'INSURANCE' && (
+                <>
+                  <Separator />
+                  <div className="p-3 space-y-2">
+                    {!selectedCustomer?.id ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-2.5 text-center">
+                        <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Select a customer with insurance</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedCustomer.insuranceProvider && (
+                          <div className="rounded-lg border border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:border-sky-800 p-2.5 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Shield className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                              <span className="text-xs font-medium text-sky-700 dark:text-sky-400">Insurance</span>
+                            </div>
+                            <p className="text-sm font-medium">{selectedCustomer.insuranceProvider}</p>
+                            {selectedCustomer.insurancePolicyNo && (
+                              <p className="text-xs text-muted-foreground">Policy: {selectedCustomer.insurancePolicyNo}</p>
+                            )}
+                          </div>
+                        )}
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Co-pay Amount (customer pays)</label>
+                          <div className="relative mt-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                              {currencySymbol()}
+                            </span>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              placeholder="0.00"
+                              value={insuranceCoPay}
+                              onChange={(e) => setInsuranceCoPay(e.target.value)}
+                              className="pl-7 h-9"
+                            />
+                          </div>
+                          {parseFloat(insuranceCoPay) > total && (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Co-pay exceeds sale total</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Credit balance indicator */}
+              {paymentMethod === 'CREDIT' && (
+                <>
+                  <Separator />
+                  <div className="p-3 space-y-2">
+                    {!selectedCustomer?.id ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-2.5 text-center">
+                        <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Select a customer to use credit</p>
+                      </div>
+                    ) : loadingCreditBalance ? (
+                      <div className="flex items-center justify-center py-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 p-2.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-emerald-700 dark:text-emerald-400">Current Outstanding</span>
+                          <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">{formatCurrency(creditBalance ?? 0)}</span>
+                        </div>
+                        {total > 0 && (
+                          <div className="flex items-center justify-between pt-1 border-t border-emerald-200/50 dark:border-emerald-800/50">
+                            <span className="text-xs text-muted-foreground">After this sale</span>
+                            <span className="font-semibold text-sm text-amber-600 dark:text-amber-400">{formatCurrency((creditBalance ?? 0) + total)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Cash Payment - Amount Tendered */}
               {paymentMethod === 'CASH' && total > 0 && (
@@ -1783,6 +2104,18 @@ export function POSView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PIN Approval Dialog */}
+      <PinApprovalDialog
+        open={pinDialog.open}
+        onClose={() => setPinDialog((p) => ({ ...p, open: false }))}
+        onApproved={pinDialog.onApproved}
+        action={pinDialog.action}
+        entityType={pinDialog.entityType}
+        entityId={pinDialog.entityId}
+        title={pinDialog.title}
+        description={pinDialog.description}
+      />
     </>
   )
 }

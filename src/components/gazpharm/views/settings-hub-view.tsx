@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import {
   Globe, Coins, Printer, Database, UserCog, Monitor, RefreshCw, Info, MonitorSmartphone,
-  Building2, KeyRound,
+  Building2, KeyRound, Tag,
 } from 'lucide-react'
 import { UsersView } from './users-view'
 import { WorkstationsView } from './workstations-view'
@@ -16,6 +16,7 @@ import {
   BackupRestoreSection,
   AutoBackupSection,
   SystemInfoSection,
+  PricingTiersSection,
 } from './settings-sections'
 import { CompanyProfileSection } from './settings-sections/company-profile-section'
 import { PasswordChangeSection } from './settings-sections/password-change-section'
@@ -25,6 +26,7 @@ const SETTINGS_NAV = [
   { key: 'users', label: 'User Management', icon: UserCog, description: 'Manage staff accounts, roles & permissions' },
   { key: 'regional', label: 'Regional Settings', icon: Globe, description: 'Timezone, date & time formats' },
   { key: 'currency', label: 'Currency Settings', icon: Coins, description: 'Local currency for prices & transactions' },
+  { key: 'pricing-tiers', label: 'Pricing Tiers', icon: Tag, description: 'Manage discount tiers for different customer categories' },
   { key: 'receipt', label: 'Sales Receipt Settings', icon: Printer, description: 'Printing behavior, font & text style' },
   { key: 'backup', label: 'Data Backup & Restore', icon: Database, description: 'Manual and automatic data backups' },
   { key: 'workstations', label: 'Workstations', icon: Monitor, description: 'Register and manage POS workstations' },
@@ -45,6 +47,7 @@ export function SettingsHubView() {
       case 'users': return <UsersView />
       case 'regional': return <RegionalSettingsSection />
       case 'currency': return <CurrencySettingsSection />
+      case 'pricing-tiers': return <PricingTiersSection />
       case 'receipt': return <ReceiptSettingsSection />
       case 'backup': return (
         <div className="space-y-6">

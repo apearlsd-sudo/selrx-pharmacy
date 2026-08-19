@@ -35,6 +35,7 @@ export type PaymentMethodType =
   | 'INSURANCE'
   | 'FSA_HSA'
   | 'SPLIT'
+  | 'CREDIT'
 
 export interface UserState {
   id: string

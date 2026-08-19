@@ -6,7 +6,8 @@ import {
   Users, UserCircle, ArrowUpRight, ArrowDownRight,
   Trash2, Clock, ChevronLeft, ChevronRight, Search, PackageX,
   AlertTriangle, CheckCircle2, DollarSign, Package, Filter, Printer, BarChart3,
-  Camera, ArrowRightLeft, Wallet, ClipboardCheck,
+  Camera, ArrowRightLeft, Wallet, ClipboardCheck, Target, Shield, Loader2, Plus,
+  ArrowUp, ArrowDown, PieChart as PieChartIcon, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,8 +32,10 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
@@ -138,6 +141,91 @@ export function ReportsView() {
   const [snapshotLoading, setSnapshotLoading] = useState(false)
   const [expandedShiftSnap, setExpandedShiftSnap] = useState<string | null>(null)
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().split('T')[0])
+
+  // Staff Targets state
+  const [targetPeriod, setTargetPeriod] = useState(() => new Date().toISOString().slice(0, 7))
+  const [targetsData, setTargetsData] = useState<any>(null)
+  const [targetsLoading, setTargetsLoading] = useState(false)
+  const [showTargetDialog, setShowTargetDialog] = useState(false)
+  const [targetForm, setTargetForm] = useState({ userId: '', targetType: 'SALES_AMOUNT', targetValue: '' })
+  const [targetSaving, setTargetSaving] = useState(false)
+
+  // Insurance Claims state
+  const [claims, setClaims] = useState<any[]>([])
+  const [claimsLoading, setClaimsLoading] = useState(false)
+  const [claimsFilter, setClaimsFilter] = useState<string>('all')
+  const [showClaimDialog, setShowClaimDialog] = useState(false)
+  const [selectedClaim, setSelectedClaim] = useState<any>(null)
+  const [claimAction, setClaimAction] = useState<string>('')
+  const [claimApprovedAmount, setClaimApprovedAmount] = useState('')
+  const [claimRejectionReason, setClaimRejectionReason] = useState('')
+  const [claimNotes, setClaimNotes] = useState('')
+  const [claimUpdating, setClaimUpdating] = useState(false)
+
+  // Financial P&L state
+  const [finPeriod, setFinPeriod] = useState<'daily' | 'monthly'>('daily')
+  // Controlled substances state
+  const [csLogs, setCsLogs] = useState<any[]>([])
+  const [csInventory, setCsInventory] = useState<any[]>([])
+  const [csLoading, setCsLoading] = useState(false)
+  const [csDateFrom, setCsDateFrom] = useState('')
+  const [csDateTo, setCsDateTo] = useState('')
+
+  const [finDate, setFinDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [finMonth, setFinMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [finData, setFinData] = useState<any>(null)
+  const [finLoading, setFinLoading] = useState(false)
+
+  const fetchCsData = useCallback(async () => {
+    setCsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (csDateFrom) params.set('from', csDateFrom)
+      if (csDateTo) params.set('to', csDateTo)
+      const [logsRes, invRes] = await Promise.all([
+        fetch(`/api/controlled-substances?${params.toString()}`, { headers: authHeaders() }),
+        fetch('/api/controlled-substances/inventory', { headers: authHeaders() }),
+      ])
+      if (logsRes.ok) {
+        const data = await logsRes.json()
+        setCsLogs(data.logs || [])
+      }
+      if (invRes.ok) {
+        const data = await invRes.json()
+        setCsInventory(data.items || [])
+      }
+    } catch { /* silent */ }
+    setCsLoading(false)
+  }, [csDateFrom, csDateTo])
+
+  // Auto-fetch CS data when tab is active
+  useEffect(() => {
+    if (activeTab === 'controlled-substances') fetchCsData()
+  }, [activeTab, fetchCsData])
+
+  const fetchFinancialReport = useCallback(async () => {
+    setFinLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('period', finPeriod)
+      if (finPeriod === 'daily') {
+        params.set('date', finDate)
+      } else {
+        params.set('month', finMonth)
+      }
+      const res = await fetch(`/api/reports/financial?${params}`, { headers: authHeaders() })
+      if (res.ok) {
+        setFinData(await res.json())
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load financial report', variant: 'destructive' })
+    }
+    setFinLoading(false)
+  }, [finPeriod, finDate, finMonth, addToast])
+
+  useEffect(() => {
+    if (activeTab === 'financial') fetchFinancialReport()
+  }, [activeTab, finPeriod, finDate, finMonth]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchShiftReport = useCallback(async () => {
     setShiftLoading(true)
@@ -475,6 +563,110 @@ export function ReportsView() {
       fetchExpiredGoods()
     }
   }, [activeTab, fetchExpiredGoods])
+
+  // Fetch staff targets when tab activates
+  const fetchTargets = useCallback(async (period?: string) => {
+    setTargetsLoading(true)
+    try {
+      const p = period || targetPeriod
+      const res = await fetch(`/api/user-targets?progress=true&period=${p}`, { headers: authHeaders() })
+      if (res.ok) {
+        setTargetsData(await res.json())
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load staff targets', variant: 'destructive' })
+    } finally {
+      setTargetsLoading(false)
+    }
+  }, [targetPeriod, addToast])
+
+  useEffect(() => {
+    if (activeTab === 'staff-targets') {
+      fetchTargets()
+    }
+  }, [activeTab, fetchTargets])
+
+  // Save a target
+  const handleSaveTarget = async () => {
+    if (!targetForm.userId || !targetForm.targetValue) return
+    setTargetSaving(true)
+    try {
+      const res = await fetch('/api/user-targets', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: targetForm.userId,
+          period: targetPeriod,
+          targetType: targetForm.targetType,
+          targetValue: parseFloat(targetForm.targetValue),
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to save target')
+      setShowTargetDialog(false)
+      setTargetForm({ userId: '', targetType: 'SALES_AMOUNT', targetValue: '' })
+      fetchTargets()
+      addToast({ title: 'Target Saved', variant: 'success' })
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to save target', variant: 'destructive' })
+    } finally {
+      setTargetSaving(false)
+    }
+  }
+
+  // Fetch insurance claims when tab activates
+  const fetchClaims = useCallback(async (status?: string) => {
+    setClaimsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (status && status !== 'all') params.set('status', status)
+      const res = await fetch(`/api/insurance-claims?${params.toString()}`, { headers: authHeaders() })
+      if (res.ok) {
+        setClaims(await res.json())
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to load insurance claims', variant: 'destructive' })
+    } finally {
+      setClaimsLoading(false)
+    }
+  }, [addToast])
+
+  useEffect(() => {
+    if (activeTab === 'insurance-claims') {
+      fetchClaims(claimsFilter)
+    }
+  }, [activeTab, claimsFilter, fetchClaims])
+
+  // Update claim status
+  const handleUpdateClaim = async () => {
+    if (!selectedClaim || !claimAction) return
+    setClaimUpdating(true)
+    try {
+      const body: any = { id: selectedClaim.id, status: claimAction }
+      if (claimAction === 'APPROVED' || claimAction === 'PARTIALLY_APPROVED') {
+        body.approvedAmount = claimApprovedAmount || selectedClaim.totalAmount
+      }
+      if (claimAction === 'REJECTED') body.rejectionReason = claimRejectionReason
+      if (claimNotes) body.notes = claimNotes
+      const res = await fetch('/api/insurance-claims', {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('Failed to update claim')
+      setShowClaimDialog(false)
+      setSelectedClaim(null)
+      setClaimAction('')
+      setClaimApprovedAmount('')
+      setClaimRejectionReason('')
+      setClaimNotes('')
+      fetchClaims(claimsFilter)
+      addToast({ title: 'Claim Updated', description: `Status set to ${claimAction}`, variant: 'success' })
+    } catch {
+      addToast({ title: 'Error', description: 'Failed to update claim', variant: 'destructive' })
+    } finally {
+      setClaimUpdating(false)
+    }
+  }
 
   // CSV export for expired goods
   const exportExpiredCSV = useCallback(() => {
@@ -884,6 +1076,10 @@ export function ReportsView() {
             <TabsTrigger value="expired-goods" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Expired Goods</TabsTrigger>
             <TabsTrigger value="product-activity" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Product Activity</TabsTrigger>
             <TabsTrigger value="shifts" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Shift Reports</TabsTrigger>
+            <TabsTrigger value="staff-targets" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Staff Targets</TabsTrigger>
+            <TabsTrigger value="insurance-claims" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Insurance Claims</TabsTrigger>
+            <TabsTrigger value="financial" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Financial P&L</TabsTrigger>
+            <TabsTrigger value="controlled-substances" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Controlled Substances</TabsTrigger>
           </TabsList>
           <div className={['sales', 'user-sales', 'prescriptions'].includes(activeTab) ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
@@ -2957,7 +3153,587 @@ export function ReportsView() {
                 </CardContent>
               </Card>
         </TabsContent>
+
+        {/* Staff Targets Tab */}
+        <TabsContent value="staff-targets" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Staff Performance Targets
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="month"
+                    value={targetPeriod}
+                    onChange={(e) => setTargetPeriod(e.target.value)}
+                    className="h-8 w-36 text-xs"
+                  />
+                  {isSuperAdmin && (
+                    <Button size="sm" onClick={() => setShowTargetDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Set Target
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {targetsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : !targetsData?.targets?.length ? (
+                <EmptyState icon={Target} title="No Targets Set" description="Set performance targets for staff members" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Staff</TableHead>
+                        <TableHead className="text-xs">Target Type</TableHead>
+                        <TableHead className="text-xs text-right">Target</TableHead>
+                        <TableHead className="text-xs text-right">Actual</TableHead>
+                        <TableHead className="text-xs">Progress</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {targetsData.targets.map((t: any) => (
+                        <TableRow key={t.id}>
+                          <TableCell className="text-sm">
+                            <div>
+                              <p className="font-medium">{t.userName}</p>
+                              <p className="text-[10px] text-muted-foreground">{t.userEmail}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <Badge variant="secondary" className="text-[10px]">
+                              {t.targetType === 'SALES_AMOUNT' ? 'Sales Amount' : 'Transactions'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-right font-medium">
+                            {t.targetType === 'SALES_AMOUNT' ? formatCurrency(t.targetValue) : t.targetValue}
+                          </TableCell>
+                          <TableCell className="text-xs text-right font-medium">
+                            {t.targetType === 'SALES_AMOUNT' ? formatCurrency(t.actualValue) : t.actualValue}
+                          </TableCell>
+                          <TableCell className="w-40">
+                            <div className="space-y-1">
+                              <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${t.percentage >= 100 ? 'bg-emerald-500' : t.percentage >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                  style={{ width: `${Math.min(100, t.percentage)}%` }}
+                                />
+                              </div>
+                              <p className={`text-[10px] font-medium ${t.percentage >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                {t.percentage}%
+                              </p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Insurance Claims Tab */}
+        <TabsContent value="insurance-claims" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Insurance / NHIS Claims
+                </CardTitle>
+                <Select value={claimsFilter} onValueChange={setClaimsFilter}>
+                  <SelectTrigger className="h-8 w-36 text-xs">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="PARTIALLY_APPROVED">Partially Approved</SelectItem>
+                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {claimsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : claims.length === 0 ? (
+                <EmptyState icon={Shield} title="No Claims" description="Insurance claims will appear here when customers pay with insurance" />
+              ) : (
+                <ScrollArea className="max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Customer</TableHead>
+                        <TableHead className="text-xs">Provider</TableHead>
+                        <TableHead className="text-xs">Policy #</TableHead>
+                        <TableHead className="text-xs text-right">Total</TableHead>
+                        <TableHead className="text-xs text-right">Co-pay</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {claims.map((c: any) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="text-xs whitespace-nowrap">{formatDateTimeShort(c.createdAt)}</TableCell>
+                          <TableCell className="text-xs font-medium">{c.customerName}</TableCell>
+                          <TableCell className="text-xs">{c.insuranceProvider || '—'}</TableCell>
+                          <TableCell className="text-xs font-mono">{c.policyNumber || '—'}</TableCell>
+                          <TableCell className="text-xs text-right font-medium">{formatCurrency(c.totalAmount)}</TableCell>
+                          <TableCell className="text-xs text-right">{c.coPayAmount > 0 ? formatCurrency(c.coPayAmount) : '—'}</TableCell>
+                          <TableCell>
+                            <Badge className={`text-[10px] ${
+                              c.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                              c.status === 'PARTIALLY_APPROVED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                              c.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+                              c.status === 'PAID' ? 'bg-sky-100 text-sky-700 border-sky-200' :
+                              'bg-gray-100 text-gray-700 border-gray-200'
+                            }`}>
+                              {c.status.replace(/_/g, ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isSuperAdmin && c.status !== 'PAID' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[10px]"
+                                onClick={() => {
+                                  setSelectedClaim(c)
+                                  setClaimAction('')
+                                  setClaimApprovedAmount('')
+                                  setClaimRejectionReason('')
+                                  setClaimNotes('')
+                                  setShowClaimDialog(true)
+                                }}
+                              >
+                                Review
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Set Target Dialog */}
+      <Dialog open={showTargetDialog} onOpenChange={(open) => { if (!open) { setShowTargetDialog(false); setTargetForm({ userId: '', targetType: 'SALES_AMOUNT', targetValue: '' }) } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Staff Target</DialogTitle>
+            <DialogDescription>For period: {targetPeriod}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs">Target Type</Label>
+              <Select value={targetForm.targetType} onValueChange={(v) => setTargetForm(f => ({ ...f, targetType: v }))}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SALES_AMOUNT">Sales Amount</SelectItem>
+                  <SelectItem value="TRANSACTIONS_COUNT">Transaction Count</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Target Value</Label>
+              <Input
+                type="number"
+                min={1}
+                value={targetForm.targetValue}
+                onChange={(e) => setTargetForm(f => ({ ...f, targetValue: e.target.value }))}
+                placeholder={targetForm.targetType === 'SALES_AMOUNT' ? 'e.g. 5000' : 'e.g. 100'}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">User ID</Label>
+              <Input
+                value={targetForm.userId}
+                onChange={(e) => setTargetForm(f => ({ ...f, userId: e.target.value }))}
+                placeholder="Enter staff user ID"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowTargetDialog(false)}>Cancel</Button>
+            <Button disabled={targetSaving || !targetForm.userId || !targetForm.targetValue} onClick={handleSaveTarget} className="bg-emerald-600 hover:bg-emerald-700">
+              {targetSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save Target
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Claim Review Dialog */}
+      <Dialog open={showClaimDialog} onOpenChange={(open) => { if (!open) { setShowClaimDialog(false); setSelectedClaim(null) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Review Insurance Claim
+            </DialogTitle>
+            <DialogDescription>
+              {selectedClaim?.customerName} — {selectedClaim?.insuranceProvider || 'No provider'}
+              {selectedClaim?.policyNumber && ` • Policy: ${selectedClaim.policyNumber}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedClaim && (
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><p className="text-muted-foreground text-xs">Total Amount</p><p className="font-semibold">{formatCurrency(selectedClaim.totalAmount)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Co-pay</p><p className="font-semibold">{formatCurrency(selectedClaim.coPayAmount)}</p></div>
+              </div>
+              {selectedClaim.approvedAmount !== null && (
+                <div className="text-sm"><p className="text-muted-foreground text-xs">Previously Approved</p><p className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedClaim.approvedAmount)}</p></div>
+              )}
+              <div>
+                <Label className="text-xs">Action *</Label>
+                <Select value={claimAction} onValueChange={setClaimAction}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select action" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="APPROVED">Approve (Full)</SelectItem>
+                    <SelectItem value="PARTIALLY_APPROVED">Partially Approve</SelectItem>
+                    <SelectItem value="REJECTED">Reject</SelectItem>
+                    <SelectItem value="PAID">Mark as Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(claimAction === 'APPROVED' || claimAction === 'PARTIALLY_APPROVED') && (
+                <div>
+                  <Label className="text-xs">Approved Amount</Label>
+                  <Input type="number" value={claimApprovedAmount} onChange={e => setClaimApprovedAmount(e.target.value)} placeholder={String(selectedClaim.totalAmount)} />
+                </div>
+              )}
+              {claimAction === 'REJECTED' && (
+                <div>
+                  <Label className="text-xs">Rejection Reason *</Label>
+                  <Textarea value={claimRejectionReason} onChange={e => setClaimRejectionReason(e.target.value)} placeholder="Reason for rejection..." rows={2} />
+                </div>
+              )}
+              <div>
+                <Label className="text-xs">Notes (optional)</Label>
+                <Input value={claimNotes} onChange={e => setClaimNotes(e.target.value)} placeholder="Internal notes..." />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowClaimDialog(false)}>Cancel</Button>
+            <Button disabled={claimUpdating || !claimAction} onClick={handleUpdateClaim} className="bg-emerald-600 hover:bg-emerald-700">
+              {claimUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Update Claim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Financial P&L Tab */}
+      <TabsContent value="financial" className="space-y-4">
+        {/* Period selector */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs">Period:</Label>
+                <Select value={finPeriod} onValueChange={(v: any) => setFinPeriod(v)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Today</SelectItem>
+                    <SelectItem value="monthly">This Month</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {finPeriod === 'daily' ? (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">Date:</Label>
+                  <DateInput value={finDate} onChange={(iso) => setFinDate(iso?.split('T')[0] || '')} className="h-8 w-36 text-xs" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">Month:</Label>
+                  <Input type="month" value={finMonth} onChange={(e) => setFinMonth(e.target.value)} className="h-8 w-36 text-xs" />
+                </div>
+              )}
+              <Button size="sm" variant="outline" onClick={fetchFinancialReport} disabled={finLoading}>
+                {finLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              </Button>
+              {finData && (
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {finData.dateFrom} to {finData.dateTo}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {finLoading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        ) : finData ? (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+              <Card className="card-hover transition-all duration-200">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20 flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{formatCurrency(finData.revenue)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Revenue</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="card-hover transition-all duration-200">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20 flex items-center justify-center">
+                    <ArrowDown className="h-4 w-4 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{formatCurrency(finData.costOfGoodsSold)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">COGS</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="card-hover transition-all duration-200">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-teal-50 dark:bg-teal-900/30 dark:bg-teal-900/20 flex items-center justify-center">
+                    {finData.grossProfit >= 0 ? <ArrowUp className="h-4 w-4 text-teal-600" /> : <ArrowDown className="h-4 w-4 text-red-500" />}
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{formatCurrency(finData.grossProfit)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Gross Profit</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="card-hover transition-all duration-200">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${finData.netProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20'}`}>
+                    <DollarSign className={`h-4 w-4 ${finData.netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold ${finData.netProfit >= 0 ? '' : 'text-red-500'}`}>{formatCurrency(finData.netProfit)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Net Profit (est.)</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Secondary metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="card-hover"><CardContent className="p-3 text-center"><p className="text-lg font-bold">{finData.transactionCount}</p><p className="text-[10px] text-muted-foreground">Transactions</p></CardContent></Card>
+              <Card className="card-hover"><CardContent className="p-3 text-center"><p className="text-lg font-bold">{formatCurrency(finData.averageTransactionValue)}</p><p className="text-[10px] text-muted-foreground">Avg Transaction</p></CardContent></Card>
+              <Card className="card-hover"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-red-500">{formatCurrency(finData.refunds)}</p><p className="text-[10px] text-muted-foreground">Refunds</p></CardContent></Card>
+              <Card className="card-hover"><CardContent className="p-3 text-center"><p className="text-lg font-bold">{formatCurrency(finData.taxesCollected)}</p><p className="text-[10px] text-muted-foreground">Taxes Collected</p></CardContent></Card>
+            </div>
+
+            {/* Charts row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Payment Method Breakdown */}
+              <Card>
+                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Wallet className="h-4 w-4" /> Payment Methods</CardTitle></CardHeader>
+                <CardContent>
+                  {finData.paymentMethodBreakdown.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">No transactions</p>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie data={finData.paymentMethodBreakdown} dataKey="amount" nameKey="method" cx="50%" cy="50%" outerRadius={70} innerRadius={35} paddingAngle={2}>
+                              {finData.paymentMethodBreakdown.map((_: any, i: number) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(val: number) => formatCurrency(val)} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-1.5 min-w-[120px]">
+                        {finData.paymentMethodBreakdown.map((pm: any, i: number) => (
+                          <div key={pm.method} className="flex items-center gap-2 text-xs">
+                            <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="flex-1 truncate">{pm.method}</span>
+                            <span className="font-medium">{pm.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Top Selling Products */}
+              <Card>
+                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Top Selling Products</CardTitle></CardHeader>
+                <CardContent>
+                  {finData.topSellingProducts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">No sales data</p>
+                  ) : (
+                    <div className="max-h-[250px] overflow-y-auto">
+                      <Table>
+                        <TableHeader><TableRow><TableHead className="text-xs">Product</TableHead><TableHead className="text-xs text-right">Qty</TableHead><TableHead className="text-xs text-right">Revenue</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {finData.topSellingProducts.slice(0, 10).map((p: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-xs font-medium truncate max-w-[160px]">{p.name}</TableCell>
+                              <TableCell className="text-xs text-right">{p.qty}</TableCell>
+                              <TableCell className="text-xs text-right font-medium">{formatCurrency(p.revenue)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Daily Trend (monthly only) */}
+            {finPeriod === 'monthly' && finData.dailyTrend && finData.dailyTrend.length > 1 && (
+              <Card>
+                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Daily Revenue Trend</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={finData.dailyTrend}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCurrency(v)} />
+                      <Tooltip formatter={(val: number) => formatCurrency(val)} labelFormatter={(l: string) => `Date: ${l}`} />
+                      <Legend />
+                      <Line type="monotone" dataKey="revenue" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} name="Revenue" />
+                      <Line type="monotone" dataKey="cogs" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} name="COGS" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        ) : (
+          <EmptyState icon={FileText} title="No financial data" description="Select a period and click refresh to load" />
+        )}
+      </TabsContent>
+
+      {/* Controlled Substances Tab */}
+      <TabsContent value="controlled-substances" className="space-y-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Label className="text-xs">From:</Label>
+              <DateInput value={csDateFrom} onChange={(iso) => setCsDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/80" />
+              <Label className="text-xs">To:</Label>
+              <DateInput value={csDateTo} onChange={(iso) => setCsDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/80" />
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={fetchCsData}>
+                <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Current Inventory */}
+        <Card>
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Shield className="h-4 w-4 text-amber-600" />
+              Current Controlled Substance Inventory
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {csLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : csInventory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No controlled substances found in inventory.</p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Product</TableHead>
+                      <TableHead className="text-xs">DEA</TableHead>
+                      <TableHead className="text-xs text-right">Stock</TableHead>
+                      <TableHead className="text-xs text-right">Total Dispensed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {csInventory.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="text-xs">
+                          <div className="font-medium">{item.name}</div>
+                          <div className="text-muted-foreground">{item.strength} · {item.dosageForm}</div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {item.deaSchedule ? <Badge variant="outline" className="text-[10px]">{item.deaSchedule}</Badge> : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-right font-medium">
+                          <span className={item.stock <= 10 ? 'text-red-600 dark:text-red-400' : ''}>{item.stock}</span>
+                        </TableCell>
+                        <TableCell className="text-xs text-right">{item.totalDispensed}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Dispensing Log */}
+        <Card>
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold">Dispensing Log</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {csLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : csLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No dispensing events recorded.</p>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Date</TableHead>
+                      <TableHead className="text-xs">Product</TableHead>
+                      <TableHead className="text-xs text-right">Qty</TableHead>
+                      <TableHead className="text-xs">Dispensed By</TableHead>
+                      <TableHead className="text-xs">Verified By</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {csLogs.map((log: any) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-xs whitespace-nowrap">{formatDateTimeShort(log.createdAt)}</TableCell>
+                        <TableCell className="text-xs font-medium">{log.productName}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{log.quantity}</TableCell>
+                        <TableCell className="text-xs">{log.dispenserName}</TableCell>
+                        <TableCell className="text-xs">{log.verifierName}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteProduct} onOpenChange={(open) => { if (!open) setDeleteProduct(null) }}>

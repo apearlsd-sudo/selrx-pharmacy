@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   FileText, Monitor, Info, Globe, CalendarDays, Clock, Database,
   Download, Upload, AlertTriangle, Loader2, CheckCircle2, XCircle,
-  ShieldCheck, Type, Coins, Printer,
+  ShieldCheck, Type, Coins, Printer, Plus,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -16,6 +17,9 @@ import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
@@ -831,6 +835,309 @@ function _BackupSection({ autoOnly = false }: { autoOnly?: boolean }) {
           </div>
         </div>
       </CardContent>
+    </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Pricing Tiers
+// ═══════════════════════════════════════════════════════════════════
+
+interface PricingTier {
+  id: string
+  name: string
+  description: string | null
+  discountPercent: number
+  isDefault: boolean
+  isActive: boolean
+  isSystem: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function PricingTiersSection() {
+  const addToast = useAppStore((s) => s.addToast)
+  const [tiers, setTiers] = useState<PricingTier[]>([])
+  const [loading, setLoading] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingTier, setEditingTier] = useState<PricingTier | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [formName, setFormName] = useState('')
+  const [formDesc, setFormDesc] = useState('')
+  const [formDiscount, setFormDiscount] = useState('0')
+  const [formDefault, setFormDefault] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/pricing-tiers', { headers: authHeaders() })
+        if (res.ok && !cancelled) setTiers(await res.json())
+      } catch { /* silent */ }
+      if (!cancelled) setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const reloadTiers = () => {
+    fetch('/api/pricing-tiers', { headers: authHeaders() })
+      .then((res) => res.ok ? res.json() : [])
+      .then(setTiers)
+      .catch(() => {})
+  }
+
+  const openCreate = () => {
+    setEditingTier(null)
+    setFormName('')
+    setFormDesc('')
+    setFormDiscount('0')
+    setFormDefault(false)
+    setDialogOpen(true)
+  }
+
+  const openEdit = (tier: PricingTier) => {
+    setEditingTier(tier)
+    setFormName(tier.name)
+    setFormDesc(tier.description || '')
+    setFormDiscount(String(tier.discountPercent))
+    setFormDefault(tier.isDefault)
+    setDialogOpen(true)
+  }
+
+  const handleSave = async () => {
+    if (!formName.trim()) return
+    setSaving(true)
+    try {
+      const body: any = {
+        name: formName.trim(),
+        description: formDesc.trim() || null,
+        discountPercent: parseFloat(formDiscount) || 0,
+        isDefault: formDefault,
+        isActive: true,
+      }
+      if (editingTier) {
+        body.id = editingTier.id
+      }
+      const method = editingTier ? 'PATCH' : 'POST'
+      const res = await fetch('/api/pricing-tiers', {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        addToast({ title: editingTier ? 'Tier Updated' : 'Tier Created', description: `${formName.trim()} saved successfully` })
+        setDialogOpen(false)
+        reloadTiers()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        addToast({ title: 'Error', description: data.error || 'Failed to save tier', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+    }
+    setSaving(false)
+  }
+
+  const handleToggleActive = async (tier: PricingTier) => {
+    try {
+      const res = await fetch('/api/pricing-tiers', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: tier.id, isActive: !tier.isActive }),
+      })
+      if (res.ok) {
+        reloadTiers()
+      }
+    } catch { /* silent */ }
+  }
+
+  const handleDelete = async (tier: PricingTier) => {
+    if (!confirm(`Delete "${tier.name}"? This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/pricing-tiers?id=${tier.id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      if (res.ok) {
+        addToast({ title: 'Deleted', description: `${tier.name} has been deleted` })
+        reloadTiers()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        addToast({ title: 'Error', description: data.error || 'Failed to delete', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Coins className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            Pricing Tiers
+          </CardTitle>
+          <Button size="sm" className="h-7 text-xs" onClick={openCreate}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Add Tier
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : tiers.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Coins className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No pricing tiers yet</p>
+            <p className="text-xs mt-1">Create tiers to apply discounts at the POS</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/50 border-b">
+                    <th className="text-left font-medium text-muted-foreground px-3 py-2">Name</th>
+                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-20">Discount %</th>
+                    <th className="text-center font-medium text-muted-foreground px-3 py-2 w-16">Active</th>
+                    <th className="text-right font-medium text-muted-foreground px-3 py-2 w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {tiers.map((tier) => (
+                    <tr key={tier.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{tier.name}</span>
+                          {tier.isDefault && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Default</Badge>
+                          )}
+                        </div>
+                        {tier.description && (
+                          <p className="text-muted-foreground mt-0.5 text-[11px]">{tier.description}</p>
+                        )}
+                      </td>
+                      <td className="text-center px-3 py-2.5">
+                        <span className={`font-semibold ${tier.discountPercent > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                          {tier.discountPercent > 0 ? `-${tier.discountPercent}%` : '0%'}
+                        </span>
+                      </td>
+                      <td className="text-center px-3 py-2.5">
+                        <Switch
+                          checked={tier.isActive}
+                          onCheckedChange={() => handleToggleActive(tier)}
+                          className="scale-75"
+                        />
+                      </td>
+                      <td className="text-right px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEdit(tier)}
+                          >
+                            <Type className="h-3.5 w-3.5" />
+                          </Button>
+                          {!tier.isSystem && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                              onClick={() => handleDelete(tier)}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <Separator className="my-4" />
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 dark:bg-emerald-900/10 p-3 flex items-start gap-2">
+          <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+          <div className="text-xs text-emerald-700 dark:text-emerald-400">
+            <p className="font-medium">How Pricing Tiers Work</p>
+            <p className="mt-0.5 text-emerald-600 dark:text-emerald-500">Pricing tiers apply a percentage discount to the cart subtotal before tax. Set a default tier to auto-apply it at the POS. Tiers are selectable in the POS payment panel.</p>
+          </div>
+        </div>
+      </CardContent>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">
+              {editingTier ? 'Edit Pricing Tier' : 'Create Pricing Tier'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {editingTier ? `Updating ${editingTier.name}` : 'Define a new pricing tier with a discount percentage.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs">Name</Label>
+              <Input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="e.g. Retail, Wholesale, VIP"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Description (optional)</Label>
+              <Textarea
+                value={formDesc}
+                onChange={(e) => setFormDesc(e.target.value)}
+                placeholder="Brief description of this tier"
+                className="text-sm min-h-[60px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Discount Percentage</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={formDiscount}
+                  onChange={(e) => setFormDiscount(e.target.value)}
+                  className="h-9 text-sm pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">0% = no discount, 10 = 10% off, 25 = 25% off</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={formDefault} onCheckedChange={setFormDefault} />
+              <Label className="text-xs">Set as default tier (auto-selected at POS)</Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="text-xs">Cancel</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+              onClick={handleSave}
+              disabled={!formName.trim() || saving}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              {editingTier ? 'Update' : 'Create'} Tier
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Users, Search, Plus, Edit, Eye, Phone, Mail, Shield, X,
   Download, Loader2, ShoppingBag, ClipboardList, DollarSign,
-  Award, Minus,
+  Award, Minus, Wallet, Receipt, Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,11 +17,15 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAppStore } from '@/store/app-store'
 import { formatDate, formatDateTime } from '@/lib/date-utils'
+import { formatCurrency } from '@/lib/currency'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { authHeaders } from '@/lib/auth-headers'
@@ -114,6 +118,30 @@ export function CustomersView() {
   const [loyaltyReason, setLoyaltyReason] = useState('')
   const [loyaltyInfo, setLoyaltyInfo] = useState<any>(null)
   const [loyaltyLoading, setLoyaltyLoading] = useState(false)
+  // Loyalty transactions (from /api/loyalty)
+  const [loyaltyTransactions, setLoyaltyTransactions] = useState<any[]>([])
+  const [redeemPointsInput, setRedeemPointsInput] = useState('')
+  const [redeemDialogOpen, setRedeemDialogOpen] = useState(false)
+  const [redeemLoading, setRedeemLoading] = useState(false)
+
+  // Medication history state
+  const [medHistory, setMedHistory] = useState<any>(null)
+  const [medHistoryLoading, setMedHistoryLoading] = useState(false)
+
+  // Notification dialog state
+  const [showNotifDialog, setShowNotifDialog] = useState(false)
+  const [notifType, setNotifType] = useState('REFILL_REMINDER')
+  const [notifMessage, setNotifMessage] = useState('')
+  const [notifSending, setNotifSending] = useState(false)
+
+  // Credit account state
+  const [creditSummary, setCreditSummary] = useState<{ totalOwed: number; totalPaid: number; outstandingBalance: number; lastPaymentDate: string | null } | null>(null)
+  const [creditLedger, setCreditLedger] = useState<any[]>([])
+  const [creditLoading, setCreditLoading] = useState(false)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentDescription, setPaymentDescription] = useState('')
+  const [paymentSaving, setPaymentSaving] = useState(false)
 
   // TASK 4: CSV export state
   const [exporting, setExporting] = useState(false)
@@ -147,6 +175,8 @@ export function CustomersView() {
     setDetailLoading(true)
     setCustomerDetail(null)
     setLoyaltyInfo(null)
+    setCreditSummary(null)
+    setCreditLedger([])
     try {
       const res = await fetch(`/api/customers/${customer.id}?include=transactions,prescriptions`, {
         headers: authHeaders(),
@@ -165,6 +195,15 @@ export function CustomersView() {
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setLoyaltyInfo(data) })
       .catch(() => {})
+    // Fetch loyalty transactions from /api/loyalty
+    fetch(`/api/loyalty?customerId=${customer.id}`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setLoyaltyTransactions(data.transactions || []) })
+      .catch(() => {})
+    // Fetch credit summary + ledger (non-blocking)
+    fetchCreditData(customer.id)
+    // Fetch medication history
+    fetchMedHistory(customer.id)
   }
 
   // ── Form dialogs ───────────────────────────────────────────────────────
@@ -274,6 +313,94 @@ export function CustomersView() {
   const tierColor = TIER_COLORS[selectedCustomer?.loyaltyTier || 'BRONZE'] || TIER_COLORS.BRONZE
   const tierDiscount = loyaltyInfo?.tierDiscount ?? 0
 
+  // ── Credit account handlers ─────────────────────────────────────────
+  const fetchCreditData = async (customerId: string) => {
+    setCreditLoading(true)
+    try {
+      const [summaryRes, ledgerRes] = await Promise.all([
+        fetch(`/api/customer-credits?action=summary&customerId=${customerId}`, { headers: authHeaders() }),
+        fetch(`/api/customer-credits?customerId=${customerId}`, { headers: authHeaders() }),
+      ])
+      if (summaryRes.ok) setCreditSummary(await summaryRes.json())
+      if (ledgerRes.ok) setCreditLedger(await ledgerRes.json())
+    } catch {
+      /* silent */
+    } finally {
+      setCreditLoading(false)
+    }
+  }
+
+  const fetchMedHistory = async (customerId: string) => {
+    setMedHistoryLoading(true)
+    try {
+      const res = await fetch(`/api/patient-records?customerId=${customerId}`, { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setMedHistory(data)
+      }
+    } catch { /* silent */ }
+    setMedHistoryLoading(false)
+  }
+
+  const handleSendNotification = async () => {
+    if (!selectedCustomer || !notifMessage.trim()) return
+    setNotifSending(true)
+    try {
+      const res = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          type: notifType,
+          message: notifMessage.trim(),
+        }),
+      })
+      if (res.ok) {
+        addToast({ title: 'Notification Sent', description: `${notifType} notification queued.`, variant: 'success' })
+        setShowNotifDialog(false)
+        setNotifMessage('')
+      } else {
+        const err = await res.json()
+        addToast({ title: 'Failed', description: err.error || 'Failed to send', variant: 'destructive' })
+      }
+    } catch {
+      addToast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+    } finally {
+      setNotifSending(false)
+    }
+  }
+
+  const handleRecordPayment = async () => {
+    if (!selectedCustomer) return
+    const amt = parseFloat(paymentAmount)
+    if (!amt || amt <= 0) return
+    setPaymentSaving(true)
+    try {
+      const res = await fetch('/api/customer-credits', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          amount: -amt,
+          description: paymentDescription || 'Payment received',
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed')
+      }
+      addToast({ title: 'Payment Recorded', description: `${formatCurrency(amt)} payment applied`, variant: 'success' })
+      setShowPaymentDialog(false)
+      setPaymentAmount('')
+      setPaymentDescription('')
+      fetchCreditData(selectedCustomer.id)
+    } catch (err) {
+      addToast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to record payment', variant: 'destructive' })
+    } finally {
+      setPaymentSaving(false)
+    }
+  }
+
   // ── Loyalty adjustment handler ─────────────────────────────────────────
   const handleLoyaltyAdjust = async () => {
     if (!selectedCustomer || !loyaltyAction) return
@@ -297,10 +424,59 @@ export function CustomersView() {
       setLoyaltyAmount('')
       setLoyaltyReason('')
       addToast({ title: 'Points Updated', description: `${data.loyaltyPoints} points — ${data.loyaltyTier} tier`, variant: 'success' })
+      // Refresh loyalty transactions
+      fetch(`/api/loyalty?customerId=${selectedCustomer.id}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setLoyaltyTransactions(d.transactions || []) })
+        .catch(() => {})
     } catch (err) {
       addToast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
     }
     setLoyaltyLoading(false)
+  }
+
+  // ── Redeem points handler (via /api/loyalty) ─────────────────────────
+  const handleRedeemPoints = async () => {
+    if (!selectedCustomer) return
+    const pts = parseInt(redeemPointsInput)
+    if (!pts || pts <= 0) return
+    const currentPts = selectedCustomer.loyaltyPoints || 0
+    if (pts > currentPts) {
+      addToast({ title: 'Insufficient Points', description: `Only ${currentPts} points available`, variant: 'destructive' })
+      return
+    }
+    setRedeemLoading(true)
+    try {
+      const res = await fetch('/api/loyalty', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          points: -pts,
+          action: 'REDEEMED',
+          description: 'Points redeemed by customer',
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to redeem')
+      }
+      const data = await res.json()
+      setSelectedCustomer({ ...selectedCustomer, loyaltyPoints: data.balanceAfter, loyaltyTier: data.newTier })
+      setLoyaltyInfo({ ...loyaltyInfo, loyaltyPoints: data.balanceAfter, loyaltyTier: data.newTier })
+      setRedeemDialogOpen(false)
+      setRedeemPointsInput('')
+      addToast({ title: 'Points Redeemed', description: `${pts} points redeemed — ${data.balanceAfter} remaining`, variant: 'success' })
+      // Refresh loyalty transactions
+      fetch(`/api/loyalty?customerId=${selectedCustomer.id}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setLoyaltyTransactions(d.transactions || []) })
+        .catch(() => {})
+    } catch (err) {
+      addToast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to redeem points', variant: 'destructive' })
+    } finally {
+      setRedeemLoading(false)
+    }
   }
 
   return (
@@ -585,7 +761,60 @@ export function CustomersView() {
                 </div>
               </div>
 
-              {/* Tabs: Purchase History | Prescriptions */}
+              {/* Credit Account Section */}
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-emerald-500" />
+                    Credit Account
+                  </h4>
+                  {(creditSummary?.outstandingBalance ?? 0) > 0 && (
+                    <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowPaymentDialog(true)}>
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      Record Payment
+                    </Button>
+                  )}
+                </div>
+                {creditLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : creditSummary ? (
+                  <div className="space-y-3">
+                    {/* Outstanding Balance - Prominent */}
+                    <div className={`rounded-lg p-3 flex items-center justify-between ${
+                      creditSummary.outstandingBalance > 0
+                        ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                        : 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <Receipt className={`h-4 w-4 ${creditSummary.outstandingBalance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                        <span className="text-xs font-medium text-muted-foreground">Outstanding Balance</span>
+                      </div>
+                      <span className={`text-lg font-bold ${creditSummary.outstandingBalance > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                        {formatCurrency(creditSummary.outstandingBalance)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground text-xs">Total Credit Given</p>
+                        <p className="font-semibold">{formatCurrency(creditSummary.totalOwed)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Total Paid</p>
+                        <p className="font-semibold">{formatCurrency(creditSummary.totalPaid)}</p>
+                      </div>
+                    </div>
+                    {creditSummary.lastPaymentDate && (
+                      <p className="text-xs text-muted-foreground">Last payment: {formatDateTime(creditSummary.lastPaymentDate)}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No credit history</p>
+                )}
+              </div>
+
+              {/* Tabs: Purchase History | Prescriptions | Credit Ledger */}
               {!detailLoading && customerDetail && (
                 <Tabs defaultValue="purchases">
                   <TabsList>
@@ -596,6 +825,18 @@ export function CustomersView() {
                     <TabsTrigger value="prescriptions" className="gap-1.5">
                       <ClipboardList className="h-3.5 w-3.5" />
                       Prescriptions
+                    </TabsTrigger>
+                    <TabsTrigger value="credit-ledger" className="gap-1.5">
+                      <Wallet className="h-3.5 w-3.5" />
+                      Credit Ledger
+                    </TabsTrigger>
+                    <TabsTrigger value="loyalty" className="gap-1.5">
+                      <Star className="h-3.5 w-3.5" />
+                      Loyalty
+                    </TabsTrigger>
+                    <TabsTrigger value="medication" className="gap-1.5">
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      Medication History
                     </TabsTrigger>
                   </TabsList>
 
@@ -668,6 +909,169 @@ export function CustomersView() {
                       </div>
                     )}
                   </TabsContent>
+
+                  {/* Credit Ledger Tab */}
+                  <TabsContent value="credit-ledger">
+                    {creditLedger.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">No credit transactions</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Date</TableHead>
+                              <TableHead className="text-xs">Description</TableHead>
+                              <TableHead className="text-xs text-right">Amount</TableHead>
+                              <TableHead className="text-xs text-right">Balance</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {creditLedger.map((entry: any) => (
+                              <TableRow key={entry.id}>
+                                <TableCell className="text-xs whitespace-nowrap">{formatDateTime(entry.createdAt)}</TableCell>
+                                <TableCell className="text-xs max-w-[120px] truncate">{entry.description || '—'}</TableCell>
+                                <TableCell className={`text-xs text-right font-medium ${entry.amount > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                  {entry.amount > 0 ? '+' : ''}{formatCurrency(entry.amount)}
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-medium">{formatCurrency(entry.balance)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Loyalty Tab */}
+                  <TabsContent value="loyalty">
+                    {loyaltyTransactions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">No loyalty transactions yet</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Date</TableHead>
+                              <TableHead className="text-xs">Action</TableHead>
+                              <TableHead className="text-xs">Description</TableHead>
+                              <TableHead className="text-xs text-right">Points</TableHead>
+                              <TableHead className="text-xs text-right">Balance</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {loyaltyTransactions.map((tx: any) => (
+                              <TableRow key={tx.id}>
+                                <TableCell className="text-xs whitespace-nowrap">{formatDateTime(tx.createdAt)}</TableCell>
+                                <TableCell>
+                                  <Badge className={`text-[10px] ${
+                                    tx.action === 'EARNED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                    tx.action === 'REDEEMED' ? 'bg-red-100 text-red-700 border-red-200' :
+                                    'bg-gray-100 text-gray-700 border-gray-200'
+                                  }`}>
+                                    {tx.action}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs max-w-[120px] truncate">{tx.description || '—'}</TableCell>
+                                <TableCell className={`text-xs text-right font-medium ${tx.points > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                  {tx.points > 0 ? '+' : ''}{tx.points}
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-medium">{tx.balanceAfter}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <Button size="sm" variant="outline" onClick={() => setRedeemDialogOpen(true)}>
+                        <Minus className="h-3.5 w-3.5 mr-1" />
+                        Redeem Points
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Medication History Tab */}
+                  <TabsContent value="medication">
+                    {medHistoryLoading ? (
+                      <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+                    ) : medHistory ? (
+                      <div className="space-y-4">
+                        {medHistory.customer?.allergies?.length > 0 && (
+                          <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+                            <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5 flex items-center gap-1.5">
+                              <Shield className="h-3.5 w-3.5" /> Allergies
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {medHistory.customer.allergies.map((a: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-[10px] border-red-300 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30">{a}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {medHistory.prescriptions?.length > 0 ? (
+                          <div className="max-h-64 overflow-y-auto">
+                            <p className="text-xs font-medium mb-2">Prescriptions ({medHistory.prescriptions.length})</p>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Date</TableHead>
+                                  <TableHead className="text-xs">Rx #</TableHead>
+                                  <TableHead className="text-xs">Medication</TableHead>
+                                  <TableHead className="text-xs">Prescriber</TableHead>
+                                  <TableHead className="text-xs">Status</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {medHistory.prescriptions.map((rx: any) => (
+                                  <TableRow key={rx.id}>
+                                    <TableCell className="text-xs whitespace-nowrap">{formatDate(rx.createdAt)}</TableCell>
+                                    <TableCell className="text-xs font-mono">{rx.rxNumber}</TableCell>
+                                    <TableCell className="text-xs">
+                                      <div className="font-medium">{rx.productName}</div>
+                                      {rx.dosage && <div className="text-muted-foreground">{rx.dosage} × {rx.quantity}</div>}
+                                    </TableCell>
+                                    <TableCell className="text-xs">{rx.prescriberName || '—'}</TableCell>
+                                    <TableCell>
+                                      <Badge className={`text-[10px] ${RX_STATUS_COLORS[rx.status] || 'bg-gray-100 text-gray-700 dark:text-gray-300'}`}>{rx.status}</Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-4">No prescription records</p>
+                        )}
+                        {medHistory.transactions?.length > 0 && (
+                          <div className="max-h-64 overflow-y-auto">
+                            <p className="text-xs font-medium mb-2">Dispensed Medications</p>
+                            {medHistory.transactions.map((tx: any) => (
+                              <div key={tx.id} className="mb-3">
+                                <p className="text-[10px] text-muted-foreground mb-1">{formatDate(tx.createdAt)} — {tx.transactionNo}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {tx.items?.map((item: any, idx: number) => (
+                                    <Badge key={idx} variant="secondary" className="text-[10px]">{item.productName} ×{item.quantity}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="pt-2 border-t">
+                          <Button size="sm" variant="outline" onClick={() => {
+                            setNotifType('REFILL_REMINDER')
+                            setNotifMessage(`Hello ${selectedCustomer?.firstName}, this is a reminder from SelRx Pharmacy regarding your medication refills.`)
+                            setShowNotifDialog(true)
+                          }}>
+                            <Phone className="h-3.5 w-3.5 mr-1.5" />
+                            Send Notification
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-6">No medication records available.</p>
+                    )}
+                  </TabsContent>
                 </Tabs>
               )}
 
@@ -685,6 +1089,55 @@ export function CustomersView() {
             <Button variant="outline" onClick={() => setDetailDialog(false)}>Close</Button>
             <Button onClick={() => { setDetailDialog(false); openEditDialog(selectedCustomer!) }} className="bg-emerald-600 hover:bg-emerald-700">
               Edit Customer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={(open) => { if (!open) { setShowPaymentDialog(false); setPaymentAmount(''); setPaymentDescription('') } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-700">
+              <DollarSign className="h-5 w-5" />
+              Record Credit Payment
+            </DialogTitle>
+            <DialogDescription>
+              For {selectedCustomer?.firstName} {selectedCustomer?.lastName}
+              {creditSummary && creditSummary.outstandingBalance > 0 && (
+                <span className="block mt-1 font-semibold text-amber-600 dark:text-amber-400">
+                  Outstanding: {formatCurrency(creditSummary.outstandingBalance)}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Payment Amount *</label>
+              <Input
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={paymentAmount}
+                onChange={e => setPaymentAmount(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Description (optional)</label>
+              <Input
+                value={paymentDescription}
+                onChange={e => setPaymentDescription(e.target.value)}
+                placeholder="e.g. Cash payment received"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowPaymentDialog(false); setPaymentAmount(''); setPaymentDescription('') }}>Cancel</Button>
+            <Button disabled={paymentSaving || !paymentAmount || parseFloat(paymentAmount) <= 0} onClick={handleRecordPayment} className="bg-emerald-600 hover:bg-emerald-700">
+              {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Record Payment
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -714,6 +1167,58 @@ export function CustomersView() {
             <Button disabled={loyaltyLoading || !loyaltyAmount} onClick={handleLoyaltyAdjust}>
               {loyaltyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {loyaltyAction === 'add' ? 'Add' : 'Redeem'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Redeem Points Dialog (via /api/loyalty) */}
+      <Dialog open={redeemDialogOpen} onOpenChange={(open) => { if (!open) { setRedeemDialogOpen(false); setRedeemPointsInput('') } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <Star className="h-5 w-5" />
+              Redeem Points
+            </DialogTitle>
+            <DialogDescription>
+              For {selectedCustomer?.firstName} {selectedCustomer?.lastName}
+              <span className="block mt-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                Available: {selectedCustomer?.loyaltyPoints || 0} pts
+              </span>
+              <span className="block mt-1 text-xs text-muted-foreground">
+                1 pt = {formatCurrency(1)} (bonus: {(loyaltyInfo?.bonusPercent ?? 0)}% at {loyaltyInfo?.tier || selectedCustomer?.loyaltyTier || 'BRONZE'} tier)
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Points to Redeem</label>
+              <Input
+                type="number"
+                min={1}
+                max={selectedCustomer?.loyaltyPoints || 0}
+                value={redeemPointsInput}
+                onChange={e => setRedeemPointsInput(e.target.value)}
+                placeholder="Enter points"
+                autoFocus
+              />
+            </div>
+            {redeemPointsInput && parseInt(redeemPointsInput) > 0 && (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Redemption Value</span>
+                  <span className="font-semibold text-amber-700 dark:text-amber-400">
+                    {formatCurrency(parseInt(redeemPointsInput) * (1 + (loyaltyInfo?.bonusPercent ?? 0) / 100))}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setRedeemDialogOpen(false); setRedeemPointsInput('') }}>Cancel</Button>
+            <Button disabled={redeemLoading || !redeemPointsInput || parseInt(redeemPointsInput) <= 0} onClick={handleRedeemPoints} className="bg-amber-600 hover:bg-amber-700">
+              {redeemLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Redeem
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -775,6 +1280,41 @@ export function CustomersView() {
             <Button variant="outline" onClick={() => setFormDialog(false)}>Cancel</Button>
             <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700" disabled={!form.firstName || !form.lastName}>
               {editingCustomer ? 'Update' : 'Create'} Customer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notification Dialog */}
+      <Dialog open={showNotifDialog} onOpenChange={setShowNotifDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Notification</DialogTitle>
+            <DialogDescription>Send a notification to {selectedCustomer?.firstName} {selectedCustomer?.lastName}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select value={notifType} onValueChange={setNotifType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="REFILL_REMINDER">Refill Reminder</SelectItem>
+                  <SelectItem value="CREDIT_DUE">Credit Due</SelectItem>
+                  <SelectItem value="PRESCRIPTION_READY">Prescription Ready</SelectItem>
+                  <SelectItem value="PROMOTIONAL">Promotional</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea value={notifMessage} onChange={(e) => setNotifMessage(e.target.value)} rows={4} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotifDialog(false)}>Cancel</Button>
+            <Button onClick={handleSendNotification} disabled={notifSending || !notifMessage.trim()} className="bg-emerald-600 hover:bg-emerald-700">
+              {notifSending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Phone className="h-4 w-4 mr-1.5" />}
+              Send
             </Button>
           </DialogFooter>
         </DialogContent>

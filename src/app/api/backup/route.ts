@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, tursoExecute, tursoBatch, generateId } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { aesEncrypt, aesDecrypt } from '@/lib/security'
 
 // ── Table definitions (order matters for foreign-key constraints) ──
 
@@ -34,10 +35,10 @@ const BACKUP_TABLES: TableDef[] = [
   { name: 'Manufacturer', columns: ['id','name','contactPerson','email','phone','address','city','country','website','notes','createdAt','updatedAt'] },
   { name: 'Vendor',      columns: ['id','name','contactPerson','email','phone','address','notes','createdAt','updatedAt'] },
   { name: 'Category',    columns: ['id','name','description','createdAt','updatedAt'] },
-  { name: 'Product',     columns: ['id','ndc','name','genericName','manufacturer','manufacturerId','vendorId','category','description','dosageForm','strength','unitOfMeasure','sellingUnit','itemsPerUnit','requiresPrescription','status','sellingPrice','costPrice','reorderPoint','reorderQty','maxStock','storageLocation','batchNumber','expiryDate','controlledSubstance','deaSchedule','createdAt','updatedAt'] },
+  { name: 'Product',     columns: ['id','ndc','barcode','name','genericName','manufacturer','manufacturerId','vendorId','category','description','dosageForm','strength','unitOfMeasure','sellingUnit','itemsPerUnit','requiresPrescription','status','sellingPrice','wholesalePrice','costPrice','pricingTierId','reorderPoint','reorderQty','maxStock','storageLocation','batchNumber','expiryDate','controlledSubstance','deaSchedule','createdAt','updatedAt'] },
   { name: 'Inventory',   columns: ['id','productId','quantity','lastCounted','createdAt','updatedAt'] },
   { name: 'Batch',       columns: ['id','productId','batchNumber','expiryDate','quantity','costPrice','receivedAt','receivedBy','createdAt','updatedAt'] },
-  { name: 'Customer',    columns: ['id','firstName','lastName','email','phone','dateOfBirth','gender','address','insuranceProvider','insurancePolicyNo','allergies','notes','createdAt','updatedAt'] },
+  { name: 'Customer',    columns: ['id','firstName','lastName','email','phone','dateOfBirth','gender','address','insuranceProvider','insurancePolicyNo','allergies','notes','loyaltyPoints','loyaltyTier','createdAt','updatedAt'] },
   { name: 'User',        columns: ['id','email','name','role','phone','licenseNumber','permissions','department','shift','hireDate','active','lastLogin','createdAt','updatedAt'] },
   { name: 'Prescription', columns: ['id','rxNumber','customerId','patientName','prescriberName','prescriberNPI','prescriberPhone','prescriberFax','productName','productNdc','dosage','quantity','refillsRemaining','refillsTotal','daysSupply','dispenseAsWritten','priority','status','notes','filledById','verifiedById','filledAt','expiresAt','createdAt','updatedAt'] },
   { name: 'Transaction', columns: ['id','transactionNo','customerId','userId','subtotal','tax','discount','total','paymentMethod','paymentAmount','changeAmount','status','prescriptionId','notes','createdAt','updatedAt'] },
@@ -51,6 +52,15 @@ const BACKUP_TABLES: TableDef[] = [
   { name: '_CategoryToProduct', columns: ['A','B'] },
   { name: 'PurchaseOrder', columns: ['id','vendorId','vendorName','status','notes','expectedDate','totalAmount','receivedAmount','createdBy','createdAt','updatedAt'] },
   { name: 'PurchaseOrderItem', columns: ['id','orderId','productId','productName','quantity','receivedQty','unitCost','createdAt'] },
+  { name: 'PricingTier', columns: ['id','name','description','discountPercent','isDefault','isActive','createdAt','updatedAt'] },
+  { name: 'CustomerCredit', columns: ['id','customerId','transactionId','amount','balance','description','createdBy','createdAt'] },
+  { name: 'InsuranceClaim', columns: ['id','claimNo','prescriptionId','transactionId','customerId','insuranceProvider','policyNumber','totalAmount','approvedAmount','coPayAmount','status','submittedAt','approvedAt','paidAt','rejectionReason','notes','createdAt','updatedAt'] },
+  { name: 'SupplierPriceList', columns: ['id','vendorId','vendorName','validFrom','validTo','notes','createdAt','updatedAt'] },
+  { name: 'SupplierPriceListItem', columns: ['id','priceListId','productId','productName','unitCost','packSize','minOrderQty','createdAt'] },
+  { name: 'LoyaltyTransaction', columns: ['id','customerId','transactionId','points','action','description','createdBy','createdAt'] },
+  { name: 'UserTarget', columns: ['id','userId','period','targetType','targetValue','createdAt','updatedAt'] },
+  { name: 'ApprovalLog', columns: ['id','action','entityType','entityId','requesterId','approverId','details','approved','createdAt'] },
+  { name: 'Notification', columns: ['id','type','title','message','entityType','entityId','status','userId','createdAt','readAt'] },
 ]
 
 // ── Helpers ──
@@ -72,6 +82,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const tablesParam = searchParams.get('tables')
+    const encryptBackup = searchParams.get('encrypt') === 'true'
     // Allow exporting specific tables: ?tables=Product,Inventory
     const requestedTables = tablesParam
       ? tablesParam.split(',').map(t => t.trim()).filter(Boolean)
@@ -165,8 +176,26 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)
-    await writeAuditLog({ userId, action: 'BACKUP_CREATED', category: 'backup', details: { tableCount: meta.tableCount, totalRows: meta.totalRows }, ipAddress, userAgent }).catch(() => {})
-    return NextResponse.json({ meta, data: backup })
+    await writeAuditLog({ userId, action: 'BACKUP_CREATED', category: 'backup', details: { tableCount: meta.tableCount, totalRows: meta.totalRows, encrypted: encryptBackup }, ipAddress, userAgent }).catch(() => {})
+
+    const payload = { meta: { ...meta, encrypted: !!encryptBackup }, data: backup }
+    const jsonStr = JSON.stringify(payload, null, 2)
+
+    // If encryption requested, encrypt the JSON
+    if (encryptBackup) {
+      const encrypted = await aesEncrypt(jsonStr)
+      return new NextResponse(encrypted, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="selrx-backup-${new Date().toISOString().slice(0,10)}.json.enc"`,
+          'X-Backup-Encrypted': 'true',
+          'X-Backup-Version': meta.version,
+        },
+      })
+    }
+
+    return NextResponse.json(payload)
   } catch (error) {
     console.error('[backup] Export failed:', error)
     return NextResponse.json({ error: 'Backup failed' }, { status: 500 })
@@ -180,8 +209,48 @@ export async function POST(request: NextRequest) {
   if (denied) return denied
 
   try {
-    const body = await request.json()
-    const { data, options } = body as {
+    let rawBody: string | null = null
+    let parsedBody: any = null
+
+    // Try to read the raw body to detect encryption
+    const rawText = await request.text()
+
+    // Detect if encrypted: check if it looks like base64 but not valid JSON
+    let isEncrypted = false
+    const encryptedHeader = request.headers.get('X-Backup-Encrypted')
+    if (encryptedHeader === 'true') {
+      isEncrypted = true
+    } else {
+      // Heuristic: try parsing as JSON, if fails assume encrypted
+      try {
+        parsedBody = JSON.parse(rawText)
+      } catch {
+        // Not valid JSON — might be encrypted base64
+        // Check if it's a valid base64 string
+        const trimmed = rawText.trim()
+        if (/^[A-Za-z0-9+/=]+$/.test(trimmed) && trimmed.length > 20) {
+          isEncrypted = true
+        }
+      }
+    }
+
+    if (isEncrypted && !parsedBody) {
+      try {
+        const decrypted = await aesDecrypt(rawText.trim())
+        parsedBody = JSON.parse(decrypted)
+        console.log('[backup] Detected and decrypted encrypted backup')
+      } catch (decryptErr) {
+        console.error('[backup] Failed to decrypt backup:', decryptErr)
+        return NextResponse.json({ error: 'Failed to decrypt backup. Ensure AES_ENCRYPTION_KEY is set correctly.' }, { status: 400 })
+      }
+    }
+
+    if (!parsedBody) {
+      return NextResponse.json({ error: 'Invalid backup data' }, { status: 400 })
+    }
+
+    const { data, options } = parsedBody as {
+      meta?: any
       data: Record<string, any[]>
       options?: {
         skipTables?: string[]

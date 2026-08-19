@@ -360,6 +360,22 @@ export async function PUT(
 
         const { userId: aUid2, ipAddress: aIp2, userAgent: aUa2 } = getRequestContext(request)
         await writeAuditLog({ userId: aUid2, action: 'PRESCRIPTION_VERIFIED', category: 'prescription', entity: 'Prescription', entityId: id, details: { patientName, productName }, ipAddress: aIp2, userAgent: aUa2 })
+
+        // Auto-notification: if refills remaining, send REFILL_REMINDER (fire-and-forget)
+        const refillsRemaining = Number(existing.refillsRemaining)
+        const customerId = existing.customerId as string | null
+        if (refillsRemaining > 0 && customerId) {
+          fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-user-id': aUid2 },
+            body: JSON.stringify({
+              customerId,
+              type: 'PRESCRIPTION_READY',
+              message: `Your prescription ${existing.rxNumber} for ${productName} is ready for pickup. ${refillsRemaining} refill(s) remaining.`,
+            }),
+          }).catch(() => {})
+        }
+
         return NextResponse.json({
           message: 'Prescription verified successfully',
           prescription: rowToPrescriptionSummary(verifiedResult.rows[0] as Record<string, unknown>),

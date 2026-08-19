@@ -559,6 +559,60 @@ td [data-slot="badge"] {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  /* ── Barcode Label Print Styles ── */
+  .print-labels-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+  .barcode-label {
+    width: 76mm !important;
+    height: 30mm !important;
+    border: 1px solid #000 !important;
+    padding: 3mm 4mm !important;
+    margin: 0 !important;
+    page-break-inside: avoid !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    font-family: 'Courier New', monospace !important;
+    font-size: 9pt !important;
+    line-height: 1.3 !important;
+  }
+  .label-product-name {
+    font-weight: bold !important;
+    font-size: 10pt !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+  .label-strength {
+    font-size: 8pt !important;
+    color: #333 !important;
+  }
+  .label-barcode-text {
+    font-family: 'Libre Barcode 128', 'Code128b', monospace !important;
+    font-size: 24pt !important;
+    letter-spacing: 2px !important;
+    text-align: center !important;
+    margin: 1mm 0 !important;
+  }
+  .label-price {
+    font-weight: bold !important;
+    font-size: 11pt !important;
+    text-align: right !important;
+  }
+  .label-batch, .label-expiry {
+    font-size: 7pt !important;
+    color: #555 !important;
+  }
+}
+
+/* Screen-only: hide print overlay */
+.print-labels-container {
+  display: none;
 }
 
 /* ── SelRx Sidebar: Emerald theme ──────────────────────────────────── */

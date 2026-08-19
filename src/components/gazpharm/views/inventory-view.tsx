@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Package, Search, AlertTriangle, Edit, ArrowUpDown,
   Download, Filter, TrendingUp, PackagePlus, ClipboardCheck, X, Plus,
-  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil, Loader2
+  Upload, FileSpreadsheet, CheckCircle2, AlertCircle, RefreshCw, Pencil, Loader2, Printer
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +34,7 @@ import { formatCurrency } from '@/lib/currency'
 import { generateBarcode } from '@/lib/barcode'
 import { formatDate, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 import { authHeaders } from '@/lib/auth-headers'
+import { generateAndPrintLabel, printBarcodeLabels } from '@/components/gazpharm/shared/barcode-label-printer'
 
 interface InventoryItem {
   id: string
@@ -146,6 +147,10 @@ export function InventoryView() {
   const [addVendorForm, setAddVendorForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', notes: '' })
   const [addCatOpen, setAddCatOpen] = useState(false)
   const [addCatSaving, setAddCatSaving] = useState(false)
+  // Print labels state
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [printItem, setPrintItem] = useState<InventoryItem | null>(null)
+  const [printCopies, setPrintCopies] = useState('1')
   const [addCatForm, setAddCatForm] = useState({ name: '', description: '' })
   const [addDfOpen, setAddDfOpen] = useState(false)
   const [addDfName, setAddDfName] = useState('')
@@ -1113,6 +1118,32 @@ export function InventoryView() {
             )}
             Export CSV
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Print labels for all items with stock
+              const stockedItems = items.filter(i => Number(i.quantity) > 0)
+              if (stockedItems.length === 0) {
+                addToast({ title: 'No Stock', description: 'No items with stock to print labels for', variant: 'destructive' })
+                return
+              }
+              const labels = stockedItems.slice(0, 50).map(i => ({
+                productName: i.product.name,
+                strength: i.product.strength,
+                dosageForm: i.product.dosageForm,
+                barcode: (i.product as any).barcode || i.productId.substring(0, 13),
+                sellingPrice: i.product.sellingPrice,
+                batchNumber: i.product.batchNumber,
+                expiryDate: i.product.expiryDate,
+              }))
+              printBarcodeLabels(labels)
+            }}
+            className="gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Print Labels
+          </Button>
         </div>
       } />
 
@@ -1454,10 +1485,15 @@ export function InventoryView() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); fetchBatches(item.productId); setAdjustDialog(true) }}>
-                          <Edit className="h-3.5 w-3.5 mr-1" />
-                          Adjust
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setPrintItem(item); setPrintCopies('1'); setPrintDialogOpen(true) }} title="Print Label">
+                            <Printer className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedItem(item); setAdjustType('SET'); setAdjustExpiryDate(item.product.expiryDate?.split('T')[0] || ''); fetchBatches(item.productId); setAdjustDialog(true) }}>
+                            <Edit className="h-3.5 w-3.5 mr-1" />
+                            Adjust
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -2654,6 +2690,57 @@ export function InventoryView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print Label Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="sm:max-w-sm rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Printer className="h-4 w-4 text-emerald-600" />
+              Print Barcode Label
+            </DialogTitle>
+            <DialogDescription>
+              {printItem?.product.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Number of Copies</Label>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                value={printCopies}
+                onChange={(e) => setPrintCopies(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!printItem) return
+                const copies = Math.max(1, Math.min(100, parseInt(printCopies) || 1))
+                generateAndPrintLabel({
+                  id: printItem.productId,
+                  name: printItem.product.name,
+                  strength: printItem.product.strength,
+                  dosageForm: printItem.product.dosageForm,
+                  barcode: (printItem.product as any).barcode || null,
+                  sellingPrice: printItem.product.sellingPrice,
+                  batchNumber: printItem.product.batchNumber,
+                  expiryDate: printItem.product.expiryDate,
+                }, copies)
+                setPrintDialogOpen(false)
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Printer className="h-4 w-4 mr-2" /> Print
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

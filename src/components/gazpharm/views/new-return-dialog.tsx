@@ -26,6 +26,7 @@ import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTimeShort } from '@/lib/date-utils'
 import { authHeaders } from '@/lib/auth-headers'
+import { PinApprovalDialog } from '@/components/gazpharm/shared/pin-approval-dialog'
 
 function formatDate(dateStr: string): string {
   return formatDateTimeShort(dateStr)
@@ -73,6 +74,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
   const [returnReasonNote, setReturnReasonNote] = useState('')
   const [returnRefundMethod, setReturnRefundMethod] = useState('CASH')
   const [submitting, setSubmitting] = useState(false)
+  const [showPinDialog, setShowPinDialog] = useState(false)
 
   // Fetch recent completed sales receipts
   const fetchRecentReceipts = useCallback(async (pg: number, search?: string) => {
@@ -172,6 +174,12 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
       return
     }
 
+    // Require PIN approval for refunds
+    setShowPinDialog(true)
+  }
+
+  const doSubmitReturn = async () => {
+    if (!selectedItem || !returnReason || !user || !foundTx) return
     setSubmitting(true)
     try {
       const customerName = foundTx.customer
@@ -503,6 +511,17 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <PinApprovalDialog
+        open={showPinDialog}
+        onClose={() => setShowPinDialog(false)}
+        onApproved={() => { setShowPinDialog(false); doSubmitReturn() }}
+        action="REFUND_APPROVAL"
+        entityType="Return"
+        entityId={selectedItem?.id}
+        title="Refund Approval"
+        description="Enter supervisor PIN to approve this refund/return."
+      />
     </Dialog>
   )
 }
