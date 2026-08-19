@@ -37,6 +37,39 @@ interface Notification {
   createdAt: string
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────
+
+function daysUntilExpiry(expiryDate: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const exp = new Date(expiryDate)
+  exp.setHours(0, 0, 0, 0)
+  return Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+// Transform raw debug rows into ExpiringProduct items
+function mapDebugToExpiring(rows: Record<string, unknown>[]): ExpiringProduct[] {
+  return rows.map((r) => ({
+    productId: String(r.productId ?? r.id ?? ''),
+    productName: String(r.name ?? ''),
+    expiryDate: String(r.expiryDate ?? ''),
+    quantity: Number(r.quantity ?? 0),
+    batchQty: Number(r.batchQty ?? r.quantity ?? 0),
+    daysToExpiry: daysUntilExpiry(String(r.expiryDate ?? '')),
+    batchNumber: r.batchNumber != null ? String(r.batchNumber) : null,
+  }))
+}
+
+// Transform raw debug rows into ReorderProduct items
+function mapDebugToReorder(rows: Record<string, unknown>[]): ReorderProduct[] {
+  return rows.map((r) => ({
+    productId: String(r.id ?? ''),
+    productName: String(r.name ?? ''),
+    quantity: Number(r.quantity ?? 0),
+    reorderPoint: Number(r.reorderPoint ?? 0),
+  }))
+}
+
 // ── Component ──────────────────────────────────────────────────────────
 
 export function AlertBell() {
@@ -46,6 +79,7 @@ export function AlertBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [diagStatus, setDiagStatus] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
@@ -54,42 +88,135 @@ export function AlertBell() {
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true)
+    const statusParts: string[] = []
+
     try {
-      const headers = authHeaders()
+      // ── STRATEGY 1: Public debug endpoint (no auth needed) ──
+      // This is the MOST RELIABLE path — no JWT, no middleware, direct DB read.
+      try {
+        const dbgRes = await fetch('/api/alerts/debug')
+        if (dbgRes.ok) {
+          const dbg = await dbgRes.json()
+          const expItems: ExpiringProduct[] = []
+          const reoItems: ReorderProduct[] = []
 
-      const [expiringRes, reorderRes, notifRes] = await Promise.allSettled([
-        fetch('/api/alerts?type=expiringSoon&limit=10', { headers }),
-        fetch('/api/alerts?type=belowReorder&limit=10', { headers }),
-        fetch('/api/notifications?status=UNREAD&limit=10', { headers }),
-      ])
+          // Collect expiry items from batch query
+          const batchRows = (dbg.expiringBatchSample || []) as Record<string, unknown>[]
+          const batchCount = Number(dbg.expiringFromBatch || 0)
+          if (batchRows.length > 0) {
+            expItems.push(...mapDebugToExpiring(batchRows))
+            statusParts.push(`batch-exp:${batchCount}`)
+          }
 
-      if (expiringRes.status === 'fulfilled' && expiringRes.value.ok) {
-        const json = await expiringRes.value.json()
-        setExpiringProducts(json.items || json.expiringSoon || [])
-      } else if (expiringRes.status === 'fulfilled') {
-        console.error('[AlertBell] Expiring HTTP', expiringRes.value.status)
-      } else {
-        console.error('[AlertBell] Expiring fetch failed')
+          // Collect expiry items from product query
+          const prodRows = (dbg.expiringProductSample || []) as Record<string, unknown>[]
+          const prodCount = Number(dbg.expiringFromProduct || 0)
+          if (prodRows.length > 0) {
+            const mapped = mapDebugToExpiring(prodRows)
+            // Deduplicate against batch items
+            const seenIds = new Set(expItems.map(e => e.productId))
+            for (const item of mapped) {
+              if (!seenIds.has(item.productId)) {
+                expItems.push(item)
+                seenIds.add(item.productId)
+              }
+            }
+            statusParts.push(`prod-exp:${prodCount}`)
+          }
+
+          // Collect reorder items
+          const reoRows = (dbg.reorderSample || []) as Record<string, unknown>[]
+          const reoCount = Number(dbg.reorderItems || 0)
+          if (reoRows.length > 0) {
+            reoItems.push(...mapDebugToReorder(reoRows))
+            statusParts.push(`reorder:${reoCount}`)
+          }
+
+          // If debug endpoint returned actual alerts, use them and skip auth API
+          if (expItems.length > 0 || reoItems.length > 0) {
+            expItems.sort((a, b) => a.daysToExpiry - b.daysToExpiry)
+            setExpiringProducts(expItems)
+            setReorderProducts(reoItems)
+            statusParts.push('source:debug')
+            setDiagStatus(statusParts.join(' | '))
+            console.log('[AlertBell] Using debug endpoint data:', expItems.length, 'expiring,', reoItems.length, 'reorder')
+            // Still try to fetch notifications
+            fetchNotifications()
+            return
+          }
+
+          // Debug returned 0 — log why for diagnosis
+          if (dbg.expiringBatchError) statusParts.push(`batch-err:${dbg.expiringBatchError}`)
+          if (dbg.expiringProductError) statusParts.push(`prod-err:${dbg.expiringProductError}`)
+          if (dbg.reorderError) statusParts.push(`reo-err:${dbg.reorderError}`)
+          if (!dbg.tursoEnabled) statusParts.push('TURSO_DISABLED')
+          statusParts.push('debug:0')
+        } else {
+          statusParts.push(`debug-http:${dbgRes.status}`)
+        }
+      } catch (e) {
+        statusParts.push('debug-fail')
+        console.error('[AlertBell] Debug endpoint failed:', e)
       }
 
-      if (reorderRes.status === 'fulfilled' && reorderRes.value.ok) {
-        const json = await reorderRes.value.json()
-        setReorderProducts(json.items || json.belowReorder || [])
-      } else if (reorderRes.status === 'fulfilled') {
-        console.error('[AlertBell] Reorder HTTP', reorderRes.value.status)
-      } else {
-        console.error('[AlertBell] Reorder fetch failed')
-      }
+      // ── STRATEGY 2: Authenticated API (original path) ──
+      try {
+        const headers = authHeaders()
+        const [expiringRes, reorderRes, notifRes] = await Promise.allSettled([
+          fetch('/api/alerts?type=expiringSoon&limit=10', { headers }),
+          fetch('/api/alerts?type=belowReorder&limit=10', { headers }),
+          fetch('/api/notifications?status=UNREAD&limit=10', { headers }),
+        ])
 
-      if (notifRes.status === 'fulfilled' && notifRes.value.ok) {
-        const json = await notifRes.value.json()
-        setNotifications(json.notifications || json.items || json || [])
+        if (expiringRes.status === 'fulfilled' && expiringRes.value.ok) {
+          const json = await expiringRes.value.json()
+          const items = json.items || json.expiringSoon || []
+          setExpiringProducts(items)
+          statusParts.push(`auth-exp:${items.length}`)
+        } else if (expiringRes.status === 'fulfilled') {
+          statusParts.push(`auth-exp-http:${expiringRes.value.status}`)
+        } else {
+          statusParts.push('auth-exp-fail')
+        }
+
+        if (reorderRes.status === 'fulfilled' && reorderRes.value.ok) {
+          const json = await reorderRes.value.json()
+          const items = json.items || json.belowReorder || []
+          setReorderProducts(items)
+          statusParts.push(`auth-reo:${items.length}`)
+        } else if (reorderRes.status === 'fulfilled') {
+          statusParts.push(`auth-reo-http:${reorderRes.value.status}`)
+        } else {
+          statusParts.push('auth-reo-fail')
+        }
+
+        if (notifRes.status === 'fulfilled' && notifRes.value.ok) {
+          const json = await notifRes.value.json()
+          setNotifications(json.notifications || json.items || json || [])
+        }
+        statusParts.push('source:auth')
+      } catch (e) {
+        statusParts.push('auth-fail')
+        console.error('[AlertBell] Auth API failed:', e)
       }
     } catch (err) {
       console.error('[AlertBell] Failed to fetch alerts:', err)
     } finally {
+      setDiagStatus((prev) => prev || statusParts.join(' | '))
       setLoading(false)
     }
+  }, [])
+
+  // Fetch only notifications (used when debug endpoint provides alerts)
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const headers = authHeaders()
+      const res = await fetch('/api/notifications?status=UNREAD&limit=10', { headers })
+      if (res.ok) {
+        const json = await res.json()
+        setNotifications(json.notifications || json.items || json || [])
+      }
+    } catch { /* ignore */ }
   }, [])
 
   // Initial fetch
@@ -217,6 +344,9 @@ export function AlertBell() {
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   No products expiring within 14 days or at reorder level
                 </p>
+                {diagStatus && (
+                  <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-2 font-mono break-all">{diagStatus}</p>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -266,11 +396,11 @@ export function AlertBell() {
                                   }
                                 </span>
                                 <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                  · Qty: {item.batchQty ?? item.quantity}
+                                  {'·'} Qty: {item.batchQty ?? item.quantity}
                                 </span>
                                 {item.expiryDate && (
                                   <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                    · Exp: {formatDate(item.expiryDate)}
+                                    {'·'} Exp: {formatDate(item.expiryDate)}
                                   </span>
                                 )}
                               </div>

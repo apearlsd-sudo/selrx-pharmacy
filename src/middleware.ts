@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   '/api/company-branding',
   '/api/backup/restore-setup',
   '/api/health',
+  '/api/alerts/debug',  // TEMP: no-auth diagnostic for alert troubleshooting
   // Static assets and Next.js internals
   '/_next/',
   '/favicon.ico',
