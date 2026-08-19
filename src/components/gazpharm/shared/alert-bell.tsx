@@ -46,8 +46,6 @@ export function AlertBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
-  const [debugInfo, setDebugInfo] = useState('')
-  const [debugDetail, setDebugDetail] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
@@ -65,72 +63,27 @@ export function AlertBell() {
         fetch('/api/notifications?status=UNREAD&limit=10', { headers }),
       ])
 
-      const debugParts: string[] = []
-
       if (expiringRes.status === 'fulfilled' && expiringRes.value.ok) {
         const json = await expiringRes.value.json()
-        const items = json.items || json.expiringSoon || []
-        setExpiringProducts(items)
-        debugParts.push('Expiring: ' + items.length)
+        setExpiringProducts(json.items || json.expiringSoon || [])
       } else if (expiringRes.status === 'fulfilled') {
-        debugParts.push('Expiring HTTP ' + expiringRes.value.status)
+        console.error('[AlertBell] Expiring HTTP', expiringRes.value.status)
       } else {
-        debugParts.push('Expiring failed')
+        console.error('[AlertBell] Expiring fetch failed')
       }
 
       if (reorderRes.status === 'fulfilled' && reorderRes.value.ok) {
         const json = await reorderRes.value.json()
-        const items = json.items || json.belowReorder || []
-        setReorderProducts(items)
-        debugParts.push('Reorder: ' + items.length)
+        setReorderProducts(json.items || json.belowReorder || [])
       } else if (reorderRes.status === 'fulfilled') {
-        debugParts.push('Reorder HTTP ' + reorderRes.value.status)
+        console.error('[AlertBell] Reorder HTTP', reorderRes.value.status)
       } else {
-        debugParts.push('Reorder failed')
+        console.error('[AlertBell] Reorder fetch failed')
       }
 
       if (notifRes.status === 'fulfilled' && notifRes.value.ok) {
         const json = await notifRes.value.json()
         setNotifications(json.notifications || json.items || json || [])
-      }
-
-      setDebugInfo(debugParts.join(' | '))
-
-      // If no alerts found, fetch debug data
-      if (debugParts.every(p => p.includes(': 0'))) {
-        try {
-          const dbgRes = await fetch('/api/alerts/debug', { headers })
-          if (dbgRes.ok) {
-            const dbg = await dbgRes.json()
-            const lines: string[] = []
-            if (dbg.counts) {
-              const c = dbg.counts
-              lines.push('Products: ' + (c.totalProducts || 0) + ' (ACTIVE: ' + (c.activeProducts || 0) + ', active: ' + (c.activeLower || 0) + ')')
-              lines.push('Batches: ' + (c.totalBatches || 0) + ', Inventory rows: ' + (c.totalInventory || 0))
-            }
-            if (dbg.distinctStatuses) lines.push('Statuses: ' + JSON.stringify(dbg.distinctStatuses))
-            if (dbg.reorderCandidatesAll?.length) {
-              lines.push('Reorder (no filter): ' + dbg.reorderCandidatesAll.length + ' matches')
-              dbg.reorderCandidatesAll.slice(0, 3).forEach((r: Record<string, unknown>) => lines.push('  ' + r.name + ' qty=' + r.quantity + ' rp=' + r.reorderPoint + ' status=' + r.status))
-            } else {
-              lines.push('Reorder (no filter): 0 matches')
-            }
-            if (dbg.batchExpirySamples?.length) {
-              lines.push('Batch expiry samples: ' + dbg.batchExpirySamples.length)
-              dbg.batchExpirySamples.slice(0, 3).forEach((r: Record<string, unknown>) => lines.push('  ' + r.name + ' exp=' + r.expiryDate + ' qty=' + r.quantity + ' parsed=' + r.parsedDate))
-            } else {
-              lines.push('Batch expiry samples: 0')
-            }
-            if (dbg.productExpirySamples?.length) {
-              lines.push('Product expiry samples: ' + dbg.productExpirySamples.length)
-              dbg.productExpirySamples.slice(0, 3).forEach((r: Record<string, unknown>) => lines.push('  ' + r.name + ' exp=' + r.expiryDate + ' parsed=' + r.parsedDate))
-            } else {
-              lines.push('Product expiry samples: 0')
-            }
-            setDebugDetail(lines.join('\n'))
-            console.log('[AlertBell] Debug:', JSON.stringify(dbg, null, 2))
-          }
-        } catch {}
       }
     } catch (err) {
       console.error('[AlertBell] Failed to fetch alerts:', err)
@@ -262,14 +215,8 @@ export function AlertBell() {
                 </div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">No alerts found</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  {debugInfo.includes('HTTP')
-                    ? 'Error fetching alerts'
-                    : 'No products expiring within 14 days or at reorder level'}
+                  No products expiring within 14 days or at reorder level
                 </p>
-                <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-2 font-mono">{debugInfo}</p>
-                {debugDetail && (
-                  <pre className="text-[9px] text-left text-gray-400 dark:text-gray-500 mt-3 mx-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded max-h-[200px] overflow-auto whitespace-pre-wrap font-mono leading-relaxed">{debugDetail}</pre>
-                )}
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -282,12 +229,12 @@ export function AlertBell() {
                         Expiring Soon
                       </p>
                     </div>
-                    {expiringProducts.map((item) => {
+                    {expiringProducts.map((item, idx) => {
                       const isExpired = item.daysToExpiry <= 0
-                      const isUrgent = item.daysToExpiry <= 30 && item.daysToExpiry > 0
+                      const isUrgent = item.daysToExpiry <= 7 && item.daysToExpiry > 0
                       return (
                         <button
-                          key={'exp-' + item.productId}
+                          key={'exp-' + item.productId + '-' + idx}
                           type="button"
                           className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                         >
@@ -319,7 +266,7 @@ export function AlertBell() {
                                   }
                                 </span>
                                 <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                  · Batch qty: {item.batchQty ?? item.quantity}
+                                  · Qty: {item.batchQty ?? item.quantity}
                                 </span>
                                 {item.expiryDate && (
                                   <span className="text-[11px] text-gray-400 dark:text-gray-500">
@@ -380,8 +327,7 @@ export function AlertBell() {
                       </p>
                     </div>
                     {notifications.map((notif) => {
-                      const iconClass = notif.type === 'PAYMENT' ? CreditCard : Clock
-                      const IconComp = iconClass
+                      const IconComp = notif.type === 'PAYMENT' ? CreditCard : Clock
                       const isUnread = notif.status === 'UNREAD'
                       return (
                         <button
