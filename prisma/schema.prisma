@@ -74,8 +74,11 @@ model Customer {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  prescriptions Prescription[]
-  transactions Transaction[]
+  prescriptions     Prescription[]
+  transactions      Transaction[]
+  credits           CustomerCredit[]
+  loyaltyTransactions LoyaltyTransaction[]
+  insuranceClaims   InsuranceClaim[]
 }
 
 // ============ DOSAGE FORMS ============
@@ -116,7 +119,9 @@ model Product {
   requiresPrescription Boolean      @default(false)
   status            ProductStatus   @default(ACTIVE)
   sellingPrice      Float
+  wholesalePrice    Float?
   costPrice         Float?
+  pricingTierId     String?
   reorderPoint      Int             @default(10)
   reorderQty        Int             @default(50)
   maxStock          Int?
@@ -136,6 +141,8 @@ model Product {
   returns           Return[]
   stockTakeItems    StockTakeItem[]
   history           ProductHistory[]
+
+  @@index([pricingTierId])
 }
 
 // ============ INVENTORY ============
@@ -166,6 +173,7 @@ enum PaymentMethod {
   CASH
   CREDIT_CARD
   DEBIT_CARD
+  CREDIT
   INSURANCE
   FSA_HSA
   SPLIT
@@ -195,8 +203,11 @@ model Transaction {
   prescription    Prescription?     @relation(fields: [prescriptionId], references: [id])
   items           TransactionItem[]
   returns         Return[]
-  workstation     Workstation?      @relation(fields: [workstationId], references: [id])
-  hardwareLog     HardwareLog?
+  workstation       Workstation?      @relation(fields: [workstationId], references: [id])
+  hardwareLog       HardwareLog?
+  insuranceClaim    InsuranceClaim?
+  customerCredits   CustomerCredit[]
+  loyaltyTransactions LoyaltyTransaction[]
 }
 
 model TransactionItem {
@@ -264,6 +275,7 @@ model Prescription {
   filledBy          User?      @relation("Dispenser", fields: [filledById], references: [id])
   verifiedBy        User?      @relation("Verifier", fields: [verifiedById], references: [id])
   transactions      Transaction[]
+  insuranceClaims   InsuranceClaim[]
 }
 
 // ============ HARDWARE LOG ============
@@ -419,8 +431,9 @@ model Vendor {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  products      Product[]
-  purchaseOrders PurchaseOrder[]
+  products        Product[]
+  purchaseOrders  PurchaseOrder[]
+  priceLists      SupplierPriceList[]
 }
 
 // ============ CATEGORIES ============
@@ -547,4 +560,185 @@ model PurchaseOrderItem {
   order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+}
+
+// ============ PRICING TIERS ============
+
+model PricingTier {
+  id          String   @id @default(cuid())
+  name        String   @unique  // e.g. Retail, Wholesale, NHIS, VIP
+  description String?
+  discountPercent Float   @default(0)  // e.g. 10 for 10% off
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============ CUSTOMER CREDIT ============
+
+model CustomerCredit {
+  id            String   @id @default(cuid())
+  customerId    String
+  transactionId String?   // linked sale
+  amount        Float    // positive = credit given, negative = payment made
+  balance       Float    // running balance after this entry
+  description   String?  // e.g. "Credit sale #TXN-001", "Payment received"
+  createdBy      String?
+  createdAt     DateTime @default(now())
+
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+}
+
+// ============ INSURANCE CLAIMS ============
+
+enum ClaimStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  PAID
+}
+
+model InsuranceClaim {
+  id              String      @id @default(cuid())
+  claimNo         String      @unique  // CLM-YYYYMMDD-XXXX
+  prescriptionId  String?
+  transactionId   String
+  customerId      String
+  insuranceProvider String
+  policyNumber    String
+  totalAmount     Float
+  approvedAmount  Float      @default(0)
+  coPayAmount     Float      @default(0)
+  status          ClaimStatus @default(PENDING)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  rejectionReason String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
+  transaction     Transaction  @relation(fields: [transactionId], references: [id])
+}
+
+// ============ SUPPLIER PRICE LISTS ============
+
+model SupplierPriceList {
+  id          String   @id @default(cuid())
+  vendorId    String?
+  vendorName  String
+  validFrom   String?  // ISO date
+  validTo     String?  // ISO date
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id])
+  items       SupplierPriceListItem[]
+}
+
+model SupplierPriceListItem {
+  id              String   @id @default(cuid())
+  priceListId     String
+  productId       String?
+  productName     String
+  unitCost        Float
+  packSize        Int?     // e.g. 100 tablets per pack
+  minOrderQty     Int?
+  createdAt       DateTime @default(now())
+
+  priceList       SupplierPriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+}
+
+// ============ NOTIFICATIONS ============
+
+enum NotificationType {
+  EXPIRY_ALERT
+  REORDER_ALERT
+  REFILL_REMINDER
+  CREDIT_DUE
+  LOW_STOCK
+  SYSTEM
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+}
+
+model Notification {
+  id          String             @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  entityType  String?            // e.g. Product, Customer, Prescription
+  entityId    String?
+  status      NotificationStatus @default(UNREAD)
+  userId      String?            // null = broadcast to all
+  createdAt   DateTime           @default(now())
+  readAt     DateTime?
+}
+
+// ============ LOYALTY TRANSACTIONS ============
+
+enum LoyaltyAction {
+  EARNED
+  REDEEMED
+  ADJUSTED
+  BONUS
+}
+
+model LoyaltyTransaction {
+  id            String        @id @default(cuid())
+  customerId    String
+  transactionId String?
+  points        Int           // positive = earned, negative = redeemed
+  action        LoyaltyAction
+  description   String?
+  createdBy      String?
+  createdAt     DateTime      @default(now())
+
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id])
+}
+
+// ============ USER PERFORMANCE TARGETS ============
+
+model UserTarget {
+  id            String   @id @default(cuid())
+  userId        String
+  period        String   // e.g. 2026-08 (monthly), 2026-W33 (weekly)
+  targetType    String   // SALES_AMOUNT, TRANSACTIONS_COUNT, ITEMS_SOLD
+  targetValue   Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============ APPROVAL LOG (for PIN/supervisor approvals) ============
+
+enum ApprovalAction {
+  PRICE_OVERRIDE
+  REFUND_APPROVAL
+  CONTROLLED_DISPENSE
+  DISCOUNT_OVERRIDE
+  CREDIT_SALE
+  VOID_TRANSACTION
+}
+
+model ApprovalLog {
+  id            String         @id @default(cuid())
+  action        ApprovalAction
+  entityType    String?        // e.g. Transaction, Return, Prescription
+  entityId      String?
+  requesterId   String         // who requested approval
+  approverId    String         // who approved (supervisor/PIN)
+  details       String?        // JSON with context (original price, new price, etc.)
+  approved      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
 }
