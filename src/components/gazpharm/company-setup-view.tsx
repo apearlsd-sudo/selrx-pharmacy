@@ -322,13 +322,7 @@ export function CompanySetupView() {
   }
 
   return (
-    <div className="min-h-screen bg-aurora bg-vignette relative overflow-hidden">
-      {/* 21st.dev-inspired aurora orbs */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="aurora-orb aurora-orb-1" />
-        <div className="aurora-orb aurora-orb-2" />
-        <div className="aurora-orb aurora-orb-3" />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900 relative overflow-hidden">
 
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Top bar with branding */}
