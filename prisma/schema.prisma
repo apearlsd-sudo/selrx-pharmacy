@@ -606,7 +606,7 @@ model InsuranceClaim {
   id              String      @id @default(cuid())
   claimNo         String      @unique  // CLM-YYYYMMDD-XXXX
   prescriptionId  String?
-  transactionId   String
+  transactionId   String   @unique
   customerId      String
   insuranceProvider String
   policyNumber    String
@@ -622,7 +622,8 @@ model InsuranceClaim {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  prescription    Prescription? @relation(fields: [prescriptionId], references: [id])
   transaction     Transaction  @relation(fields: [transactionId], references: [id])
 }
 
