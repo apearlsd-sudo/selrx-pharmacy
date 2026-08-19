@@ -46,6 +46,7 @@ import { authHeaders } from '@/lib/auth-headers'
 import { formatCurrency } from '@/lib/currency'
 import { formatDateTime, formatDate } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { DateFilterBar } from '@/components/gazpharm/shared/date-filter-bar'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 
@@ -156,6 +157,8 @@ export function PurchaseOrdersView() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('ALL')
   const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
@@ -205,6 +208,8 @@ export function PurchaseOrdersView() {
         limit: '20',
         ...(activeTab !== 'ALL' ? { status: activeTab } : {}),
         ...(search ? { search } : {}),
+        ...(dateFrom ? { from: dateFrom } : {}),
+        ...(dateTo ? { to: dateTo } : {}),
       })
       const res = await fetch(`/api/purchase-orders?${params}`, { headers: authHeaders() })
       const data = await res.json()
@@ -218,10 +223,10 @@ export function PurchaseOrdersView() {
     } finally {
       setLoading(false)
     }
-  }, [page, activeTab, search])
+  }, [page, activeTab, search, dateFrom, dateTo])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
-  useEffect(() => { setPage(1) }, [activeTab, search])
+  useEffect(() => { setPage(1) }, [activeTab, search, dateFrom, dateTo])
 
   // ── Auto-open PO dialog with pending items from low stock ──
   useEffect(() => {
@@ -508,6 +513,8 @@ export function PurchaseOrdersView() {
             className="pl-9 h-9"
           />
         </div>
+
+        <DateFilterBar from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
 
         <div className="flex flex-wrap gap-1.5">
           {STATUS_TABS.map((tab) => {

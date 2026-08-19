@@ -827,7 +827,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
         </div>
 
         {/* Nav Items */}
-        <ScrollArea className="flex-1 h-[calc(100vh-8.5rem)] xl:h-[calc(100vh-10rem)]">
+        <ScrollArea className="flex-1 h-[calc(100dvh-8.5rem)] xl:h-[calc(100dvh-10rem)]">
           <div className="space-y-0.5">
             {visibleNavItems.map((item) => (
               <button
@@ -894,7 +894,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-44 xl:ml-64 h-screen flex flex-col overflow-hidden">
+      <main className="flex-1 lg:ml-44 xl:ml-64 h-[100dvh] flex flex-col overflow-hidden">
         {/* Top Bar */}
         <header style={{ background: 'linear-gradient(to bottom right, #022c22, #064e3b, #134e4a)', opacity: 0.95 }} className="sticky top-0 z-20 h-10 xl:h-14 border-b border-white/10 flex items-center gap-2 xl:gap-3 px-3 xl:px-4">
           <Button

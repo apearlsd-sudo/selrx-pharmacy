@@ -90,7 +90,7 @@ export function ProductSalesAnalytics() {
       if (categoryFilter && categoryFilter !== 'all') params.set('categoryId', categoryFilter)
       if (userFilter && userFilter !== 'all') params.set('userId', userFilter)
       if (startDate) params.set('startDate', startDate)
-      if (endDate) params.set('endDate', endDate + 'T23:59:59')
+      if (endDate) params.set('endDate', endDate)
       const res = await fetch(`/api/product-sales-analytics?${params}`, {
         headers: authHeaders(),
       })

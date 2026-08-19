@@ -677,12 +677,12 @@ export function CompanySetupView() {
                       <div className="space-y-2">
                         <Label htmlFor="ownerEmail" className="text-sm font-medium">
                           <Mail className="h-3.5 w-3.5 inline mr-1 text-muted-foreground" />
-                          Email Address
+                          Email Address <span className="text-muted-foreground text-xs font-normal">(optional)</span>
                         </Label>
                         <Input
                           id="ownerEmail"
                           type="email"
-                          placeholder="owner@example.com"
+                          placeholder="optional"
                           value={ownerEmail}
                           onChange={(e) => setOwnerEmail(e.target.value)}
                           className="h-11"

@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAppStore } from '@/store/app-store'
 import { formatDate, formatDateTime } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
+import { DateFilterBar } from '@/components/gazpharm/shared/date-filter-bar'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { authHeaders } from '@/lib/auth-headers'
 
@@ -103,6 +104,8 @@ export function PrescriptionsView() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [detailDialog, setDetailDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
@@ -139,6 +142,8 @@ export function PrescriptionsView() {
       const params = new URLSearchParams()
       if (statusFilter !== 'ALL') params.set('status', statusFilter)
       if (searchQuery) params.set('search', searchQuery)
+      if (dateFrom) params.set('from', dateFrom)
+      if (dateTo) params.set('to', dateTo)
       const res = await fetch(`/api/prescriptions?${params}`, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
@@ -149,7 +154,7 @@ export function PrescriptionsView() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, searchQuery, addToast])
+  }, [statusFilter, searchQuery, dateFrom, dateTo, addToast])
 
   useEffect(() => { fetchPrescriptions() }, [fetchPrescriptions])
 
@@ -461,6 +466,12 @@ export function PrescriptionsView() {
               New Rx
             </Button>
           </div>
+          <DateFilterBar
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
         </CardContent>
       </Card>
 

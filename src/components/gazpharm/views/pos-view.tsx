@@ -967,7 +967,7 @@ export function POSView() {
           </div>
 
           {/* Product Results */}
-          <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+          <div className="max-h-[calc(100dvh-220px)] lg:max-h-[calc(100dvh-180px)] overflow-y-auto">
             {searching ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[...Array(6)].map((_, i) => (
@@ -1099,7 +1099,7 @@ export function POSView() {
 
         {/* Right Column - Cart & Checkout */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-4 space-y-3">
+          <div className="lg:sticky lg:top-12 space-y-3">
             <Card className="gap-0 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -1352,7 +1352,7 @@ export function POSView() {
               {/* Payment Method */}
               <div className="p-3 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Payment Method</p>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
                   {PAYMENT_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}

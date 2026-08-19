@@ -143,8 +143,8 @@ export function ReportsView() {
     setShiftLoading(true)
     try {
       const params = new URLSearchParams()
-      params.set('from', new Date(shiftFilterFrom).toISOString())
-      params.set('to', new Date(shiftFilterTo + 'T23:59:59').toISOString())
+      params.set('from', new Date(shiftFilterFrom + 'T12:00:00').toISOString())
+      params.set('to', new Date(shiftFilterTo + 'T12:00:00').toISOString())
       if (shiftFilterUser) params.set('userId', shiftFilterUser)
       const res = await fetch(`/api/shifts?${params}`, { headers: authHeaders() })
       if (res.ok) {
@@ -600,9 +600,13 @@ export function ReportsView() {
   const fetchSalesData = useCallback(async () => {
     setLoading(true)
     try {
+      const dateParams = new URLSearchParams()
+      if (dateFrom) dateParams.set('from', dateFrom)
+      if (dateTo) dateParams.set('to', dateTo)
+      const qs = dateParams.toString() ? `?${dateParams.toString()}` : ''
       const [statsRes, txRes, invRes, rxRes, stRes] = await Promise.all([
-        fetch('/api/transactions?action=stats', { headers: authHeaders() }),
-        fetch('/api/transactions', { headers: authHeaders() }),
+        fetch(`/api/transactions?action=stats${qs}`, { headers: authHeaders() }),
+        fetch(`/api/transactions${qs}`, { headers: authHeaders() }),
         fetch('/api/inventory'),
         fetch('/api/prescriptions'),
         fetch('/api/stock-take', { headers: authHeaders() }),
@@ -620,7 +624,7 @@ export function ReportsView() {
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, dateFrom, dateTo])
 
   // Fetch per-user sales analytics
   const fetchUserSalesAnalytics = useCallback(async (userId?: string) => {
@@ -648,6 +652,13 @@ export function ReportsView() {
   }, [addToast, dateFrom, dateTo])
 
   useEffect(() => { fetchSalesData() }, [fetchSalesData])
+
+  // Also refetch sales data when switching to a date-filtered tab
+  useEffect(() => {
+    if (['sales', 'prescriptions'].includes(activeTab)) {
+      fetchSalesData()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch user analytics when tab activates or filters change
   useEffect(() => {
@@ -874,7 +885,7 @@ export function ReportsView() {
             <TabsTrigger value="product-activity" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Product Activity</TabsTrigger>
             <TabsTrigger value="shifts" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Shift Reports</TabsTrigger>
           </TabsList>
-          <div className={activeTab !== 'shifts' ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
+          <div className={['sales', 'user-sales', 'prescriptions'].includes(activeTab) ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
             <div className="flex items-center gap-2">
               <Label className="text-xs">From:</Label>
               <DateInput value={dateFrom} onChange={(iso) => setDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />

@@ -7,49 +7,37 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
     if (isTurso()) {
       // --- Raw SQL path (Turso / libsql) ---
-      let customersResult
-      let totalResult
-
+      const conditions: string[] = []
+      const args: unknown[] = []
       if (search) {
-        // LIKE pattern using SQLite concatenation: '%' || ? || '%'
-        const likePattern = `'%' || ? || '%'`
-        const whereClause = `"firstName" LIKE ${likePattern} OR "lastName" LIKE ${likePattern} OR "email" LIKE ${likePattern} OR "phone" LIKE ${likePattern} OR "insurancePolicyNo" LIKE ${likePattern}`
-
-        const countSql = `SELECT COUNT(*) as count FROM "Customer" WHERE ${whereClause}`
-        const dataSql = `SELECT "id", "firstName", "lastName", "email", "phone", "dateOfBirth", "gender", "address", "insuranceProvider", "insurancePolicyNo", "allergies", "notes", "createdAt", "updatedAt" FROM "Customer" WHERE ${whereClause} ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`
-
-        // 5 search args for LIKE, then limit + skip for data
-        ;[customersResult, totalResult] = await Promise.all([
-          turso.execute({
-            sql: dataSql,
-            args: [search, search, search, search, search, limit, skip],
-          }),
-          turso.execute({
-            sql: countSql,
-            args: [search, search, search, search, search],
-          }),
-        ])
-      } else {
-        const countSql = `SELECT COUNT(*) as count FROM "Customer"`
-        const dataSql = `SELECT "id", "firstName", "lastName", "email", "phone", "dateOfBirth", "gender", "address", "insuranceProvider", "insurancePolicyNo", "allergies", "notes", "createdAt", "updatedAt" FROM "Customer" ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`
-
-        ;[customersResult, totalResult] = await Promise.all([
-          turso.execute({
-            sql: dataSql,
-            args: [limit, skip],
-          }),
-          turso.execute({
-            sql: countSql,
-            args: [],
-          }),
-        ])
+        conditions.push('("firstName" LIKE \'%\' || ? || \'%\' OR "lastName" LIKE \'%\' || ? || \'%\' OR "email" LIKE \'%\' || ? || \'%\' OR "phone" LIKE \'%\' || ? || \'%\')')
+        args.push(search, search, search, search)
       }
+      if (from) { conditions.push('"createdAt" >= ?'); args.push(from) }
+      if (to) { conditions.push('"createdAt" <= ?'); args.push(to + 'T23:59:59') }
+      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
+
+      const dataSql = `SELECT "id", "firstName", "lastName", "email", "phone", "dateOfBirth", "gender", "address", "insuranceProvider", "insurancePolicyNo", "allergies", "notes", "createdAt", "updatedAt" FROM "Customer" ${whereClause} ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`
+      const countSql = `SELECT COUNT(*) as count FROM "Customer" ${whereClause}`
+
+      const [customersResult, totalResult] = await Promise.all([
+        turso.execute({
+          sql: dataSql,
+          args: [...args, limit, skip],
+        }),
+        turso.execute({
+          sql: countSql,
+          args,
+        }),
+      ])
 
       const customers = customersResult.rows.map((row) => ({
         id: row.id as string,
@@ -93,6 +81,11 @@ export async function GET(request: NextRequest) {
           { phone: { contains: search } },
           { insurancePolicyNo: { contains: search } },
         ]
+      }
+      if (from || to) {
+        where.createdAt = {} as Record<string, unknown>
+        if (from) (where.createdAt as Record<string, unknown>).gte = new Date(from)
+        if (to) (where.createdAt as Record<string, unknown>).lte = new Date(to)
       }
 
       const [customers, total] = await Promise.all([

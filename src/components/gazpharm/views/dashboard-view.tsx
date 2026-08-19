@@ -376,7 +376,7 @@ export function DashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="h-[180px] sm:h-[220px] w-full">
+                  <div className="h-[160px] sm:h-[180px] lg:h-[190px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.weeklyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />

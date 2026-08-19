@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const customerId = searchParams.get('customerId')
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -71,6 +73,8 @@ export async function GET(request: NextRequest) {
         conditions.push(`p."customerId" = ?`)
         args.push(customerId)
       }
+      if (from) { conditions.push('p."createdAt" >= ?'); args.push(from) }
+      if (to) { conditions.push('p."createdAt" <= ?'); args.push(to + 'T23:59:59') }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
@@ -124,6 +128,11 @@ export async function GET(request: NextRequest) {
 
       if (customerId) {
         where.customerId = customerId
+      }
+      if (from || to) {
+        where.createdAt = {} as Record<string, unknown>
+        if (from) (where.createdAt as Record<string, unknown>).gte = new Date(from)
+        if (to) (where.createdAt as Record<string, unknown>).lte = new Date(to)
       }
 
       const [prescriptions, total] = await Promise.all([

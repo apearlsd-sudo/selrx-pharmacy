@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const search = searchParams.get('search')
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
 
@@ -43,6 +45,8 @@ export async function GET(request: NextRequest) {
         )
         args.push(search, search, search)
       }
+      if (from) { conditions.push('po."createdAt" >= ?'); args.push(from) }
+      if (to) { conditions.push('po."createdAt" <= ?'); args.push(to + 'T23:59:59') }
 
       const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
       const offset = (page - 1) * limit
@@ -109,6 +113,11 @@ export async function GET(request: NextRequest) {
         { id: { contains: search } },
         { notes: { contains: search } },
       ]
+    }
+    if (from || to) {
+      where.createdAt = {} as Record<string, unknown>
+      if (from) (where.createdAt as Record<string, unknown>).gte = new Date(from)
+      if (to) (where.createdAt as Record<string, unknown>).lte = new Date(to)
     }
 
     const [orders, total, allOrders] = await Promise.all([
