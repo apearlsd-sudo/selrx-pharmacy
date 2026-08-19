@@ -95,6 +95,13 @@ if (typeof window !== 'undefined') {
         if (!headers.has('Authorization')) {
           headers.set('Authorization', `Bearer ${token}`)
         }
+        // Inject user context headers for API routes that need them
+        const userState = useAppStore.getState().user
+        if (userState) {
+          if (!headers.has('x-user-id')) headers.set('x-user-id', userState.id)
+          if (!headers.has('x-user-name')) headers.set('x-user-name', userState.name)
+          if (!headers.has('x-user-role')) headers.set('x-user-role', userState.role)
+        }
         return origFetch.call(this, input, { ...init, headers }).then((res) => {
           // Auto-logout on 401 (expired/invalid token)
           if (res.status === 401 && useAppStore.getState().isAuthenticated) {
