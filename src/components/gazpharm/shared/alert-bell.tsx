@@ -47,6 +47,7 @@ export function AlertBell() {
   const [loading, setLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const [debugInfo, setDebugInfo] = useState('')
+  const [debugDetail, setDebugDetail] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const inventoryVersion = useAppStore((s) => s.inventoryVersion)
@@ -94,6 +95,43 @@ export function AlertBell() {
       }
 
       setDebugInfo(debugParts.join(' | '))
+
+      // If no alerts found, fetch debug data
+      if (debugParts.every(p => p.includes(': 0'))) {
+        try {
+          const dbgRes = await fetch('/api/alerts/debug', { headers })
+          if (dbgRes.ok) {
+            const dbg = await dbgRes.json()
+            const lines: string[] = []
+            if (dbg.counts) {
+              const c = dbg.counts
+              lines.push('Products: ' + (c.totalProducts || 0) + ' (ACTIVE: ' + (c.activeProducts || 0) + ', active: ' + (c.activeLower || 0) + ')')
+              lines.push('Batches: ' + (c.totalBatches || 0) + ', Inventory rows: ' + (c.totalInventory || 0))
+            }
+            if (dbg.distinctStatuses) lines.push('Statuses: ' + JSON.stringify(dbg.distinctStatuses))
+            if (dbg.reorderCandidatesAll?.length) {
+              lines.push('Reorder (no filter): ' + dbg.reorderCandidatesAll.length + ' matches')
+              dbg.reorderCandidatesAll.slice(0, 3).forEach((r: Record<string, unknown>) => lines.push('  ' + r.name + ' qty=' + r.quantity + ' rp=' + r.reorderPoint + ' status=' + r.status))
+            } else {
+              lines.push('Reorder (no filter): 0 matches')
+            }
+            if (dbg.batchExpirySamples?.length) {
+              lines.push('Batch expiry samples: ' + dbg.batchExpirySamples.length)
+              dbg.batchExpirySamples.slice(0, 3).forEach((r: Record<string, unknown>) => lines.push('  ' + r.name + ' exp=' + r.expiryDate + ' qty=' + r.quantity + ' parsed=' + r.parsedDate))
+            } else {
+              lines.push('Batch expiry samples: 0')
+            }
+            if (dbg.productExpirySamples?.length) {
+              lines.push('Product expiry samples: ' + dbg.productExpirySamples.length)
+              dbg.productExpirySamples.slice(0, 3).forEach((r: Record<string, unknown>) => lines.push('  ' + r.name + ' exp=' + r.expiryDate + ' parsed=' + r.parsedDate))
+            } else {
+              lines.push('Product expiry samples: 0')
+            }
+            setDebugDetail(lines.join('\n'))
+            console.log('[AlertBell] Debug:', JSON.stringify(dbg, null, 2))
+          }
+        } catch {}
+      }
     } catch (err) {
       console.error('[AlertBell] Failed to fetch alerts:', err)
     } finally {
@@ -229,6 +267,9 @@ export function AlertBell() {
                     : 'No products expiring within 14 days or at reorder level'}
                 </p>
                 <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-2 font-mono">{debugInfo}</p>
+                {debugDetail && (
+                  <pre className="text-[9px] text-left text-gray-400 dark:text-gray-500 mt-3 mx-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded max-h-[200px] overflow-auto whitespace-pre-wrap font-mono leading-relaxed">{debugDetail}</pre>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
