@@ -1413,7 +1413,7 @@ export function InventoryView() {
                   const nearExpiryCount = bs?.nearExpiryBatches || 0
                   const daysToExpiry = daysToExpiryFrom(activeExpiry, todayWAT)
                   const nearExpiry = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 30
-                  const showExpired = allBatchesExpired && !allBatchesNoExpiry && qty > 0
+                  const showExpired = allBatchesExpired && !allBatchesNoExpiry
                   const isDiscontinued = item.product.status === 'DISCONTINUED'
                   return (
                     <TableRow key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800/50/50 transition-colors ${isOut ? 'bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20/50' : isLow ? 'bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-900/20/50' : ''}`}>
@@ -1448,10 +1448,10 @@ export function InventoryView() {
                       <TableCell>
                         {isDiscontinued ? (
                           <Badge className="bg-gray-100 text-gray-600 border-gray-200 dark:border-gray-700 text-[10px]">Discontinued</Badge>
-                        ) : isOut ? (
-                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
                         ) : showExpired ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
+                        ) : isOut ? (
+                          <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
                         ) : hasExpiredBatches ? (
                           <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px]">Partial Expired</Badge>
                         ) : isLow ? (

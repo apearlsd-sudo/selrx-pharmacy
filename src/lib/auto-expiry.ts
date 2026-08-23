@@ -46,6 +46,49 @@ function toObjs(result: { columns: Array<unknown>; rows: Array<Array<unknown>> }
  * that have a product-level expiryDate in the past.
  */
 export async function runAutoExpiry(): Promise<void> {
+  // ── STEP 0: Reconciliation ──
+  // Fix any Inventory rows where quantity is out of sync with the actual
+  // SUM(Batch.quantity).  This catches stale data from previous runs where
+  // batches were zeroed but Inventory was never updated (e.g. due to an
+  // earlier bug).  Only touches products that have at least one expired
+  // batch, so the impact is minimal.
+  await turso.execute(sqlRaw(`
+    UPDATE Inventory SET quantity = (
+        SELECT COALESCE(SUM(b.quantity), 0)
+        FROM "Batch" b
+        WHERE b."productId" = Inventory."productId"
+      ), "updatedAt" = datetime('now')
+    WHERE "productId" IN (
+        SELECT DISTINCT b."productId" FROM "Batch" b
+        WHERE b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now')
+    )
+    AND quantity != (
+        SELECT COALESCE(SUM(b.quantity), 0)
+        FROM "Batch" b
+        WHERE b."productId" = Inventory."productId"
+    )
+  `, []))
+
+  // Also mark products as EXPIRED if reconciliation just zeroed their stock
+  await turso.execute(sqlRaw(`
+    UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = datetime('now'), "updatedAt" = datetime('now')
+    WHERE status NOT IN ('DISCONTINUED', 'EXPIRED')
+      AND id IN (
+        SELECT i."productId" FROM Inventory i
+        WHERE i.quantity = 0
+          AND i."productId" IN (
+            SELECT DISTINCT b."productId" FROM "Batch" b
+            WHERE b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now')
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "Batch" b2
+            WHERE b2."productId" = i."productId"
+              AND b2.quantity > 0
+              AND (b2."expiryDate" IS NULL OR date(b2."expiryDate") > date('now'))
+          )
+      )
+  `, []))
+
   // ── STEP 1: Batch-level auto-expiry ──
   // Use sqlRaw() for SELECT too — avoids the Turso {sql,args} bug that
   // silently returns 0 rows.
