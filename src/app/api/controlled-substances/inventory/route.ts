@@ -5,13 +5,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, sqlRaw } from '@/lib/turso'
+import { runAutoExpiry } from '@/lib/auto-expiry'
 
 export async function GET() {
   try {
     if (isTurso()) {
-      const result = await turso.execute({
-        sql: `SELECT p.id, p.name, p.ndc, p."dosageForm", p.strength, p."deaSchedule",
+      // Auto-expire before querying stock levels
+      await runAutoExpiry()
+
+      const result = await turso.execute(sqlRaw(`SELECT p.id, p.name, p.ndc, p."dosageForm", p.strength, p."deaSchedule",
                      p."sellingPrice", p."requiresPrescription",
                      i.quantity as stock,
                      COALESCE(total_dispensed.total_qty, 0) as totalDispensed
@@ -23,9 +26,7 @@ export async function GET() {
                 GROUP BY "productId"
               ) total_dispensed ON total_dispensed."productId" = p.id
               WHERE p."controlledSubstance" = 1
-              ORDER BY p.name`,
-        args: [],
-      })
+              ORDER BY p.name`, []))
 
       const items = result.rows.map((r) => ({
         id: r.id as string,

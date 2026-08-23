@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, sqlRaw } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { runAutoExpiry } from '@/lib/auto-expiry'
 
 // GET /api/products - List all products with search, filter, pagination
 export async function GET(request: NextRequest) {
@@ -14,39 +15,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
 
     if (isTurso()) {
-      // ── AUTO-EXPIRY: Zero inventory for products whose product-level expiryDate has passed ──
-      // Only targets products that have NO active batches with future expiry dates.
-      await turso.execute(sqlRaw(`
-        UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
-        WHERE "productId" IN (
-          SELECT p.id FROM "Product" p
-          INNER JOIN Inventory i ON i."productId" = p.id
-          WHERE p."expiryDate" IS NOT NULL
-            AND date(p."expiryDate") <= date('now')
-            AND i.quantity > 0
-            AND NOT EXISTS (
-              SELECT 1 FROM "Batch" b
-              WHERE b."productId" = p.id
-                AND b.quantity > 0
-                AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-            )
-        )
-      `, []))
-
-      // Mark such products as EXPIRED if inventory is now 0
-      await turso.execute(sqlRaw(`
-        UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = datetime('now'), "updatedAt" = datetime('now')
-        WHERE "expiryDate" IS NOT NULL
-          AND date("expiryDate") <= date('now')
-          AND status != 'DISCONTINUED'
-          AND id IN (SELECT "productId" FROM Inventory WHERE quantity = 0)
-          AND NOT EXISTS (
-            SELECT 1 FROM "Batch" b
-            WHERE b."productId" = "Product".id
-              AND b.quantity > 0
-              AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-          )
-      `, []))
+      // ── AUTO-EXPIRY: Batch-level + product-level (shared) ──
+      await runAutoExpiry()
 
       // Raw SQL path
       const conditions: string[] = []
@@ -183,15 +153,85 @@ export async function GET(request: NextRequest) {
         })
         for (const r of batchSummaryResult.rows) {
           const obj: Record<string, unknown> = {}
-          batchSummaryResult.columns.forEach((c, i) => { obj[c.name] = r[i] })
+          batchSummaryResult.columns.forEach((c, i) => { obj[c] = r[i] })
           batchSummaryMap.set(obj.productId as string, obj)
         }
       }
 
-      const defaultSummary = { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false }
+      // Recently-expired (zeroed) batches for products on this page
+      const expiredZeroedMap = new Map<string, Record<string, unknown>>() 
+      if (productIds.length > 0) {
+        const phPlaceholders2 = productIds.map(() => '?').join(', ')
+        const expiredZeroedResult = await turso.execute(sqlRaw(`SELECT b."productId",
+               COUNT(*) as zeroedBatchCount,
+               MIN(b."expiryDate") as nearestZeroedExpiryDate,
+               MAX(b."updatedAt") as lastZeroedAt
+        FROM "Batch" b
+        WHERE b.quantity = 0
+          AND b."expiryDate" IS NOT NULL
+          AND date(b."expiryDate") <= date('now')
+          AND b."updatedAt" >= date('now', '-90 days')
+          AND b."productId" IN (${phPlaceholders2})
+        GROUP BY b."productId"`, productIds as (string | number)[]))
+        for (const r of expiredZeroedResult.rows) {
+          const obj: Record<string, unknown> = {}
+          expiredZeroedResult.columns.forEach((c, i) => { obj[c] = r[i] })
+          expiredZeroedMap.set(obj.productId as string, obj)
+        }
+      }
+
+      // Get total expired quantity from ProductHistory for products on this page
+      const expiredQtyMap = new Map<string, number>()
+      if (productIds.length > 0) {
+        const phPlaceholders3 = productIds.map(() => '?').join(', ')
+        const expiredQtyResult = await turso.execute(sqlRaw(`SELECT ph."productId",
+             COALESCE(SUM(CAST(json_extract(ph."previousValues", '$.batchQuantity') AS INTEGER)), 0) as totalExpiredQty
+      FROM "ProductHistory" ph
+      WHERE ph.action = 'EXPIRED'
+        AND ph."createdAt" >= date('now', '-90 days')
+        AND ph."productId" IN (${phPlaceholders3})
+      GROUP BY ph."productId"`, productIds as (string | number)[]))
+        for (const r of expiredQtyResult.rows) {
+          const obj: Record<string, unknown> = {}
+          expiredQtyResult.columns.forEach((c, i) => { obj[c] = r[i] })
+          expiredQtyMap.set(obj.productId as string, Number(obj.totalExpiredQty) || 0)
+        }
+      }
+
+      // Primary batch number from Batch table (earliest-created active batch with batch number)
+      const batchNumberMap = new Map<string, string>()
+      if (productIds.length > 0) {
+        const phPlaceholders4 = productIds.map(() => '?').join(', ')
+        const batchNumbersResult = await turso.execute(sqlRaw(`SELECT b."productId", b."batchNumber"
+              FROM "Batch" b
+              INNER JOIN (
+                SELECT "productId", MIN("createdAt") as minCreated
+                FROM "Batch"
+                WHERE quantity > 0 AND "batchNumber" IS NOT NULL AND "batchNumber" != ''
+                  AND "productId" IN (${phPlaceholders4})
+                GROUP BY "productId"
+              ) first ON b."productId" = first."productId" AND b."createdAt" = first.minCreated
+              WHERE b.quantity > 0 AND b."batchNumber" IS NOT NULL AND b."batchNumber" != ''`, productIds as (string | number)[]))
+        for (const r of batchNumbersResult.rows) {
+          const pid = r[0] as string
+          if (!batchNumberMap.has(pid)) {
+            batchNumberMap.set(pid, r[1] as string)
+          }
+        }
+      }
+
+      const defaultSummary = { hasBatches: false, totalBatches: 0, noExpiryBatches: 0, expiredBatches: 0, activeBatches: 0, allBatchesExpired: false, hasExpiredBatches: false, nearExpiryBatches: 0, nearestActiveExpiry: null, nearestExpiredDate: null, primaryBatchNumber: null, allBatchesNoExpiry: false, zeroedExpiredBatches: 0, zeroedExpiryDate: null, lastZeroedAt: null, zeroedTotalQty: 0 }
       const products = rawProducts.map((p) => {
         const bs = batchSummaryMap.get(p.id)
+        const ez = expiredZeroedMap.get(p.id)
         const noExpiry = Number(bs?.noExpiryBatches) || 0
+        const zeroedBatchCount = Number(ez?.zeroedBatchCount) || 0
+        const nearestZeroedExpiry = ez?.nearestZeroedExpiryDate as string | null
+        const lastZeroedAt = ez?.lastZeroedAt as string | null
+        const zeroedTotalQty = expiredQtyMap.get(p.id) || 0
+        const hasAnyExpired = ((Number(bs?.expiredBatches) || 0) > 0) || (zeroedBatchCount > 0)
+        const combinedNearestExpired = (bs?.nearestExpiredDate as string | null) || nearestZeroedExpiry
+        const primaryBatchNo = batchNumberMap.get(p.id) || p.batchNumber || null
         const summary = bs ? {
           hasBatches: true,
           totalBatches: Number(bs.totalBatches) || 0,
@@ -199,13 +239,34 @@ export async function GET(request: NextRequest) {
           expiredBatches: Number(bs.expiredBatches) || 0,
           activeBatches: Number(bs.activeBatches) || 0,
           allBatchesExpired: (Number(bs.activeBatches) || 0) === 0,
-          hasExpiredBatches: (Number(bs.expiredBatches) || 0) > 0,
+          hasExpiredBatches: hasAnyExpired,
           nearExpiryBatches: Number(bs.nearExpiryBatches) || 0,
           nearestActiveExpiry: bs.nearestActiveExpiry as string | null,
-          nearestExpiredDate: bs.nearestExpiredDate as string | null,
-          primaryBatchNumber: p.batchNumber || null,
+          nearestExpiredDate: combinedNearestExpired,
+          primaryBatchNumber: primaryBatchNo,
           allBatchesNoExpiry: noExpiry > 0 && (Number(bs.expiredBatches) || 0) === 0 && (Number(bs.activeBatches) || 0) === 0,
-        } : defaultSummary
+          zeroedExpiredBatches: zeroedBatchCount,
+          zeroedExpiryDate: nearestZeroedExpiry,
+          lastZeroedAt,
+          zeroedTotalQty,
+        } : (zeroedBatchCount > 0 ? {
+          hasBatches: true,
+          totalBatches: zeroedBatchCount,
+          noExpiryBatches: 0,
+          expiredBatches: 0,
+          activeBatches: 0,
+          allBatchesExpired: true,
+          hasExpiredBatches: true,
+          nearExpiryBatches: 0,
+          nearestActiveExpiry: null,
+          nearestExpiredDate: nearestZeroedExpiry,
+          primaryBatchNumber: null,
+          allBatchesNoExpiry: false,
+          zeroedExpiredBatches: zeroedBatchCount,
+          zeroedExpiryDate: nearestZeroedExpiry,
+          lastZeroedAt,
+          zeroedTotalQty,
+        } : defaultSummary)
         return { ...p, batchExpirySummary: summary }
       })
 

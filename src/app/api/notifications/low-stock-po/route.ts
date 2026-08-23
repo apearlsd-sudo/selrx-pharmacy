@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, sqlRaw } from '@/lib/turso'
+import { runAutoExpiry } from '@/lib/auto-expiry'
 
 // GET /api/notifications/low-stock-po
 // Returns products at or below their reorder point, grouped by vendor,
@@ -21,8 +22,10 @@ interface LowStockItem {
 export async function GET() {
   try {
     if (isTurso()) {
-      const result = await turso.execute({
-        sql: `SELECT p.id, p.name, p.ndc, p."costPrice", p."reorderPoint", p."reorderQty",
+      // Auto-expire before querying low stock
+      await runAutoExpiry()
+
+      const result = await turso.execute(sqlRaw(`SELECT p.id, p.name, p.ndc, p."costPrice", p."reorderPoint", p."reorderQty",
                        p."vendorId", p."sellingUnit", i.quantity as currentStock,
                        v.name as vendorName, v.id as vendorId
                 FROM "Product" p
@@ -30,9 +33,7 @@ export async function GET() {
                 LEFT JOIN "Vendor" v ON v.id = p."vendorId"
                 WHERE p.status = 'ACTIVE'
                   AND i.quantity <= p."reorderPoint"
-                ORDER BY v.name, p.name`,
-        args: [],
-      })
+                ORDER BY v.name, p.name`, []))
 
       const items: LowStockItem[] = result.rows.map((row) => ({
         id: row.id as string,

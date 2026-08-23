@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch } from '@/lib/turso'
+import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch, sqlRaw } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { runAutoExpiry } from '@/lib/auto-expiry'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -514,7 +515,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (isTurso()) {
+      // Auto-expire before checking stock
+      await runAutoExpiry()
+
       // 1. Check inventory for all items (read-modify-write pre-check)
+      // Use SUM of active (non-expired) batch quantities instead of denormalized Inventory.quantity
       for (const item of items) {
         const effectiveQty = (item.quantity as number) * ((item.itemsPerUnit as number) || 1)
         if (!effectiveQty || effectiveQty <= 0) {
@@ -523,11 +528,10 @@ export async function POST(request: NextRequest) {
             { status: 400 },
           )
         }
-        const invResult = await tursoExecute({
-          sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
-          args: [item.productId],
-        })
-        const availableQty = invResult.rows.length > 0 ? (invResult.rows[0][0] as number) : 0
+        const invResult = await turso.execute(
+          sqlRaw(`SELECT COALESCE(SUM(quantity), 0) FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND ("expiryDate" IS NULL OR date("expiryDate") > date('now'))`, [item.productId])
+        )
+        const availableQty = Number(invResult.rows[0][0]) || 0
         if (availableQty < effectiveQty) {
           // Fetch product name for error message
           const prodResult = await tursoExecute({

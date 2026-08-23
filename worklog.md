@@ -670,3 +670,27 @@ Stage Summary:
 - Staff targets tab now has From/To date selection filters instead of month-only picker
 - API supports both from/to and legacy period param
 - No new TypeScript errors introduced
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix expired products showing stock on inventory & drug catalogue pages, and fix batch display inconsistency
+
+Work Log:
+- Investigated root cause: GET /api/products (drug catalogue) only had product-level auto-expiry, not batch-level. If a product had 2 batches (1 expired, 1 active), Product.expiryDate was re-synced to the active batch, so product-level check never fired. Inventory.quantity still included expired batch quantity.
+- Created shared `src/lib/auto-expiry.ts` with `runAutoExpiry()` function that: (1) zeros expired batches, (2) logs EXPIRED events, (3) recalculates Inventory.quantity from batch sums, (4) re-syncs Product.expiryDate, (5) marks products as EXPIRED if all stock gone
+- Updated GET /api/products to call runAutoExpiry() and enhanced batch summary with: zeroed-batch tracking (90-day window), primaryBatchNumber from Batch table (not stale product-level field), expired quantity from ProductHistory
+- Updated GET /api/inventory (main + alerts action) to use shared runAutoExpiry() — deduplicated ~100 lines
+- Updated GET /api/dashboard to use shared runAutoExpiry() — was product-level only
+- Updated GET /api/controlled-substances/inventory to call runAutoExpiry() before querying stock
+- Updated GET /api/notifications/low-stock-po to call runAutoExpiry() before querying low stock
+- Updated POST /api/transactions stock validation to use SUM of active (non-expired) batch quantities instead of denormalized Inventory.quantity
+- Fixed DELETE /api/reports/expired-goods expiry re-sync query: added `date(b."expiryDate") > date('now')` filter to prevent re-syncing to expired batch
+- All TypeScript errors are pre-existing, no new errors introduced
+
+Stage Summary:
+- Expired products now show 0 quantity on both inventory and drug catalogue pages
+- All 7 API routes now consistently run batch-level auto-expiry before reading stock
+- Transaction stock validation uses active batch sum, preventing sales of expired stock
+- Batch summary in drug catalogue now matches inventory page (zeroed-batch tracking, correct primaryBatchNumber)
+- Products with stock but no visible batch (auto-created catch-all batches) now properly show batch info

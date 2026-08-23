@@ -432,9 +432,9 @@ export async function DELETE(request: NextRequest) {
       const sumResult = await turso.execute(sqlRaw(`SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`, [pid]))
       const totalBatchQty = Number(sumResult.rows[0][0]) || 0
       await turso.execute(sqlRaw('UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?', [totalBatchQty, now, pid]))
-      // Re-sync product expiry to nearest active batch
+      // Re-sync product expiry to nearest active (non-expired) batch
       await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
-                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
               ), "updatedAt" = ? WHERE id = ?`, [pid, now, pid]))
       // If product was EXPIRED and still has stock, reset status
       if (totalBatchQty > 0) {

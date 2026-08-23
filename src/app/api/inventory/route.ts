@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateBatchNo, sqlRaw } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { runAutoExpiry } from '@/lib/auto-expiry'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,23 +84,8 @@ export async function GET(request: NextRequest) {
     // ---- Low-stock alerts ----
     if (action === 'alerts') {
       if (isTurso()) {
-        // First auto-expire product-level expired items
-        await turso.execute(sqlRaw(`
-          UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
-          WHERE "productId" IN (
-            SELECT p.id FROM "Product" p
-            INNER JOIN Inventory i ON i."productId" = p.id
-            WHERE p."expiryDate" IS NOT NULL
-              AND date(p."expiryDate") <= date('now')
-              AND i.quantity > 0
-              AND NOT EXISTS (
-                SELECT 1 FROM "Batch" b
-                WHERE b."productId" = p.id
-                  AND b.quantity > 0
-                  AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-              )
-          )
-        `, []))
+        // Auto-expire before querying alerts
+        await runAutoExpiry()
 
         const result = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
                        ${P_COLS}
@@ -121,106 +107,8 @@ export async function GET(request: NextRequest) {
 
     // ---- Full inventory list (including products without inventory) ----
     if (isTurso()) {
-      // ── AUTO-EXPIRY: Zero out any batches that reached expiry today ──
-      // This runs on every inventory load so expired stock is removed immediately
-      // without requiring user approval.
-      const expiredBatches = await turso.execute(
-        `SELECT b.id, b."productId", b."batchNumber", b.quantity, b."costPrice",
-                    p.name as productName, p."sellingPrice"
-             FROM "Batch" b
-             INNER JOIN "Product" p ON p.id = b."productId"
-             WHERE b."expiryDate" IS NOT NULL
-               AND date(b."expiryDate") <= date('now')
-               AND b.quantity > 0`
-      )
-
-      if (expiredBatches.rows.length > 0) {
-        const now = new Date().toISOString()
-        const affectedProductIds = new Set<string>()
-
-        for (const row of toObjs(expiredBatches)) {
-          const batchId = row.id as string
-          const productId = row.productId as string
-          const prevQty = Number(row.quantity) || 0
-          affectedProductIds.add(productId)
-
-          // Zero the expired batch
-          await turso.execute(
-            sqlRaw('UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?', [now, batchId])
-          )
-
-          // Log in product history
-          writeProductHistory({
-            productId,
-            action: 'EXPIRED',
-            changedFields: ['batchQuantity', 'status'],
-            previousValues: { batchQuantity: prevQty, batchNumber: row.batchNumber, status: 'ACTIVE' },
-            newValues: { batchQuantity: 0, status: 'EXPIRED' },
-            userId: 'system-auto-expiry',
-          })
-        }
-
-        // Recalculate inventory totals & re-sync expiry for affected products
-        for (const pid of affectedProductIds) {
-          const sumResult = await turso.execute(
-            sqlRaw(`SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`, [pid])
-          )
-          const totalBatchQty = Number(sumResult.rows[0][0]) || 0
-
-          await turso.execute(
-            sqlRaw('UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?', [totalBatchQty, now, pid])
-          )
-
-          // Re-sync Product.expiryDate to nearest active batch
-          await turso.execute(
-            sqlRaw(`UPDATE "Product" SET "expiryDate" = (
-                    SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
-                  ), "updatedAt" = ?
-                  WHERE id = ?`, [pid, now, pid])
-          )
-
-          // Mark product as EXPIRED only if ALL stock is gone
-          if (totalBatchQty === 0) {
-            await turso.execute(
-              sqlRaw(`UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`, [now, now, pid])
-            )
-          }
-        }
-      }
-
-      // ── AUTO-EXPIRY (product-level): Zero inventory for products whose expiryDate has passed ──
-      // Handles products without batches that have a product-level expiryDate.
-      await turso.execute(sqlRaw(`
-        UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
-        WHERE "productId" IN (
-          SELECT p.id FROM "Product" p
-          INNER JOIN Inventory i ON i."productId" = p.id
-          WHERE p."expiryDate" IS NOT NULL
-            AND date(p."expiryDate") <= date('now')
-            AND i.quantity > 0
-            AND NOT EXISTS (
-              SELECT 1 FROM "Batch" b
-              WHERE b."productId" = p.id
-                AND b.quantity > 0
-                AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-            )
-        )
-      `, []))
-
-      // Mark such products as EXPIRED
-      await turso.execute(sqlRaw(`
-        UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = datetime('now'), "updatedAt" = datetime('now')
-        WHERE "expiryDate" IS NOT NULL
-          AND date("expiryDate") <= date('now')
-          AND status != 'DISCONTINUED'
-          AND id IN (SELECT "productId" FROM Inventory WHERE quantity = 0)
-          AND NOT EXISTS (
-            SELECT 1 FROM "Batch" b
-            WHERE b."productId" = "Product".id
-              AND b.quantity > 0
-              AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-          )
-      `, []))
+      // AUTO-EXPIRY: Batch-level + product-level (shared)
+      await runAutoExpiry()
 
       // 1. Inventory rows with product, manufacturer, vendor
       const invResult = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,

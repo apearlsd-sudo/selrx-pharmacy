@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, sqlRaw } from '@/lib/turso'
+import { runAutoExpiry } from '@/lib/auto-expiry'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,36 +44,9 @@ export async function GET(request: NextRequest) {
       // Build user filter — inline directly into SQL to avoid parameterized query issues
       const userWhere = isSuperAdmin ? '' : userId ? ` AND t.userId = '${userId.replace(/'/g, "''")}'` : " AND t.userId = '__none__'"
 
-      // ── AUTO-EXPIRY: Zero inventory for expired products (before querying) ──
-      await turso.execute(sqlRaw(`
-        UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
-        WHERE "productId" IN (
-          SELECT p.id FROM "Product" p
-          INNER JOIN Inventory i ON i."productId" = p.id
-          WHERE p."expiryDate" IS NOT NULL
-            AND date(p."expiryDate") <= date('now')
-            AND i.quantity > 0
-            AND NOT EXISTS (
-              SELECT 1 FROM "Batch" b
-              WHERE b."productId" = p.id
-                AND b.quantity > 0
-                AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-            )
-        )
-      `, []))
-      await turso.execute(sqlRaw(`
-        UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = datetime('now'), "updatedAt" = datetime('now')
-        WHERE "expiryDate" IS NOT NULL
-          AND date("expiryDate") <= date('now')
-          AND status != 'DISCONTINUED'
-          AND id IN (SELECT "productId" FROM Inventory WHERE quantity = 0)
-          AND NOT EXISTS (
-            SELECT 1 FROM "Batch" b
-            WHERE b."productId" = "Product".id
-              AND b.quantity > 0
-              AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
-          )
-      `, []))
+      // AUTO-EXPIRY: Batch-level + product-level (shared)
+      await runAutoExpiry()
+
 
       const [
         todayResult,
