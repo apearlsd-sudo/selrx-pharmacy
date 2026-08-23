@@ -7,7 +7,7 @@ import {
   Trash2, Clock, ChevronLeft, ChevronRight, Search, PackageX,
   AlertTriangle, CheckCircle2, DollarSign, Package, Filter, Printer, BarChart3,
   Camera, ArrowRightLeft, Wallet, ClipboardCheck, Target, Shield, Loader2, Plus,
-  ArrowUp, ArrowDown, PieChart as PieChartIcon, RefreshCw,
+  ArrowUp, ArrowDown, PieChart as PieChartIcon, RefreshCw, CalendarIcon,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
@@ -46,6 +48,22 @@ import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { DateInput } from '@/components/gazpharm/shared/date-input'
 
 const CHART_COLORS = ['#059669', '#14b8a6', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#0f766e', '#a7f3d0', '#0891b2', '#06b6d4']
+
+/** Format '2025-08' → 'Aug 2025' */
+function formatMonthDisplay(ym: string): string {
+  if (!ym || !ym.includes('-')) return ym
+  const [y, m] = ym.split('-')
+  const date = new Date(Number(y), Number(m) - 1, 1)
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
+/** Parse '2025-08' → Date object (15th of month to avoid edge cases) */
+function parseMonthToDate(ym: string): Date | undefined {
+  if (!ym || !ym.includes('-')) return undefined
+  const [y, m] = ym.split('-')
+  const d = new Date(Number(y), Number(m) - 1, 15)
+  return isNaN(d.getTime()) ? undefined : d
+}
 
 interface UserSalesData {
   userId: string
@@ -3163,12 +3181,27 @@ export function ReportsView() {
                   Staff Performance Targets
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Input
-                    type="month"
-                    value={targetPeriod}
-                    onChange={(e) => setTargetPeriod(e.target.value)}
-                    className="h-8 w-36 text-xs"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 w-36 justify-start text-xs font-normal bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80">
+                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                        {targetPeriod ? formatMonthDisplay(targetPeriod) : 'Select month'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-2xl border-[0.5px] border-gray-300/60 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.1)]" align="end">
+                      <Calendar
+                        mode="single"
+                        captionLayout="dropdown"
+                        selected={targetPeriod ? parseMonthToDate(targetPeriod) : undefined}
+                        onSelect={(date) => {
+                          if (date) setTargetPeriod(date.toISOString().slice(0, 7))
+                        }}
+                        defaultMonth={parseMonthToDate(targetPeriod) || new Date()}
+                        fromYear={2023}
+                        toYear={2035}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {isSuperAdmin && (
                     <Button size="sm" onClick={() => setShowTargetDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
                       <Plus className="h-3.5 w-3.5 mr-1" />
@@ -3359,7 +3392,27 @@ export function ReportsView() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">Month:</Label>
-                  <Input type="month" value={finMonth} onChange={(e) => setFinMonth(e.target.value)} className="h-8 w-36 text-xs" />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 w-36 justify-start text-xs font-normal bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80">
+                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                        {finMonth ? formatMonthDisplay(finMonth) : 'Select month'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-2xl border-[0.5px] border-gray-300/60 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.1)]" align="end">
+                      <Calendar
+                        mode="single"
+                        captionLayout="dropdown"
+                        selected={finMonth ? parseMonthToDate(finMonth) : undefined}
+                        onSelect={(date) => {
+                          if (date) setFinMonth(date.toISOString().slice(0, 7))
+                        }}
+                        defaultMonth={parseMonthToDate(finMonth) || new Date()}
+                        fromYear={2023}
+                        toYear={2035}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
               <Button size="sm" variant="outline" onClick={fetchFinancialReport} disabled={finLoading}>
