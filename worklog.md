@@ -588,3 +588,24 @@ Stage Summary:
 - All backup tables now use plain SQL for SELECT and inline values for INSERT
 - DosageForm + 9 other tables added to restore-setup
 - New backup generated after deploy will contain complete data for all 31 tables
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix backup export to include complete Product master fields and related tables (_CategoryToProduct, SupplierPriceList, SupplierPriceListItem)
+
+Work Log:
+- Examined backup route at src/app/api/backup/route.ts
+- Identified root cause: Export used explicit column lists (e.g., 32 columns for Product). If ANY column in the list didn't exist in the actual Turso table, the entire SELECT query failed silently (caught by catch block returning [])
+- Evidence: DosageForm (5 columns) exported fine, but Product (32 columns including wholesalePrice/pricingTierId which may not exist in Turso) returned 0 rows
+- Fixed Turso export: Changed `SELECT col1, col2...` to `SELECT *` to avoid column-mismatch failures entirely
+- Fixed column name extraction: Used `result.columns` (Array<string>) instead of `result.columns.map(c => c.name)`
+- Fixed Turso restore: Added `PRAGMA table_info()` probe to get actual target table columns, then intersected with backup row keys for safe INSERT
+- Fixed Prisma export fallback: Changed from iterating static `table.columns` to using `Object.keys(row)` for dynamic capture
+- All three tables (_CategoryToProduct, SupplierPriceList, SupplierPriceListItem) were already in BACKUP_TABLES but were failing due to the same column-mismatch issue - now fixed by SELECT *
+- Build verified successfully
+
+Stage Summary:
+- Changed export query from named columns to SELECT * for all tables (both Turso and Prisma paths)
+- Changed restore to use PRAGMA table_info() + backup data key intersection for column-safe INSERTs
+- All 31 tables including Product, _CategoryToProduct, SupplierPriceList, SupplierPriceListItem should now export correctly
+- File modified: src/app/api/backup/route.ts

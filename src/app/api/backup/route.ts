@@ -103,17 +103,22 @@ export async function GET(request: NextRequest) {
 
       for (const table of tables) {
         try {
-          const colList = table.columns.map(c => `"${c}"`).join(', ')
           const whereClause = table.where || ''
+          // Use SELECT * to avoid column-mismatch failures.
+          // If the BACKUP_TABLES column list has a column that doesn't exist
+          // in the actual Turso table, a named-column SELECT would fail
+          // silently and the catch block would return [].
           const result = await turso.execute(
-            `SELECT ${colList} FROM "${table.name}" ${whereClause}`
+            `SELECT * FROM "${table.name}" ${whereClause}`
           )
 
           if (result.rows.length > 0) {
+            // Get actual column names from result metadata
+            const actualCols: string[] = result.columns
             // Convert libsql rows to plain objects, handling boolean conversion
             backup[table.name] = result.rows.map((row: any) => {
               const obj: Record<string, unknown> = {}
-              for (const col of table.columns) {
+              for (const col of actualCols) {
                 let val = row[col]
                 // libsql returns 0/1 for booleans
                 if (val === 0 || val === 1) {
@@ -158,7 +163,11 @@ export async function GET(request: NextRequest) {
             const rows = await model.findMany()
             backup[table.name] = rows.map((row: any) => {
               const obj: Record<string, unknown> = {}
-              for (const col of table.columns) {
+              // Capture all keys from the row, not just table.columns,
+              // to avoid losing columns that exist in the model but
+              // were omitted from the static column list.
+              for (const col of Object.keys(row)) {
+                if (col.startsWith('_')) continue // skip Prisma internal keys like _count
                 obj[col] = row[col]
               }
               return obj
@@ -276,17 +285,11 @@ export async function POST(request: NextRequest) {
         !skipTables.has(t.name) && data[t.name] && Array.isArray(data[t.name]) && data[t.name].length > 0
       )
 
-      // First pass: disable foreign key checks (SQLite doesn't truly support this,
-      // so we handle ordering carefully and use INSERT OR REPLACE)
       for (const table of tables) {
         const rows = data[table.name]
         const tableResult = { inserted: 0, updated: 0, skipped: 0, errors: [] as string[] }
 
         try {
-          const cols = table.columns
-          const placeholders = cols.map(() => '?').join(', ')
-          const colList = cols.map(c => `"${c}"`).join(', ')
-
           // Check if table exists
           try {
             await turso.execute(`SELECT 1 FROM "${table.name}" LIMIT 1`)
@@ -296,13 +299,50 @@ export async function POST(request: NextRequest) {
             continue
           }
 
+          // Probe actual columns in the target table via PRAGMA
+          let targetCols: string[] = []
+          try {
+            const pragmaResult = await turso.execute(`PRAGMA table_info("${table.name}")`)
+            targetCols = pragmaResult.rows
+              .map((r: any) => r.name as string)
+              .filter(Boolean)
+          } catch {
+            // Fallback to static definition if PRAGMA fails
+            targetCols = [...table.columns]
+          }
+
+          // Use the intersection of backup row keys and target table columns.
+          // This avoids INSERT failures when the backup has columns the target
+          // table lacks, or vice versa.
+          const backupKeys = new Set<string>()
+          for (const row of rows) {
+            if (row && typeof row === 'object') {
+              for (const k of Object.keys(row)) backupKeys.add(k)
+            }
+          }
+          // Prefer target columns that also exist in backup data
+          const cols = targetCols.filter(c => backupKeys.has(c))
+          // Also include backup keys that are in our known schema (for _CategoryToProduct etc.)
+          const extraCols = table.columns.filter(c => backupKeys.has(c) && !cols.includes(c))
+          const allCols = [...cols, ...extraCols]
+          // Ensure 'id' is always included if present
+          if (backupKeys.has('id') && !allCols.includes('id')) allCols.unshift('id')
+
+          if (allCols.length === 0) {
+            console.warn(`[restore] No matching columns for "${table.name}", skipping`)
+            results[table.name] = { ...tableResult, skipped: rows.length }
+            continue
+          }
+
+          const colList = allCols.map(c => `"${c}"`).join(', ')
+
           if (mode === 'replace') {
             // DELETE all existing rows, then INSERT
             await turso.execute(`DELETE FROM "${table.name}"`)
 
             if (rows.length > 0) {
               const stmts = rows.map((row: any) => {
-                const vals = cols.map(c => {
+                const vals = allCols.map(c => {
                   const val = row[c]
                   if (val === true) return '1'
                   if (val === false) return '0'
@@ -327,7 +367,7 @@ export async function POST(request: NextRequest) {
             // UPSERT mode: INSERT OR REPLACE
             if (rows.length > 0) {
               const stmts = rows.map((row: any) => {
-                const vals = cols.map(c => {
+                const vals = allCols.map(c => {
                   const val = row[c]
                   if (val === true) return '1'
                   if (val === false) return '0'
