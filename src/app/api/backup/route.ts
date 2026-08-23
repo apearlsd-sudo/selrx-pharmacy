@@ -31,7 +31,7 @@ interface TableDef {
  */
 const BACKUP_TABLES: TableDef[] = [
   { name: 'SystemRole',  columns: ['id','name','label','description','permissions','color','isSystem','isActive','createdAt','updatedAt'] },
-  { name: 'Company',     columns: ['id','name','slug','logo','tagline','businessType','registrationNo','pharmacyLicense','taxId','phone','email','website','address','city','state','country','postalCode','currency','timezone','active','ownerName','ownerId','createdAt','updatedAt'] },
+  { name: 'Company',     columns: ['id','name','slug','logo','tagline','businessType','registrationNo','pharmacyLicense','taxId','phone','email','website','address','city','state','country','postalCode','currency','timezone','active','ownerName','ownerId','settings','createdAt','updatedAt'] },
   { name: 'Manufacturer', columns: ['id','name','contactPerson','email','phone','address','city','country','website','notes','createdAt','updatedAt'] },
   { name: 'Vendor',      columns: ['id','name','contactPerson','email','phone','address','notes','createdAt','updatedAt'] },
   { name: 'Category',    columns: ['id','name','description','createdAt','updatedAt'] },
@@ -42,9 +42,10 @@ const BACKUP_TABLES: TableDef[] = [
   { name: 'Customer',    columns: ['id','firstName','lastName','email','phone','dateOfBirth','gender','address','insuranceProvider','insurancePolicyNo','allergies','notes','loyaltyPoints','loyaltyTier','createdAt','updatedAt'] },
   { name: 'User',        columns: ['id','email','name','role','phone','licenseNumber','permissions','department','shift','hireDate','active','lastLogin','createdAt','updatedAt'] },
   { name: 'Prescription', columns: ['id','rxNumber','customerId','patientName','prescriberName','prescriberNPI','prescriberPhone','prescriberFax','productName','productNdc','dosage','quantity','refillsRemaining','refillsTotal','daysSupply','dispenseAsWritten','priority','status','notes','filledById','verifiedById','filledAt','expiresAt','createdAt','updatedAt'] },
-  { name: 'Transaction', columns: ['id','transactionNo','customerId','userId','subtotal','tax','discount','total','paymentMethod','paymentAmount','changeAmount','status','prescriptionId','notes','createdAt','updatedAt'] },
-  { name: 'TransactionItem', columns: ['id','transactionId','productId','productName','quantity','unitPrice','subtotal','requiresRx','dispensedQty','createdAt'] },
+  { name: 'Transaction', columns: ['id','transactionNo','customerId','userId','workstationId','subtotal','tax','discount','total','paymentMethod','paymentAmount','changeAmount','status','prescriptionId','notes','createdAt','updatedAt'] },
+  { name: 'TransactionItem', columns: ['id','transactionId','productId','productName','quantity','unitPrice','subtotal','requiresRx','dispensedQty','sellingUnit','itemsPerUnit','createdAt'] },
   { name: 'Return',      columns: ['id','returnNo','transactionId','transactionItemId','productId','productName','quantity','unitPrice','refundAmount','reason','reasonNote','customerId','customerName','userId','status','approvedById','approvedAt','refundMethod','refundProcessed','restocked','notes','createdAt','updatedAt'] },
+  { name: 'Workstation',  columns: ['id','name','description','location','isActive','createdAt','updatedAt'] },
   { name: 'HardwareLog', columns: ['id','transactionId','hardwareType','action','status','details','createdAt'] },
   { name: 'AuditLog',    columns: ['id','userId','action','category','entity','entityId','details','ipAddress','userAgent','createdAt'] },
   { name: 'ProductHistory', columns: ['id','productId','action','changedFields','previousValues','newValues','userId','createdAt'] },
@@ -62,6 +63,11 @@ const BACKUP_TABLES: TableDef[] = [
   { name: 'UserTarget', columns: ['id','userId','period','targetType','targetValue','createdAt','updatedAt'] },
   { name: 'ApprovalLog', columns: ['id','action','entityType','entityId','requesterId','approverId','details','approved','createdAt'] },
   { name: 'Notification', columns: ['id','type','title','message','entityType','entityId','status','userId','createdAt','readAt'] },
+  { name: 'DrugInteraction', columns: ['id','drug1','drug2','severity','category','description','mechanism','management','onset','evidence','source','isCustom','isActive','createdAt','updatedAt'] },
+  { name: 'SuspendedCart', columns: ['id','userId','workstationId','customerId','customerName','items','subtotal','tax','total','note','createdAt','updatedAt'] },
+  { name: 'ControlledSubstanceLog', columns: ['id','productId','productName','prescriptionId','quantity','dispensedBy','verifiedBy','notes','createdAt'] },
+  { name: 'Shift', columns: ['id','userId','userName','startedAt','endedAt','status','totalSales','totalTransactions','totalItemsSold','cashAtStart','cashAtEnd','expectedCash','cashDiscrepancy','createdAt','updatedAt'] },
+  { name: 'ShiftInventory', columns: ['id','shiftId','productId','productName','quantity','sellingPrice','costPrice','category','createdAt'] },
 ]
 
 // ── Helpers ──
@@ -318,6 +324,51 @@ export async function POST(request: NextRequest) {
     let totalErrors = 0
 
     if (isTurso()) {
+      // Ensure all columns and dynamic tables exist before restoring
+      try { await turso.execute(`ALTER TABLE "Company" ADD COLUMN "settings" TEXT`) } catch { /* exists */ }
+      try { await turso.execute(`ALTER TABLE "Transaction" ADD COLUMN "workstationId" TEXT`) } catch { /* exists */ }
+      try { await turso.execute(`ALTER TABLE "TransactionItem" ADD COLUMN "sellingUnit" TEXT DEFAULT 'EA'`) } catch { /* exists */ }
+      try { await turso.execute(`ALTER TABLE "TransactionItem" ADD COLUMN "itemsPerUnit" INTEGER DEFAULT 1`) } catch { /* exists */ }
+      // Ensure dynamically-created tables exist
+      try { await turso.execute(`CREATE TABLE IF NOT EXISTS "Workstation" (
+        "id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "description" TEXT, "location" TEXT,
+        "isActive" INTEGER NOT NULL DEFAULT 1, "createdAt" TEXT NOT NULL, "updatedAt" TEXT NOT NULL
+      )`) } catch { /* */ }
+      try { await turso.execute(`CREATE TABLE IF NOT EXISTS "DrugInteraction" (
+        "id" TEXT NOT NULL PRIMARY KEY, "drug1" TEXT NOT NULL, "drug2" TEXT NOT NULL,
+        "severity" TEXT NOT NULL DEFAULT 'moderate', "category" TEXT NOT NULL DEFAULT 'drug-drug',
+        "description" TEXT NOT NULL DEFAULT '', "mechanism" TEXT NOT NULL DEFAULT '',
+        "management" TEXT NOT NULL DEFAULT '', "onset" TEXT NOT NULL DEFAULT '',
+        "evidence" TEXT NOT NULL DEFAULT 'established', "source" TEXT NOT NULL DEFAULT 'SelRx Database',
+        "isCustom" INTEGER NOT NULL DEFAULT 0, "isActive" INTEGER NOT NULL DEFAULT 1,
+        "createdAt" TEXT NOT NULL, "updatedAt" TEXT NOT NULL
+      )`) } catch { /* */ }
+      try { await turso.execute(`CREATE TABLE IF NOT EXISTS "SuspendedCart" (
+        "id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "workstationId" TEXT,
+        "customerId" TEXT, "customerName" TEXT, "items" TEXT NOT NULL,
+        "subtotal" REAL NOT NULL DEFAULT 0, "tax" REAL NOT NULL DEFAULT 0,
+        "total" REAL NOT NULL DEFAULT 0, "note" TEXT,
+        "createdAt" TEXT NOT NULL, "updatedAt" TEXT NOT NULL
+      )`) } catch { /* */ }
+      try { await turso.execute(`CREATE TABLE IF NOT EXISTS "ControlledSubstanceLog" (
+        "id" TEXT NOT NULL PRIMARY KEY, "productId" TEXT NOT NULL, "productName" TEXT,
+        "prescriptionId" TEXT, "quantity" INTEGER NOT NULL, "dispensedBy" TEXT NOT NULL,
+        "verifiedBy" TEXT NOT NULL, "notes" TEXT, "createdAt" TEXT NOT NULL
+      )`) } catch { /* */ }
+      try { await turso.execute(`CREATE TABLE IF NOT EXISTS "Shift" (
+        "id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "userName" TEXT,
+        "startedAt" TEXT NOT NULL, "endedAt" TEXT, "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+        "totalSales" REAL NOT NULL DEFAULT 0, "totalTransactions" INTEGER NOT NULL DEFAULT 0,
+        "totalItemsSold" INTEGER NOT NULL DEFAULT 0, "cashAtStart" REAL, "cashAtEnd" REAL,
+        "expectedCash" REAL, "cashDiscrepancy" REAL,
+        "createdAt" TEXT NOT NULL, "updatedAt" TEXT NOT NULL
+      )`) } catch { /* */ }
+      try { await turso.execute(`CREATE TABLE IF NOT EXISTS "ShiftInventory" (
+        "id" TEXT NOT NULL PRIMARY KEY, "shiftId" TEXT NOT NULL, "productId" TEXT NOT NULL,
+        "productName" TEXT, "quantity" INTEGER NOT NULL DEFAULT 0, "sellingPrice" REAL,
+        "costPrice" REAL, "category" TEXT, "createdAt" TEXT NOT NULL
+      )`) } catch { /* */ }
+
       // Process tables in dependency order
       const tables = BACKUP_TABLES.filter(t =>
         !skipTables.has(t.name) && data[t.name] && Array.isArray(data[t.name]) && data[t.name].length > 0
