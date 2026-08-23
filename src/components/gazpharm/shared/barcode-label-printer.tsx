@@ -29,7 +29,7 @@ function BarcodeImage({ value, width = 1.5, height = 50 }: { value: string; widt
           width,
           height,
           displayValue: true,
-          fontSize: 10,
+          fontSize: 14,
           margin: 0,
           font: 'monospace',
           textMargin: 2,

@@ -22,7 +22,7 @@ export function BarcodeSVG({
   height = 40,
   className = '',
   displayValue = true,
-  fontSize = 10,
+  fontSize = 14,
   margin = 2,
 }: BarcodeSVGProps) {
   const svgRef = useRef<SVGSVGElement>(null)

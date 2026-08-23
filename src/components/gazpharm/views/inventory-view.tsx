@@ -1731,7 +1731,7 @@ export function InventoryView() {
               </div>
               {productForm.barcode && (
                 <div className="mt-2 flex justify-center bg-white rounded border p-2">
-                  <BarcodeSVG value={productForm.barcode} width={1.5} height={45} fontSize={10} margin={2} />
+                  <BarcodeSVG value={productForm.barcode} width={1.5} height={45} fontSize={14} margin={2} />
                 </div>
               )}
               <p className="text-[10px] text-muted-foreground mt-1">Leave blank to auto-generate</p>
