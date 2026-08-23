@@ -2000,10 +2000,10 @@ function DrugSection() {
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Expired</Badge>
                         ) : stockQty === 0 ? (
                           <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Out of Stock</Badge>
-                        ) : hasExpiredBatches ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">In Stock</Badge>
                         ) : nearExpiry && daysToExpiry !== null ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">{daysToExpiry} day{daysToExpiry !== 1 ? 's' : ''} to expiry</Badge>
+                        ) : hasExpiredBatches ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">In Stock</Badge>
                         ) : stockQty <= reorderLvl ? (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">Low Stock</Badge>
                         ) : (
