@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { formatCurrency } from '@/lib/currency'
 
 interface LabelData {
   productName: string
@@ -22,9 +23,17 @@ export function BarcodeLabelPrintOverlay() {
   useEffect(() => {
     // Listen for custom event
     const handler = (e: CustomEvent) => {
+      document.body.classList.add('printing-barcode-labels')
       setLabels(e.detail.labels || [])
       // Delay print to allow render
-      setTimeout(() => window.print(), 300)
+      setTimeout(() => {
+        window.print()
+        // Clean up after print dialog closes
+        setTimeout(() => {
+          document.body.classList.remove('printing-barcode-labels')
+          setLabels([])
+        }, 500)
+      }, 300)
     }
     window.addEventListener('print-barcode-labels', handler as EventListener)
     return () => window.removeEventListener('print-barcode-labels', handler as EventListener)
@@ -44,7 +53,7 @@ export function BarcodeLabelPrintOverlay() {
           )}
           <div className="label-barcode-text">{label.barcode}</div>
           <div className="label-price">
-            {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(label.sellingPrice)}
+            {formatCurrency(label.sellingPrice)}
           </div>
           {label.batchNumber && <div className="label-batch">Batch: {label.batchNumber}</div>}
           {label.expiryDate && <div className="label-expiry">Exp: {label.expiryDate?.split('T')[0]}</div>}

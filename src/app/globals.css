@@ -539,25 +539,30 @@ td [data-slot="badge"] {
 
 /* ── Print Styles ────────────────────────────────────────────────── */
 @media print {
-  /* Hide navigation and sidebar */
-  nav, aside, [data-sidebar], [data-slot="sidebar"] {
+  /* ── When printing barcode labels, hide EVERYTHING except labels ── */
+  body.printing-barcode-labels > * {
     display: none !important;
   }
-  /* Hide buttons and interactive elements */
-  button, .no-print {
+  body.printing-barcode-labels > *:has(.print-labels-container) {
+    display: block !important;
+  }
+  body.printing-barcode-labels * {
     display: none !important;
   }
-  /* Ensure content is full width and clean */
-  main, [role="main"] {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
+  body.printing-barcode-labels .print-labels-container,
+  body.printing-barcode-labels .print-labels-container * {
+    display: flex !important;
   }
-  /* Remove shadows and borders for clean printing */
-  * {
-    box-shadow: none !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  body.printing-barcode-labels .barcode-label {
+    display: flex !important;
+  }
+  body.printing-barcode-labels .label-product-name,
+  body.printing-barcode-labels .label-strength,
+  body.printing-barcode-labels .label-barcode-text,
+  body.printing-barcode-labels .label-price,
+  body.printing-barcode-labels .label-batch,
+  body.printing-barcode-labels .label-expiry {
+    display: block !important;
   }
 
   /* ── Barcode Label Print Styles ── */
