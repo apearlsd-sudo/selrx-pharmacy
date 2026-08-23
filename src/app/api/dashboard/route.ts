@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, sqlRaw } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,12 +34,14 @@ export async function GET(request: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
     if (isTurso()) {
-      const userClause = isSuperAdmin ? '' : (requesterId ? ' AND userId = ?' : " AND userId = '__none__'")
-      const userArgs: unknown[] = isSuperAdmin ? [] : requesterId ? [requesterId] : []
+      const isSuperAdmin = requesterRole === 'SUPER_ADMIN'
+      const isoDay = startOfDay.toISOString()
+      const isoWeek = startOfWeek.toISOString()
+      const isoMonth = startOfMonth.toISOString()
+      const userId = requesterId || ''
 
-      // Run all dashboard queries in parallel
-      const in30Days = new Date(now)
-      in30Days.setDate(in30Days.getDate() + 30)
+      // Build user filter — inline directly into SQL to avoid parameterized query issues
+      const userWhere = isSuperAdmin ? '' : userId ? ` AND t.userId = '${userId.replace(/'/g, "''")}'` : " AND t.userId = '__none__'"
 
       const [
         todayResult,
@@ -56,104 +58,71 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
 
         // 1. Today's completed transactions
-        turso.execute({
-          sql: `SELECT total FROM "Transaction"
-                WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}`,
-          args: [startOfDay.toISOString(), ...userArgs],
-        }),
+        turso.execute(`SELECT total FROM "Transaction"
+                WHERE status = 'COMPLETED' AND createdAt >= '${isoDay}'${userWhere}`),
 
         // 2. Week's completed transactions (for trend)
-        turso.execute({
-          sql: `SELECT id, total, createdAt FROM "Transaction"
-                WHERE status = 'COMPLETED' AND createdAt >= ?${userClause}
-                ORDER BY createdAt ASC`,
-          args: [startOfWeek.toISOString(), ...userArgs],
-        }),
+        turso.execute(`SELECT id, total, createdAt FROM "Transaction"
+                WHERE status = 'COMPLETED' AND createdAt >= '${isoWeek}'${userWhere}
+                ORDER BY createdAt ASC`),
 
         // 3. All inventory with product (for low stock alerts)
-        turso.execute({
-          sql: `SELECT i.productId, i.quantity, i.lastCounted, i.createdAt as i_createdAt,
+        turso.execute(`SELECT i.productId, i.quantity, i.lastCounted, i.createdAt as i_createdAt,
                        i.updatedAt as i_updatedAt,
                        p.reorderPoint as p_reorderPoint, p.name as p_name
                 FROM Inventory i
-                LEFT JOIN Product p ON i.productId = p.id`,
-          args: [],
-        }),
+                LEFT JOIN Product p ON i.productId = p.id`),
 
         // 4. Pending prescriptions count
-        turso.execute({
-          sql: `SELECT COUNT(*) as cnt FROM Prescription
-                WHERE status IN ('PENDING', 'IN_PROGRESS', 'READY')`,
-          args: [],
-        }),
+        turso.execute(`SELECT COUNT(*) as cnt FROM Prescription
+                WHERE status IN ('PENDING', 'IN_PROGRESS', 'READY')`),
 
         // 5. Top 5 selling products this month
-        turso.execute({
-          sql: `SELECT ti.productId as productId, ti.productName as productName,
+        turso.execute(`SELECT ti.productId as productId, ti.productName as productName,
                        SUM(ti.quantity) as totalQty, SUM(ti.subtotal) as totalSubtotal
                 FROM TransactionItem ti
                 JOIN "Transaction" t ON ti.transactionId = t.id
-                WHERE t.status = 'COMPLETED' AND t.createdAt >= ?${userClause}
+                WHERE t.status = 'COMPLETED' AND t.createdAt >= '${isoMonth}'${userWhere}
                 GROUP BY ti.productId, ti.productName
                 ORDER BY totalSubtotal DESC
-                LIMIT 5`,
-          args: [startOfMonth.toISOString(), ...userArgs],
-        }),
+                LIMIT 5`),
 
         // 6. Recent 10 transactions with user/customer names
-        turso.execute({
-          sql: `SELECT t.id as t_id, t.transactionNo as t_transactionNo, t.total as t_total,
+        turso.execute(`SELECT t.id as t_id, t.transactionNo as t_transactionNo, t.total as t_total,
                       t.status as t_status, t.createdAt as t_createdAt,
                       u.id as u_id, u.name as u_name,
                       c.id as c_id, c.firstName as c_firstName, c.lastName as c_lastName
                FROM "Transaction" t
                LEFT JOIN User u ON t.userId = u.id
                LEFT JOIN Customer c ON t.customerId = c.id
-               ${isSuperAdmin ? '' : `WHERE t.userId = ?`}
+               ${isSuperAdmin ? '' : `WHERE t.userId = '${userId.replace(/'/g, "''")}'`}
                ORDER BY t.createdAt DESC
-               LIMIT 10`,
-          args: isSuperAdmin ? [] : requesterId ? [requesterId] : [],
-        }),
+               LIMIT 10`),
 
         // 7. Total customers
-        turso.execute({
-          sql: `SELECT COUNT(*) as cnt FROM Customer`,
-          args: [],
-        }),
+        turso.execute(`SELECT COUNT(*) as cnt FROM Customer`),
 
         // 8. Inventory value at cost
-        turso.execute({
-          sql: `SELECT COALESCE(SUM(i.quantity * COALESCE(p."costPrice", 0)), 0) as val
+        turso.execute(`SELECT COALESCE(SUM(i.quantity * COALESCE(p."costPrice", 0)), 0) as val
                 FROM Inventory i
                 JOIN Product p ON p.id = i."productId"
-                WHERE p.status = 'ACTIVE'`,
-          args: [],
-        }),
+                WHERE p.status = 'ACTIVE'`),
 
         // 9. Total active products
-        turso.execute({
-          sql: `SELECT COUNT(*) as cnt FROM Product WHERE status = 'ACTIVE'`,
-          args: [],
-        }),
+        turso.execute(`SELECT COUNT(*) as cnt FROM Product WHERE status = 'ACTIVE'`),
 
         // 10. Products expiring within 30 days
-        turso.execute({
-          sql: `SELECT COUNT(*) as cnt FROM Product p
+        turso.execute(`SELECT COUNT(*) as cnt FROM Product p
                 JOIN Inventory i ON i."productId" = p.id
                 WHERE p.status = 'ACTIVE' AND p."expiryDate" IS NOT NULL
                   AND p."expiryDate" != ''
                   AND date(p."expiryDate") >= date('now')
-                  AND date(p."expiryDate") <= date('now', '+30 days')`,
-          args: [],
-        }),
+                  AND date(p."expiryDate") <= date('now', '+30 days')`),
 
         // 11. Products below reorder point
-        turso.execute({
-          sql: `SELECT COUNT(*) as cnt FROM Product p
+        turso.execute(`SELECT COUNT(*) as cnt FROM Product p
                 JOIN Inventory i ON i."productId" = p.id
-                WHERE p.status = 'ACTIVE' AND i.quantity <= p.reorderPoint`,
-          args: [],
-        }),
+                WHERE p.status = 'ACTIVE' AND i.quantity <= p.reorderPoint`),
       ])
 
       // ---- Process today's transactions ----

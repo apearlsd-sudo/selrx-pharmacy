@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, sqlRaw } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 
 /**
@@ -27,17 +27,14 @@ async function fetchSalesMap(productIds: string[]): Promise<Record<string, { qty
   for (let i = 0; i < productIds.length; i += chunkSize) {
     const chunk = productIds.slice(i, i + chunkSize)
     const placeholders = chunk.map(() => '?').join(', ')
-    const salesResult = await turso.execute({
-      sql: `SELECT ti."productId",
+    const salesResult = await turso.execute(sqlRaw(`SELECT ti."productId",
              COALESCE(SUM(ti.quantity), 0) as qtySold,
              COALESCE(SUM(ti.subtotal), 0) as salesRevenue
       FROM "TransactionItem" ti
       INNER JOIN "Transaction" t ON ti."transactionId" = t.id
       WHERE ti."productId" IN (${placeholders})
         AND t.status = 'COMPLETED'
-      GROUP BY ti."productId"`,
-      args: chunk,
-    })
+      GROUP BY ti."productId"`, []))
     for (const row of salesResult.rows) {
       salesMap[(row as any).productId] = {
         qtySold: Number((row as any).qtySold) || 0,
@@ -57,8 +54,7 @@ export async function GET() {
       // Processed: expired batches where quantity was zeroed (removed from inventory)
       // We query ALL batches with past expiry dates to get a complete record
       const [unprocessedResult, processedResult] = await Promise.all([
-        turso.execute({
-          sql: `SELECT b.id as batchId, b."batchNumber", b."expiryDate",
+        turso.execute(sqlRaw(`SELECT b.id as batchId, b."batchNumber", b."expiryDate",
                    b.quantity as batchQty, b."costPrice" as batchCostPrice,
                    b."updatedAt" as batchUpdatedAt,
                    p.id, p.name, p.ndc, p.category, p."dosageForm",
@@ -71,14 +67,11 @@ export async function GET() {
             WHERE b."expiryDate" IS NOT NULL
               AND date(b."expiryDate") <= date('now')
               AND b.quantity > 0
-            ORDER BY b."expiryDate" ASC`,
-          args: [],
-        }),
+            ORDER BY b."expiryDate" ASC`, [])),
         // Processed: batches that WERE expired and had their stock zeroed
         // We look at batches where expiryDate is past AND quantity = 0
         // (but only if they originally had stock — updatedAt is recent or product is EXPIRED)
-        turso.execute({
-          sql: `SELECT b.id as batchId, b."batchNumber", b."expiryDate",
+        turso.execute(sqlRaw(`SELECT b.id as batchId, b."batchNumber", b."expiryDate",
                    b.quantity as batchQty, b."costPrice" as batchCostPrice,
                    b."updatedAt" as batchUpdatedAt,
                    p.id, p.name, p.ndc, p.category, p."dosageForm",
@@ -92,9 +85,7 @@ export async function GET() {
               AND date(b."expiryDate") <= date('now')
               AND b.quantity = 0
               AND (p.status = 'EXPIRED' OR p."expiredAt" IS NOT NULL)
-            ORDER BY b."expiryDate" DESC`,
-          args: [],
-        }),
+            ORDER BY b."expiryDate" DESC`, [])),
       ])
 
       const allProducts = [
@@ -183,16 +174,13 @@ export async function GET() {
             const phPlaceholders = chunk.map(() => '?').join(', ')
             // ProductHistory stores previousValues as JSON with batchQuantity
             // The action is EXPIRED and the productId matches
-            const phResult = await turso.execute({
-              sql: `SELECT ph."productId", ph."previousValues", ph."createdAt"
+            const phResult = await turso.execute(sqlRaw(`SELECT ph."productId", ph."previousValues", ph."createdAt"
               FROM "ProductHistory" ph
               WHERE ph."productId" IN (
                 SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${phPlaceholders})
               )
               AND ph.action = 'EXPIRED'
-              ORDER BY ph."createdAt" DESC`,
-              args: chunk,
-            })
+              ORDER BY ph."createdAt" DESC`, []))
             for (const row of phResult.rows) {
               const r = row as any
               try {
@@ -310,33 +298,27 @@ export async function POST(request: NextRequest) {
 
     if (productIds && productIds.length > 0) {
       const placeholders = productIds.map(() => '?').join(', ')
-      const result = await turso.execute({
-        sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity,
+      const result = await turso.execute(sqlRaw(`SELECT b.id, b."productId", b."batchNumber", b.quantity,
                  b."costPrice", p.name, p."sellingPrice"
           FROM "Batch" b
           INNER JOIN "Product" p ON p.id = b."productId"
           WHERE b.id IN (${placeholders})
             AND b."expiryDate" IS NOT NULL
             AND date(b."expiryDate") <= date('now')
-            AND b.quantity > 0`,
-        args: productIds,
-      })
+            AND b.quantity > 0`, []))
       targetBatches = result.rows.map((row: any) => ({
         id: row.id, productId: row.productId, name: row.name,
         batchNumber: row.batchNumber, qty: Number(row.quantity) || 0,
         costPrice: Number(row.costPrice) || 0, sellingPrice: Number(row.sellingPrice) || 0,
       }))
     } else {
-      const result = await turso.execute({
-        sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity,
+      const result = await turso.execute(sqlRaw(`SELECT b.id, b."productId", b."batchNumber", b.quantity,
                  b."costPrice", p.name, p."sellingPrice"
           FROM "Batch" b
           INNER JOIN "Product" p ON p.id = b."productId"
           WHERE b."expiryDate" IS NOT NULL
             AND date(b."expiryDate") <= date('now')
-            AND b.quantity > 0`,
-        args: [],
-      })
+            AND b.quantity > 0`, []))
       targetBatches = result.rows.map((row: any) => ({
         id: row.id, productId: row.productId, name: row.name,
         batchNumber: row.batchNumber, qty: Number(row.quantity) || 0,
@@ -357,10 +339,7 @@ export async function POST(request: NextRequest) {
     const affectedProductIds = new Set<string>()
 
     for (const batch of targetBatches) {
-      await turso.execute({
-        sql: 'UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?',
-        args: [now, batch.id],
-      })
+      await turso.execute(sqlRaw('UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?', [now, batch.id]))
       affectedProductIds.add(batch.productId)
 
       const costValue = batch.costPrice * batch.qty
@@ -383,31 +362,19 @@ export async function POST(request: NextRequest) {
     }
 
     for (const pid of affectedProductIds) {
-      const sumResult = await turso.execute({
-        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-        args: [pid],
-      })
+      const sumResult = await turso.execute(sqlRaw(`SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`, [pid]))
       const totalBatchQty = Number(sumResult.rows[0][0]) || 0
-      await turso.execute({
-        sql: 'UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?',
-        args: [totalBatchQty, now, pid],
-      })
+      await turso.execute(sqlRaw('UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?', [totalBatchQty, now, pid]))
 
       // Re-sync Product.expiryDate to nearest ACTIVE (non-expired) batch
-      await turso.execute({
-        sql: `UPDATE "Product" SET "expiryDate" = (
+      await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                 SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
               ), "updatedAt" = ?
-              WHERE id = ?`,
-        args: [pid, now, pid],
-      })
+              WHERE id = ?`, [pid, now, pid]))
 
       // Set expiredAt on product when ALL stock is gone
       if (totalBatchQty === 0) {
-        await turso.execute({
-          sql: `UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,
-          args: [now, now, pid],
-        })
+        await turso.execute(sqlRaw(`UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`, [now, now, pid]))
       }
     }
 
@@ -442,31 +409,19 @@ export async function DELETE(request: NextRequest) {
     if (all) {
       // Delete ALL expired batch records (both processed and unprocessed)
       // First collect affected product IDs for inventory recalc
-      const prodResult = await turso.execute({
-        sql: `SELECT DISTINCT "productId" FROM "Batch" WHERE "expiryDate" IS NOT NULL AND date("expiryDate") <= date('now')`,
-        args: [],
-      })
+      const prodResult = await turso.execute(sqlRaw(`SELECT DISTINCT "productId" FROM "Batch" WHERE "expiryDate" IS NOT NULL AND date("expiryDate") <= date('now')`, []))
       for (const row of prodResult.rows) affectedProductIds.add(row[0] as string)
 
-      const result = await turso.execute({
-        sql: `DELETE FROM "Batch" WHERE "expiryDate" IS NOT NULL AND date("expiryDate") <= date('now')`,
-        args: [],
-      })
+      const result = await turso.execute(sqlRaw(`DELETE FROM "Batch" WHERE "expiryDate" IS NOT NULL AND date("expiryDate") <= date('now')`, []))
       deletedCount = result.rowsAffected
     } else if (batchIds && batchIds.length > 0) {
       // Collect affected product IDs
       const ph = batchIds.map(() => '?').join(', ')
-      const prodResult = await turso.execute({
-        sql: `SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${ph})`,
-        args: batchIds,
-      })
+      const prodResult = await turso.execute(sqlRaw(`SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${ph})`, []))
       for (const row of prodResult.rows) affectedProductIds.add(row[0] as string)
 
       // Delete the batch records
-      const delResult = await turso.execute({
-        sql: `DELETE FROM "Batch" WHERE id IN (${ph})`,
-        args: batchIds,
-      })
+      const delResult = await turso.execute(sqlRaw(`DELETE FROM "Batch" WHERE id IN (${ph})`, []))
       deletedCount = delResult.rowsAffected
     } else {
       return NextResponse.json({ error: 'No items specified for deletion' }, { status: 400 })
@@ -474,28 +429,16 @@ export async function DELETE(request: NextRequest) {
 
     // Recalculate inventory for affected products from remaining batches
     for (const pid of affectedProductIds) {
-      const sumResult = await turso.execute({
-        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-        args: [pid],
-      })
+      const sumResult = await turso.execute(sqlRaw(`SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`, [pid]))
       const totalBatchQty = Number(sumResult.rows[0][0]) || 0
-      await turso.execute({
-        sql: 'UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?',
-        args: [totalBatchQty, now, pid],
-      })
+      await turso.execute(sqlRaw('UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?', [totalBatchQty, now, pid]))
       // Re-sync product expiry to nearest active batch
-      await turso.execute({
-        sql: `UPDATE "Product" SET "expiryDate" = (
+      await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                 SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0
-              ), "updatedAt" = ? WHERE id = ?`,
-        args: [pid, now, pid],
-      })
+              ), "updatedAt" = ? WHERE id = ?`, [pid, now, pid]))
       // If product was EXPIRED and still has stock, reset status
       if (totalBatchQty > 0) {
-        await turso.execute({
-          sql: `UPDATE "Product" SET status = 'ACTIVE', "expiredAt" = NULL, "updatedAt" = ? WHERE id = ? AND status = 'EXPIRED'`,
-          args: [now, pid],
-        })
+        await turso.execute(sqlRaw(`UPDATE "Product" SET status = 'ACTIVE', "expiredAt" = NULL, "updatedAt" = ? WHERE id = ? AND status = 'EXPIRED'`, [now, pid]))
       }
     }
 

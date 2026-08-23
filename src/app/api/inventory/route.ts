@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo, sqlRaw } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
@@ -83,15 +83,12 @@ export async function GET(request: NextRequest) {
     // ---- Low-stock alerts ----
     if (action === 'alerts') {
       if (isTurso()) {
-        const result = await turso.execute({
-          sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+        const result = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
                        ${P_COLS}
                 FROM Inventory i
                 LEFT JOIN Product p ON i.productId = p.id
                 WHERE i.quantity <= p.reorderPoint
-                ORDER BY i.quantity ASC`,
-          args: [],
-        })
+                ORDER BY i.quantity ASC`, []))
         return NextResponse.json(toObjs(result).map(mapInventoryRow))
       }
 
@@ -109,16 +106,15 @@ export async function GET(request: NextRequest) {
       // ── AUTO-EXPIRY: Zero out any batches that reached expiry today ──
       // This runs on every inventory load so expired stock is removed immediately
       // without requiring user approval.
-      const expiredBatches = await turso.execute({
-        sql: `SELECT b.id, b."productId", b."batchNumber", b.quantity, b."costPrice",
+      const expiredBatches = await turso.execute(
+        `SELECT b.id, b."productId", b."batchNumber", b.quantity, b."costPrice",
                     p.name as productName, p."sellingPrice"
              FROM "Batch" b
              INNER JOIN "Product" p ON p.id = b."productId"
              WHERE b."expiryDate" IS NOT NULL
                AND date(b."expiryDate") <= date('now')
-               AND b.quantity > 0`,
-        args: [],
-      })
+               AND b.quantity > 0`
+      )
 
       if (expiredBatches.rows.length > 0) {
         const now = new Date().toISOString()
@@ -131,10 +127,9 @@ export async function GET(request: NextRequest) {
           affectedProductIds.add(productId)
 
           // Zero the expired batch
-          await turso.execute({
-            sql: 'UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?',
-            args: [now, batchId],
-          })
+          await turso.execute(
+            sqlRaw('UPDATE "Batch" SET quantity = 0, "updatedAt" = ? WHERE id = ?', [now, batchId])
+          )
 
           // Log in product history
           writeProductHistory({
@@ -149,55 +144,47 @@ export async function GET(request: NextRequest) {
 
         // Recalculate inventory totals & re-sync expiry for affected products
         for (const pid of affectedProductIds) {
-          const sumResult = await turso.execute({
-            sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-            args: [pid],
-          })
+          const sumResult = await turso.execute(
+            sqlRaw(`SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`, [pid])
+          )
           const totalBatchQty = Number(sumResult.rows[0][0]) || 0
 
-          await turso.execute({
-            sql: 'UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?',
-            args: [totalBatchQty, now, pid],
-          })
+          await turso.execute(
+            sqlRaw('UPDATE Inventory SET quantity = ?, "updatedAt" = ? WHERE "productId" = ?', [totalBatchQty, now, pid])
+          )
 
           // Re-sync Product.expiryDate to nearest active batch
-          await turso.execute({
-            sql: `UPDATE "Product" SET "expiryDate" = (
+          await turso.execute(
+            sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                     SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                   ), "updatedAt" = ?
-                  WHERE id = ?`,
-            args: [pid, now, pid],
-          })
+                  WHERE id = ?`, [pid, now, pid])
+          )
 
           // Mark product as EXPIRED only if ALL stock is gone
           if (totalBatchQty === 0) {
-            await turso.execute({
-              sql: `UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`,
-              args: [now, now, pid],
-            })
+            await turso.execute(
+              sqlRaw(`UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = ?, "updatedAt" = ? WHERE id = ? AND status != 'DISCONTINUED'`, [now, now, pid])
+            )
           }
         }
       }
 
       // 1. Inventory rows with product, manufacturer, vendor
-      const invResult = await turso.execute({
-        sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+      const invResult = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
                       ${P_COLS},
                       m.name as mfr_name, v.name as vendor_name
                FROM Inventory i
                LEFT JOIN Product p ON i.productId = p.id
                LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
                LEFT JOIN Vendor v ON p.vendorId = v.id
-               ORDER BY i.updatedAt DESC`,
-        args: [],
-      })
+               ORDER BY i.updatedAt DESC`, []))
       const inventoryRows = toObjs(invResult).map(mapInventoryRow)
 
       // Batch-level expiry summary for each product (avoids product-level false expired)
       // NOTE: We include ALL batches (even those without expiryDate) so products
       // whose batches lack expiry dates still get a summary with hasBatches=true.
-      const batchSummaryResult = await turso.execute({
-        sql: `SELECT b."productId",
+      const batchSummaryResult = await turso.execute(sqlRaw(`SELECT b."productId",
                      COUNT(*) as totalBatches,
                      SUM(CASE WHEN b."expiryDate" IS NULL THEN 1 ELSE 0 END) as noExpiryBatches,
                      SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") <= date('now') THEN 1 ELSE 0 END) as expiredBatches,
@@ -207,9 +194,7 @@ export async function GET(request: NextRequest) {
                      SUM(CASE WHEN b."expiryDate" IS NOT NULL AND date(b."expiryDate") > date('now') AND date(b."expiryDate") <= date('now', '+30 days') THEN 1 ELSE 0 END) as nearExpiryBatches
               FROM "Batch" b
               WHERE b.quantity > 0
-              GROUP BY b."productId"`,
-        args: [],
-      })
+              GROUP BY b."productId"`, []))
       const batchSummaryMap = new Map<string, Record<string, unknown>>() 
       for (const r of toObjs(batchSummaryResult)) {
         batchSummaryMap.set(r.productId as string, r)
@@ -217,8 +202,7 @@ export async function GET(request: NextRequest) {
 
       // Recently-expired (zeroed) batches — needed for stock take to detect expired goods still on shelf
       // We look at batches zeroed (quantity=0) with an expiry date in the past, updated recently
-      const expiredZeroedResult = await turso.execute({
-        sql: `SELECT b."productId",
+      const expiredZeroedResult = await turso.execute(sqlRaw(`SELECT b."productId",
              COUNT(*) as zeroedBatchCount,
              MIN(b."expiryDate") as nearestZeroedExpiryDate,
              MAX(b."updatedAt") as lastZeroedAt
@@ -227,9 +211,7 @@ export async function GET(request: NextRequest) {
         AND b."expiryDate" IS NOT NULL
         AND date(b."expiryDate") <= date('now')
         AND b."updatedAt" >= date('now', '-90 days')
-      GROUP BY b."productId"`,
-        args: [],
-      })
+      GROUP BY b."productId"`, []))
       const expiredZeroedMap = new Map<string, Record<string, unknown>>() 
       for (const r of toObjs(expiredZeroedResult)) {
         expiredZeroedMap.set(r.productId as string, r)
@@ -237,21 +219,17 @@ export async function GET(request: NextRequest) {
 
       // Get total expired quantity from ProductHistory (EXPIRED actions within 90 days)
       // The auto-expiry system stores previousValues.batchQuantity before zeroing
-      const expiredQtyResult = await turso.execute({
-        sql: `SELECT ph."productId",
+      const expiredQtyResult = await turso.execute(sqlRaw(`SELECT ph."productId",
              COALESCE(SUM(CAST(json_extract(ph."previousValues", '$.batchQuantity') AS INTEGER)), 0) as totalExpiredQty
       FROM "ProductHistory" ph
       WHERE ph.action = 'EXPIRED'
         AND ph."createdAt" >= date('now', '-90 days')
-      GROUP BY ph."productId"`,
-        args: [],
-      })
+      GROUP BY ph."productId"`, []))
       const expiredQtyMap = new Map<string, number>()
       for (const r of toObjs(expiredQtyResult)) {
         expiredQtyMap.set(r.productId as string, Number(r.totalExpiredQty) || 0)
       }
-      const batchNumbersResult = await turso.execute({
-        sql: `SELECT b."productId", b."batchNumber"
+      const batchNumbersResult = await turso.execute(sqlRaw(`SELECT b."productId", b."batchNumber"
               FROM "Batch" b
               INNER JOIN (
                 SELECT "productId", MIN("createdAt") as minCreated
@@ -259,9 +237,7 @@ export async function GET(request: NextRequest) {
                 WHERE quantity > 0 AND "batchNumber" IS NOT NULL AND "batchNumber" != ''
                 GROUP BY "productId"
               ) first ON b."productId" = first."productId" AND b."createdAt" = first.minCreated
-              WHERE b.quantity > 0 AND b."batchNumber" IS NOT NULL AND b."batchNumber" != ''`,
-        args: [],
-      })
+              WHERE b.quantity > 0 AND b."batchNumber" IS NOT NULL AND b."batchNumber" != ''`, []))
       const batchNumberMap = new Map<string, string>()
       for (const r of toObjs(batchNumbersResult)) {
         if (!batchNumberMap.has(r.productId as string)) {
@@ -323,15 +299,12 @@ export async function GET(request: NextRequest) {
       })
 
       // 2. Products WITHOUT an inventory record (qty=0 virtual)
-      const noInvResult = await turso.execute({
-        sql: `SELECT ${P_COLS}, m.name as mfr_name, v.name as vendor_name
+      const noInvResult = await turso.execute(sqlRaw(`SELECT ${P_COLS}, m.name as mfr_name, v.name as vendor_name
                FROM Product p
                LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
                LEFT JOIN Vendor v ON p.vendorId = v.id
                LEFT JOIN Inventory inv ON p.id = inv.productId
-               WHERE inv.id IS NULL`,
-        args: [],
-      })
+               WHERE inv.id IS NULL`, []))
 
       const noInvProducts = toObjs(noInvResult).map((r) => {
         const ez = expiredZeroedMap.get(r.p_id as string)
@@ -526,26 +499,20 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Requires cloud database' }, { status: 400 })
       }
       const now = new Date().toISOString()
-      await turso.execute({
-        sql: `UPDATE "Product" SET "expiryDate" = (
+      await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                 SELECT MIN(b."expiryDate") FROM "Batch" b
                 WHERE b."productId" = "Product".id AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
               ), "updatedAt" = ?
-              WHERE id IN (SELECT DISTINCT "productId" FROM "Batch" WHERE quantity > 0 AND "expiryDate" IS NOT NULL)`,
-        args: [now],
-      })
+              WHERE id IN (SELECT DISTINCT "productId" FROM "Batch" WHERE quantity > 0 AND "expiryDate" IS NOT NULL)`, [now]))
       // Also clear expiryDate for products whose ALL batches are expired or have no expiry
-      await turso.execute({
-        sql: `UPDATE "Product" SET "expiryDate" = NULL, "updatedAt" = ?
+      await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = NULL, "updatedAt" = ?
               WHERE id IN (
                 SELECT DISTINCT "productId" FROM "Batch" WHERE quantity > 0 AND "expiryDate" IS NOT NULL
               ) AND "expiryDate" IS NOT NULL
               AND id NOT IN (
                 SELECT DISTINCT "productId" FROM "Batch"
                 WHERE quantity > 0 AND "expiryDate" IS NOT NULL AND date("expiryDate") > date('now')
-              )`,
-        args: [now],
-      })
+              )`, [now]))
       return NextResponse.json({ message: 'All product expiry dates re-synced to active batches' })
     }
 
@@ -564,59 +531,41 @@ export async function PUT(request: NextRequest) {
 
         for (const item of items) {
           // Read current inventory (read-modify-write)
-          const existing = await turso.execute({
-            sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
-            args: [item.productId],
-          })
+          const existing = await turso.execute(sqlRaw('SELECT quantity FROM Inventory WHERE productId = ?', [item.productId]))
 
           if (existing.rows.length > 0) {
             const currentQty = existing.rows[0][0] as number
-            await turso.execute({
-              sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
-              args: [currentQty + item.quantity, now, now, item.productId],
-            })
+            await turso.execute(sqlRaw('UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?', [currentQty + item.quantity, now, now, item.productId]))
           } else {
-            await turso.execute({
-              sql: 'INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
-              args: [generateId(), item.productId, item.quantity, now, now, now],
-            })
+            await turso.execute(sqlRaw('INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', [generateId(), item.productId, item.quantity, now, now, now]))
           }
 
           // Create a Batch record for this received stock (batch-aware tracking)
           const batchId = generateId()
           const autoBN = item.batchNumber || generateBatchNo()
-          await turso.execute({
-            sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [
+          await turso.execute(sqlRaw(`INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
               batchId, item.productId, autoBN, item.expiryDate || null,
               item.quantity, item.costPrice || null, now, userId, now, now,
-            ],
-          })
+            ]))
 
           // Re-sync Product.expiryDate from batch data
-          await turso.execute({
-            sql: `UPDATE "Product" SET "expiryDate" = (
+          await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                     SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                   ), "updatedAt" = ?
-                  WHERE id = ?`,
-            args: [item.productId, now, item.productId],
-          })
+                  WHERE id = ?`, [item.productId, now, item.productId]))
         }
 
         // Fetch updated records with product details
         const pIds = items.map((i: { productId: string }) => i.productId)
         const placeholders = pIds.map(() => '?').join(', ')
-        const result = await turso.execute({
-          sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+        const result = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
                        ${P_COLS}, m.name as mfr_name, v.name as vendor_name
                 FROM Inventory i
                 LEFT JOIN Product p ON i.productId = p.id
                 LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
                 LEFT JOIN Vendor v ON p.vendorId = v.id
-                WHERE i.productId IN (${placeholders})`,
-          args: pIds,
-        })
+                WHERE i.productId IN (${placeholders})`, pIds))
 
         const { ipAddress, userAgent } = getRequestContext(request)
         await writeAuditLog({ userId, action: 'STOCK_RECEIVED', category: 'inventory', details: { itemCount: items.length }, ipAddress, userAgent })
@@ -668,10 +617,7 @@ export async function PUT(request: NextRequest) {
       const userId = request.headers.get('x-user-id') || ''
 
       // Read existing inventory
-      const existing = await turso.execute({
-        sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
-        args: [productId],
-      })
+      const existing = await turso.execute(sqlRaw('SELECT quantity FROM Inventory WHERE productId = ?', [productId]))
       const currentQty = existing.rows.length > 0 ? (existing.rows[0][0] as number) : 0
 
       // Determine new quantity
@@ -693,15 +639,9 @@ export async function PUT(request: NextRequest) {
 
       // Write (update or insert) inventory total
       if (existing.rows.length > 0) {
-        await turso.execute({
-          sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
-          args: [newQuantity, now, now, productId],
-        })
+        await turso.execute(sqlRaw('UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?', [newQuantity, now, now, productId]))
       } else {
-        await turso.execute({
-          sql: 'INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
-          args: [generateId(), productId, newQuantity, now, now, now],
-        })
+        await turso.execute(sqlRaw('INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', [generateId(), productId, newQuantity, now, now, now]))
       }
 
       // Sync batch quantities to match the new inventory total.
@@ -715,10 +655,7 @@ export async function PUT(request: NextRequest) {
       if (qtyDiff !== 0 && !(adjustmentType === 'ADD' && adjustment > 0 && expiryDate)) {
         // Don't double-sync when a new batch was already created above
         try {
-          const activeBatches = await turso.execute({
-            sql: `SELECT id, quantity, "expiryDate" FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY COALESCE("expiryDate", '9999-12-31') ASC`,
-            args: [productId],
-          })
+          const activeBatches = await turso.execute(sqlRaw(`SELECT id, quantity, "expiryDate" FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY COALESCE("expiryDate", '9999-12-31') ASC`, [productId]))
           const batches = toObjs(activeBatches)
 
           if (batches.length > 0) {
@@ -730,10 +667,7 @@ export async function PUT(request: NextRequest) {
                 const bQty = (b.quantity as number) || 0
                 const reduce = Math.min(remaining, bQty)
                 if (reduce > 0) {
-                  await turso.execute({
-                    sql: `UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?`,
-                    args: [bQty - reduce, now, b.id],
-                  })
+                  await turso.execute(sqlRaw(`UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?`, [bQty - reduce, now, b.id]))
                   remaining -= reduce
                   batchSynced = true
                 }
@@ -741,10 +675,7 @@ export async function PUT(request: NextRequest) {
             } else {
               // INCREASE: add to the most recently created active batch (last in FEFO order)
               const targetBatch = batches[batches.length - 1]
-              await turso.execute({
-                sql: `UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?`,
-                args: [((targetBatch.quantity as number) || 0) + qtyDiff, now, targetBatch.id],
-              })
+              await turso.execute(sqlRaw(`UPDATE "Batch" SET quantity = ?, "updatedAt" = ? WHERE id = ?`, [((targetBatch.quantity as number) || 0) + qtyDiff, now, targetBatch.id]))
               batchSynced = true
             }
           } else if (newQuantity > 0) {
@@ -753,11 +684,8 @@ export async function PUT(request: NextRequest) {
             const batchId = generateId()
             const batchNo = batchNumber || generateBatchNo()
             const batchExpiry = expiryDate || null
-            await turso.execute({
-              sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              args: [batchId, productId, batchNo, batchExpiry, newQuantity, costPrice || null, now, userId, now, now],
-            })
+            await turso.execute(sqlRaw(`INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [batchId, productId, batchNo, batchExpiry, newQuantity, costPrice || null, now, userId, now, now]))
             batchSynced = true
             console.log(`[Inventory PUT] Created catch-all batch for ${productId}: qty=${newQuantity}`)
           }
@@ -772,11 +700,8 @@ export async function PUT(request: NextRequest) {
       if (adjustmentType === 'ADD' && adjustment > 0 && expiryDate) {
         const batchId = generateId()
         const batchNo = batchNumber || generateBatchNo()
-        await turso.execute({
-          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [batchId, productId, batchNo, expiryDate, adjustment, costPrice || null, now, userId, now, now],
-        })
+        await turso.execute(sqlRaw(`INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [batchId, productId, batchNo, expiryDate, adjustment, costPrice || null, now, userId, now, now]))
         batchCreated = true
       }
       // Expiry-only update: no quantity change but expiryDate provided.
@@ -784,35 +709,20 @@ export async function PUT(request: NextRequest) {
       let expiryUpdated = false
       if (expiryDate && !(adjustmentType === 'ADD' && adjustment > 0)) {
         // Try to update the nearest active batch (prefer non-expired, then any with NULL expiry)
-        const nearestBatch = await turso.execute({
-          sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND date("expiryDate") > date('now') ORDER BY "expiryDate" ASC LIMIT 1`,
-          args: [productId],
-        })
+        const nearestBatch = await turso.execute(sqlRaw(`SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND date("expiryDate") > date('now') ORDER BY "expiryDate" ASC LIMIT 1`, [productId]))
         if (nearestBatch.rows.length > 0) {
-          await turso.execute({
-            sql: `UPDATE "Batch" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`,
-            args: [expiryDate, now, nearestBatch.rows[0][0]],
-          })
+          await turso.execute(sqlRaw(`UPDATE "Batch" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`, [expiryDate, now, (nearestBatch.rows[0] as any)[0]]))
           expiryUpdated = true
         } else {
           // No non-expired active batches — try any active batch with NULL expiry
-          const nullExpiryBatch = await turso.execute({
-            sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND "expiryDate" IS NULL ORDER BY "createdAt" DESC LIMIT 1`,
-            args: [productId],
-          })
+          const nullExpiryBatch = await turso.execute(sqlRaw(`SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 AND "expiryDate" IS NULL ORDER BY "createdAt" DESC LIMIT 1`, [productId]))
           if (nullExpiryBatch.rows.length > 0) {
-            await turso.execute({
-              sql: `UPDATE "Batch" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`,
-              args: [expiryDate, now, nullExpiryBatch.rows[0][0]],
-            })
+            await turso.execute(sqlRaw(`UPDATE "Batch" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`, [expiryDate, now, (nullExpiryBatch.rows[0] as any)[0]]))
             expiryUpdated = true
           }
         }
         // Also update Product.expiryDate so the UI reflects it immediately
-        await turso.execute({
-          sql: `UPDATE "Product" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`,
-          args: [expiryDate, now, productId],
-        })
+        await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = ?, "updatedAt" = ? WHERE id = ?`, [expiryDate, now, productId]))
         expiryUpdated = true
       }
 
@@ -820,15 +730,9 @@ export async function PUT(request: NextRequest) {
       // update the nearest active batch's batch number.
       let batchNoUpdated = false
       if (batchNumber && !batchCreated) {
-        const targetBatch = await turso.execute({
-          sql: `SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY "createdAt" DESC LIMIT 1`,
-          args: [productId],
-        })
+        const targetBatch = await turso.execute(sqlRaw(`SELECT id FROM "Batch" WHERE "productId" = ? AND quantity > 0 ORDER BY "createdAt" DESC LIMIT 1`, [productId]))
         if (targetBatch.rows.length > 0) {
-          await turso.execute({
-            sql: `UPDATE "Batch" SET "batchNumber" = ?, "updatedAt" = ? WHERE id = ?`,
-            args: [batchNumber, now, targetBatch.rows[0][0]],
-          })
+          await turso.execute(sqlRaw(`UPDATE "Batch" SET "batchNumber" = ?, "updatedAt" = ? WHERE id = ?`, [batchNumber, now, (targetBatch.rows[0] as any)[0]]))
           batchNoUpdated = true
         }
       }
@@ -848,21 +752,15 @@ export async function PUT(request: NextRequest) {
         setClauses.push('updatedAt = ?')
         setArgs.push(now)
         setArgs.push(productId)
-        await turso.execute({
-          sql: `UPDATE "Product" SET ${setClauses.join(', ')} WHERE id = ?`,
-          args: setArgs,
-        })
+        await turso.execute(sqlRaw(`UPDATE "Product" SET ${setClauses.join(', ')} WHERE id = ?`, []))
       }
 
       // If a batch was created, re-sync Product.expiryDate from batch data
       if (batchCreated) {
-        await turso.execute({
-          sql: `UPDATE "Product" SET "expiryDate" = (
+        await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                   SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                 ), "updatedAt" = ?
-                WHERE id = ?`,
-          args: [productId, now, productId],
-        })
+                WHERE id = ?`, [productId, now, productId]))
       }
 
       // Record inventory adjustment in product history
@@ -913,13 +811,10 @@ export async function PUT(request: NextRequest) {
 
       // If batches were synced (including catch-all creation), re-sync Product.expiryDate
       if (batchSynced && !batchCreated) {
-        await turso.execute({
-          sql: `UPDATE "Product" SET "expiryDate" = (
+        await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                   SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                 ), "updatedAt" = ?
-                WHERE id = ?`,
-          args: [productId, now, productId],
-        })
+                WHERE id = ?`, [productId, now, productId]))
       }
 
       console.log(`[Inventory PUT] productId=${productId} mode=${adjustmentType || 'ADD'} newQty=${newQuantity}${batchCreated ? ' (batch created)' : ''}${batchSynced ? ' (batches synced)' : ''}${expiryUpdated && !batchCreated ? ' (expiry updated)' : ''}`)
@@ -1026,60 +921,42 @@ export async function POST(request: NextRequest) {
         if (!item.productId || !item.quantity) continue
 
         // Read-modify-write inventory total
-        const existing = await turso.execute({
-          sql: 'SELECT quantity FROM Inventory WHERE productId = ?',
-          args: [item.productId],
-        })
+        const existing = await turso.execute(sqlRaw('SELECT quantity FROM Inventory WHERE productId = ?', [item.productId]))
 
         if (existing.rows.length > 0) {
           const currentQty = existing.rows[0][0] as number
-          await turso.execute({
-            sql: 'UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?',
-            args: [currentQty + item.quantity, now, now, item.productId],
-          })
+          await turso.execute(sqlRaw('UPDATE Inventory SET quantity = ?, lastCounted = ?, updatedAt = ? WHERE productId = ?', [currentQty + item.quantity, now, now, item.productId]))
         } else {
-          await turso.execute({
-            sql: 'INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
-            args: [generateId(), item.productId, item.quantity, now, now, now],
-          })
+          await turso.execute(sqlRaw('INSERT INTO Inventory (id, productId, quantity, lastCounted, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', [generateId(), item.productId, item.quantity, now, now, now]))
         }
 
         // Create a Batch record for this received stock (batch-aware tracking)
         const batchId = generateId()
         const autoBN2 = item.batchNumber || generateBatchNo()
-        await turso.execute({
-          sql: `INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
+        await turso.execute(sqlRaw(`INSERT INTO "Batch" (id, "productId", "batchNumber", "expiryDate", quantity, "costPrice", "receivedAt", "receivedBy", "createdAt", "updatedAt")
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
             batchId, item.productId, autoBN2, item.expiryDate || null,
             item.quantity, item.costPrice || null, now, userId, now, now,
-          ],
-        })
+          ]))
 
         // Re-sync Product.expiryDate from batch data (skip expired batches)
-        await turso.execute({
-          sql: `UPDATE "Product" SET "expiryDate" = (
+        await turso.execute(sqlRaw(`UPDATE "Product" SET "expiryDate" = (
                   SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
                 ), "updatedAt" = ?
-                WHERE id = ?`,
-          args: [item.productId, now, item.productId],
-        })
+                WHERE id = ?`, [item.productId, now, item.productId]))
       }
 
       // Fetch updated records
       const validItems = items.filter((i: { productId: string; quantity: number }) => i.productId && i.quantity)
       const pIds = validItems.map((i: { productId: string }) => i.productId)
       const placeholders = pIds.map(() => '?').join(', ')
-      const result = await turso.execute({
-        sql: `SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
+      const result = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
                        ${P_COLS}, m.name as mfr_name, v.name as vendor_name
                 FROM Inventory i
                 LEFT JOIN Product p ON i.productId = p.id
                 LEFT JOIN Manufacturer m ON p.manufacturerId = m.id
                 LEFT JOIN Vendor v ON p.vendorId = v.id
-                WHERE i.productId IN (${placeholders})`,
-        args: pIds,
-      })
+                WHERE i.productId IN (${placeholders})`, []))
 
       const results = toObjs(result).map(mapInventoryRow)
 

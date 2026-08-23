@@ -543,3 +543,24 @@ Stage Summary:
 - Patient Records: Full medication history API + customer detail tab
 - Notifications: Stub API with record storage + auto-trigger on prescription ready + customer UI
 - Backup Encryption: AES-256-GCM via ?encrypt=true + auto-detection on restore
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix expired products still showing quantities in inventory
+
+Work Log:
+- Identified root cause: turso.execute({ sql, args }) parameterized format silently returns 0 rows for SELECT queries in Turso/libsql client
+- The auto-expiry code at top of GET /api/inventory used this broken format, so expired batches were NEVER zeroed out
+- Created sqlRaw() helper in src/lib/turso.ts that converts parameterized SQL to plain SQL strings
+- Converted ALL 39 turso.execute({sql,args}) calls in src/app/api/inventory/route.ts to use sqlRaw() or plain strings
+- Converted ALL 19 turso.execute({sql,args}) calls in src/app/api/reports/expired-goods/route.ts
+- Rewrote Turso section of src/app/api/dashboard/route.ts (11 queries) to use plain SQL strings
+- Fixed pre-existing bug: receive action passed empty args for IN (?) placeholders
+- Fixed 3 cases where rows[0][0] was mangled to rows[0] by automated conversion
+- Build passes successfully
+
+Stage Summary:
+- Root cause: Parameterized Turso queries ({ sql, args }) silently return 0 rows
+- Fix: sqlRaw() helper converts parameterized queries to inline plain-SQL strings
+- Files changed: src/lib/turso.ts, src/app/api/inventory/route.ts, src/app/api/reports/expired-goods/route.ts, src/app/api/dashboard/route.ts
+- Auto-expiry will trigger on next inventory page load, zeroing expired batch quantities and recalculating inventory totals

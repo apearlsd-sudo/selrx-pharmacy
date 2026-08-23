@@ -77,6 +77,34 @@ export function safeArgs(args: unknown[]): unknown[] {
 }
 
 /**
+ * Build a plain-SQL string from a parameterized template.
+ *
+ * The libsql client's `{ sql, args }` form has been observed to silently
+ * return 0 rows for SELECT queries in some environments (Vercel / remote
+ * Turso).  Passing a *plain string* to `turso.execute(string)` works
+ * reliably.  This helper lets existing parameterized calls switch over
+ * with a one-line change:
+ *
+ *   Before: turso.execute({ sql: 'SELECT * FROM t WHERE id = ?', args: [id] })
+ *   After:  turso.execute(sqlRaw('SELECT * FROM t WHERE id = ?', [id]))
+ */
+export function sqlRaw(
+  sql: string,
+  args: unknown[] = [],
+): string {
+  let idx = 0
+  return sql.replace(/\?/g, () => {
+    if (idx >= args.length) return '?'
+    const val = args[idx++]
+    if (val === null || val === undefined) return 'NULL'
+    if (typeof val === 'number') return String(val)
+    if (typeof val === 'boolean') return val ? '1' : '0'
+    // String — escape single quotes for SQL safety
+    return "'" + String(val).replace(/'/g, "''") + "'"
+  })
+}
+
+/**
  * Execute a query with automatic retry on transient failures.
  */
 export async function tursoExecute(
