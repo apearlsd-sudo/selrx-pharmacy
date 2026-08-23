@@ -83,6 +83,24 @@ export async function GET(request: NextRequest) {
     // ---- Low-stock alerts ----
     if (action === 'alerts') {
       if (isTurso()) {
+        // First auto-expire product-level expired items
+        await turso.execute(sqlRaw(`
+          UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
+          WHERE "productId" IN (
+            SELECT p.id FROM "Product" p
+            INNER JOIN Inventory i ON i."productId" = p.id
+            WHERE p."expiryDate" IS NOT NULL
+              AND date(p."expiryDate") <= date('now')
+              AND i.quantity > 0
+              AND NOT EXISTS (
+                SELECT 1 FROM "Batch" b
+                WHERE b."productId" = p.id
+                  AND b.quantity > 0
+                  AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
+              )
+          )
+        `, []))
+
         const result = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,
                        ${P_COLS}
                 FROM Inventory i
@@ -169,6 +187,40 @@ export async function GET(request: NextRequest) {
           }
         }
       }
+
+      // ── AUTO-EXPIRY (product-level): Zero inventory for products whose expiryDate has passed ──
+      // Handles products without batches that have a product-level expiryDate.
+      await turso.execute(sqlRaw(`
+        UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
+        WHERE "productId" IN (
+          SELECT p.id FROM "Product" p
+          INNER JOIN Inventory i ON i."productId" = p.id
+          WHERE p."expiryDate" IS NOT NULL
+            AND date(p."expiryDate") <= date('now')
+            AND i.quantity > 0
+            AND NOT EXISTS (
+              SELECT 1 FROM "Batch" b
+              WHERE b."productId" = p.id
+                AND b.quantity > 0
+                AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
+            )
+        )
+      `, []))
+
+      // Mark such products as EXPIRED
+      await turso.execute(sqlRaw(`
+        UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = datetime('now'), "updatedAt" = datetime('now')
+        WHERE "expiryDate" IS NOT NULL
+          AND date("expiryDate") <= date('now')
+          AND status != 'DISCONTINUED'
+          AND id IN (SELECT "productId" FROM Inventory WHERE quantity = 0)
+          AND NOT EXISTS (
+            SELECT 1 FROM "Batch" b
+            WHERE b."productId" = "Product".id
+              AND b.quantity > 0
+              AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
+          )
+      `, []))
 
       // 1. Inventory rows with product, manufacturer, vendor
       const invResult = await turso.execute(sqlRaw(`SELECT i.id, i.productId, i.quantity, i.lastCounted, i.createdAt, i.updatedAt,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, sqlRaw } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
@@ -14,6 +14,40 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
 
     if (isTurso()) {
+      // ── AUTO-EXPIRY: Zero inventory for products whose product-level expiryDate has passed ──
+      // Only targets products that have NO active batches with future expiry dates.
+      await turso.execute(sqlRaw(`
+        UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
+        WHERE "productId" IN (
+          SELECT p.id FROM "Product" p
+          INNER JOIN Inventory i ON i."productId" = p.id
+          WHERE p."expiryDate" IS NOT NULL
+            AND date(p."expiryDate") <= date('now')
+            AND i.quantity > 0
+            AND NOT EXISTS (
+              SELECT 1 FROM "Batch" b
+              WHERE b."productId" = p.id
+                AND b.quantity > 0
+                AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
+            )
+        )
+      `, []))
+
+      // Mark such products as EXPIRED if inventory is now 0
+      await turso.execute(sqlRaw(`
+        UPDATE "Product" SET status = 'EXPIRED', "expiredAt" = datetime('now'), "updatedAt" = datetime('now')
+        WHERE "expiryDate" IS NOT NULL
+          AND date("expiryDate") <= date('now')
+          AND status != 'DISCONTINUED'
+          AND id IN (SELECT "productId" FROM Inventory WHERE quantity = 0)
+          AND NOT EXISTS (
+            SELECT 1 FROM "Batch" b
+            WHERE b."productId" = "Product".id
+              AND b.quantity > 0
+              AND (b."expiryDate" IS NULL OR date(b."expiryDate") > date('now'))
+          )
+      `, []))
+
       // Raw SQL path
       const conditions: string[] = []
       const args: (string | number)[] = []
