@@ -183,18 +183,16 @@ export function ReportsView() {
   const [claimUpdating, setClaimUpdating] = useState(false)
 
   // Financial P&L state
-  const [finPeriod, setFinPeriod] = useState<'daily' | 'monthly'>('daily')
+  const [finDateFrom, setFinDateFrom] = useState(() => new Date().toISOString().split('T')[0])
+  const [finDateTo, setFinDateTo] = useState(() => new Date().toISOString().split('T')[0])
+  const [finData, setFinData] = useState<any>(null)
+  const [finLoading, setFinLoading] = useState(false)
   // Controlled substances state
   const [csLogs, setCsLogs] = useState<any[]>([])
   const [csInventory, setCsInventory] = useState<any[]>([])
   const [csLoading, setCsLoading] = useState(false)
   const [csDateFrom, setCsDateFrom] = useState('')
   const [csDateTo, setCsDateTo] = useState('')
-
-  const [finDate, setFinDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [finMonth, setFinMonth] = useState(() => new Date().toISOString().slice(0, 7))
-  const [finData, setFinData] = useState<any>(null)
-  const [finLoading, setFinLoading] = useState(false)
 
   const fetchCsData = useCallback(async () => {
     setCsLoading(true)
@@ -227,12 +225,8 @@ export function ReportsView() {
     setFinLoading(true)
     try {
       const params = new URLSearchParams()
-      params.set('period', finPeriod)
-      if (finPeriod === 'daily') {
-        params.set('date', finDate)
-      } else {
-        params.set('month', finMonth)
-      }
+      if (finDateFrom) params.set('from', finDateFrom)
+      if (finDateTo) params.set('to', finDateTo)
       const res = await fetch(`/api/reports/financial?${params}`, { headers: authHeaders() })
       if (res.ok) {
         setFinData(await res.json())
@@ -241,11 +235,11 @@ export function ReportsView() {
       addToast({ title: 'Error', description: 'Failed to load financial report', variant: 'destructive' })
     }
     setFinLoading(false)
-  }, [finPeriod, finDate, finMonth, addToast])
+  }, [finDateFrom, finDateTo, addToast])
 
   useEffect(() => {
     if (activeTab === 'financial') fetchFinancialReport()
-  }, [activeTab, finPeriod, finDate, finMonth]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, finDateFrom, finDateTo, fetchFinancialReport])
 
   const fetchShiftReport = useCallback(async () => {
     setShiftLoading(true)
@@ -3359,51 +3353,14 @@ export function ReportsView() {
 
         {/* Financial P&L Tab */}
         <TabsContent value="financial" className="space-y-4">
-        {/* Period selector */}
+        {/* Date range filter */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs">Period:</Label>
-                <Select value={finPeriod} onValueChange={(v: any) => setFinPeriod(v)}>
-                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Today</SelectItem>
-                    <SelectItem value="monthly">This Month</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {finPeriod === 'daily' ? (
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs">Date:</Label>
-                  <DateInput value={finDate} onChange={(iso) => setFinDate(iso?.split('T')[0] || '')} className="h-8 w-36 text-xs" />
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs">Month:</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 w-36 justify-start text-xs font-normal bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80">
-                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 shrink-0" />
-                        {finMonth ? formatMonthDisplay(finMonth) : 'Select month'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-2xl border-[0.5px] border-gray-300/60 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.1)]" align="end">
-                      <Calendar
-                        mode="single"
-                        captionLayout="dropdown"
-                        selected={finMonth ? parseMonthToDate(finMonth) : undefined}
-                        onSelect={(date) => {
-                          if (date) setFinMonth(date.toISOString().slice(0, 7))
-                        }}
-                        defaultMonth={parseMonthToDate(finMonth) || new Date()}
-                        fromYear={2023}
-                        toYear={2035}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
+              <Label className="text-xs">From:</Label>
+              <DateInput value={finDateFrom} onChange={(iso) => setFinDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
+              <Label className="text-xs">To:</Label>
+              <DateInput value={finDateTo} onChange={(iso) => setFinDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
               <Button size="sm" variant="outline" onClick={fetchFinancialReport} disabled={finLoading}>
                 {finLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               </Button>
@@ -3538,8 +3495,8 @@ export function ReportsView() {
               </Card>
             </div>
 
-            {/* Daily Trend (monthly only) */}
-            {finPeriod === 'monthly' && finData.dailyTrend && finData.dailyTrend.length > 1 && (
+            {/* Daily Trend (when range spans multiple days) */}
+            {finData.dailyTrend && finData.dailyTrend.length > 1 && (
               <Card>
                 <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Daily Revenue Trend</CardTitle></CardHeader>
                 <CardContent>

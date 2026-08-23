@@ -13,9 +13,11 @@ function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> })
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const period = searchParams.get('period') || 'daily'
-    const date = searchParams.get('date') || '' // YYYY-MM-DD
-    const month = searchParams.get('month') || '' // YYYY-MM
+    const from = searchParams.get('from') || ''
+    const to = searchParams.get('to') || ''
+    const period = searchParams.get('period') || ''
+    const date = searchParams.get('date') || ''
+    const month = searchParams.get('month') || ''
 
     const requesterRole = req.headers.get('x-user-role') || ''
     const requesterId = req.headers.get('x-user-id') || ''
@@ -27,26 +29,38 @@ export async function GET(req: NextRequest) {
 
     let dateFrom: string
     let dateTo: string
+    let reportPeriod = 'custom'
 
-    if (period === 'monthly' && month) {
+    if (from || to) {
+      // From/To date range (new style)
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      dateFrom = from || today
+      dateTo = to || today
+      if (dateFrom === dateTo) reportPeriod = 'daily'
+      else reportPeriod = 'custom'
+    } else if (period === 'monthly' && month) {
       const [y, m] = month.split('-').map(Number)
       dateFrom = `${y}-${String(m).padStart(2, '0')}-01`
       const lastDay = new Date(y, m, 0).getDate()
       dateTo = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      reportPeriod = 'monthly'
     } else if (period === 'daily' && date) {
       dateFrom = date
       dateTo = date
+      reportPeriod = 'daily'
     } else {
       // Default to today
       const now = new Date()
       dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       dateTo = dateFrom
+      reportPeriod = 'daily'
     }
 
     if (isTurso()) {
-      return buildTursoReport(dateFrom, dateTo, period, userFilter, userArgs)
+      return buildTursoReport(dateFrom, dateTo, reportPeriod, userFilter, userArgs)
     } else {
-      return buildPrismaReport(dateFrom, dateTo, period, isSuperAdmin, requesterId)
+      return buildPrismaReport(dateFrom, dateTo, reportPeriod, isSuperAdmin, requesterId)
     }
   } catch (error) {
     console.error('Error generating financial report:', error)
@@ -152,9 +166,9 @@ async function buildTursoReport(
     amount: Number(r.amount),
   }))
 
-  // 6. Daily trend (for monthly view)
+  // 6. Daily trend (for multi-day ranges)
   let dailyTrend: Array<{ date: string; revenue: number; cogs: number }> = []
-  if (period === 'monthly') {
+  if (dateFrom !== dateTo) {
     const trendResult = await turso.execute({
       sql: `
         SELECT date(t."createdAt") as day,
@@ -271,7 +285,7 @@ async function buildPrismaReport(
 
   // Daily trend
   let dailyTrend: Array<{ date: string; revenue: number; cogs: number }> = []
-  if (period === 'monthly') {
+  if (dateFrom !== dateTo) {
     const dayMap = new Map<string, { revenue: number; cogs: number }>()
     for (const tx of transactions) {
       const day = tx.createdAt.toISOString().split('T')[0]
