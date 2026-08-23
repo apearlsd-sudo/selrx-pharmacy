@@ -9,8 +9,8 @@ import { runAutoExpiry } from '@/lib/auto-expiry'
 // ---------------------------------------------------------------------------
 
 /** Convert libsql flat rows → array of Record<string, any> keyed by column name */
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
+function toObjs(result: { columns: Array<unknown>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => typeof c === 'string' ? c : (c as { name: string }).name)
   return result.rows.map((row) => {
     const obj: Record<string, unknown> = {}
     names.forEach((n, i) => {

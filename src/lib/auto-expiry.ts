@@ -12,18 +12,17 @@
  * Solution: On every relevant GET endpoint, zero out any batches whose
  * expiryDate has passed, recalculate Inventory.quantity from active batches,
  * re-sync Product.expiryDate, and mark products as EXPIRED if all stock is gone.
- *
- * This is the same logic that runs in GET /api/inventory but extracted here
- * so all endpoints (products, dashboard, controlled-substances, notifications,
- * transactions) can share it.
  */
 
 import { turso, sqlRaw } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 
-/** Convert libsql flat rows → array of Record<string, any> */
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
+/**
+ * Convert libsql flat rows → array of Record<string, any> keyed by column name.
+ * Handles both string[] columns (sqlRaw path) and {name,type}[] columns (ResultSet).
+ */
+function toObjs(result: { columns: Array<unknown>; rows: Array<Array<unknown>> }) {
+  const names = result.columns.map((c) => typeof c === 'string' ? c : (c as { name: string }).name)
   return result.rows.map((row) => {
     const obj: Record<string, unknown> = {}
     names.forEach((n, i) => {
@@ -48,14 +47,16 @@ function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> })
  */
 export async function runAutoExpiry(): Promise<void> {
   // ── STEP 1: Batch-level auto-expiry ──
+  // Use sqlRaw() for SELECT too — avoids the Turso {sql,args} bug that
+  // silently returns 0 rows.
   const expiredBatches = await turso.execute(
-    `SELECT b.id, b."productId", b."batchNumber", b.quantity, b."costPrice",
+    sqlRaw(`SELECT b.id, b."productId", b."batchNumber", b.quantity, b."costPrice",
                 p.name as productName, p."sellingPrice"
          FROM "Batch" b
          INNER JOIN "Product" p ON p.id = b."productId"
          WHERE b."expiryDate" IS NOT NULL
            AND date(b."expiryDate") <= date('now')
-           AND b.quantity > 0`
+           AND b.quantity > 0`, [])
   )
 
   if (expiredBatches.rows.length > 0) {
@@ -115,7 +116,8 @@ export async function runAutoExpiry(): Promise<void> {
   // ── STEP 2: Product-level auto-expiry ──
   // Handles products without batches that have a product-level expiryDate.
   // Also catches edge cases where a product-level expiryDate has passed
-  // but the product wasn't caught by batch-level expiry (e.g. no batches at all).
+  // but the product wasn't caught by batch-level expiry (e.g. no batches at all,
+  // or batches with NULL expiry dates that hold stock while product-level expiry is past).
   await turso.execute(sqlRaw(`
     UPDATE Inventory SET quantity = 0, "updatedAt" = datetime('now')
     WHERE "productId" IN (
