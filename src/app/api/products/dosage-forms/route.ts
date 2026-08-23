@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, sqlRaw } from '@/lib/turso'
 
 const SEED_FORMS = [
   'TABLET', 'CAPSULE', 'SYRUP', 'SUSPENSION', 'CREAM', 'OINTMENT',
@@ -30,10 +30,10 @@ async function ensureTursoTable() {
     for (const name of SEED_FORMS) {
       const id = generateId()
       try {
-        await turso.execute({
-          sql: `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, ?, ?)`,
-          args: [id, name, now, now],
-        })
+        await turso.execute(sqlRaw(
+          `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, ?, ?)`,
+          [id, name, now, now]
+        ))
       } catch {
         // skip duplicates
       }
@@ -46,10 +46,7 @@ export async function GET() {
   try {
     if (isTurso()) {
       await ensureTursoTable()
-      const result = await turso.execute({
-        sql: `SELECT name FROM "DosageForm" WHERE "isActive" = 1 ORDER BY name ASC`,
-        args: [],
-      })
+      const result = await turso.execute(`SELECT name FROM "DosageForm" WHERE "isActive" = 1 ORDER BY name ASC`)
       const forms: string[] = result.rows.map((r) => r.name as string)
       return NextResponse.json(forms)
     } else {
@@ -79,18 +76,15 @@ export async function POST(req: NextRequest) {
     if (isTurso()) {
       await ensureTursoTable()
       // Check for duplicates
-      const existing = await turso.execute({
-        sql: `SELECT id FROM "DosageForm" WHERE UPPER(name) = ?`,
-        args: [name],
-      })
+      const existing = await turso.execute(sqlRaw(`SELECT id FROM "DosageForm" WHERE UPPER(name) = ?`, [name]))
       if (existing.rows.length > 0) {
         return NextResponse.json({ error: 'Dosage form already exists', name }, { status: 409 })
       }
       const id = generateId()
-      await turso.execute({
-        sql: `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, datetime('now'), datetime('now'))`,
-        args: [id, name],
-      })
+      await turso.execute(sqlRaw(
+        `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, datetime('now'), datetime('now'))`,
+        [id, name]
+      ))
       return NextResponse.json({ id, name }, { status: 201 })
     } else {
       const { db } = await import('@/lib/db')
@@ -120,13 +114,13 @@ export async function PUT(req: NextRequest) {
     if (isTurso()) {
       await ensureTursoTable()
       // Check new name not taken
-      const dup = await turso.execute({ sql: `SELECT id FROM "DosageForm" WHERE UPPER(name) = ? AND name != ?`, args: [trimmed, oldName] })
+      const dup = await turso.execute(sqlRaw(`SELECT id FROM "DosageForm" WHERE UPPER(name) = ? AND name != ?`, [trimmed, oldName]))
       if (dup.rows.length > 0) {
         return NextResponse.json({ error: 'Dosage form already exists', name: trimmed }, { status: 409 })
       }
-      await turso.execute({ sql: `UPDATE "DosageForm" SET name = ?, "updatedAt" = datetime('now') WHERE name = ?`, args: [trimmed, oldName] })
+      await turso.execute(sqlRaw(`UPDATE "DosageForm" SET name = ?, "updatedAt" = datetime('now') WHERE name = ?`, [trimmed, oldName]))
       // Also update any products using the old name
-      await turso.execute({ sql: `UPDATE "Product" SET "dosageForm" = ?, "updatedAt" = datetime('now') WHERE "dosageForm" = ?`, args: [trimmed, oldName] })
+      await turso.execute(sqlRaw(`UPDATE "Product" SET "dosageForm" = ?, "updatedAt" = datetime('now') WHERE "dosageForm" = ?`, [trimmed, oldName]))
       return NextResponse.json({ oldName, newName: trimmed })
     } else {
       const { db } = await import('@/lib/db')
@@ -156,7 +150,7 @@ export async function DELETE(req: NextRequest) {
 
     if (isTurso()) {
       await ensureTursoTable()
-      await turso.execute({ sql: `UPDATE "DosageForm" SET "isActive" = 0, "updatedAt" = datetime('now') WHERE name = ?`, args: [name] })
+      await turso.execute(sqlRaw(`UPDATE "DosageForm" SET "isActive" = 0, "updatedAt" = datetime('now') WHERE name = ?`, [name]))
       return NextResponse.json({ deleted: name })
     } else {
       const { db } = await import('@/lib/db')

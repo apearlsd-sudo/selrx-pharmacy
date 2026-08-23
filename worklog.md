@@ -609,3 +609,23 @@ Stage Summary:
 - Changed restore to use PRAGMA table_info() + backup data key intersection for column-safe INSERTs
 - All 31 tables including Product, _CategoryToProduct, SupplierPriceList, SupplierPriceListItem should now export correctly
 - File modified: src/app/api/backup/route.ts
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix dosage form dropdown empty in Turso mode + barcode label improvements
+
+Work Log:
+- Fixed dosage-forms GET endpoint: converted `turso.execute({ sql, args: [] })` to plain SQL `turso.execute(sqlString)` for the SELECT query that returns 0 rows with parameterized form
+- Fixed dosage-forms POST/PUT/DELETE: converted all parameterized Turso queries to `sqlRaw()` for reliable execution
+- Fixed ensure-dosage-forms setup endpoint: same parameterized → sqlRaw conversion
+- Fixed barcode API: converted Turso SELECT to sqlRaw(), added company prefix extraction logic
+- Updated barcode-label-printer.tsx: replaced plain text barcode with actual JsBarcode SVG rendering, added company initials prefix to barcode values
+- Updated print CSS: replaced `.label-barcode-text` (text font approach) with `.label-barcode-area` for proper SVG barcode display, adjusted label sizing
+- Also added `sqlRaw` import to company-branding route for future consistency
+
+Stage Summary:
+- Dosage form dropdown will now populate correctly in Turso/desktop mode — root cause was the same Turso `{ sql, args }` SELECT bug
+- Barcode labels now render actual vertical lines (JsBarcode CODE128 SVG) instead of font-based text
+- Barcode values now start with company name initials (e.g., "GP" for GazPharm)
+- Files changed: dosage-forms/route.ts, ensure-dosage-forms/route.ts, barcode/route.ts, barcode-label-printer.tsx, globals.css, company-branding/route.ts

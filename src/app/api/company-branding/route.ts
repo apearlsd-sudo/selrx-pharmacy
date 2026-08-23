@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, sqlRaw } from '@/lib/turso'
 
 /**
  * Ensure columns exist on the Turso Company table.

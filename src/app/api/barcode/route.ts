@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, sqlRaw } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // Code128 barcode pattern encoding
@@ -24,6 +24,14 @@ const CODE128_PATTERNS: Record<string, string> = {
 }
 
 const CODE128_STOP = '2331112'
+
+/** Extract 2-letter uppercase initials from a company name. */
+function extractInitials(name: string): string {
+  const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean)
+  if (words.length === 0) return 'XX'
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase()
+  return words.slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+}
 
 function encodeCode128(data: string): { bars: string; width: number } {
   // Build reverse lookup
@@ -84,10 +92,32 @@ function generateBarcodeSVG(data: string, width = 200, height = 60): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { productId, labelData } = body
+    const { productId, labelData, companyPrefix } = body
 
     if (!productId) {
       return NextResponse.json({ error: 'productId is required' }, { status: 400 })
+    }
+
+    // Get company prefix (2-letter initials) for barcode prefix
+    let prefix = companyPrefix || 'XX'
+    if (!companyPrefix) {
+      try {
+        // Import dynamically to avoid circular deps
+        const { turso: t, isTurso: isT } = await import('@/lib/turso')
+        if (isT()) {
+          const comp = await t.execute(`SELECT "name" FROM "Company" WHERE "active" = 1 LIMIT 1`)
+          if (comp.rows.length > 0) {
+            const name = comp.rows[0].name as string
+            prefix = extractInitials(name)
+          }
+        } else {
+          const { db } = await import('@/lib/db')
+          const company = await db.company.findFirst({ where: { active: true }, select: { name: true } })
+          if (company) prefix = extractInitials(company.name)
+        }
+      } catch {
+        // fallback to XX
+      }
     }
 
     let productData: {
@@ -109,10 +139,10 @@ export async function POST(request: NextRequest) {
     } else {
       // Fetch from DB
       if (isTurso()) {
-        const result = await turso.execute({
-          sql: `SELECT name, strength, "dosageForm", barcode, "sellingPrice", "batchNumber", "expiryDate" FROM "Product" WHERE id = ? AND status = 'ACTIVE'`,
-          args: [productId],
-        })
+        const result = await turso.execute(sqlRaw(
+          `SELECT name, strength, "dosageForm", barcode, "sellingPrice", "batchNumber", "expiryDate" FROM "Product" WHERE id = ? AND status = 'ACTIVE'`,
+          [productId]
+        ))
         if (result.rows.length === 0) {
           return NextResponse.json({ error: 'Product not found' }, { status: 404 })
         }
@@ -139,8 +169,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate barcode from product barcode or product ID
-    const barcodeValue = productData.barcode || productId.substring(0, 20)
+    // Generate barcode: use existing barcode, or build one with company prefix
+    let barcodeValue: string
+    if (productData.barcode && productData.barcode.length > 0) {
+      barcodeValue = productData.barcode
+    } else {
+      // Build: PREFIX + short product ID digits
+      const suffix = productId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)
+      barcodeValue = `${prefix}${suffix}`
+    }
+
     const svgBarcode = generateBarcodeSVG(barcodeValue)
 
     const { userId, ipAddress, userAgent } = getRequestContext(request)

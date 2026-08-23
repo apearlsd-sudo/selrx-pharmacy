@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, sqlRaw } from '@/lib/turso'
 
 /**
  * POST /api/setup/ensure-dosage-forms
@@ -48,10 +48,10 @@ export async function POST() {
     for (const name of COMMON_DOSAGE_FORMS) {
       const id = generateId()
       try {
-        await turso.execute({
-          sql: `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, ?, ?)`,
-          args: [id, name, now, now],
-        })
+        await turso.execute(sqlRaw(
+          `INSERT INTO "DosageForm" (id, name, "isActive", "createdAt", "updatedAt") VALUES (?, ?, 1, ?, ?)`,
+          [id, name, now, now]
+        ))
         created++
       } catch (e: any) {
         if (e?.message?.includes('UNIQUE constraint failed')) {
