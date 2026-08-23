@@ -20,6 +20,14 @@ const nextConfig: NextConfig = {
   // Security headers for all responses
   async headers() {
     return [
+      // Service worker: no-cache so browsers always get the latest version
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
       {
         source: "/(.*)",
         headers: [

@@ -33,6 +33,8 @@ import {
   Sun,
   Moon,
   LogIn,
+  Loader2,
+  CheckCircle,
 } from 'lucide-react'
 import {
   Select,
@@ -438,6 +440,8 @@ export default function AppShell({ initialBranding }: AppShellProps) {
   const [endShiftCash, setEndShiftCash] = useState('')
   const [isOnline, setIsOnline] = useState(true)
   const [isOfflineMode, setIsOfflineMode] = useState(false)
+  const [pendingOps, setPendingOps] = useState(0)
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle')
   const shiftActive = useAppStore((s) => s.shiftActive)
   const shiftStartedAt = useAppStore((s) => s.shiftStartedAt)
   const currentShiftId = useAppStore((s) => s.currentShiftId)
@@ -467,21 +471,45 @@ export default function AppShell({ initialBranding }: AppShellProps) {
     initCurrencyGetter(() => useAppStore.getState().currency)
   }, [])
 
-  // Register service worker for offline support
+  // Register service worker + listen for sync messages
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {/* SW registration failed silently */});
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        // Listen for sync status messages from SW
+        reg.addEventListener('message', (event) => {
+          const msg = event.data
+          if (msg.type === 'SYNC_STARTED') {
+            setSyncStatus('syncing')
+          } else if (msg.type === 'SYNC_DONE') {
+            setSyncStatus('done')
+            setPendingOps(0)
+            addToast({ title: 'Sync Complete', description: `${msg.synced} operations synced${msg.failed > 0 ? `, ${msg.failed} failed` : ''}`, variant: msg.failed > 0 ? 'destructive' : 'success' })
+            // Refresh data views after sync
+            const store = useAppStore.getState()
+            if (store.authToken) prefetchForOffline(store.authToken)
+            setTimeout(() => setSyncStatus('idle'), 3000)
+          } else if (msg.type === 'SYNC_ERROR') {
+            setSyncStatus('error')
+            setTimeout(() => setSyncStatus('idle'), 5000)
+          } else if (msg.type === 'MUTATION_QUEUED') {
+            setPendingOps((p) => p + 1)
+          } else if (msg.type === 'REFRESH_CACHE') {
+            const store = useAppStore.getState()
+            if (store.authToken) prefetchForOffline(store.authToken)
+          }
+        })
+      }).catch(() => {/* SW registration failed silently */})
     }
   }, [])
 
-  // Track online/offline status
+  // Track online/offline status + trigger sync on reconnect
   useEffect(() => {
     setIsOnline(navigator.onLine)
     if (!navigator.onLine) setIsOfflineMode(true)
     const handleOnline = () => {
       setIsOnline(true)
       setIsOfflineMode(false)
-      // Re-validate session with server now that we're back online
+      // Re-validate session with server
       const store = useAppStore.getState()
       const sessionData = localStorage.getItem('selrx_session')
       if (sessionData && store.authToken) {
@@ -499,9 +527,13 @@ export default function AppShell({ initialBranding }: AppShellProps) {
             if (data.valid && data.user) store.setUser(data.user)
           })
           .catch(() => {})
-        // Re-sync inventory cache
-        prefetchInventoryForOffline(store.authToken)
       }
+      // Tell service worker to sync queued mutations
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SYNC_MUTATIONS' })
+      }
+      // Re-cache data
+      prefetchForOffline(store.authToken)
     }
     const handleOffline = () => { setIsOnline(false); setIsOfflineMode(true) }
     window.addEventListener('online', handleOnline)
@@ -512,19 +544,35 @@ export default function AppShell({ initialBranding }: AppShellProps) {
     }
   }, [])
 
-  // Pre-fetch full product catalog for offline POS access
-  // Caches in localStorage so POS can search/filter without network
-  const prefetchInventoryForOffline = useCallback((token: string | null) => {
-    if (!token) return
-    fetch('/api/products?limit=1000', { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.ok ? res.json() : null)
-      .then((json) => {
-        if (json?.products) {
-          localStorage.setItem('selrx_offline_inventory', JSON.stringify(json.products))
-          localStorage.setItem('selrx_offline_inventory_at', String(Date.now()))
-        }
-      })
-      .catch(() => {})
+  // Pre-fetch critical data for offline use (products, inventory, customers, etc.)
+  const prefetchForOffline = useCallback((token: string | null) => {
+    if (!token || !navigator.onLine) return
+    const headers = { Authorization: `Bearer ${token}` }
+    const endpoints = [
+      '/api/products?limit=1000',
+      '/api/inventory',
+      '/api/customers?limit=500',
+      '/api/categories',
+    ]
+    Promise.allSettled(
+      endpoints.map((url) =>
+        fetch(url, { headers })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data) {
+              // Cache in localStorage for backward-compatible POS reads
+              if (url.includes('/products')) {
+                try {
+                  const products = data.products || data || []
+                  localStorage.setItem('selrx_offline_inventory', JSON.stringify(products))
+                  localStorage.setItem('selrx_offline_inventory_at', String(Date.now()))
+                } catch { /* full */ }
+              }
+            }
+          })
+          .catch(() => {})
+      )
+    )
   }, [])
 
   // Single hydration effect: restores company + session from localStorage
@@ -1006,8 +1054,29 @@ export default function AppShell({ initialBranding }: AppShellProps) {
         </header>
 
         {!isOnline && (
-          <div className="bg-amber-500 dark:bg-amber-600 text-white text-center text-xs py-1 px-4 font-medium">
-            You are offline — some features may be limited
+          <div className="bg-amber-500 dark:bg-amber-600 text-white text-center text-xs py-1.5 px-4 font-medium flex items-center justify-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>You are offline</span>
+            {pendingOps > 0 && (
+              <Badge className="bg-white/20 text-white border-white/30 text-[10px] px-1.5 py-0">
+                {pendingOps} pending
+              </Badge>
+            )}
+            <span className="hidden sm:inline text-amber-100">
+              {pendingOps > 0 ? 'Operations will sync when connection returns' : 'Some features may be limited'}
+            </span>
+          </div>
+        )}
+        {isOnline && syncStatus === 'syncing' && (
+          <div className="bg-blue-500 text-white text-center text-xs py-1.5 px-4 font-medium flex items-center justify-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+            <span>Syncing data...</span>
+          </div>
+        )}
+        {isOnline && syncStatus === 'done' && (
+          <div className="bg-emerald-500 text-white text-center text-xs py-1.5 px-4 font-medium flex items-center justify-center gap-2">
+            <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>Sync complete</span>
           </div>
         )}
 
