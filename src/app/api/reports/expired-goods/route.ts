@@ -34,7 +34,7 @@ async function fetchSalesMap(productIds: string[]): Promise<Record<string, { qty
       INNER JOIN "Transaction" t ON ti."transactionId" = t.id
       WHERE ti."productId" IN (${placeholders})
         AND t.status = 'COMPLETED'
-      GROUP BY ti."productId"`, []))
+      GROUP BY ti."productId"`, chunk))
     for (const row of salesResult.rows) {
       salesMap[(row as any).productId] = {
         qtySold: Number((row as any).qtySold) || 0,
@@ -180,7 +180,7 @@ export async function GET() {
                 SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${phPlaceholders})
               )
               AND ph.action = 'EXPIRED'
-              ORDER BY ph."createdAt" DESC`, []))
+              ORDER BY ph."createdAt" DESC`, chunk))
             for (const row of phResult.rows) {
               const r = row as any
               try {
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
           WHERE b.id IN (${placeholders})
             AND b."expiryDate" IS NOT NULL
             AND date(b."expiryDate") <= date('now')
-            AND b.quantity > 0`, []))
+            AND b.quantity > 0`, productIds))
       targetBatches = result.rows.map((row: any) => ({
         id: row.id, productId: row.productId, name: row.name,
         batchNumber: row.batchNumber, qty: Number(row.quantity) || 0,
@@ -417,11 +417,11 @@ export async function DELETE(request: NextRequest) {
     } else if (batchIds && batchIds.length > 0) {
       // Collect affected product IDs
       const ph = batchIds.map(() => '?').join(', ')
-      const prodResult = await turso.execute(sqlRaw(`SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${ph})`, []))
+      const prodResult = await turso.execute(sqlRaw(`SELECT DISTINCT "productId" FROM "Batch" WHERE id IN (${ph})`, batchIds))
       for (const row of prodResult.rows) affectedProductIds.add(row[0] as string)
 
       // Delete the batch records
-      const delResult = await turso.execute(sqlRaw(`DELETE FROM "Batch" WHERE id IN (${ph})`, []))
+      const delResult = await turso.execute(sqlRaw(`DELETE FROM "Batch" WHERE id IN (${ph})`, batchIds))
       deletedCount = delResult.rowsAffected
     } else {
       return NextResponse.json({ error: 'No items specified for deletion' }, { status: 400 })
