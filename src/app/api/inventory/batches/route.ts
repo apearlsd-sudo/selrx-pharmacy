@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       const autoBatchNumber = batchNumber || generateBatchNo()
       const safePid = productId.replace(/'/g, "''")
       const safeBN = autoBatchNumber.replace(/'/g, "''")
-      const safeExp = expiryDate ? expiryDate.replace(/'/g, "''") : 'NULL'
+      const safeExp = expiryDate ? "'" + expiryDate.replace(/'/g, "''") + "'" : 'NULL'
       const safeCost = costPrice != null ? String(costPrice) : 'NULL'
       const safeRB = receivedBy.replace(/'/g, "''")
 
