@@ -26,16 +26,16 @@ export async function PUT(
     }
 
     const now = new Date().toISOString()
+    const safeId = batchId.replace(/'/g, "''")
 
     // Fetch current batch
-    const batchResult = await turso.execute({
-      sql: `SELECT b.id, b."productId", b."batchNumber", b."expiryDate", b.quantity, b."costPrice",
+    const batchResult = await turso.execute(
+      `SELECT b.id, b."productId", b."batchNumber", b."expiryDate", b.quantity, b."costPrice",
                      p.name as "productName"
               FROM "Batch" b
               LEFT JOIN "Product" p ON p.id = b."productId"
-              WHERE b.id = ?`,
-      args: [batchId],
-    })
+              WHERE b.id = '${safeId}'`
+    )
     if (batchResult.rows.length === 0) {
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
     }
@@ -48,62 +48,46 @@ export async function PUT(
     }
 
     // Update the batch
-    const setClauses: string[] = ['"updatedAt" = ?']
-    const setArgs: (string | number | boolean | null)[] = [now]
+    const setClauses: string[] = [`"updatedAt" = '${now}'`]
 
     if (quantity !== undefined) {
-      setClauses.push('quantity = ?')
-      setArgs.push(newQty)
+      setClauses.push(`quantity = ${newQty}`)
     }
     if (expiryDate !== undefined) {
-      setClauses.push('"expiryDate" = ?')
-      setArgs.push(expiryDate || null)
+      setClauses.push(`"expiryDate" = ${expiryDate ? "'" + expiryDate.replace(/'/g, "''") + "'" : 'NULL'}`)
     }
     if (costPrice !== undefined) {
-      setClauses.push('"costPrice" = ?')
-      setArgs.push(costPrice)
+      setClauses.push(`"costPrice" = ${costPrice}`)
     }
     if (batchNumber !== undefined) {
-      setClauses.push('"batchNumber" = ?')
-      setArgs.push(batchNumber || null)
+      setClauses.push(`"batchNumber" = ${batchNumber ? "'" + batchNumber.replace(/'/g, "''") + "'" : 'NULL'}`)
     }
-    setArgs.push(batchId)
 
-    await turso.execute({
-      sql: `UPDATE "Batch" SET ${setClauses.join(', ')} WHERE id = ?`,
-      args: setArgs,
-    })
+    await turso.execute(
+      `UPDATE "Batch" SET ${setClauses.join(', ')} WHERE id = '${safeId}'`
+    )
 
-    // Recalculate Inventory total quantity (only when quantity changed)
-    let totalBatchQty = 0
+    // Recalculate Inventory total quantity
+    const safePid = (batch.productId as string).replace(/'/g, "''")
+    const sumResult = await turso.execute(
+      `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = '${safePid}'`
+    )
+    const totalBatchQty = Number(sumResult.rows[0].total) || 0
+
     if (quantity !== undefined) {
-      const sumResult = await turso.execute({
-        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-        args: [batch.productId],
-      })
-      totalBatchQty = Number(sumResult.rows[0][0]) || 0
-
-      await turso.execute({
-        sql: 'UPDATE Inventory SET quantity = ?, updatedAt = ? WHERE "productId" = ?',
-        args: [totalBatchQty, now, batch.productId],
-      })
-    } else {
-      const sumResult = await turso.execute({
-        sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-        args: [batch.productId],
-      })
-      totalBatchQty = Number(sumResult.rows[0][0]) || 0
+      await turso.execute(
+        `UPDATE Inventory SET quantity = ${totalBatchQty}, "updatedAt" = '${now}' WHERE "productId" = '${safePid}'`
+      )
     }
 
     // Update Product expiryDate when expiry changed
     if (expiryDate !== undefined) {
-      await turso.execute({
-        sql: `UPDATE "Product" SET "expiryDate" = (
-                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
-              ), "updatedAt" = ?
-              WHERE id = ?`,
-        args: [batch.productId, now, batch.productId],
-      })
+      await turso.execute(
+        `UPDATE "Product" SET "expiryDate" = (
+                SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = '${safePid}' AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+              ), "updatedAt" = '${now}'
+              WHERE id = '${safePid}'`
+      )
     }
 
     // Log in product history
@@ -177,41 +161,39 @@ export async function DELETE(
     }
 
     const now = new Date().toISOString()
+    const safeId = batchId.replace(/'/g, "''")
 
     // Fetch batch details before deletion
-    const batchResult = await turso.execute({
-      sql: `SELECT id, "productId", "batchNumber", quantity FROM "Batch" WHERE id = ?`,
-      args: [batchId],
-    })
+    const batchResult = await turso.execute(
+      `SELECT id, "productId", "batchNumber", quantity FROM "Batch" WHERE id = '${safeId}'`
+    )
     if (batchResult.rows.length === 0) {
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
     }
     const batch = batchResult.rows[0] as any
     const batchQty = Number(batch.quantity) || 0
+    const safePid = (batch.productId as string).replace(/'/g, "''")
 
     // Delete the batch
-    await turso.execute({ sql: 'DELETE FROM "Batch" WHERE id = ?', args: [batchId] })
+    await turso.execute(`DELETE FROM "Batch" WHERE id = '${safeId}'`)
 
     // Recalculate Inventory total
-    const sumResult = await turso.execute({
-      sql: `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = ?`,
-      args: [batch.productId],
-    })
-    const totalBatchQty = Number(sumResult.rows[0][0]) || 0
+    const sumResult = await turso.execute(
+      `SELECT COALESCE(SUM(quantity), 0) as total FROM "Batch" WHERE "productId" = '${safePid}'`
+    )
+    const totalBatchQty = Number(sumResult.rows[0].total) || 0
 
-    await turso.execute({
-      sql: 'UPDATE Inventory SET quantity = ?, updatedAt = ? WHERE "productId" = ?',
-      args: [totalBatchQty, now, batch.productId],
-    })
+    await turso.execute(
+      `UPDATE Inventory SET quantity = ${totalBatchQty}, "updatedAt" = '${now}' WHERE "productId" = '${safePid}'`
+    )
 
     // Update Product expiryDate to nearest ACTIVE (non-expired) batch expiry
-    await turso.execute({
-      sql: `UPDATE "Product" SET "expiryDate" = (
-              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = ? AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
-            ), "updatedAt" = ?
-            WHERE id = ?`,
-      args: [batch.productId, now, batch.productId],
-    })
+    await turso.execute(
+      `UPDATE "Product" SET "expiryDate" = (
+              SELECT MIN(b."expiryDate") FROM "Batch" b WHERE b."productId" = '${safePid}' AND b."expiryDate" IS NOT NULL AND b.quantity > 0 AND date(b."expiryDate") > date('now')
+            ), "updatedAt" = '${now}'
+            WHERE id = '${safePid}'`
+    )
 
     // Log history
     writeProductHistory({
