@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, tursoExecute, tursoBatch, generateId } from '@/lib/turso'
+import { turso, isTurso, tursoExecute, tursoBatch, generateId, sqlRaw } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { aesEncrypt, aesDecrypt } from '@/lib/security'
 
@@ -35,6 +35,7 @@ const BACKUP_TABLES: TableDef[] = [
   { name: 'Manufacturer', columns: ['id','name','contactPerson','email','phone','address','city','country','website','notes','createdAt','updatedAt'] },
   { name: 'Vendor',      columns: ['id','name','contactPerson','email','phone','address','notes','createdAt','updatedAt'] },
   { name: 'Category',    columns: ['id','name','description','createdAt','updatedAt'] },
+  { name: 'DosageForm', columns: ['id','name','isActive','createdAt','updatedAt'] },
   { name: 'Product',     columns: ['id','ndc','barcode','name','genericName','manufacturer','manufacturerId','vendorId','category','description','dosageForm','strength','unitOfMeasure','sellingUnit','itemsPerUnit','requiresPrescription','status','sellingPrice','wholesalePrice','costPrice','pricingTierId','reorderPoint','reorderQty','maxStock','storageLocation','batchNumber','expiryDate','controlledSubstance','deaSchedule','createdAt','updatedAt'] },
   { name: 'Inventory',   columns: ['id','productId','quantity','lastCounted','createdAt','updatedAt'] },
   { name: 'Batch',       columns: ['id','productId','batchNumber','expiryDate','quantity','costPrice','receivedAt','receivedBy','createdAt','updatedAt'] },
@@ -103,14 +104,14 @@ export async function GET(request: NextRequest) {
       for (const table of tables) {
         try {
           const colList = table.columns.map(c => `"${c}"`).join(', ')
-          const result = await turso.execute({
-            sql: `SELECT ${colList} FROM "${table.name}" ${table.where || ''}`,
-            args: [],
-          })
+          const whereClause = table.where || ''
+          const result = await turso.execute(
+            `SELECT ${colList} FROM "${table.name}" ${whereClause}`
+          )
 
           if (result.rows.length > 0) {
             // Convert libsql rows to plain objects, handling boolean conversion
-            backup[table.name] = result.rows.map(row => {
+            backup[table.name] = result.rows.map((row: any) => {
               const obj: Record<string, unknown> = {}
               for (const col of table.columns) {
                 let val = row[col]
@@ -288,7 +289,7 @@ export async function POST(request: NextRequest) {
 
           // Check if table exists
           try {
-            await turso.execute({ sql: `SELECT 1 FROM "${table.name}" LIMIT 1`, args: [] })
+            await turso.execute(`SELECT 1 FROM "${table.name}" LIMIT 1`)
           } catch {
             console.warn(`[restore] Table "${table.name}" does not exist, skipping`)
             results[table.name] = { ...tableResult, skipped: rows.length }
@@ -297,18 +298,23 @@ export async function POST(request: NextRequest) {
 
           if (mode === 'replace') {
             // DELETE all existing rows, then INSERT
-            await turso.execute({ sql: `DELETE FROM "${table.name}"`, args: [] })
+            await turso.execute(`DELETE FROM "${table.name}"`)
 
             if (rows.length > 0) {
-              const stmts = rows.map((row: any) => ({
-                sql: `INSERT INTO "${table.name}" (${colList}) VALUES (${placeholders})`,
-                args: cols.map(c => {
+              const stmts = rows.map((row: any) => {
+                const vals = cols.map(c => {
                   const val = row[c]
-                  if (val === true) return 1
-                  if (val === false) return 0
-                  return val ?? null
-                }),
-              }))
+                  if (val === true) return '1'
+                  if (val === false) return '0'
+                  if (val === null || val === undefined) return 'NULL'
+                  if (typeof val === 'number') return String(val)
+                  return "'" + String(val).replace(/'/g, "''") + "'"
+                })
+                return {
+                  sql: `INSERT INTO "${table.name}" (${colList}) VALUES (${vals.join(', ')})`,
+                  args: [],
+                }
+              })
 
               // Batch in chunks of 100 to avoid size limits
               for (let i = 0; i < stmts.length; i += 100) {
@@ -320,15 +326,20 @@ export async function POST(request: NextRequest) {
           } else {
             // UPSERT mode: INSERT OR REPLACE
             if (rows.length > 0) {
-              const stmts = rows.map((row: any) => ({
-                sql: `INSERT OR REPLACE INTO "${table.name}" (${colList}) VALUES (${placeholders})`,
-                args: cols.map(c => {
+              const stmts = rows.map((row: any) => {
+                const vals = cols.map(c => {
                   const val = row[c]
-                  if (val === true) return 1
-                  if (val === false) return 0
-                  return val ?? null
-                }),
-              }))
+                  if (val === true) return '1'
+                  if (val === false) return '0'
+                  if (val === null || val === undefined) return 'NULL'
+                  if (typeof val === 'number') return String(val)
+                  return "'" + String(val).replace(/'/g, "''") + "'"
+                })
+                return {
+                  sql: `INSERT OR REPLACE INTO "${table.name}" (${colList}) VALUES (${vals.join(', ')})`,
+                  args: [],
+                }
+              })
 
               // Batch in chunks of 100
               for (let i = 0; i < stmts.length; i += 100) {
@@ -341,7 +352,7 @@ export async function POST(request: NextRequest) {
                   console.warn(`[restore] Batch failed for ${table.name}, falling back to row-by-row:`, err.message)
                   for (const stmt of chunk) {
                     try {
-                      await turso.execute(stmt)
+                      await turso.execute(stmt.sql)
                       tableResult.inserted++
                     } catch (rowErr: any) {
                       tableResult.errors.push(rowErr.message || String(rowErr))

@@ -564,3 +564,27 @@ Stage Summary:
 - Fix: sqlRaw() helper converts parameterized queries to inline plain-SQL strings
 - Files changed: src/lib/turso.ts, src/app/api/inventory/route.ts, src/app/api/reports/expired-goods/route.ts, src/app/api/dashboard/route.ts
 - Auto-expiry will trigger on next inventory page load, zeroing expired batch quantities and recalculating inventory totals
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix backup export returning empty data for all tables
+
+Work Log:
+- Identified root cause: backup GET handler used turso.execute({ sql, args: [] }) which silently returns 0 rows
+- This means ALL previous backup files contain correct structure but ZERO actual data
+- Converted backup/route.ts GET handler SELECT to plain SQL string
+- Converted backup/route.ts POST handler (restore) INSERT statements from parameterized to inline values
+- Converted backup/restore-setup/route.ts all turso.execute({ sql, args }) to plain SQL / sqlRaw
+- Added missing DosageForm table to both BACKUP_TABLES lists
+- Added 9 missing tables to restore-setup: PricingTier, CustomerCredit, InsuranceClaim, SupplierPriceList, SupplierPriceListItem, LoyaltyTransaction, UserTarget, ApprovalLog, Notification
+- Synced Product column list in restore-setup (added barcode, wholesalePrice, pricingTierId)
+- Synced Customer column list in restore-setup (added loyaltyPoints, loyaltyTier)
+- Build passes
+
+Stage Summary:
+- Root cause same as expired stock issue: parameterized Turso queries return 0 rows
+- Files changed: src/app/api/backup/route.ts, src/app/api/backup/restore-setup/route.ts
+- All backup tables now use plain SQL for SELECT and inline values for INSERT
+- DosageForm + 9 other tables added to restore-setup
+- New backup generated after deploy will contain complete data for all 31 tables
