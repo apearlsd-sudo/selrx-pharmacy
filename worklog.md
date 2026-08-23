@@ -629,3 +629,23 @@ Stage Summary:
 - Barcode labels now render actual vertical lines (JsBarcode CODE128 SVG) instead of font-based text
 - Barcode values now start with company name initials (e.g., "GP" for GazPharm)
 - Files changed: dosage-forms/route.ts, ensure-dosage-forms/route.ts, barcode/route.ts, barcode-label-printer.tsx, globals.css, company-branding/route.ts
+
+---
+Task ID: 2b
+Agent: Main Agent
+Task: Add visual barcode SVG preview to inventory and drug catalogue forms
+
+Work Log:
+- Updated src/lib/barcode.ts: added company prefix support to generateBarcode(), extractCompanyInitials(), getCompanyPrefix() with fetch cache
+- Added BarcodeSVG import to inventory-view.tsx and master-data-view.tsx
+- Added barcode preview (BarcodeSVG with CODE128/EAN13 fallback) below barcode input in both forms
+- Updated Auto button in both forms to fetch company prefix and pass to generateBarcode()
+- Updated products POST API to auto-generate barcodes with company prefix on server side
+- Added barcode field to DrugProduct interface in master-data-view.tsx
+- Fixed form.ndc -> form.sku reference in master-data-view Auto button
+
+Stage Summary:
+- Barcodes now render as actual vertical lines (SVG via JsBarcode) below the input field on both inventory and drug catalogue forms
+- Clicking Auto generates a barcode starting with company initials (e.g., GPXXXXXXXX)
+- New products created via API also get company-prefixed barcodes automatically
+- Files changed: barcode.ts, inventory-view.tsx, master-data-view.tsx, products/route.ts

@@ -258,8 +258,19 @@ export async function POST(request: NextRequest) {
 
     // Auto-generate barcode if not provided
     if (!body.barcode) {
-      const { ensureBarcode } = await import('@/lib/barcode')
-      body.barcode = ensureBarcode(null, body.ndc)
+      const { ensureBarcode, extractCompanyInitials } = await import('@/lib/barcode')
+      let prefix: string | null = null
+      try {
+        if (isTurso()) {
+          const comp = await turso.execute(`SELECT "name" FROM "Company" WHERE "active" = 1 LIMIT 1`)
+          if (comp.rows.length > 0) prefix = extractCompanyInitials(comp.rows[0].name as string)
+        } else {
+          const { db } = await import('@/lib/db')
+          const company = await db.company.findFirst({ where: { active: true }, select: { name: true } })
+          if (company) prefix = extractCompanyInitials(company.name)
+        }
+      } catch { /* fallback to no prefix */ }
+      body.barcode = ensureBarcode(null, body.ndc, prefix)
     }
 
     if (isTurso()) {

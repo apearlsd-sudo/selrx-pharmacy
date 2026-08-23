@@ -1,14 +1,13 @@
 /**
- * EAN-13 barcode generation utilities.
+ * Barcode generation utilities.
  *
- * - If a product has an NDC (10 or 11 digits), it's converted to EAN-13.
- * - Otherwise a random EAN-13 is generated.
- * - Users can override with manual entry.
+ * Supports two modes:
+ * 1. Company-prefixed CODE128 barcodes (e.g., "GP" + random digits) — default when companyPrefix is provided
+ * 2. EAN-13 barcodes from NDC — legacy mode for NDC-only products
  */
 
 /**
  * Calculate EAN-13 check digit.
- * The check digit is the last digit of an EAN-13 barcode.
  */
 function ean13CheckDigit(first12: string): number {
   const digits = first12.split('').map(Number)
@@ -30,26 +29,11 @@ export function isValidEAN13(code: string): boolean {
 
 /**
  * Convert an NDC string to EAN-13.
- *
- * NDC formats:
- *  - 5-4-2 (11 digits): e.g., 12345-6789-01 → pad to 12 digits with leading 0, calc check
- *  - 5-3-2 (10 digits): e.g., 12345-678-01 → pad to 12 digits with leading 00, calc check
- *  - 10-digit plain: pad to 12 digits with leading 00, calc check
- *  - 11-digit plain: pad to 12 digits with leading 0, calc check
- *  - 12-digit plain: just calc check digit
- *  - 13-digit plain: validate as-is if valid EAN-13
- *
- * Returns null if the NDC is too short or can't be converted.
  */
 export function ndcToEAN13(ndc: string): string | null {
-  // Strip non-digit characters
   const digits = ndc.replace(/\D/g, '')
   if (digits.length < 10 || digits.length > 13) return null
-
-  // If already a valid 13-digit EAN-13, return as-is
   if (digits.length === 13 && isValidEAN13(digits)) return digits
-
-  // Pad to 12 digits
   const padded = digits.padStart(12, '0').slice(0, 12)
   const check = ean13CheckDigit(padded)
   return padded + check
@@ -57,13 +41,10 @@ export function ndcToEAN13(ndc: string): string | null {
 
 /**
  * Generate a random EAN-13 barcode.
- * Uses a prefix range (200-299) that's reserved for internal use
- * and won't conflict with real product barcodes.
+ * Uses prefix range 200-299 (GS1 internal use).
  */
 export function generateRandomEAN13(): string {
-  // Use 2xx prefix range (GS1 internal use)
   const prefix = '2' + String(Math.floor(Math.random() * 100)).padStart(2, '0')
-  // Generate 10 more random digits
   let body = ''
   for (let i = 0; i < 10; i++) {
     body += String(Math.floor(Math.random() * 10))
@@ -74,21 +55,86 @@ export function generateRandomEAN13(): string {
 }
 
 /**
- * Generate an EAN-13 barcode for a product.
- * Tries NDC first, falls back to random.
+ * Extract 2-letter uppercase initials from a company name.
  */
-export function generateBarcode(ndc?: string | null): string {
+export function extractCompanyInitials(name: string): string {
+  const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean)
+  if (words.length === 0) return 'XX'
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase()
+  return words.slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+}
+
+/**
+ * Generate a company-prefixed CODE128 barcode string.
+ * Format: PREFIX (2 letters) + 8 random alphanumeric chars = ~10 chars
+ * CODE128 supports alphanumeric, so letters in prefix are fine.
+ */
+function generateCompanyBarcode(prefix: string): string {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let suffix = ''
+  for (let i = 0; i < 8; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return `${prefix}${suffix}`
+}
+
+/**
+ * Generate a barcode for a product.
+ *
+ * - If companyPrefix is provided (2+ letter initials), generates a CODE128-compatible barcode: PREFIX + random alphanumeric
+ * - If NDC is provided and can convert to EAN-13, returns EAN-13
+ * - Otherwise generates random EAN-13
+ */
+export function generateBarcode(ndc?: string | null, companyPrefix?: string | null): string {
+  // Company-prefixed barcode takes priority
+  if (companyPrefix && companyPrefix.length >= 2) {
+    return generateCompanyBarcode(companyPrefix.toUpperCase())
+  }
+  // NDC-based EAN-13
   if (ndc) {
     const fromNdc = ndcToEAN13(ndc)
     if (fromNdc) return fromNdc
   }
+  // Random EAN-13 fallback
   return generateRandomEAN13()
 }
 
 /**
  * Ensure a barcode value is valid. If invalid or empty, generate one.
  */
-export function ensureBarcode(barcode: string | null | undefined, ndc?: string | null): string {
-  if (barcode && isValidEAN13(barcode)) return barcode
-  return generateBarcode(ndc)
+export function ensureBarcode(barcode: string | null | undefined, ndc?: string | null, companyPrefix?: string | null): string {
+  if (barcode && barcode.length >= 4) return barcode
+  return generateBarcode(ndc, companyPrefix)
+}
+
+// ── Company prefix cache ──────────────────────────────────────────────
+
+let _cachedPrefix: string | null = null
+let _prefixFetchPromise: Promise<string> | null = null
+
+/**
+ * Fetch the company name and return 2-letter initials.
+ * Results are cached for the session.
+ */
+export async function getCompanyPrefix(): Promise<string> {
+  if (_cachedPrefix) return _cachedPrefix
+  if (_prefixFetchPromise) return _prefixFetchPromise
+
+  _prefixFetchPromise = (async () => {
+    try {
+      const res = await fetch('/api/company-branding')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.name) {
+          _cachedPrefix = extractCompanyInitials(data.name)
+          return _cachedPrefix
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 'XX'
+  })()
+
+  return _prefixFetchPromise
 }

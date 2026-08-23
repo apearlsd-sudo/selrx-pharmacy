@@ -31,10 +31,11 @@ import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
-import { generateBarcode } from '@/lib/barcode'
+import { generateBarcode, getCompanyPrefix } from '@/lib/barcode'
 import { formatDate, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 import { authHeaders } from '@/lib/auth-headers'
 import { generateAndPrintLabel, printBarcodeLabels } from '@/components/gazpharm/shared/barcode-label-printer'
+import { BarcodeSVG } from '@/components/ui/barcode-svg'
 
 interface InventoryItem {
   id: string
@@ -1721,10 +1722,18 @@ export function InventoryView() {
                   onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
                   className="flex-1"
                 />
-                <Button type="button" variant="outline" size="sm" className="h-9 px-3 shrink-0" onClick={() => setProductForm({ ...productForm, barcode: generateBarcode(productForm.sku || undefined) })} title="Auto-generate barcode">
+                <Button type="button" variant="outline" size="sm" className="h-9 px-3 shrink-0" onClick={async () => {
+                  const prefix = await getCompanyPrefix()
+                  setProductForm({ ...productForm, barcode: generateBarcode(productForm.sku || undefined, prefix) })
+                }} title="Auto-generate barcode with company prefix">
                   Auto
                 </Button>
               </div>
+              {productForm.barcode && (
+                <div className="mt-2 flex justify-center bg-white rounded border p-2">
+                  <BarcodeSVG value={productForm.barcode} width={1.5} height={45} fontSize={10} margin={2} />
+                </div>
+              )}
               <p className="text-[10px] text-muted-foreground mt-1">Leave blank to auto-generate</p>
             </div>
 

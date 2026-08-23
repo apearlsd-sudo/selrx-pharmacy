@@ -32,10 +32,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { formatCurrency } from '@/lib/currency'
-import { generateBarcode } from '@/lib/barcode'
+import { generateBarcode, getCompanyPrefix } from '@/lib/barcode'
 import { formatDate, formatDateTimeShort, getDaysToExpiry, getTodayWAT, daysToExpiryFrom } from '@/lib/date-utils'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { EmptyState } from '@/components/gazpharm/shared/empty-state'
+import { BarcodeSVG } from '@/components/ui/barcode-svg'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ interface DrugProduct {
   id: string
   name: string
   ndc: string | null
+  barcode: string | null
   category: string
   sellingPrice: number
   costPrice: number | null
@@ -1876,10 +1878,18 @@ function DrugSection() {
               <Label className="text-xs">Barcode</Label>
               <div className="flex gap-1 mt-1">
                 <Input placeholder="Auto-generated if blank" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="flex-1" />
-                <Button type="button" variant="outline" size="sm" className="h-9 px-3 shrink-0" onClick={() => setForm({ ...form, barcode: generateBarcode(form.ndc || undefined) })} title="Auto-generate barcode">
+                <Button type="button" variant="outline" size="sm" className="h-9 px-3 shrink-0" onClick={async () => {
+                  const prefix = await getCompanyPrefix()
+                  setForm({ ...form, barcode: generateBarcode(form.sku || undefined, prefix) })
+                }} title="Auto-generate barcode with company prefix">
                   Auto
                 </Button>
               </div>
+              {form.barcode && (
+                <div className="mt-2 flex justify-center bg-white rounded border p-2">
+                  <BarcodeSVG value={form.barcode} width={1.5} height={45} fontSize={10} margin={2} />
+                </div>
+              )}
               <p className="text-[10px] text-muted-foreground mt-1">Leave blank to auto-generate</p>
             </div>
 
