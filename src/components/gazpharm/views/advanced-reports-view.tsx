@@ -176,19 +176,22 @@ function NavbarDropdown({
   }
 
   const handleMouseEnter = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
     updatePos()
     setOpen(true)
   }
   const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => setOpen(false), 150)
+    timeoutRef.current = setTimeout(() => setOpen(false), 400)
   }
 
   useEffect(() => {
     if (!open) return
     const onScroll = () => updatePos()
     window.addEventListener('scroll', onScroll, true)
-    return () => window.removeEventListener('scroll', onScroll, true)
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
   }, [open])
 
   return (
@@ -214,8 +217,8 @@ function NavbarDropdown({
       {/* Dropdown — rendered via portal to escape overflow clipping */}
       {open && createPortal(
         <div
-          className="fixed z-[9999] w-52 bg-white dark:bg-gray-900 rounded-b-lg border border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-1 duration-150"
-          style={{ top: pos.top, left: pos.left }}
+          className="fixed z-[9999] w-52 bg-white dark:bg-gray-900 rounded-b-lg border border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in-0 duration-100"
+          style={{ top: pos.top - 1, left: pos.left }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
