@@ -185,6 +185,44 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── Post-processing: synthesize _CategoryToProduct from Product.category + Category ──
+    //
+    // The app stores category as a TEXT field on Product (e.g. "OTC") but never writes
+    // to the Prisma implicit junction table _CategoryToProduct (A=Category.id, B=Product.id).
+    // If the junction table is empty but both Product and Category rows exist, build the
+    // junction rows by matching Product.category → Category.name.
+    const ctpRows = backup['_CategoryToProduct'] as Record<string, string>[] | undefined
+    if ((!ctpRows || ctpRows.length === 0) &&
+        backup['Product'] && backup['Product'].length > 0 &&
+        backup['Category'] && backup['Category'].length > 0) {
+      const products = backup['Product'] as Record<string, unknown>[]
+      const categories = backup['Category'] as Record<string, unknown>[]
+      // Build name→id lookup
+      const catByName = new Map<string, string>()
+      for (const cat of categories) {
+        const name = cat.name as string
+        const id = cat.id as string
+        if (name && id) catByName.set(name, id)
+      }
+      // Match each product's category string to a Category id
+      const synthesized: Record<string, string>[] = []
+      for (const prod of products) {
+        const catName = prod.category as string | undefined
+        const prodId = prod.id as string
+        if (catName && prodId) {
+          const catId = catByName.get(catName)
+          if (catId) {
+            synthesized.push({ A: catId, B: prodId })
+          }
+        }
+      }
+      if (synthesized.length > 0) {
+        backup['_CategoryToProduct'] = synthesized
+        meta.totalRows += synthesized.length
+        console.log(`[backup] Synthesized ${synthesized.length} _CategoryToProduct rows from Product.category + Category.name`)
+      }
+    }
+
     const { userId, ipAddress, userAgent } = getRequestContext(request)
     await writeAuditLog({ userId, action: 'BACKUP_CREATED', category: 'backup', details: { tableCount: meta.tableCount, totalRows: meta.totalRows, encrypted: encryptBackup }, ipAddress, userAgent }).catch(() => {})
 
