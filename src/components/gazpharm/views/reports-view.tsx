@@ -160,7 +160,10 @@ export function ReportsView() {
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().split('T')[0])
 
   // Staff Targets state
-  const [targetPeriod, setTargetPeriod] = useState(() => new Date().toISOString().slice(0, 7))
+  const today = new Date()
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const [targetDateFrom, setTargetDateFrom] = useState(() => firstOfMonth.toISOString().split('T')[0])
+  const [targetDateTo, setTargetDateTo] = useState(() => today.toISOString().split('T')[0])
   const [targetsData, setTargetsData] = useState<any>(null)
   const [targetsLoading, setTargetsLoading] = useState(false)
   const [showTargetDialog, setShowTargetDialog] = useState(false)
@@ -582,11 +585,14 @@ export function ReportsView() {
   }, [activeTab, fetchExpiredGoods])
 
   // Fetch staff targets when tab activates
-  const fetchTargets = useCallback(async (period?: string) => {
+  const fetchTargets = useCallback(async () => {
     setTargetsLoading(true)
     try {
-      const p = period || targetPeriod
-      const res = await fetch(`/api/user-targets?progress=true&period=${p}`, { headers: authHeaders() })
+      const params = new URLSearchParams()
+      params.set('progress', 'true')
+      if (targetDateFrom) params.set('from', targetDateFrom)
+      if (targetDateTo) params.set('to', targetDateTo)
+      const res = await fetch(`/api/user-targets?${params.toString()}`, { headers: authHeaders() })
       if (res.ok) {
         setTargetsData(await res.json())
       }
@@ -595,7 +601,7 @@ export function ReportsView() {
     } finally {
       setTargetsLoading(false)
     }
-  }, [targetPeriod, addToast])
+  }, [targetDateFrom, targetDateTo, addToast])
 
   useEffect(() => {
     if (activeTab === 'staff-targets') {
@@ -613,7 +619,7 @@ export function ReportsView() {
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: targetForm.userId,
-          period: targetPeriod,
+          period: targetDateFrom ? targetDateFrom.slice(0, 7) : new Date().toISOString().slice(0, 7),
           targetType: targetForm.targetType,
           targetValue: parseFloat(targetForm.targetValue),
         }),
@@ -3181,27 +3187,10 @@ export function ReportsView() {
                   Staff Performance Targets
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 w-36 justify-start text-xs font-normal bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80">
-                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 shrink-0" />
-                        {targetPeriod ? formatMonthDisplay(targetPeriod) : 'Select month'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-2xl border-[0.5px] border-gray-300/60 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.1)]" align="end">
-                      <Calendar
-                        mode="single"
-                        captionLayout="dropdown"
-                        selected={targetPeriod ? parseMonthToDate(targetPeriod) : undefined}
-                        onSelect={(date) => {
-                          if (date) setTargetPeriod(date.toISOString().slice(0, 7))
-                        }}
-                        defaultMonth={parseMonthToDate(targetPeriod) || new Date()}
-                        fromYear={2023}
-                        toYear={2035}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label className="text-xs">From:</Label>
+                  <DateInput value={targetDateFrom} onChange={(iso) => setTargetDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
+                  <Label className="text-xs">To:</Label>
+                  <DateInput value={targetDateTo} onChange={(iso) => setTargetDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
                   {isSuperAdmin && (
                     <Button size="sm" onClick={() => setShowTargetDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
                       <Plus className="h-3.5 w-3.5 mr-1" />
@@ -3683,7 +3672,7 @@ export function ReportsView() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Set Staff Target</DialogTitle>
-            <DialogDescription>For period: {targetPeriod}</DialogDescription>
+            <DialogDescription>For period: {targetDateFrom} to {targetDateTo}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>

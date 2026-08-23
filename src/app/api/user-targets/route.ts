@@ -63,24 +63,49 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period')
     const progress = searchParams.get('progress') === 'true'
 
-    // ── Progress endpoint: returns each user's actual vs target for current period ──
+    // ── Progress endpoint: returns each user's actual vs target for the date range ──
     if (progress) {
-      const targetPeriod = period || new Date().toISOString().slice(0, 7) // e.g. '2026-08'
-      const periodStart = `${targetPeriod}-01T00:00:00.000Z`
-      // Calculate end of month
-      const [year, month] = targetPeriod.split('-').map(Number)
-      const lastDay = new Date(year!, month!, 0).getDate()
-      const periodEnd = `${targetPeriod}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`
+      // Determine date range from params
+      const dateFrom = searchParams.get('from') || ''
+      const dateTo = searchParams.get('to') || ''
+      
+      // Use from/to dates to build the query range
+      let rangeStart: string
+      let rangeEnd: string
+      
+      if (dateFrom || dateTo) {
+        rangeStart = dateFrom ? `${dateFrom}T00:00:00.000Z` : `${new Date().toISOString().slice(0, 7)}-01T00:00:00.000Z`
+        const to = dateTo || new Date().toISOString().split('T')[0]
+        rangeEnd = `${to}T23:59:59.999Z`
+      } else {
+        // Fallback to single period param for backwards compatibility
+        const targetPeriod = period || new Date().toISOString().slice(0, 7)
+        const [year, month] = targetPeriod.split('-').map(Number)
+        const lastDay = new Date(year!, month!, 0).getDate()
+        rangeStart = `${targetPeriod}-01T00:00:00.000Z`
+        rangeEnd = `${targetPeriod}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`
+      }
 
-      // Get all targets for the period
+      // Compute which YYYY-MM periods overlap with the date range
+      const startDate = new Date(rangeStart)
+      const endDate = new Date(rangeEnd)
+      const periods: string[] = []
+      const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+      while (cursor <= endDate) {
+        periods.push(cursor.toISOString().slice(0, 7))
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
+
+      // Get all targets for the matching periods
       let targets: any[] = []
       if (isTurso()) {
+        const placeholders = periods.map(() => '?').join(',')
         const result = await tursoExecute({
           sql: `SELECT ut.*, u.name as "userName", u.email as "userEmail", u.role as "userRole"
                 FROM "UserTarget" ut
                 LEFT JOIN "User" u ON u.id = ut."userId"
-                WHERE ut.period = ?`,
-          args: [targetPeriod],
+                WHERE ut.period IN (${placeholders})`,
+          args: periods,
         })
         targets = result.rows.map((row: any) => ({
           ...mapRow(row),
@@ -91,7 +116,7 @@ export async function GET(request: NextRequest) {
       } else {
         const { db } = await import('@/lib/db')
         const dbTargets = await db.userTarget.findMany({
-          where: { period: targetPeriod },
+          where: { period: { in: periods } },
           include: { user: { select: { name: true, email: true, role: true } } },
         })
         targets = dbTargets.map(t => ({
@@ -105,7 +130,7 @@ export async function GET(request: NextRequest) {
         }))
       }
 
-      // Get actual performance for each user in the period
+      // Get actual performance for each user in the date range
       const userActuals: Record<string, { totalSales: number; transactionCount: number }> = {}
       if (isTurso()) {
         const result = await tursoExecute({
@@ -115,7 +140,7 @@ export async function GET(request: NextRequest) {
               FROM "Transaction"
               WHERE "createdAt" >= ? AND "createdAt" <= ? AND status = 'COMPLETED'
               GROUP BY "userId"`,
-          args: [periodStart, periodEnd],
+          args: [rangeStart, rangeEnd],
         })
         for (const row of result.rows) {
           userActuals[row.userId as string] = {
@@ -129,7 +154,7 @@ export async function GET(request: NextRequest) {
           by: ['userId'],
           where: {
             status: 'COMPLETED',
-            createdAt: { gte: new Date(periodStart), lte: new Date(periodEnd) },
+            createdAt: { gte: new Date(rangeStart), lte: new Date(rangeEnd) },
           },
           _sum: { total: true },
           _count: true,
@@ -154,7 +179,7 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      return NextResponse.json({ period: targetPeriod, targets: progressData })
+      return NextResponse.json({ from: rangeStart.slice(0, 10), to: rangeEnd.slice(0, 10), periods, targets: progressData })
     }
 
     // ── Standard list endpoint ──

@@ -649,3 +649,24 @@ Stage Summary:
 - Clicking Auto generates a barcode starting with company initials (e.g., GPXXXXXXXX)
 - New products created via API also get company-prefixed barcodes automatically
 - Files changed: barcode.ts, inventory-view.tsx, master-data-view.tsx, products/route.ts
+---
+Task ID: 1
+Agent: Main
+Task: Replace staff targets month picker with From/To date range filter
+
+Work Log:
+- Investigated reports-view.tsx staff targets tab: found single month picker (Popover + Calendar with YYYY-MM)
+- Found DateInput component already used by other tabs (Controlled Substances, Sales Overview)
+- Replaced targetPeriod state (YYYY-MM string) with targetDateFrom/targetDateTo (YYYY-MM-DD strings)
+- Replaced Popover/Calendar UI with two DateInput fields (From/To) matching existing tab patterns
+- Updated fetchTargets to send from/to query params instead of period
+- Updated Set Target dialog description to show date range
+- Updated /api/user-targets GET progress endpoint to accept from/to params
+- API computes overlapping YYYY-MM periods from the date range and queries all matching targets
+- Actual sales performance is computed across the full from/to date range
+- Maintained backwards compatibility: if no from/to, falls back to period param
+
+Stage Summary:
+- Staff targets tab now has From/To date selection filters instead of month-only picker
+- API supports both from/to and legacy period param
+- No new TypeScript errors introduced
