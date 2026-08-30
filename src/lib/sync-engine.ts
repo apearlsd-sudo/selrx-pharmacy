@@ -164,6 +164,14 @@ export async function startSync(url?: string): Promise<void> {
     } catch { /* First run */ }
   }
 
+  // Load persisted sync secret from localStorage
+  if (!syncSecret) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+      if (saved.syncSecret) syncSecret = saved.syncSecret
+    } catch { /* ignore */ }
+  }
+
   try { deviceId = await getDeviceId() } catch { deviceId = 'unknown' }
 
   // Load local IPs
@@ -211,7 +219,7 @@ export function stopSync(): void {
 /** Configure the hub URL (called from settings UI). Persists to disk. */
 export async function setHubUrl(url: string, secret?: string): Promise<void> {
   hubUrl = url
-  if (secret) syncSecret = secret
+  if (secret !== undefined) syncSecret = secret
 
   // Persist so it survives app restarts
   try {
@@ -220,10 +228,24 @@ export async function setHubUrl(url: string, secret?: string): Promise<void> {
     console.warn('[sync] Could not persist hub URL to disk')
   }
 
+  // Persist secret to localStorage for terminal mode
+  if (syncSecret) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+      saved.syncSecret = syncSecret
+      localStorage.setItem('selrx_sync_settings', JSON.stringify(saved))
+    } catch { /* ignore */ }
+  }
+
   if (syncTimer) {
     stopSync()
     await startSync(url)
   }
+}
+
+/** Get the current sync secret (for external use like health dashboard auth). */
+export function getSyncSecret(): string {
+  return syncSecret
 }
 
 /** Get current sync info for UI display. */

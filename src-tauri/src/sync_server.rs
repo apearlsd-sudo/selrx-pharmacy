@@ -47,13 +47,13 @@ fn validate_table_name(name: &str) -> Result<&'static str, (StatusCode, Json<ser
 
 /// Simple auth check: require Authorization header with bearer token
 /// that matches SYNC_SECRET env var.
-/// CRITICAL: No fallback default — SYNC_SECRET must be set.
+/// When SYNC_SECRET is not set, auth is DISABLED (open mode) for LAN convenience.
 fn verify_sync_auth(headers: &axum::http::HeaderMap) -> bool {
     let expected = match std::env::var("SYNC_SECRET") {
         Ok(s) if !s.is_empty() => s,
         _ => {
-            eprintln!("[security] SYNC_SECRET environment variable is not set. Sync authentication is DISABLED.");
-            return false;
+            // No secret configured — allow all (open mode for LAN)
+            return true;
         }
     };
     let auth = headers

@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { isDesktop } from '@/lib/platform'
 import type { HealthDashboard, DiscoveredHub } from '@/lib/desktop/tauri-types'
 import { fetchHealthDashboard } from '@/lib/desktop/tauri-bridge'
+import { getSyncSecret } from '@/lib/sync-engine'
 
 // ── Component ───────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export function SyncHealthDashboard({ hubUrl }: { hubUrl: string | null }) {
     setError(null)
 
     try {
-      const data = await fetchHealthDashboard(hubUrl)
+      const data = await fetchHealthDashboard(hubUrl, getSyncSecret())
       setDashboard(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load health data')
@@ -391,7 +392,7 @@ export function MdnsDiscoveryPanel({ onSelect }: { onSelect: (url: string) => vo
     if (!isDesktop()) return
     setScanning(true)
     try {
-      const { discoverHubs, getLocalIps } = await import('@/lib/sync-engine')
+      const { discoverHubs } = await import('@/lib/sync-engine')
       const { getLocalIps: getIps } = await import('@/lib/desktop/tauri-bridge')
 
       const [discovered, ips] = await Promise.all([

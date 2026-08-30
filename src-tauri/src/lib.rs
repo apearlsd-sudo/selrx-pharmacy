@@ -344,9 +344,15 @@ fn get_tunnel_status(state: tauri::State<'_, AppState>) -> Result<String, String
 
 #[tauri::command]
 fn set_tunnel_url(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     url: String,
 ) -> Result<String, String> {
+    // Persist to disk
+    if let Ok(app_dir) = app.path().app_data_dir() {
+        let url_file = app_dir.join("tunnel_url.txt");
+        let _ = std::fs::write(&url_file, &url);
+    }
     let mut tunnel = state.tunnel.lock().map_err(|e| e.to_string())?;
     tunnel.url = Some(url.clone());
     Ok(url)
@@ -386,6 +392,80 @@ fn load_tunnel_token(app: tauri::AppHandle) -> Result<Option<String>, String> {
     } else {
         Ok(None)
     }
+}
+
+/// Get the full system status including new fields.
+// ===================================================================
+// Sync Secret Commands
+// ===================================================================
+
+/// Get or auto-generate the sync secret. Returns the secret string.
+/// On first call (or if file missing), generates a random 32-byte hex secret.
+#[tauri::command]
+fn get_sync_secret(app: tauri::AppHandle) -> Result<String, String> {
+    let app_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app dir: {}", e))?;
+    let secret_file = app_dir.join("sync_secret.txt");
+
+    if secret_file.exists() {
+        let existing = std::fs::read_to_string(&secret_file)
+            .map_err(|e| format!("Failed to read sync secret: {}", e))?;
+        let trimmed = existing.trim().to_string();
+        if !trimmed.is_empty() {
+            return Ok(trimmed);
+        }
+    }
+
+    // Generate a new random 32-byte hex secret
+    let secret = generate_sync_secret();
+    std::fs::write(&secret_file, &secret)
+        .map_err(|e| format!("Failed to save sync secret: {}", e))?;
+
+    // Also set as env var so the running sync server picks it up
+    std::env::set_var("SYNC_SECRET", &secret);
+    eprintln!("[security] Auto-generated SYNC_SECRET (sync authentication ENABLED)");
+
+    Ok(secret)
+}
+
+/// Regenerate the sync secret. Generates a new one, saves it, and sets the env var.
+#[tauri::command]
+fn regenerate_sync_secret(app: tauri::AppHandle) -> Result<String, String> {
+    let app_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app dir: {}", e))?;
+    let secret_file = app_dir.join("sync_secret.txt");
+
+    let secret = generate_sync_secret();
+    std::fs::write(&secret_file, &secret)
+        .map_err(|e| format!("Failed to save sync secret: {}", e))?;
+    std::env::set_var("SYNC_SECRET", &secret);
+    eprintln!("[security] SYNC_SECRET regenerated (sync authentication ENABLED)");
+
+    Ok(secret)
+}
+
+/// Generate a random 32-byte hex string for use as sync secret.
+fn generate_sync_secret() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    // Simple XOR-shift PRNG seeded by time — sufficient for a pairing key
+    let mut state = (seed as u64) ^ (seed.rotate_left(17) as u64);
+    if state == 0 { state = 0x1234567890ABCDEF; }
+    let mut hex = String::with_capacity(64);
+    for _ in 0..32 {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        hex.push_str(&format!("{:02x}", (state & 0xFF) as u8));
+    }
+    hex
 }
 
 /// Get the full system status including new fields.
@@ -532,9 +612,26 @@ pub fn run() {
 
             // If this device is the hub, start the sync server with WebSocket support
             if matches!(role, DeviceRole::Hub) {
+                // Auto-generate or load sync secret and set as env var
+                let secret_file = app_dir.join("sync_secret.txt");
+                if secret_file.exists() {
+                    if let Ok(secret) = std::fs::read_to_string(&secret_file) {
+                        let trimmed = secret.trim().to_string();
+                        if !trimmed.is_empty() {
+                            std::env::set_var("SYNC_SECRET", &trimmed);
+                            println!("[gazpharm] Loaded SYNC_SECRET from disk (auth ENABLED)");
+                        }
+                    }
+                } else {
+                    // First time hub: auto-generate a secret
+                    let new_secret = generate_sync_secret();
+                    let _ = std::fs::write(&secret_file, &new_secret);
+                    std::env::set_var("SYNC_SECRET", &new_secret);
+                    println!("[gazpharm] Auto-generated SYNC_SECRET (auth ENABLED)");
+                }
                 // Read persisted tunnel token and auto-start if configured
                 let tunnel_token_file = app_dir.join("tunnel_token.txt");
-                let _tunnel_token = if tunnel_token_file.exists() {
+                let tunnel_token = if tunnel_token_file.exists() {
                     std::fs::read_to_string(&tunnel_token_file).unwrap_or_default()
                 } else {
                     String::new()
@@ -549,6 +646,22 @@ pub fn run() {
                 } else {
                     None
                 };
+
+                // Auto-start tunnel if token is saved
+                if !tunnel_token.trim().is_empty() {
+                    let token_clone = tunnel_token.trim().to_string();
+                    let db_clone = db.clone();
+                    let url_clone = tunnel_url.clone();
+                    std::thread::spawn(move || {
+                        let mut tunnel_state = TunnelState::new(config_dir);
+                        if let Err(e) = tunnel_state.start(&token_clone, 3001) {
+                            eprintln!("[gazpharm] Failed to auto-start tunnel: {}", e);
+                        } else if let Some(url) = url_clone {
+                            tunnel_state.url = Some(url);
+                            eprintln!("[gazpharm] Auto-started tunnel with saved token");
+                        }
+                    });
+                }
 
                 let config = sync_server::SyncConfig {
                     port: 3001,
@@ -611,6 +724,9 @@ pub fn run() {
             save_tunnel_token,
             load_tunnel_token,
             get_system_status,
+            // Sync secret commands
+            get_sync_secret,
+            regenerate_sync_secret,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

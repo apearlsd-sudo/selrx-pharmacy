@@ -22,6 +22,8 @@ import {
   Radio,
   Zap,
   Activity,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -84,12 +86,18 @@ export function SyncSettingsView() {
 
   const [info, setInfo] = useState<SyncInfo>(() => getSyncInfo())
   const [hubUrlInput, setHubUrlInput] = useState('')
+  const [syncSecretInput, setSyncSecretInput] = useState('')
   const [deviceRole, setDeviceRole] = useState<'terminal' | 'hub'>('terminal')
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [testing, setTesting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [conflicts, setConflicts] = useState<SyncConflict[]>([])
   const [showDashboard, setShowDashboard] = useState(false)
+
+  // Hub secret state
+  const [hubSecret, setHubSecret] = useState('')
+  const [showHubSecret, setShowHubSecret] = useState(false)
+  const [secretLoading, setSecretLoading] = useState(false)
 
   // Tunnel state
   const [tunnelToken, setTunnelToken] = useState('')
@@ -106,6 +114,7 @@ export function SyncSettingsView() {
       if (saved) {
         const parsed = JSON.parse(saved)
         if (parsed.hubUrl) setHubUrlInput(parsed.hubUrl)
+        if (parsed.syncSecret) setSyncSecretInput(parsed.syncSecret)
         if (parsed.deviceRole) setDeviceRole(parsed.deviceRole)
       }
     } catch { /* ignore */ }
@@ -119,7 +128,7 @@ export function SyncSettingsView() {
     return unsub
   }, [])
 
-  const saveSettings = useCallback((settings: { hubUrl?: string; deviceRole?: string }) => {
+  const saveSettings = useCallback((settings: Record<string, string>) => {
     const current = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
     const updated = { ...current, ...settings }
     localStorage.setItem('selrx_sync_settings', JSON.stringify(updated))
@@ -152,13 +161,47 @@ export function SyncSettingsView() {
     }
   }, [hubUrlInput])
 
+  // ── Load hub secret (hub mode only) ──
+  const loadHubSecret = useCallback(async () => {
+    if (!isDesktop()) return
+    try {
+      const { getSyncSecretFromHub } = await import('@/lib/desktop/tauri-bridge')
+      const secret = await getSyncSecretFromHub()
+      setHubSecret(secret)
+    } catch { /* web mode */ }
+  }, [])
+
+  useEffect(() => {
+    if (deviceRole === 'hub') loadHubSecret()
+  }, [deviceRole, loadHubSecret])
+
+  const handleRegenerateSecret = useCallback(async () => {
+    setSecretLoading(true)
+    try {
+      const { regenerateSyncSecret } = await import('@/lib/desktop/tauri-bridge')
+      const newSecret = await regenerateSyncSecret()
+      setHubSecret(newSecret)
+      setShowHubSecret(false)
+      addToast({ title: 'Secret Regenerated', description: 'All terminals must update their secret to continue syncing', variant: 'success' })
+    } catch (err) {
+      addToast({ title: 'Error', description: err instanceof Error ? err.message : String(err), variant: 'destructive' })
+    } finally {
+      setSecretLoading(false)
+    }
+  }, [addToast])
+
+  const copySecret = useCallback(() => {
+    navigator.clipboard.writeText(hubSecret)
+    addToast({ title: 'Copied', description: 'Shared secret copied to clipboard', variant: 'success' })
+  }, [hubSecret, addToast])
+
   // ── Apply hub URL ──
   const applyHubUrl = useCallback(() => {
     if (!hubUrlInput.trim()) return
-    setHubUrl(hubUrlInput.trim())
-    saveSettings({ hubUrl: hubUrlInput.trim() })
+    setHubUrl(hubUrlInput.trim(), syncSecretInput.trim() || undefined)
+    saveSettings({ hubUrl: hubUrlInput.trim(), syncSecret: syncSecretInput.trim() })
     addToast({ title: 'Hub URL Saved', description: 'Sync will use the new hub address', variant: 'success' })
-  }, [hubUrlInput, setHubUrl, saveSettings, addToast])
+  }, [hubUrlInput, syncSecretInput, setHubUrl, saveSettings, addToast])
 
   // ── Change device role ──
   const applyDeviceRole = useCallback((role: 'terminal' | 'hub') => {
@@ -462,6 +505,14 @@ export function SyncSettingsView() {
                     <Input value={hubUrlInput} onChange={(e) => setHubUrlInput(e.target.value)} placeholder="http://192.168.1.100:3001" className="h-9 text-xs font-mono" onKeyDown={(e) => e.key === 'Enter' && applyHubUrl()} />
                     <Button size="sm" onClick={applyHubUrl} className="h-9 shrink-0">Save</Button>
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Shared Secret</Label>
+                    <div className="flex gap-2">
+                      <Input type="password" value={syncSecretInput} onChange={(e) => setSyncSecretInput(e.target.value)} placeholder="Paste the hub's shared secret" className="h-9 text-xs font-mono" onKeyDown={(e) => e.key === 'Enter' && applyHubUrl()} />
+                      <Button size="sm" variant="outline" onClick={applyHubUrl} className="h-9 shrink-0">Connect</Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Get this key from the hub's Device Sync settings page. Required for authenticated sync.</p>
+                  </div>
                   <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-3 space-y-1.5">
                     <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wider">Examples</p>
                     <button onClick={() => setHubUrlInput('http://192.168.1.100:3001')} className="block w-full text-left text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded px-2 py-1 transition-colors font-mono">LAN: http://192.168.1.100:3001</button>
@@ -521,6 +572,39 @@ export function SyncSettingsView() {
                     <p><span className="font-semibold">Different networks (Internet):</span> Use Cloudflare Tunnel (below).</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {deviceRole === 'hub' && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  Shared Secret Key
+                  <Badge className="bg-amber-100 text-amber-700 text-[10px] ml-auto">Hub pairing key</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-3">
+                  <p className="text-[10px] text-amber-600 mb-2">Give this key to trusted terminals on your LAN or private tunnel. It is stored locally and is never placed in browser localStorage.</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 rounded-md bg-white dark:bg-gray-900 border px-3 py-2 font-mono text-xs">
+                      {showHubSecret ? hubSecret : '•'.repeat(Math.min(hubSecret.length, 40))}
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={() => setShowHubSecret(!showHubSecret)}>
+                      {showHubSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={copySecret}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleRegenerateSecret} disabled={secretLoading} className="gap-2">
+                  {secretLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Regenerate Secret
+                </Button>
+                <p className="text-[10px] text-red-500">Warning: Regenerating will disconnect all terminals until they get the new key.</p>
               </CardContent>
             </Card>
           )}

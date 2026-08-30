@@ -264,10 +264,27 @@ export async function getSystemStatus(): Promise<SystemStatus> {
 // Fetch Health Dashboard from hub (via HTTP)
 // ===================================================================
 
-export async function fetchHealthDashboard(hubUrl: string): Promise<HealthDashboard> {
+export async function fetchHealthDashboard(hubUrl: string, syncSecret?: string): Promise<HealthDashboard> {
+  const headers: Record<string, string> = {}
+  if (syncSecret) headers['Authorization'] = `Bearer ${syncSecret}`
   const res = await fetch(`${hubUrl}/api/sync/health-dashboard`, {
+    headers,
     signal: AbortSignal.timeout(10000),
   })
   if (!res.ok) throw new Error(`Health dashboard: ${res.status}`)
   return res.json()
+}
+
+// ===================================================================
+// Sync Secret Commands
+// ===================================================================
+
+export async function getSyncSecretFromHub(): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('get_sync_secret')
+}
+
+export async function regenerateSyncSecret(): Promise<string> {
+  const invoke = await loadInvoke()
+  return invoke<string>('regenerate_sync_secret')
 }
