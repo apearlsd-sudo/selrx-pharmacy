@@ -251,6 +251,33 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Fetch insurance claims for paginated transactions (insurance payment detail)
+      const claimsMap: Record<string, any> = {}
+      const insuranceTxnIds = pagRows.filter((r) => r.paymentMethod === 'INSURANCE').map((r) => r.id as string)
+      if (insuranceTxnIds.length > 0) {
+        const icPlaceholders = insuranceTxnIds.map(() => '?').join(', ')
+        try {
+          const icResult = await turso.execute({
+            sql: `SELECT "id", "transactionId", "claimNo", "insuranceProvider", "policyNumber",
+                         "totalAmount", "approvedAmount", "coPayAmount", "status"
+                  FROM InsuranceClaim
+                  WHERE "transactionId" IN (${icPlaceholders})`,
+            args: safeArgs(insuranceTxnIds),
+          })
+          for (const row of toObjs(icResult)) {
+            claimsMap[row.transactionId as string] = {
+              claimNo: row.claimNo,
+              insuranceProvider: row.insuranceProvider,
+              policyNumber: row.policyNumber,
+              totalAmount: row.totalAmount,
+              approvedAmount: row.approvedAmount,
+              coPayAmount: row.coPayAmount,
+              status: row.status,
+            }
+          }
+        } catch { /* InsuranceClaim table may not exist yet */ }
+      }
+
       const transactions = pagRows.map((r) => ({
         id: r.id,
         transactionNo: r.transactionNo,
@@ -275,6 +302,7 @@ export async function GET(request: NextRequest) {
           ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName }
           : null,
         items: pItemsMap[r.id as string] || [],
+        insuranceClaim: claimsMap[r.id as string] || null,
       }))
 
       // ---- 5. Top seller = first user by total sales ----
@@ -477,9 +505,21 @@ export async function GET(request: NextRequest) {
             select: { id: true, name: true, email: true, role: true },
           },
           customer: {
-            select: { id: true, firstName: true, lastName: true },
+            select: { id: true, firstName: true, lastName: true, insuranceProvider: true, insurancePolicyNo: true },
           },
           items: true,
+          insuranceClaim: {
+            select: {
+              id: true,
+              claimNo: true,
+              insuranceProvider: true,
+              policyNumber: true,
+              totalAmount: true,
+              approvedAmount: true,
+              coPayAmount: true,
+              status: true,
+            },
+          },
         },
       }),
       db.transaction.count({ where: baseWhere }),

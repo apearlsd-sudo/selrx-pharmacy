@@ -121,6 +121,34 @@ export async function GET(
         })),
       }
 
+      // Fetch insurance claim if this is an insurance transaction
+      let insuranceClaim = null
+      if (r.t_paymentMethod === 'INSURANCE') {
+        try {
+          const icResult = await turso.execute({
+            sql: `SELECT "id", "claimNo", "insuranceProvider", "policyNumber",
+                         "totalAmount", "approvedAmount", "coPayAmount", "status"
+                  FROM InsuranceClaim WHERE "transactionId" = ?`,
+            args: [id],
+          })
+          const icRows = toObjs(icResult)
+          if (icRows.length > 0) {
+            const ic = icRows[0]
+            insuranceClaim = {
+              id: ic.id,
+              claimNo: ic.claimNo,
+              insuranceProvider: ic.insuranceProvider,
+              policyNumber: ic.policyNumber,
+              totalAmount: ic.totalAmount,
+              approvedAmount: ic.approvedAmount,
+              coPayAmount: ic.coPayAmount,
+              status: ic.status,
+            }
+          }
+        } catch { /* InsuranceClaim table may not exist */ }
+      }
+      ;(transaction as any).insuranceClaim = insuranceClaim
+
       return NextResponse.json(transaction)
     }
 
@@ -130,7 +158,7 @@ export async function GET(
       where: { id },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
-        customer: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+        customer: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, insuranceProvider: true, insurancePolicyNo: true } },
         prescription: { select: { id: true, rxNumber: true, productName: true } },
         items: {
           include: {
@@ -138,6 +166,18 @@ export async function GET(
           },
         },
         hardwareLog: true,
+        insuranceClaim: {
+          select: {
+            id: true,
+            claimNo: true,
+            insuranceProvider: true,
+            policyNumber: true,
+            totalAmount: true,
+            approvedAmount: true,
+            coPayAmount: true,
+            status: true,
+          },
+        },
       },
     })
 

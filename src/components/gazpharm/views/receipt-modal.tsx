@@ -54,6 +54,14 @@ interface ReceiptModalProps {
       itemsPerUnit?: number
       barcode?: string | null
     }[]
+    insuranceClaim?: {
+      claimNo: string
+      insuranceProvider: string
+      policyNumber: string
+      totalAmount: number
+      coPayAmount: number
+      status: string
+    } | null
   }
   onClose: () => void
 }
@@ -197,6 +205,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   <div class="info-row"><span class="info-label">Cashier:</span><span>${transaction.user?.name || 'Unknown'}</span></div>
   ${transaction.customer ? `<div class="info-row"><span class="info-label">Customer:</span><span>${transaction.customer.firstName} ${transaction.customer.lastName}</span></div>` : ''}
   <div class="info-row"><span class="info-label">Payment:</span><span>${(transaction.paymentMethod || '').replace(/_/g, ' ')}</span></div>
+  ${transaction.insuranceClaim ? `
+  <div class="info-row"><span class="info-label">Ins. Provider:</span><span>${transaction.insuranceClaim.insuranceProvider}</span></div>
+  <div class="info-row"><span class="info-label">Policy #:</span><span>${transaction.insuranceClaim.policyNumber}</span></div>
+  <div class="info-row"><span class="info-label">Claim #:</span><span>${transaction.insuranceClaim.claimNo}</span></div>
+  ` : ''}
 
   <hr class="divider" />
 
@@ -344,6 +357,22 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                 <span className="text-gray-500">Payment:</span>
                 <span>{(transaction.paymentMethod || '').replace(/_/g, ' ')}</span>
               </div>
+              {transaction.insuranceClaim && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Ins. Provider:</span>
+                    <span className="font-medium">{transaction.insuranceClaim.insuranceProvider}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Policy #:</span>
+                    <span className="font-mono text-xs">{transaction.insuranceClaim.policyNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Claim #:</span>
+                    <span className="font-mono text-xs">{transaction.insuranceClaim.claimNo}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <Separator className="border-dashed border-gray-300" />

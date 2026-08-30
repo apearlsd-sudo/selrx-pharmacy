@@ -757,23 +757,36 @@ export function POSView() {
         }).catch(() => {})
       }
 
-      // If INSURANCE payment, auto-create insurance claim
+      // If INSURANCE payment, auto-create insurance claim and attach to transaction
       if (paymentMethod === 'INSURANCE' && selectedCustomer?.id) {
-        fetch('/api/insurance-claims', {
-          method: 'POST',
-          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            transactionId: transaction.id,
-            customerId: selectedCustomer.id,
-            insuranceProvider: selectedCustomer.insuranceProvider || null,
-            policyNumber: selectedCustomer.insurancePolicyNo || null,
-            totalAmount: total,
-            coPayAmount: parseFloat(insuranceCoPay) || 0,
-          }),
-        }).catch((claimErr) => {
+        try {
+          const claimRes = await fetch('/api/insurance-claims', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transactionId: transaction.id,
+              customerId: selectedCustomer.id,
+              insuranceProvider: selectedCustomer.insuranceProvider || null,
+              policyNumber: selectedCustomer.insurancePolicyNo || null,
+              totalAmount: total,
+              coPayAmount: parseFloat(insuranceCoPay) || 0,
+            }),
+          })
+          if (claimRes.ok) {
+            const claim = await claimRes.json()
+            ;(transaction as any).insuranceClaim = {
+              claimNo: claim.claimNo,
+              insuranceProvider: claim.insuranceProvider,
+              policyNumber: claim.policyNumber,
+              totalAmount: claim.totalAmount,
+              coPayAmount: claim.coPayAmount,
+              status: claim.status,
+            }
+          }
+        } catch (claimErr) {
           console.error('Failed to create insurance claim:', claimErr)
           addToast({ title: 'Insurance Warning', description: 'Sale completed but claim may not have been recorded', variant: 'destructive' })
-        })
+        }
       }
 
       clearCart()

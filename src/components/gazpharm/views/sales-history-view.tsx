@@ -16,6 +16,7 @@ import {
   Loader2,
   History,
   Printer,
+  Shield,
 } from 'lucide-react'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
 import { DateInput } from '@/components/gazpharm/shared/date-input'
@@ -1228,6 +1229,44 @@ export function SalesHistoryView() {
                   <span>{formatCurrency(detailTxn.changeAmount || 0)}</span>
                 </div>
               </div>
+
+              {/* Insurance Claim Details */}
+              {detailTxn.paymentMethod === 'INSURANCE' && (detailTxn as any).insuranceClaim && (
+                <div className="rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                    <p className="text-xs font-semibold text-sky-700 dark:text-sky-400">Insurance Claim</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Claim #</p>
+                      <p className="font-mono font-medium">{(detailTxn as any).insuranceClaim.claimNo}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Status</p>
+                      <Badge variant="outline" className="text-[10px]">
+                        {String((detailTxn as any).insuranceClaim.status).replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Provider</p>
+                      <p className="font-medium">{(detailTxn as any).insuranceClaim.insuranceProvider || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Policy #</p>
+                      <p className="font-mono font-medium">{(detailTxn as any).insuranceClaim.policyNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Claim Amount</p>
+                      <p className="font-medium">{formatCurrency((detailTxn as any).insuranceClaim.totalAmount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Co-pay</p>
+                      <p className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency((detailTxn as any).insuranceClaim.coPayAmount || 0)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {detailTxn.notes && (
                 <div>
