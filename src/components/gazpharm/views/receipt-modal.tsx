@@ -209,6 +209,8 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   <div class="info-row"><span class="info-label">Ins. Provider:</span><span>${transaction.insuranceClaim.insuranceProvider}</span></div>
   <div class="info-row"><span class="info-label">Policy #:</span><span>${transaction.insuranceClaim.policyNumber}</span></div>
   <div class="info-row"><span class="info-label">Claim #:</span><span>${transaction.insuranceClaim.claimNo}</span></div>
+  <div class="info-row"><span class="info-label">Co-pay:</span><span>${formatCurrency(transaction.insuranceClaim.coPayAmount || 0)}</span></div>
+  <div class="info-row"><span class="info-label">Ins. Covers:</span><span>${formatCurrency((transaction.insuranceClaim.totalAmount || 0) - (transaction.insuranceClaim.coPayAmount || 0))}</span></div>
   ` : ''}
 
   <hr class="divider" />
@@ -370,6 +372,14 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Claim #:</span>
                     <span className="font-mono text-xs">{transaction.insuranceClaim.claimNo}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Co-pay:</span>
+                    <span className="font-medium text-amber-600">{formatCurrency(transaction.insuranceClaim.coPayAmount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Ins. Covers:</span>
+                    <span className="font-medium text-sky-600">{formatCurrency((transaction.insuranceClaim.totalAmount || 0) - (transaction.insuranceClaim.coPayAmount || 0))}</span>
                   </div>
                 </>
               )}
