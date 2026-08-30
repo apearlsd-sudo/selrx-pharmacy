@@ -433,7 +433,13 @@ function NotificationBell() {
                             <p className="text-xs font-medium truncate">{p.name}</p>
                             <p className="text-[11px] text-gray-500 mt-0.5">
                               {days <= 0 ? 'EXPIRED' : `${days} day${days !== 1 ? 's' : ''} left`} · Qty: {p.quantity}
-                              {p.expiryDate && ` · ${p.expiryDate}`}
+                              {p.expiryDate && (() => {
+                                const d = new Date(p.expiryDate)
+                                const dd = String(d.getDate()).padStart(2, '0')
+                                const mm = String(d.getMonth() + 1).padStart(2, '0')
+                                const yyyy = d.getFullYear()
+                                return ` · ${dd}/${mm}/${yyyy}`
+                              })()}
                             </p>
                           </div>
                           <button
@@ -484,6 +490,9 @@ function NotificationBell() {
             </div>
           )}
         </ScrollArea>
+        <div className="px-4 py-2 border-t">
+          <p className="text-[10px] text-muted-foreground text-center">Alerts refresh every 60s</p>
+        </div>
       </PopoverContent>
     </Popover>
   )
