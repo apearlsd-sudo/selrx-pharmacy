@@ -60,6 +60,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { initCurrencyGetter, type CurrencyCode } from '@/lib/currency'
+import { authHeaders } from '@/lib/auth-headers'
 import { LoginScreen } from '@/components/gazpharm/login-screen'
 import type { CompanyBranding } from '@/lib/get-branding'
 import { DashboardView } from '@/components/gazpharm/views/dashboard-view'
@@ -303,10 +304,10 @@ function WorkstationSelector() {
 // ── Notification Bell with live alerts ──────────────────────────────
 function NotificationBell() {
   const [expiring, setExpiring] = useState<Array<{
-    id: string; name: string; quantity: number; expiryDate: string; batchNumber: string; category: string
+    id: string; name: string; quantity: number; expiryDate: string; batchNumber: string; batchId: string; daysToExpiry: number
   }>>([])
   const [reorder, setReorder] = useState<Array<{
-    id: string; name: string; quantity: number; reorderPoint: number; reorderQty: number; category: string
+    id: string; name: string; quantity: number; reorderPoint: number; reorderQty: number
   }>>([])
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set())
   const [open, setOpen] = useState(false)
@@ -336,8 +337,23 @@ function NotificationBell() {
       const res = await fetch('/api/alerts', { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
-        setExpiring(data.expiringSoon || [])
-        setReorder(data.belowReorder || [])
+        // API returns productId/productName — map to id/name for the bell UI
+        setExpiring((data.expiringSoon || []).map((item: Record<string, unknown>) => ({
+          id: (item.batchId && item.batchId !== '') ? String(item.batchId) : String(item.productId),
+          name: String(item.productName ?? ''),
+          quantity: Number(item.quantity ?? 0),
+          expiryDate: String(item.expiryDate ?? ''),
+          batchNumber: item.batchNumber != null ? String(item.batchNumber) : '',
+          batchId: String(item.batchId ?? ''),
+          daysToExpiry: Number(item.daysToExpiry ?? 0),
+        })))
+        setReorder((data.belowReorder || []).map((item: Record<string, unknown>) => ({
+          id: String(item.productId ?? ''),
+          name: String(item.productName ?? ''),
+          quantity: Number(item.quantity ?? 0),
+          reorderPoint: Number(item.reorderPoint ?? 0),
+          reorderQty: Number(item.reorderQty ?? 0),
+        })))
       }
     } catch { /* silent */ } finally {
       setLoading(false)
