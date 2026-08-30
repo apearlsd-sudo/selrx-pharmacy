@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { writeProductHistory } from '@/lib/product-history'
 import { ensurePOTables } from '@/lib/ensure-po-tables'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
 
 // ---------------------------------------------------------------------------
 // POST /api/purchase-orders/[id]/receive — receive stock against a PO

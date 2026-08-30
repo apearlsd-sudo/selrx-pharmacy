@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateReturnNo } from '@/lib/turso'
+import { turso, isTurso, generateId, generateReturnNo, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => {
-      obj[n] = row[i]
-    })
-    return obj
-  })
-}
 
 const bool = (v: unknown): boolean => v === 1 || v === true
 
@@ -42,7 +27,7 @@ export async function GET(req: NextRequest) {
     // ---- Turso raw SQL path ----
     if (isTurso()) {
       const conditions: string[] = []
-      const args: unknown[] = []
+      const args: any[] = []
 
       // RBAC: non-admin sees only their own returns
       if (!isSuperAdmin && requesterId) {
@@ -140,7 +125,7 @@ export async function GET(req: NextRequest) {
 
       // Summary stats (own-filter only, no status/reason/search/date filters)
       const sConditions: string[] = []
-      const sArgs: unknown[] = []
+      const sArgs: any[] = []
       if (!isSuperAdmin && requesterId) {
         sConditions.push('"userId" = ?')
         sArgs.push(requesterId)

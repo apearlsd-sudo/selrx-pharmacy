@@ -1,14 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
+import { turso, isTurso, toObjs } from '@/lib/turso'
 
 export async function GET(req: NextRequest) {
   try {
@@ -70,7 +61,7 @@ export async function GET(req: NextRequest) {
 
 async function buildTursoReport(
   dateFrom: string, dateTo: string, period: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // 1. Revenue & COGS from completed transactions
   const txResult = await turso.execute({

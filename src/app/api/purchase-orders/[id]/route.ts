@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { ensurePOTables } from '@/lib/ensure-po-tables'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
 
 // ---------------------------------------------------------------------------
 // GET /api/purchase-orders/[id] — get single PO with items
@@ -127,7 +114,7 @@ export async function PUT(
 
       // Build dynamic update
       const setClauses: string[] = [`"updatedAt" = ?`]
-      const args: unknown[] = [now]
+      const args: any[] = [now]
 
       if (notes !== undefined) { setClauses.push(`notes = ?`); args.push(notes || null) }
       if (expectedDate !== undefined) { setClauses.push(`"expectedDate" = ?`); args.push(expectedDate || null) }

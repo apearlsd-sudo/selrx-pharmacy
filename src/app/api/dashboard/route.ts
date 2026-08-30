@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, sqlRaw } from '@/lib/turso'
+import { turso, isTurso, sqlRaw, toObjs } from '@/lib/turso'
 import { runAutoExpiry } from '@/lib/auto-expiry'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<unknown>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => typeof c === 'string' ? c : (c as { name: string }).name)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => {
-      obj[n] = row[i]
-    })
-    return obj
-  })
-}
 
 // ---------------------------------------------------------------------------
 // GET /api/dashboard  –  comprehensive dashboard data

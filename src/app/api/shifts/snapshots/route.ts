@@ -1,14 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
+import { turso, isTurso, toObjs } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // GET /api/shifts/snapshots
@@ -47,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // 1. Get all ended shifts for the day
     const shiftConditions = [`status = 'ENDED'`, `"startedAt" >= ?`, `"startedAt" <= ?`]
-    const shiftArgs: unknown[] = [dayStart, dayEnd]
+    const shiftArgs: any[] = [dayStart, dayEnd]
     if (userIdFilter) {
       shiftConditions.push(`"userId" = ?`)
       shiftArgs.push(userIdFilter)

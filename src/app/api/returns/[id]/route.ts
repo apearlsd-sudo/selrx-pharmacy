@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateBatchNo } from '@/lib/turso'
+import { turso, isTurso, generateId, generateBatchNo, toObjs } from '@/lib/turso'
 import { writeProductHistory } from '@/lib/product-history'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => {
-      obj[n] = row[i]
-    })
-    return obj
-  })
-}
 
 const bool = (v: unknown): boolean => v === 1 || v === true
 

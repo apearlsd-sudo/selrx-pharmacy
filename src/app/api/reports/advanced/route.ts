@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso } from '@/lib/turso'
+import { turso, isTurso, toObjs } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
 
 function todayStr(): string {
   const d = new Date()
@@ -125,7 +116,7 @@ export async function GET(req: NextRequest) {
 
 async function revenueReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // 1. Daily revenue trend
   const dailyResult = await turso.execute({
@@ -232,7 +223,7 @@ async function revenueReport(
 
 async function profitReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Product-level profit: sellingPrice (from TXN item) vs costPrice (from Product/Batch)
   const productProfitResult = await turso.execute({
@@ -345,7 +336,7 @@ async function profitReport(
 
 async function customerReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Top customers by spend
   const topCustomersResult = await turso.execute({
@@ -542,7 +533,7 @@ async function expiryReport() {
 
 async function paymentReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Overall distribution
   const distResult = await turso.execute({
@@ -597,7 +588,7 @@ async function paymentReport(
 
 async function comparisonReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   const prev = samePeriodLastRange(from, to)
 
@@ -704,7 +695,7 @@ async function comparisonReport(
 
 async function stockVelocityReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Calculate days in the period
   const fromDate = new Date(from)
@@ -800,7 +791,7 @@ async function stockVelocityReport(
 
 async function returnsAnalysisReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Returns by reason
   const reasonResult = await turso.execute({
@@ -938,6 +929,9 @@ async function userPerformanceReport(
       avgTransaction: Number(r.avgTransaction),
       totalTax: Number(r.totalTax),
       discountRate: sales > 0 ? Math.round((discount / sales) * 10000) / 100 : 0,
+      totalItems: 0,
+      voidCount: 0,
+      voidRate: 0,
     }
   })
 
@@ -992,7 +986,7 @@ async function userPerformanceReport(
 
 async function prescriptionAnalyticsReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Rx by status
   const statusResult = await turso.execute({
@@ -1174,7 +1168,7 @@ async function inventoryValuationReport() {
 
 async function discountAnalysisReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Overall discount stats
   const statsResult = await turso.execute({
@@ -1293,7 +1287,7 @@ async function discountAnalysisReport(
 
 async function shiftAnalysisReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Hourly performance for the period
   const hourlyResult = await turso.execute({
@@ -1380,7 +1374,7 @@ async function shiftAnalysisReport(
 
 async function categoryDeepDiveReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Category-level metrics
   const catResult = await turso.execute({
@@ -1460,7 +1454,7 @@ async function categoryDeepDiveReport(
 
 async function executiveSummaryReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   const today = todayStr()
 
@@ -1568,7 +1562,7 @@ function formatForExec(n: number): string {
 
 async function productAffinityReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Find product pairs that appear in the same transaction
   // Uses a self-join approach: for each transaction with 2+ items,
@@ -1619,7 +1613,7 @@ async function productAffinityReport(
 
 async function salesForecastReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // 1. Get daily revenue for the selected period
   const dailyResult = await turso.execute({
@@ -1732,7 +1726,7 @@ async function salesForecastReport(
 
 async function customerSegmentationReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // Calculate RFM metrics per customer
   // Recency: days since last purchase
@@ -2094,7 +2088,7 @@ async function stockTakeAccuracyReport(from: string, to: string) {
 
 async function manufacturerPerformanceReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // 1. Per-manufacturer sales metrics
   const mfrResult = await turso.execute({
@@ -2224,7 +2218,7 @@ async function manufacturerPerformanceReport(
 
 async function taxComplianceReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   // 1. Daily tax collection
   const dailyResult = await turso.execute({
@@ -2348,7 +2342,7 @@ async function taxComplianceReport(
 
 async function hourlyHeatmapReport(
   from: string, to: string,
-  userFilter: string, userArgs: unknown[],
+  userFilter: string, userArgs: any[],
 ) {
   const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 

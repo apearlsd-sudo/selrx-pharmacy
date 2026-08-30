@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, tursoExecute, tursoBatch, safeArgs } from '@/lib/turso'
+import { turso, isTurso, generateId, tursoExecute, tursoBatch, safeArgs, toObjs } from '@/lib/turso'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,19 +24,6 @@ export interface DrugInteractionRecord {
   isActive: number
   createdAt: string
   updatedAt: string
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
 }
 
 const VALID_SEVERITIES: InteractionSeverity[] = ['contraindicated', 'critical', 'severe', 'moderate', 'mild']
@@ -116,7 +103,7 @@ export async function GET(request: NextRequest) {
       try { await ensureTable() } catch { /* non-fatal */ }
 
       const conditions: string[] = [`"isActive" = 1`]
-      const args: unknown[] = []
+      const args: any[] = []
 
       if (search) {
         conditions.push(`("drug1" LIKE ? OR "drug2" LIKE ? OR "description" LIKE ?)`)
@@ -250,7 +237,7 @@ export async function PUT(request: NextRequest) {
 
     if (isTurso()) {
       const sets: string[] = ['"updatedAt" = ?']
-      const args: unknown[] = [new Date().toISOString()]
+      const args: any[] = [new Date().toISOString()]
 
       const allowedFields = ['drug1', 'drug2', 'severity', 'category', 'description', 'mechanism', 'management', 'onset', 'evidence', 'isActive']
       for (const field of allowedFields) {

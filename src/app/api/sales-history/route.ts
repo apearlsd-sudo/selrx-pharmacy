@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, safeArgs } from '@/lib/turso'
+import { turso, isTurso, safeArgs, toObjs } from '@/lib/turso'
 import { formatDate } from '@/lib/date-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => {
-      obj[n] = row[i]
-    })
-    return obj
-  })
-}
 
 // ---------------------------------------------------------------------------
 // GET /api/sales-history — Sales history with user breakdown
@@ -55,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (isTurso()) {
       // ---- Build dynamic WHERE clause ----
       const conditions: string[] = [`t."status" = 'COMPLETED'`]
-      const args: unknown[] = []
+      const args: any[] = []
 
       if (effectiveFrom) {
         conditions.push(`date(t."createdAt") >= ?`)

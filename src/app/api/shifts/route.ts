@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
 
 // ---------------------------------------------------------------------------
 // GET /api/shifts  –  active shift check or shift report
@@ -69,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     if (isTurso()) {
       const txnConditions: string[] = [`t.status = 'COMPLETED'`]
-      const txnArgs: unknown[] = []
+      const txnArgs: any[] = []
 
       if (from) { txnConditions.push('t."createdAt" >= ?'); txnArgs.push(new Date(from).toISOString()) }
       if (to) { txnConditions.push('t."createdAt" <= ?'); txnArgs.push(new Date(to).toISOString()) }
@@ -143,7 +134,7 @@ export async function GET(request: NextRequest) {
 
       // 5. Shift history
       const shiftWhere: string[] = []
-      const shiftArgs: unknown[] = []
+      const shiftArgs: any[] = []
       if (userId) { shiftWhere.push('"userId" = ?'); shiftArgs.push(userId) }
       if (from) { shiftWhere.push('"startedAt" >= ?'); shiftArgs.push(new Date(from).toISOString()) }
       if (to) { shiftWhere.push('"startedAt" <= ?'); shiftArgs.push(new Date(to).toISOString()) }

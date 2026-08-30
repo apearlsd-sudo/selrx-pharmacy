@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId } from '@/lib/turso'
+import { turso, isTurso, generateId, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { ensurePOTables } from '@/lib/ensure-po-tables'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
 
 // ---------------------------------------------------------------------------
 // GET /api/purchase-orders — list POs with pagination, status filter, search
@@ -33,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     if (isTurso()) {
       const conditions: string[] = []
-      const args: unknown[] = []
+      const args: any[] = []
 
       if (status && status !== 'ALL') {
         conditions.push('po.status = ?')

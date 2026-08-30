@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, safeArgs, generateId } from '@/lib/turso'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => { obj[n] = row[i] })
-    return obj
-  })
-}
+import { turso, isTurso, safeArgs, generateId, toObjs } from '@/lib/turso'
 
 // Valid notification types that are non-user-specific (broadcast)
 const BROADCAST_TYPES = ['EXPIRY_ALERT', 'REORDER_ALERT', 'LOW_STOCK', 'SYSTEM']
@@ -77,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (isTurso()) {
       const conditions: string[] = []
-      const args: unknown[] = []
+      const args: any[] = []
 
       // If no userId, only return broadcast (non-user-specific) notifications
       if (!userId) {
@@ -103,7 +90,7 @@ export async function GET(request: NextRequest) {
 
       // Build unread count query
       let unreadSql: string
-      let unreadArgs: unknown[]
+      let unreadArgs: any[]
       if (userId) {
         unreadSql = `SELECT COUNT(*) as cnt FROM "Notification" WHERE status = 'UNREAD' AND ("userId" IS NULL OR "userId" = ?)`
         unreadArgs = [userId]

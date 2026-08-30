@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch, sqlRaw } from '@/lib/turso'
+import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch, sqlRaw, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { runAutoExpiry } from '@/lib/auto-expiry'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown>> }) {
-  const names = result.columns.map((c) => c)
-  return result.rows.map((row) => {
-    const obj: Record<string, unknown> = {}
-    names.forEach((n, i) => {
-      obj[n] = row[i]
-    })
-    return obj
-  })
-}
 
 const bool = (v: unknown): boolean => v === 1 || v === true
 
@@ -164,7 +153,7 @@ export async function GET(request: NextRequest) {
 
       if (isTurso()) {
         const userClause = isSuperAdmin ? '' : (requesterId ? ' AND t.userId = ?' : ' AND t.userId = \'__none__\'')
-        const commonArgs: unknown[] = isSuperAdmin
+        const commonArgs: any[] = isSuperAdmin
           ? []
           : requesterId ? [requesterId] : []
 
@@ -259,7 +248,7 @@ export async function GET(request: NextRequest) {
     if (isTurso()) {
       // Build WHERE clauses dynamically
       const conditions: string[] = []
-      const args: unknown[] = []
+      const args: any[] = []
 
       // User filter
       if (!isSuperAdmin && requesterId) {

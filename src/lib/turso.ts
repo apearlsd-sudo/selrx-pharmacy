@@ -10,7 +10,7 @@
  *   const result = await turso.execute({ sql: 'SELECT ...', args: [...] })
  */
 
-import { createClient, type Client } from '@libsql/client'
+import { createClient, type Client, type ResultSet, type InStatement } from '@libsql/client'
 
 const globalForTurso = globalThis as unknown as {
   turso: Client | undefined
@@ -105,12 +105,31 @@ export function sqlRaw(
 }
 
 /**
+ * Convert a ResultSet (or any object with columns + rows) into an array of
+ * plain objects keyed by column name.  Works with both libsql ResultSet and
+ * the legacy `{ columns, rows }` shape.
+ */
+export function toObjs(result: { columns: Array<string>; rows: Array<Array<unknown> | Record<string, unknown>> }): Record<string, unknown>[] {
+  const names = result.columns
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {}
+    // Row may be an array (numeric access) or an object (named access)
+    if (Array.isArray(row)) {
+      names.forEach((n, i) => { obj[n] = row[i] })
+    } else {
+      names.forEach((n) => { obj[n] = (row as Record<string, unknown>)[n] })
+    }
+    return obj
+  })
+}
+
+/**
  * Execute a query with automatic retry on transient failures.
  */
 export async function tursoExecute(
-  params: { sql: string; args?: (string | number | boolean | null | undefined)[] },
+  params: InStatement,
   maxRetries = 2
-) {
+): Promise<ResultSet> {
   let lastError: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -140,9 +159,9 @@ export async function tursoExecute(
  * Execute multiple statements in a batch with retry.
  */
 export async function tursoBatch(
-  stmts: Array<{ sql: string; args?: (string | number | boolean | null | undefined)[] }>,
+  stmts: Array<InStatement>,
   maxRetries = 2
-) {
+): Promise<Array<ResultSet>> {
   let lastError: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
