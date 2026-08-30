@@ -152,6 +152,8 @@ export function POSView() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
   const quantityInputRef = useRef<HTMLInputElement>(null)
+  const customerSearchRef = useRef<HTMLInputElement>(null)
+  const customerSectionRef = useRef<HTMLDivElement>(null)
 
   // Zustand state
   const cart = useAppStore((s) => s.cart)
@@ -1476,7 +1478,7 @@ export function POSView() {
               <Separator />
 
               {/* Customer Selection */}
-              <div className="p-3 space-y-2">
+              <div ref={customerSectionRef} className="p-3 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Customer (optional)</p>
                 {selectedCustomer ? (
                   <div className="flex items-center justify-between rounded-lg border p-2.5 bg-emerald-50 dark:bg-emerald-900/30/50">
@@ -1508,6 +1510,7 @@ export function POSView() {
                 ) : (
                   <div className="relative">
                     <Input
+                      ref={customerSearchRef}
                       placeholder="Search customer name, email, phone..."
                       value={customerSearch}
                       onChange={(e) => {
@@ -1617,9 +1620,17 @@ export function POSView() {
                   <Separator />
                   <div className="p-3 space-y-2">
                     {!selectedCustomer?.id ? (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-2.5 text-center">
+                      <button
+                        type="button"
+                        className="w-full rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-2.5 text-center cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                        onClick={() => {
+                          customerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                          setTimeout(() => customerSearchRef.current?.focus(), 200)
+                        }}
+                      >
                         <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Select a customer with insurance</p>
-                      </div>
+                        <p className="text-[10px] text-amber-600/70 dark:text-amber-500/70 mt-0.5">Click to search customers</p>
+                      </button>
                     ) : (
                       <div className="space-y-2">
                         {selectedCustomer.insuranceProvider && (
@@ -1666,9 +1677,17 @@ export function POSView() {
                   <Separator />
                   <div className="p-3 space-y-2">
                     {!selectedCustomer?.id ? (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-2.5 text-center">
+                      <button
+                        type="button"
+                        className="w-full rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-2.5 text-center cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                        onClick={() => {
+                          customerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                          setTimeout(() => customerSearchRef.current?.focus(), 200)
+                        }}
+                      >
                         <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Select a customer to use credit</p>
-                      </div>
+                        <p className="text-[10px] text-amber-600/70 dark:text-amber-500/70 mt-0.5">Click to search customers</p>
+                      </button>
                     ) : loadingCreditBalance ? (
                       <div className="flex items-center justify-center py-2">
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
