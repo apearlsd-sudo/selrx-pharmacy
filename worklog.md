@@ -694,3 +694,23 @@ Stage Summary:
 - Transaction stock validation uses active batch sum, preventing sales of expired stock
 - Batch summary in drug catalogue now matches inventory page (zeroed-batch tracking, correct primaryBatchNumber)
 - Products with stock but no visible batch (auto-created catch-all batches) now properly show batch info
+
+---
+Task ID: 3-a
+Agent: Main Agent
+Task: Improve Device Sync — persist secret, auto-connect on app start, add UI indicator
+
+Work Log:
+- Analyzed full sync architecture: Rust hub (lib.rs, sync_server.rs, ws_server.rs), TypeScript sync engine, sync settings UI
+- Added auto-start sync in app-shell.tsx after session restoration (both online and offline paths)
+- Fixed device role not persisting to Rust side — applyDeviceRole now calls Tauri setDeviceRole() to write device_role.txt
+- Renamed local React state setter setDeviceRole → setDeviceRoleLocal to avoid naming collision with bridge import
+- Updated hub secret description text to clarify it persists on disk across restarts
+- Added SyncIndicator component to topbar showing a subtle colored dot (green=synced, amber=syncing, red=error, gray=offline)
+- Verified no new TypeScript errors introduced
+
+Stage Summary:
+- Terminals auto-connect to hub immediately on app launch if previously configured
+- Sync secret persists on both hub (Rust sync_secret.txt) and terminal (localStorage)
+- Device role persists to Rust device_role.txt so the hub server starts correctly on restart
+- Subtle sync status dot visible in topbar for desktop terminals

@@ -87,7 +87,7 @@ export function SyncSettingsView() {
   const [info, setInfo] = useState<SyncInfo>(() => getSyncInfo())
   const [hubUrlInput, setHubUrlInput] = useState('')
   const [syncSecretInput, setSyncSecretInput] = useState('')
-  const [deviceRole, setDeviceRole] = useState<'terminal' | 'hub'>('terminal')
+  const [deviceRole, setDeviceRoleLocal] = useState<'terminal' | 'hub'>('terminal')
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [testing, setTesting] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -115,7 +115,7 @@ export function SyncSettingsView() {
         const parsed = JSON.parse(saved)
         if (parsed.hubUrl) setHubUrlInput(parsed.hubUrl)
         if (parsed.syncSecret) setSyncSecretInput(parsed.syncSecret)
-        if (parsed.deviceRole) setDeviceRole(parsed.deviceRole)
+        if (parsed.deviceRole) setDeviceRoleLocal(parsed.deviceRole)
       }
     } catch { /* ignore */ }
   }, [])
@@ -204,9 +204,16 @@ export function SyncSettingsView() {
   }, [hubUrlInput, syncSecretInput, setHubUrl, saveSettings, addToast])
 
   // ── Change device role ──
-  const applyDeviceRole = useCallback((role: 'terminal' | 'hub') => {
-    setDeviceRole(role)
+  const applyDeviceRole = useCallback(async (role: 'terminal' | 'hub') => {
+    setDeviceRoleLocal(role)
     saveSettings({ deviceRole: role })
+
+    // Persist role to Rust/Tauri side so it survives app restarts
+    try {
+      const { setDeviceRole } = await import('@/lib/desktop/tauri-bridge')
+      await setDeviceRole(role)
+    } catch { /* web mode — ignore */ }
+
     if (role === 'terminal') {
       if (hubUrlInput.trim()) startSync(hubUrlInput.trim())
     } else {
@@ -587,7 +594,7 @@ export function SyncSettingsView() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-3">
-                  <p className="text-[10px] text-amber-600 mb-2">Give this key to trusted terminals on your LAN or private tunnel. It is stored locally and is never placed in browser localStorage.</p>
+                  <p className="text-[10px] text-amber-600 mb-2">This key is persisted on disk and survives app restarts. Share it with trusted terminals on your LAN or private tunnel.</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 rounded-md bg-white dark:bg-gray-900 border px-3 py-2 font-mono text-xs">
                       {showHubSecret ? hubSecret : '•'.repeat(Math.min(hubSecret.length, 40))}

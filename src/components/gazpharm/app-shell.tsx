@@ -214,6 +214,58 @@ function TopbarClock() {
   )
 }
 
+// ── Device Sync Indicator for Topbar (desktop only) ──────────────
+function SyncIndicator() {
+  const [state, setState] = useState<'idle' | 'syncing' | 'connected' | 'error' | 'offline'>('idle')
+
+  useEffect(() => {
+    // Only show on desktop (Tauri)
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
+
+    // Check if sync is configured as terminal
+    try {
+      const settings = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+      if (settings.deviceRole !== 'terminal' || !settings.hubUrl) return // No sync configured
+    } catch { return }
+
+    // Listen for sync state changes
+    let unsub: (() => void) | undefined
+    import('@/lib/sync-engine').then(({ onSyncStateChange, getSyncInfo }) => {
+      const info = getSyncInfo()
+      if (info.wsConnected) setState('connected')
+      else if (info.state === 'syncing') setState('syncing')
+      else if (info.state === 'error') setState('error')
+      else if (info.hubUrl) setState('idle')
+
+      unsub = onSyncStateChange((newState) => {
+        if (newState === 'ws_connected') setState('connected')
+        else if (newState === 'syncing') setState('syncing')
+        else if (newState === 'error') setState('error')
+        else if (newState === 'offline') setState('offline')
+        else setState('idle')
+      })
+    }).catch(() => {})
+
+    return () => { unsub?.() }
+  }, [])
+
+  if (state === 'idle') return null // Don't show anything when not configured
+
+  const config = {
+    connected: { color: 'bg-emerald-400', title: 'Synced' },
+    syncing:  { color: 'bg-amber-400 animate-pulse', title: 'Syncing...' },
+    error:    { color: 'bg-red-400', title: 'Sync error' },
+    offline:  { color: 'bg-gray-400', title: 'Sync offline' },
+    idle:     { color: 'bg-gray-400', title: 'Sync idle' },
+  }[state]
+
+  return (
+    <div className="flex items-center gap-1" title={config.title}>
+      <div className={`h-2 w-2 rounded-full ${config.color}`} />
+    </div>
+  )
+}
+
 // ── Workstation Selector for Topbar ──────────────────────────────
 function WorkstationSelector() {
   const currentWorkstationId = useAppStore((s) => s.currentWorkstationId)
@@ -727,6 +779,17 @@ export default function AppShell({ initialBranding }: AppShellProps) {
               if (targetView) {
                 store.setCurrentView(targetView)
               }
+              // Auto-start device sync on desktop (terminal mode)
+              if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+                try {
+                  const syncSettings = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+                  if (syncSettings.deviceRole === 'terminal' && syncSettings.hubUrl) {
+                    import('@/lib/sync-engine').then(({ startSync }) => {
+                      startSync(syncSettings.hubUrl).catch(() => {})
+                    }).catch(() => {})
+                  }
+                } catch { /* sync not configured — ignore */ }
+              }
               // Pre-fetch full inventory for offline use
               try {
                 fetch('/api/products?limit=1000', { headers: { Authorization: `Bearer ${savedToken}` } })
@@ -768,6 +831,17 @@ export default function AppShell({ initialBranding }: AppShellProps) {
                   }
                 }
                 if (targetView) store.setCurrentView(targetView)
+                // Auto-start device sync on desktop (terminal mode) even when offline
+                if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+                  try {
+                    const syncSettings = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+                    if (syncSettings.deviceRole === 'terminal' && syncSettings.hubUrl) {
+                      import('@/lib/sync-engine').then(({ startSync }) => {
+                        startSync(syncSettings.hubUrl).catch(() => {})
+                      }).catch(() => {})
+                    }
+                  } catch { /* sync not configured — ignore */ }
+                }
                 // Restore workstation
                 try {
                   const savedWsId = localStorage.getItem('selrx_workstation')
@@ -989,6 +1063,8 @@ export default function AppShell({ initialBranding }: AppShellProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Device Sync Indicator */}
+            <SyncIndicator />
             {/* Live Clock */}
             <TopbarClock />
             {/* Theme Toggle */}
