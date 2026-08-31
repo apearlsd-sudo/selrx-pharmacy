@@ -71,6 +71,14 @@ interface ReceiptModalProps {
       status: string
       approvalMessage: string
     } | null
+    mobileMoneyPayment?: {
+      provider: string
+      providerLabel: string
+      maskedPhone: string
+      reference: string
+      status: string
+      approvalMessage: string
+    } | null
   }
   onClose: () => void
 }
@@ -225,6 +233,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   <div class="info-row"><span class="info-label">Card:</span><span>${transaction.cardPayment.cardBrandLabel} **** ${transaction.cardPayment.cardLast4}</span></div>
   <div class="info-row"><span class="info-label">Auth Code:</span><span>${transaction.cardPayment.authCode}</span></div>
   <div class="info-row"><span class="info-label">Reference:</span><span>${transaction.cardPayment.refNumber}</span></div>
+  ` : ''}
+  ${transaction.mobileMoneyPayment ? `
+  <div class="info-row"><span class="info-label">Momo:</span><span>${transaction.mobileMoneyPayment.providerLabel}</span></div>
+  <div class="info-row"><span class="info-label">Phone:</span><span>${transaction.mobileMoneyPayment.maskedPhone}</span></div>
+  <div class="info-row"><span class="info-label">Reference:</span><span>${transaction.mobileMoneyPayment.reference}</span></div>
   ` : ''}
 
   <hr class="divider" />
@@ -410,6 +423,22 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Reference:</span>
                     <span className="font-mono text-[10px]">{transaction.cardPayment.refNumber}</span>
+                  </div>
+                </>
+              )}
+              {transaction.mobileMoneyPayment && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Momo:</span>
+                    <span className="font-medium">{transaction.mobileMoneyPayment.providerLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Phone:</span>
+                    <span className="font-mono text-xs">{transaction.mobileMoneyPayment.maskedPhone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Reference:</span>
+                    <span className="font-mono text-[10px]">{transaction.mobileMoneyPayment.reference}</span>
                   </div>
                 </>
               )}

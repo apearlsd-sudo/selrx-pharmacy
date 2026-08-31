@@ -33,6 +33,7 @@ export type PaymentMethodType =
   | 'CASH'
   | 'CREDIT_CARD'
   | 'DEBIT_CARD'
+  | 'MOBILE_MONEY'
   | 'INSURANCE'
   | 'FSA_HSA'
   | 'SPLIT'

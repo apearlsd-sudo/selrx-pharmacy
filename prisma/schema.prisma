@@ -173,6 +173,7 @@ enum PaymentMethod {
   CASH
   CREDIT_CARD
   DEBIT_CARD
+  MOBILE_MONEY
   CREDIT
   INSURANCE
   FSA_HSA
@@ -208,7 +209,8 @@ model Transaction {
   insuranceClaim    InsuranceClaim?
   customerCredits   CustomerCredit[]
   loyaltyTransactions LoyaltyTransaction[]
-  cardPayment       CardPayment?
+  cardPayment         CardPayment?
+  mobileMoneyPayment  MobileMoneyPayment?
 }
 
 model TransactionItem {
@@ -702,6 +704,33 @@ enum CardEntryMethod {
   CONTACTLESS
   TAP
 }
+
+// ============ MOBILE MONEY PAYMENTS ============
+
+enum MobileMoneyStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+model MobileMoneyPayment {
+  id              String              @id @default(cuid())
+  transactionId   String              @unique
+  provider        String              // MTN_MOMO, VODAFONE_CASH, AIRTEL_MONEY, TIGO_CASH
+  providerLabel   String              // Display label: "MTN Mobile Money", "Vodafone Cash"
+  phoneNumber     String              // Masked: 0XXX *** XXXX
+  reference       String?             // Unique reference: MOMO-YYYYMMDD-XXXXXX
+  status          MobileMoneyStatus   @default(PENDING)
+  responseCode    String?             // Processor response code
+  approvalMessage String?             // Human-readable message
+  createdAt       DateTime            @default(now())
+
+  transaction     Transaction         @relation(fields: [transactionId], references: [id])
+}
+
+// ============ CARD PAYMENTS ============
 
 model CardPayment {
   id              String            @id @default(cuid())

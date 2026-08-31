@@ -307,6 +307,31 @@ export async function GET(request: NextRequest) {
         } catch { /* CardPayment table may not exist yet */ }
       }
 
+      // Fetch mobile money payments for paginated transactions
+      const momoPaymentsMap: Record<string, any> = {}
+      const momoTxnIds = pagRows.filter((r) => r.paymentMethod === 'MOBILE_MONEY').map((r) => r.id as string)
+      if (momoTxnIds.length > 0) {
+        const mpPlaceholders = momoTxnIds.map(() => '?').join(', ')
+        try {
+          const mpResult = await turso.execute({
+            sql: `SELECT "id", "transactionId", provider, "providerLabel", "phoneNumber", reference, status, "approvalMessage"
+                   FROM "MobileMoneyPayment"
+                   WHERE "transactionId" IN (${mpPlaceholders})`,
+            args: safeArgs(momoTxnIds),
+          })
+          for (const row of toObjs(mpResult)) {
+            momoPaymentsMap[row.transactionId as string] = {
+              provider: row.provider,
+              providerLabel: row.providerLabel,
+              maskedPhone: row.phoneNumber,
+              reference: row.reference,
+              status: row.status,
+              approvalMessage: row.approvalMessage,
+            }
+          }
+        } catch { /* MobileMoneyPayment table may not exist yet */ }
+      }
+
       const transactions = pagRows.map((r) => ({
         id: r.id,
         transactionNo: r.transactionNo,
@@ -331,7 +356,7 @@ export async function GET(request: NextRequest) {
           ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName }
           : null,
         items: pItemsMap[r.id as string] || [],
-        insuranceClaim: claimsMap[r.id as string] || null,        cardPayment: cardPaymentsMap[r.id as string] || null,
+        insuranceClaim: claimsMap[r.id as string] || null,        cardPayment: cardPaymentsMap[r.id as string] || null,        mobileMoneyPayment: momoPaymentsMap[r.id as string] || null,
       }))
 
       // ---- 5. Top seller = first user by total sales ----
@@ -558,6 +583,18 @@ export async function GET(request: NextRequest) {
               refNumber: true,
               status: true,
               entryMethod: true,
+              responseCode: true,
+              approvalMessage: true,
+            },
+          },
+          mobileMoneyPayment: {
+            select: {
+              id: true,
+              provider: true,
+              providerLabel: true,
+              phoneNumber: true,
+              reference: true,
+              status: true,
               responseCode: true,
               approvalMessage: true,
             },

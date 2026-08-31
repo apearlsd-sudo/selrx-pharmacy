@@ -1292,6 +1292,30 @@ export function SalesHistoryView() {
                 </div>
               )}
 
+              {detailTxn.paymentMethod === 'MOBILE_MONEY' && (detailTxn as any).mobileMoneyPayment && (
+                <div className="rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800 p-3 space-y-2">
+                  <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold uppercase">Mobile Money Payment</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Provider</p>
+                      <p className="font-medium">{(detailTxn as any).mobileMoneyPayment.providerLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Status</p>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Completed</Badge>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Phone</p>
+                      <p className="font-mono font-medium">{(detailTxn as any).mobileMoneyPayment.maskedPhone}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Reference</p>
+                      <p className="font-mono text-[11px]">{(detailTxn as any).mobileMoneyPayment.reference}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {detailTxn.notes && (
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase">Notes</p>

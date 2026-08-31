@@ -486,6 +486,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="CREDIT_CARD">Credit Card</SelectItem>
                     <SelectItem value="DEBIT_CARD">Debit Card</SelectItem>
+                    <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

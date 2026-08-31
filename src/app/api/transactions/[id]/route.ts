@@ -181,6 +181,33 @@ export async function GET(
       }
       ;(transaction as any).cardPayment = cardPayment
 
+      // Fetch mobile money payment if this is a mobile money transaction
+      let mobileMoneyPayment = null
+      if (r.t_paymentMethod === 'MOBILE_MONEY') {
+        try {
+          const mpResult = await turso.execute({
+            sql: `SELECT id, provider, "providerLabel", "phoneNumber", reference, status, "responseCode", "approvalMessage"
+                   FROM "MobileMoneyPayment" WHERE "transactionId" = ?`,
+            args: [id],
+          })
+          const mpRows = toObjs(mpResult)
+          if (mpRows.length > 0) {
+            const mp = mpRows[0]
+            mobileMoneyPayment = {
+              id: mp.id,
+              provider: mp.provider,
+              providerLabel: mp.providerLabel,
+              maskedPhone: mp.phoneNumber,
+              reference: mp.reference,
+              status: mp.status,
+              responseCode: mp.responseCode,
+              approvalMessage: mp.approvalMessage,
+            }
+          }
+        } catch { /* MobileMoneyPayment table may not exist */ }
+      }
+      ;(transaction as any).mobileMoneyPayment = mobileMoneyPayment
+
       return NextResponse.json(transaction)
     }
 
@@ -219,6 +246,18 @@ export async function GET(
             refNumber: true,
             status: true,
             entryMethod: true,
+            responseCode: true,
+            approvalMessage: true,
+          },
+        },
+        mobileMoneyPayment: {
+          select: {
+            id: true,
+            provider: true,
+            providerLabel: true,
+            phoneNumber: true,
+            reference: true,
+            status: true,
             responseCode: true,
             approvalMessage: true,
           },

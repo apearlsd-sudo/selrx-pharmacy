@@ -27,6 +27,7 @@ import {
   Percent,
   Printer,
   Lock,
+  Smartphone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,6 +57,7 @@ import { NewReturnDialog } from './new-return-dialog'
 import { PinApprovalDialog, type ApprovalAction } from '@/components/gazpharm/shared/pin-approval-dialog'
 import { generateAndPrintLabel } from '@/components/gazpharm/shared/barcode-label-printer'
 import { CardPaymentModal, type CardPaymentResult } from './card-payment-modal'
+import { MobileMoneyModal, type MobileMoneyResult } from './mobile-money-modal'
 
 interface Product {
   id: string
@@ -100,6 +102,7 @@ const PAYMENT_OPTIONS: { value: PaymentMethodType; label: string; icon: typeof C
   { value: 'CASH', label: 'Cash', icon: Banknote },
   { value: 'CREDIT_CARD', label: 'Credit Card', icon: CreditCard },
   { value: 'DEBIT_CARD', label: 'Debit Card', icon: CreditCard },
+  { value: 'MOBILE_MONEY', label: 'Mobile Money', icon: Smartphone },
   { value: 'INSURANCE', label: 'Insurance', icon: Shield },
   { value: 'CREDIT', label: 'On Credit', icon: Clock },
 ]
@@ -144,6 +147,11 @@ export function POSView() {
   const [showCardModal, setShowCardModal] = useState(false)
   const [cardPaymentData, setCardPaymentData] = useState<CardPaymentResult | null>(null)
   const [pendingCardTransactionId, setPendingCardTransactionId] = useState<string | null>(null)
+
+  // Mobile money payment state
+  const [showMomoModal, setShowMomoModal] = useState(false)
+  const [momoPaymentData, setMomoPaymentData] = useState<MobileMoneyResult | null>(null)
+  const [pendingMomoTransactionId, setPendingMomoTransactionId] = useState<string | null>(null)
 
   // PIN approval state
   const [pinDialog, setPinDialog] = useState<{ open: boolean; action: ApprovalAction; entityType: string; entityId?: string; title?: string; description?: string; onApproved: () => void }>({ open: false, action: 'VOID_TRANSACTION', entityType: '', onApproved: () => {} })
@@ -750,6 +758,62 @@ export function POSView() {
       }
     }
 
+    // For mobile money payments, create transaction first then show momo modal
+    if (paymentMethod === 'MOBILE_MONEY') {
+      setIsProcessingPayment(true)
+      try {
+        const payload = {
+          customerId: selectedCustomer?.id || null,
+          items: cart.map((item: CartItem) => ({
+            productId: item.product.id,
+            productName: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.product.sellingPrice,
+            subtotal: item.product.sellingPrice * item.quantity,
+            requiresRx: item.product.requiresPrescription,
+            sellingUnit: item.product.sellingUnit || 'EA',
+            itemsPerUnit: item.product.itemsPerUnit,
+            barcode: (item.product as any).barcode || null,
+          })),
+          paymentMethod,
+          subtotal,
+          tax,
+          discount: 0,
+          total,
+          paymentAmount: total,
+        }
+
+        const res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { ...authHeaders() },
+          body: JSON.stringify(payload),
+        })
+
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Transaction failed'))
+        }
+
+        const transaction = await res.json()
+
+        // Show mobile money modal
+        setPendingMomoTransactionId(transaction.id)
+        setMomoPaymentData(null)
+        setShowMomoModal(true)
+        setIsProcessingPayment(false)
+        return // Will continue in handleMomoPaymentComplete
+      } catch (err) {
+        addToast({
+          title: 'Payment Failed',
+          description: err instanceof Error ? err.message : 'Unknown error',
+          variant: 'destructive',
+          duration: 5000,
+        })
+        setIsProcessingPayment(false)
+        return
+      }
+    }
+
     // Non-card payment flow (CASH, CREDIT, INSURANCE)
     await processNonCardPayment()
   }
@@ -860,6 +924,114 @@ export function POSView() {
       setIsProcessingPayment(false)
       setPendingCardTransactionId(null)
       setCardPaymentData(null)
+    }
+  }
+
+  /** Handle the completion of mobile money payment modal */
+  const handleMomoPaymentComplete = async (result: MobileMoneyResult | undefined) => {
+    setShowMomoModal(false)
+    const txnId = pendingMomoTransactionId
+
+    if (!result || !txnId) {
+      // Mobile money was cancelled/failed — void the transaction
+      if (txnId) {
+        try {
+          await fetch(`/api/transactions/${txnId}`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'void' }),
+          })
+          addToast({
+            title: 'Mobile Money Payment Cancelled',
+            description: 'Transaction has been voided',
+            variant: 'destructive',
+            duration: 3000,
+          })
+        } catch {
+          addToast({
+            title: 'Warning',
+            description: 'Mobile money payment was cancelled but the transaction may need manual voiding',
+            variant: 'destructive',
+            duration: 5000,
+          })
+        }
+      }
+      setPendingMomoTransactionId(null)
+      setMomoPaymentData(null)
+      return
+    }
+
+    // Mobile money payment successful — attach data and finish
+    setIsProcessingPayment(true)
+    try {
+      // Fetch the transaction with items to build receipt
+      const txnRes = await fetch(`/api/transactions/${txnId}`, {
+        headers: { ...authHeaders() },
+      })
+      const transaction = txnRes.ok ? await txnRes.json() : null
+
+      // Auto-earn loyalty points
+      let ptsEarned = 0
+      if (selectedCustomer?.id && total > 0) {
+        ptsEarned = Math.round(total)
+        fetch('/api/loyalty', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: selectedCustomer.id,
+            points: ptsEarned,
+            action: 'EARNED',
+            description: `Purchase ${transaction?.transactionNo || txnId} (${ptsEarned} pts)`,
+            transactionId: txnId,
+          }),
+        }).catch(() => {})
+      }
+
+      // Attach mobile money data to transaction for receipt
+      if (transaction) {
+        (transaction as any).mobileMoneyPayment = {
+          provider: result.provider,
+          providerLabel: result.providerLabel,
+          maskedPhone: result.maskedPhone,
+          reference: result.reference,
+          status: result.status,
+          approvalMessage: result.approvalMessage,
+        }
+      }
+
+      clearCart()
+      setSearchQuery('')
+      setProducts([])
+      setActiveCategory('')
+      setCustomerSearch('')
+      setCustomerOptions([])
+      setInteractionWarnings([])
+      setAmountTendered('')
+      addToast({
+        title: 'Mobile Money Payment Successful',
+        description: `${result.providerLabel} ${result.maskedPhone} • ${transaction?.transactionNo || 'Transaction completed'}${ptsEarned > 0 ? ` • +${ptsEarned} pts` : ''}`,
+        variant: 'success',
+        duration: 3000,
+      })
+
+      if (showReceiptModal && transaction) {
+        setReceiptTxn(transaction)
+      }
+      if (autoPrintReceipt) {
+        fetch('/api/hardware?action=receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transactionId: txnId,
+            hardwareType: 'receipt_printer',
+            details: { transactionNo: transaction?.transactionNo, total },
+          }),
+        }).catch(() => {})
+      }
+    } finally {
+      setIsProcessingPayment(false)
+      setPendingMomoTransactionId(null)
+      setMomoPaymentData(null)
     }
   }
 
@@ -1978,6 +2150,36 @@ export function POSView() {
                 </>
               )}
 
+              {/* Mobile Money Info — shown when MOBILE_MONEY is selected */}
+              {paymentMethod === 'MOBILE_MONEY' && total > 0 && (
+                <>
+                  <Separator />
+                  <div className="p-3 space-y-2">
+                    <div className="rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800 p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <span className="text-xs font-medium text-purple-700 dark:text-purple-400">
+                          Mobile Money Payment
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Amount</span>
+                        <span className="font-bold text-sm text-purple-700 dark:text-purple-400">{formatCurrency(total)}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Click &quot;Process Payment&quot; to enter customer&apos;s phone number and select their network.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-1.5 px-1">
+                      <Shield className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                      <p className="text-[10px] text-muted-foreground">
+                        Supports MTN MoMo, Vodafone Cash, AirtelTigo Money. Phone number is masked and never stored in full.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <Separator />
 
               {/* Action Buttons */}
@@ -2077,6 +2279,15 @@ export function POSView() {
         paymentMethod={paymentMethod === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'DEBIT_CARD'}
         transactionId={pendingCardTransactionId}
         onClose={handleCardPaymentComplete}
+        authHeaders={authHeaders}
+      />
+
+      {/* Mobile Money Payment Modal */}
+      <MobileMoneyModal
+        open={showMomoModal}
+        amount={total}
+        transactionId={pendingMomoTransactionId}
+        onClose={handleMomoPaymentComplete}
         authHeaders={authHeaders}
       />
 
