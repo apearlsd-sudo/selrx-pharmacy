@@ -184,9 +184,43 @@ export async function POST(request: NextRequest) {
     }
 
     const maskedPhone = maskPhoneNumber(validation.normalized)
-    const refNumber = generateMomoRef()
 
-    // ── Verify transaction exists and is MOBILE_MONEY ──
+    // ── Idempotency check ──
+    const idempotencyKey = request.headers.get('x-idempotency-key')
+    if (idempotencyKey) {
+      if (isTurso()) {
+        const idemResult = await turso.execute(
+          sqlRaw(`SELECT id, status, reference, provider, "providerLabel", "phoneNumber", "responseCode", "approvalMessage" FROM "MobileMoneyPayment" WHERE reference = ?`, [idempotencyKey])
+        )
+        const idemRows = toObjs(idemResult)
+        if (idemRows.length > 0) {
+          const existing = idemRows[0]
+          return NextResponse.json({
+            id: existing.id, transactionId,
+            provider: existing.provider, providerLabel: existing.providerLabel,
+            maskedPhone: existing.phoneNumber, reference: existing.reference,
+            status: existing.status, responseCode: existing.responseCode,
+            approvalMessage: existing.approvalMessage,
+            message: 'Idempotent: returned previously processed payment',
+          })
+        }
+      } else {
+        const { db } = await import('@/lib/db')
+        const existing = await db.mobileMoneyPayment.findFirst({ where: { reference: idempotencyKey } })
+        if (existing) {
+          return NextResponse.json({
+            id: existing.id, transactionId,
+            provider: existing.provider, providerLabel: existing.providerLabel,
+            maskedPhone: existing.phoneNumber, reference: existing.reference,
+            status: existing.status, responseCode: existing.responseCode,
+            approvalMessage: existing.approvalMessage,
+            message: 'Idempotent: returned previously processed payment',
+          })
+        }
+      }
+    }
+
+    // ── Verify transaction exists, is MOBILE_MONEY, and belongs to user ──
     let transactionAmount = 0
     let existingMomoPayment = false
 
@@ -228,6 +262,19 @@ export async function POST(request: NextRequest) {
       const txn = txnRows[0]
       transactionAmount = Number(txn.total)
 
+      // ── Ownership verification ──
+      if (txn.userId && txn.userId !== userId) {
+        await writeAuditLog({
+          userId, action: 'MOMO_PAYMENT_UNAUTHORIZED_TXN_ACCESS', category: 'security',
+          entity: 'MobileMoneyPayment', entityId: transactionId,
+          details: { transactionOwner: txn.userId, amount: transactionAmount, provider }, ipAddress, userAgent,
+        })
+        return NextResponse.json(
+          { error: 'Transaction does not belong to this user' },
+          { status: 403 },
+        )
+      }
+
       if (txn.paymentMethod !== 'MOBILE_MONEY') {
         return NextResponse.json(
           { error: 'Transaction is not a mobile money payment' },
@@ -256,6 +303,19 @@ export async function POST(request: NextRequest) {
       }
 
       transactionAmount = txn.total
+
+      // ── Ownership verification ──
+      if (txn.userId && txn.userId !== userId) {
+        await writeAuditLog({
+          userId, action: 'MOMO_PAYMENT_UNAUTHORIZED_TXN_ACCESS', category: 'security',
+          entity: 'MobileMoneyPayment', entityId: transactionId,
+          details: { transactionOwner: txn.userId, amount: transactionAmount, provider }, ipAddress, userAgent,
+        })
+        return NextResponse.json(
+          { error: 'Transaction does not belong to this user' },
+          { status: 403 },
+        )
+      }
 
       if (txn.paymentMethod !== 'MOBILE_MONEY') {
         return NextResponse.json(
@@ -321,6 +381,7 @@ export async function POST(request: NextRequest) {
     const momoPaymentId = generateId()
     const now = new Date().toISOString()
     const provLabel = providerLabel || detectedProvider.label
+    const refNumber = idempotencyKey || generateMomoRef()
 
     if (isTurso()) {
       await tursoExecute({
@@ -373,6 +434,7 @@ export async function POST(request: NextRequest) {
         responseCode: result.responseCode,
         amount: transactionAmount,
         paymentMethod: 'MOBILE_MONEY',
+        idempotencyKey: idempotencyKey || undefined,
       },
       ipAddress,
       userAgent,

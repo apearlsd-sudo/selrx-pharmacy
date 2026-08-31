@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso, isTurso, tursoExecute, generateId, safeArgs } from '@/lib/turso'
+import { turso, isTurso, tursoExecute, sqlRaw, toObjs, generateId, safeArgs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
+import { checkRateLimit, getRetryAfter } from '@/lib/security'
 
 // ── Ensure InsuranceClaim table exists (Turso path, idempotent) ──
 let tableEnsured = false
@@ -126,25 +127,104 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Authentication required ──
+    const userId = request.headers.get('x-user-id')
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const { ipAddress, userAgent } = getRequestContext(request)
+
+    // ── Rate limiting: max 10 claims per user per 60 seconds ──
+    const claimRateKey = `insurance-claim:${userId}`
+    if (!checkRateLimit(claimRateKey, 10, 60_000)) {
+      const retryAfter = getRetryAfter(claimRateKey)
+      await writeAuditLog({
+        userId, action: 'INSURANCE_CLAIM_RATE_LIMITED', category: 'security',
+        entity: 'InsuranceClaim',
+        details: { reason: 'rate_limit', retryAfterSeconds: retryAfter }, ipAddress, userAgent,
+      })
+      return NextResponse.json(
+        { error: 'Too many insurance claim attempts', detail: `Please wait ${retryAfter} seconds` },
+        { status: 429 },
+      )
+    }
+
     const body = await request.json()
     const { transactionId, customerId, insuranceProvider, policyNumber, totalAmount, coPayAmount, prescriptionId } = body
 
     if (!transactionId) return NextResponse.json({ error: 'transactionId is required' }, { status: 400 })
     if (!customerId) return NextResponse.json({ error: 'customerId is required' }, { status: 400 })
-    if (totalAmount === undefined || totalAmount === null) return NextResponse.json({ error: 'totalAmount is required' }, { status: 400 })
+    if (totalAmount === undefined || totalAmount === null || typeof totalAmount !== 'number' || totalAmount < 0) {
+      return NextResponse.json({ error: 'totalAmount is required and must be a non-negative number' }, { status: 400 })
+    }
 
-    if (isTurso()) await ensureTable()
+    // ── Verify the transaction exists, is INSURANCE, and belongs to user ──
+    let verifiedAmount = Number(totalAmount)
+    if (isTurso()) {
+      await ensureTable()
+      try {
+        const txnResult = await turso.execute(
+          sqlRaw(`SELECT id, total, "paymentMethod", "userId" FROM "Transaction" WHERE id = ?`, [transactionId])
+        )
+        const txnRows = toObjs(txnResult)
+        if (txnRows.length === 0) {
+          return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+        }
+        const txn = txnRows[0]
+        if (txn.paymentMethod !== 'INSURANCE') {
+          return NextResponse.json({ error: 'Transaction is not an insurance payment' }, { status: 400 })
+        }
+        if (txn.userId && txn.userId !== userId) {
+          await writeAuditLog({
+            userId, action: 'INSURANCE_CLAIM_UNAUTHORIZED_TXN', category: 'security',
+            entity: 'InsuranceClaim', entityId: transactionId,
+            details: { transactionOwner: txn.userId }, ipAddress, userAgent,
+          })
+          return NextResponse.json({ error: 'Transaction does not belong to this user' }, { status: 403 })
+        }
+        // Use server-side amount
+        verifiedAmount = Number(txn.total)
+      } catch (verifyErr) {
+        console.warn('[insurance-claims] Transaction verification failed (non-fatal):', verifyErr)
+      }
+    } else {
+      const { db } = await import('@/lib/db')
+      try {
+        const txn = await db.transaction.findUnique({
+          where: { id: transactionId },
+          select: { id: true, total: true, paymentMethod: true, userId: true },
+        })
+        if (!txn) {
+          return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+        }
+        if (txn.paymentMethod !== 'INSURANCE') {
+          return NextResponse.json({ error: 'Transaction is not an insurance payment' }, { status: 400 })
+        }
+        if (txn.userId && txn.userId !== userId) {
+          await writeAuditLog({
+            userId, action: 'INSURANCE_CLAIM_UNAUTHORIZED_TXN', category: 'security',
+            entity: 'InsuranceClaim', entityId: transactionId,
+            details: { transactionOwner: txn.userId }, ipAddress, userAgent,
+          })
+          return NextResponse.json({ error: 'Transaction does not belong to this user' }, { status: 403 })
+        }
+        verifiedAmount = txn.total
+      } catch (verifyErr) {
+        console.warn('[insurance-claims] Transaction verification failed (non-fatal):', verifyErr)
+      }
+    }
 
-    const userId = request.headers.get('x-user-id') || null
     const id = generateId()
     const now = new Date().toISOString()
+    const serverCoPay = Math.max(0, Math.min(Number(coPayAmount ?? 0), verifiedAmount))
 
     try {
       if (isTurso()) {
         await tursoExecute({
           sql: `INSERT INTO "InsuranceClaim" (id, "transactionId", "customerId", "insuranceProvider", "policyNumber", "totalAmount", "coPayAmount", "prescriptionId", status, "createdBy", "createdAt", "updatedAt")
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', ?, ?, ?)`,
-          args: safeArgs([id, transactionId, customerId, insuranceProvider || null, policyNumber || null, Number(totalAmount), Number(coPayAmount ?? 0), prescriptionId || null, userId, now, now]),
+          args: safeArgs([id, transactionId, customerId, insuranceProvider || null, policyNumber || null, verifiedAmount, serverCoPay, prescriptionId || null, userId, now, now]),
         })
       } else {
         const { db } = await import('@/lib/db')
@@ -153,8 +233,8 @@ export async function POST(request: NextRequest) {
             id, transactionId, customerId,
             insuranceProvider: insuranceProvider || null,
             policyNumber: policyNumber || null,
-            totalAmount: Number(totalAmount),
-            coPayAmount: Number(coPayAmount ?? 0),
+            totalAmount: verifiedAmount,
+            coPayAmount: serverCoPay,
             prescriptionId: prescriptionId || null,
             status: 'SUBMITTED',
             createdBy: userId,
@@ -166,7 +246,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create insurance claim' }, { status: 500 })
     }
 
-    const { ipAddress, userAgent } = getRequestContext(request)
     await writeAuditLog({
       userId: userId || undefined,
       action: 'INSURANCE_CLAIM_CREATED',
@@ -180,7 +259,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       id, transactionId, customerId, insuranceProvider, policyNumber,
-      totalAmount: Number(totalAmount), coPayAmount: Number(coPayAmount ?? 0),
+      totalAmount: verifiedAmount, coPayAmount: serverCoPay,
       prescriptionId: prescriptionId || null,
       status: 'SUBMITTED',
       createdBy: userId,

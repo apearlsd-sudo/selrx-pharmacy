@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { turso, isTurso, generateId, generateTransactionNo, safeArgs, tursoExecute, tursoBatch, sqlRaw, toObjs } from '@/lib/turso'
 import { writeAuditLog, getRequestContext } from '@/lib/audit-log'
 import { runAutoExpiry } from '@/lib/auto-expiry'
+import { checkRateLimit, getRetryAfter } from '@/lib/security'
+
+// ── Payment method whitelist ──
+const VALID_PAYMENT_METHODS = new Set([
+  'CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'MOBILE_MONEY',
+  'CREDIT', 'INSURANCE', 'FSA_HSA', 'SPLIT',
+])
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -487,6 +494,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Rate limiting: max 20 transactions per user per 60 seconds ──
+    const txRateKey = `tx-create:${userId}`
+    if (!checkRateLimit(txRateKey, 20, 60_000)) {
+      const retryAfter = getRetryAfter(txRateKey)
+      return NextResponse.json(
+        { error: 'Too many transactions. Please slow down.', detail: `Retry after ${retryAfter}s` },
+        { status: 429 },
+      )
+    }
+
     const body = await request.json()
     const {
       customerId, items, paymentMethod, subtotal, tax, discount, total,
@@ -496,11 +513,33 @@ export async function POST(request: NextRequest) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Transaction items are required' }, { status: 400 })
     }
-    if (!paymentMethod) {
-      return NextResponse.json({ error: 'Payment method is required' }, { status: 400 })
+    if (!paymentMethod || !VALID_PAYMENT_METHODS.has(paymentMethod)) {
+      return NextResponse.json({ error: `Invalid payment method. Must be one of: ${[...VALID_PAYMENT_METHODS].join(', ')}` }, { status: 400 })
     }
-    if (total === undefined || total === null) {
-      return NextResponse.json({ error: 'Transaction total is required' }, { status: 400 })
+    if (total === undefined || total === null || typeof total !== 'number' || total < 0) {
+      return NextResponse.json({ error: 'Transaction total is required and must be a non-negative number' }, { status: 400 })
+    }
+
+    // ── Server-side amount recalculation (prevent client tampering) ──
+    const serverSubtotal = items.reduce((sum: number, item: Record<string, unknown>) => {
+      const qty = Number(item.quantity) || 0
+      const price = Number(item.unitPrice) || 0
+      return sum + (qty * price)
+    }, 0)
+    const serverDiscount = Number(discount) || 0
+    const serverTax = Number(tax) || 0
+    const serverTotal = Math.max(0, serverSubtotal - serverDiscount + serverTax)
+
+    // Allow a small rounding tolerance (0.01) but flag significant deviation
+    const deviation = Math.abs(Number(total) - serverTotal)
+    if (deviation > 0.01) {
+      const { ipAddress, userAgent } = getRequestContext(request)
+      await writeAuditLog({
+        userId, action: 'TXN_AMOUNT_TAMPERING_ATTEMPT', category: 'security', entity: 'Transaction',
+        details: { clientTotal: total, serverTotal, deviation, paymentMethod, itemCount: items.length }, ipAddress, userAgent,
+      })
+      // Use server-calculated amounts to prevent tampering
+      console.warn(`[tx] Amount mismatch: client=${total}, server=${serverTotal}, deviation=${deviation}. Using server amounts.`)
     }
 
     if (isTurso()) {
@@ -551,9 +590,9 @@ export async function POST(request: NextRequest) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           transactionId, transactionNo, customerId || null, userId, workstationId,
-          subtotal || 0, tax || 0, discount || 0, total,
-          paymentMethod, paymentAmount || total,
-          Math.max(0, (paymentAmount || total) - total),
+          serverSubtotal, serverTax, serverDiscount, serverTotal,
+          paymentMethod, paymentAmount || serverTotal,
+          Math.max(0, (paymentAmount || serverTotal) - serverTotal),
           'COMPLETED', prescriptionId || null, notes || null,
           now, now,
         ],
@@ -731,13 +770,13 @@ export async function POST(request: NextRequest) {
         transactionNo,
         customerId: customerId || null,
         userId,
-        subtotal: subtotal || 0,
-        tax: tax || 0,
-        discount: discount || 0,
-        total,
+        subtotal: serverSubtotal,
+        tax: serverTax,
+        discount: serverDiscount,
+        total: serverTotal,
         paymentMethod,
-        paymentAmount: paymentAmount || total,
-        changeAmount: Math.max(0, (paymentAmount || total) - total),
+        paymentAmount: paymentAmount || serverTotal,
+        changeAmount: Math.max(0, (paymentAmount || serverTotal) - serverTotal),
         status: 'COMPLETED',
         prescriptionId: prescriptionId || null,
         notes: notes || null,

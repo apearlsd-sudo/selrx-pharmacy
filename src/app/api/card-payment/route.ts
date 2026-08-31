@@ -197,7 +197,42 @@ export async function POST(request: NextRequest) {
     const brand = validation.brand
     const last4 = getLast4(sanitizedCardNumber)
 
-    // ── Verify transaction exists and belongs to user ──
+    // ── Idempotency check ──
+    const idempotencyKey = request.headers.get('x-idempotency-key')
+    if (idempotencyKey) {
+      if (isTurso()) {
+        const idemResult = await turso.execute(
+          sqlRaw(`SELECT id, status, "refNumber", "cardLast4", "cardBrand", "authCode", "responseCode", "approvalMessage" FROM "CardPayment" WHERE "refNumber" = ?`, [idempotencyKey])
+        )
+        const idemRows = toObjs(idemResult)
+        if (idemRows.length > 0) {
+          const existing = idemRows[0]
+          return NextResponse.json({
+            id: existing.id, transactionId,
+            cardLast4: existing.cardLast4, cardBrand: existing.cardBrand,
+            authCode: existing.authCode, refNumber: existing.refNumber,
+            status: existing.status, responseCode: existing.responseCode,
+            approvalMessage: existing.approvalMessage, entryMethod: 'MANUAL',
+            message: 'Idempotent: returned previously processed payment',
+          })
+        }
+      } else {
+        const { db } = await import('@/lib/db')
+        const existing = await db.cardPayment.findFirst({ where: { refNumber: idempotencyKey } })
+        if (existing) {
+          return NextResponse.json({
+            id: existing.id, transactionId,
+            cardLast4: existing.cardLast4, cardBrand: existing.cardBrand,
+            authCode: existing.authCode, refNumber: existing.refNumber,
+            status: existing.status, responseCode: existing.responseCode,
+            approvalMessage: existing.approvalMessage, entryMethod: existing.entryMethod,
+            message: 'Idempotent: returned previously processed payment',
+          })
+        }
+      }
+    }
+
+    // ── Verify transaction exists, is card-based, and belongs to user ──
     let transactionAmount = 0
     let existingCardPayment = false
 
@@ -240,6 +275,19 @@ export async function POST(request: NextRequest) {
       const txn = txnRows[0]
       transactionAmount = Number(txn.total)
 
+      // ── Ownership verification ──
+      if (txn.userId && txn.userId !== userId) {
+        await writeAuditLog({
+          userId, action: 'CARD_PAYMENT_UNAUTHORIZED_TXN_ACCESS', category: 'security',
+          entity: 'CardPayment', entityId: transactionId,
+          details: { transactionOwner: txn.userId, amount: transactionAmount }, ipAddress, userAgent,
+        })
+        return NextResponse.json(
+          { error: 'Transaction does not belong to this user' },
+          { status: 403 },
+        )
+      }
+
       // Verify the transaction payment method is card-based
       if (txn.paymentMethod !== 'CREDIT_CARD' && txn.paymentMethod !== 'DEBIT_CARD') {
         return NextResponse.json(
@@ -270,6 +318,19 @@ export async function POST(request: NextRequest) {
       }
 
       transactionAmount = txn.total
+
+      // ── Ownership verification ──
+      if (txn.userId && txn.userId !== userId) {
+        await writeAuditLog({
+          userId, action: 'CARD_PAYMENT_UNAUTHORIZED_TXN_ACCESS', category: 'security',
+          entity: 'CardPayment', entityId: transactionId,
+          details: { transactionOwner: txn.userId, amount: transactionAmount }, ipAddress, userAgent,
+        })
+        return NextResponse.json(
+          { error: 'Transaction does not belong to this user' },
+          { status: 403 },
+        )
+      }
 
       if (txn.paymentMethod !== 'CREDIT_CARD' && txn.paymentMethod !== 'DEBIT_CARD') {
         return NextResponse.json(
@@ -332,7 +393,7 @@ export async function POST(request: NextRequest) {
     // ── Card approved — create CardPayment record ──
     const cardPaymentId = generateId()
     const authCode = generateAuthCode()
-    const refNumber = generateCardRef()
+    const refNumber = idempotencyKey || generateCardRef()
     const now = new Date().toISOString()
 
     if (isTurso()) {
@@ -372,7 +433,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // ── Audit log: successful card payment ──
+    // ── Audit log: successful card payment (amount verified server-side) ──
     await writeAuditLog({
       userId,
       action: 'CARD_PAYMENT_COMPLETED',
@@ -388,6 +449,7 @@ export async function POST(request: NextRequest) {
         responseCode: result.responseCode,
         amount: transactionAmount,
         paymentMethod,
+        idempotencyKey: idempotencyKey || undefined,
       },
       ipAddress,
       userAgent,
