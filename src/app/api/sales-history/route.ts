@@ -278,6 +278,35 @@ export async function GET(request: NextRequest) {
         } catch { /* InsuranceClaim table may not exist yet */ }
       }
 
+      // Fetch card payments for paginated transactions
+      const cardPaymentsMap: Record<string, any> = {}
+      const cardTxnIds = pagRows.filter((r) => r.paymentMethod === 'CREDIT_CARD' || r.paymentMethod === 'DEBIT_CARD').map((r) => r.id as string)
+      if (cardTxnIds.length > 0) {
+        const cpPlaceholders = cardTxnIds.map(() => '?').join(', ')
+        try {
+          const cpResult = await turso.execute({
+            sql: `SELECT "id", "transactionId", "cardLast4", "cardBrand", "authCode", "refNumber", "status", "approvalMessage"
+                   FROM CardPayment
+                   WHERE "transactionId" IN (${cpPlaceholders})`,
+            args: safeArgs(cardTxnIds),
+          })
+          for (const row of toObjs(cpResult)) {
+            const brandLabel = (row.cardBrand as string)
+              ? (row.cardBrand as string).replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+              : 'Card'
+            cardPaymentsMap[row.transactionId as string] = {
+              cardLast4: row.cardLast4,
+              cardBrand: row.cardBrand,
+              cardBrandLabel: brandLabel,
+              authCode: row.authCode,
+              refNumber: row.refNumber,
+              status: row.status,
+              approvalMessage: row.approvalMessage,
+            }
+          }
+        } catch { /* CardPayment table may not exist yet */ }
+      }
+
       const transactions = pagRows.map((r) => ({
         id: r.id,
         transactionNo: r.transactionNo,
@@ -302,7 +331,7 @@ export async function GET(request: NextRequest) {
           ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName }
           : null,
         items: pItemsMap[r.id as string] || [],
-        insuranceClaim: claimsMap[r.id as string] || null,
+        insuranceClaim: claimsMap[r.id as string] || null,        cardPayment: cardPaymentsMap[r.id as string] || null,
       }))
 
       // ---- 5. Top seller = first user by total sales ----
@@ -518,6 +547,19 @@ export async function GET(request: NextRequest) {
               approvedAmount: true,
               coPayAmount: true,
               status: true,
+            },
+          },
+          cardPayment: {
+            select: {
+              id: true,
+              cardLast4: true,
+              cardBrand: true,
+              authCode: true,
+              refNumber: true,
+              status: true,
+              entryMethod: true,
+              responseCode: true,
+              approvalMessage: true,
             },
           },
         },

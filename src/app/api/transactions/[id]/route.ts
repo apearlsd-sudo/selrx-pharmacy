@@ -149,6 +149,38 @@ export async function GET(
       }
       ;(transaction as any).insuranceClaim = insuranceClaim
 
+      // Fetch card payment if this is a card transaction
+      let cardPayment = null
+      if (r.t_paymentMethod === 'CREDIT_CARD' || r.t_paymentMethod === 'DEBIT_CARD') {
+        try {
+          const cpResult = await turso.execute({
+            sql: `SELECT "id", "cardLast4", "cardBrand", "authCode", "refNumber", "status", "entryMethod", "responseCode", "approvalMessage"
+                   FROM CardPayment WHERE "transactionId" = ?`,
+            args: [id],
+          })
+          const cpRows = toObjs(cpResult)
+          if (cpRows.length > 0) {
+            const cp = cpRows[0]
+            const brandLabel = cp.cardBrand
+              ? cp.cardBrand.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+              : 'Card'
+            cardPayment = {
+              id: cp.id,
+              cardLast4: cp.cardLast4,
+              cardBrand: cp.cardBrand,
+              cardBrandLabel: brandLabel,
+              authCode: cp.authCode,
+              refNumber: cp.refNumber,
+              status: cp.status,
+              entryMethod: cp.entryMethod,
+              responseCode: cp.responseCode,
+              approvalMessage: cp.approvalMessage,
+            }
+          }
+        } catch { /* CardPayment table may not exist */ }
+      }
+      ;(transaction as any).cardPayment = cardPayment
+
       return NextResponse.json(transaction)
     }
 
@@ -176,6 +208,19 @@ export async function GET(
             approvedAmount: true,
             coPayAmount: true,
             status: true,
+          },
+        },
+        cardPayment: {
+          select: {
+            id: true,
+            cardLast4: true,
+            cardBrand: true,
+            authCode: true,
+            refNumber: true,
+            status: true,
+            entryMethod: true,
+            responseCode: true,
+            approvalMessage: true,
           },
         },
       },

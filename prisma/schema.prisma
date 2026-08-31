@@ -208,6 +208,7 @@ model Transaction {
   insuranceClaim    InsuranceClaim?
   customerCredits   CustomerCredit[]
   loyaltyTransactions LoyaltyTransaction[]
+  cardPayment       CardPayment?
 }
 
 model TransactionItem {
@@ -684,6 +685,38 @@ model Notification {
   userId      String?            // null = broadcast to all
   createdAt   DateTime           @default(now())
   readAt     DateTime?
+}
+
+// ============ CARD PAYMENTS ============
+
+enum CardPaymentStatus {
+  COMPLETED
+  DECLINED
+  FAILED
+  REFUNDED
+}
+
+enum CardEntryMethod {
+  MANUAL
+  CHIP
+  CONTACTLESS
+  TAP
+}
+
+model CardPayment {
+  id              String            @id @default(cuid())
+  transactionId   String            @unique
+  cardLast4       String            // Only last 4 digits — PCI-DSS compliant
+  cardBrand       String            // VISA, MASTERCARD, AMEX, DISCOVER, etc.
+  authCode        String?           // 6-char authorization code
+  refNumber       String?           // Unique reference: CARD-YYYYMMDD-XXXXXX
+  status          CardPaymentStatus @default(COMPLETED)
+  entryMethod     CardEntryMethod   @default(MANUAL)
+  responseCode    String?           // Processor response code (00 = approved)
+  approvalMessage String?           // Human-readable approval message
+  createdAt       DateTime          @default(now())
+
+  transaction     Transaction       @relation(fields: [transactionId], references: [id])
 }
 
 // ============ LOYALTY TRANSACTIONS ============

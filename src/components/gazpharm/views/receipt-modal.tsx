@@ -62,6 +62,15 @@ interface ReceiptModalProps {
       coPayAmount: number
       status: string
     } | null
+    cardPayment?: {
+      cardLast4: string
+      cardBrand: string
+      cardBrandLabel: string
+      authCode: string
+      refNumber: string
+      status: string
+      approvalMessage: string
+    } | null
   }
   onClose: () => void
 }
@@ -211,6 +220,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   <div class="info-row"><span class="info-label">Claim #:</span><span>${transaction.insuranceClaim.claimNo}</span></div>
   <div class="info-row"><span class="info-label">Co-pay:</span><span>${formatCurrency(transaction.insuranceClaim.coPayAmount || 0)}</span></div>
   <div class="info-row"><span class="info-label">Ins. Covers:</span><span>${formatCurrency((transaction.insuranceClaim.totalAmount || 0) - (transaction.insuranceClaim.coPayAmount || 0))}</span></div>
+  ` : ''}
+  ${transaction.cardPayment ? `
+  <div class="info-row"><span class="info-label">Card:</span><span>${transaction.cardPayment.cardBrandLabel} **** ${transaction.cardPayment.cardLast4}</span></div>
+  <div class="info-row"><span class="info-label">Auth Code:</span><span>${transaction.cardPayment.authCode}</span></div>
+  <div class="info-row"><span class="info-label">Reference:</span><span>${transaction.cardPayment.refNumber}</span></div>
   ` : ''}
 
   <hr class="divider" />
@@ -380,6 +394,22 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Ins. Covers:</span>
                     <span className="font-medium text-sky-600">{formatCurrency((transaction.insuranceClaim.totalAmount || 0) - (transaction.insuranceClaim.coPayAmount || 0))}</span>
+                  </div>
+                </>
+              )}
+              {transaction.cardPayment && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Card:</span>
+                    <span className="font-medium">{transaction.cardPayment.cardBrandLabel} **** {transaction.cardPayment.cardLast4}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Auth Code:</span>
+                    <span className="font-mono text-xs">{transaction.cardPayment.authCode}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Reference:</span>
+                    <span className="font-mono text-[10px]">{transaction.cardPayment.refNumber}</span>
                   </div>
                 </>
               )}

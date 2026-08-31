@@ -1268,6 +1268,30 @@ export function SalesHistoryView() {
                 </div>
               )}
 
+              {(detailTxn.paymentMethod === 'CREDIT_CARD' || detailTxn.paymentMethod === 'DEBIT_CARD') && (detailTxn as any).cardPayment && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-3 space-y-2">
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold uppercase">Card Payment</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Card</p>
+                      <p className="font-medium">{(detailTxn as any).cardPayment.cardBrandLabel} **** {(detailTxn as any).cardPayment.cardLast4}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Status</p>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Approved</Badge>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Auth Code</p>
+                      <p className="font-mono font-medium">{(detailTxn as any).cardPayment.authCode}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Reference</p>
+                      <p className="font-mono text-[11px]">{(detailTxn as any).cardPayment.refNumber}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {detailTxn.notes && (
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase">Notes</p>

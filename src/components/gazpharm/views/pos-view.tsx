@@ -26,6 +26,7 @@ import {
   StickyNote,
   Percent,
   Printer,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,6 +55,7 @@ import { ReceiptModal } from './receipt-modal'
 import { NewReturnDialog } from './new-return-dialog'
 import { PinApprovalDialog, type ApprovalAction } from '@/components/gazpharm/shared/pin-approval-dialog'
 import { generateAndPrintLabel } from '@/components/gazpharm/shared/barcode-label-printer'
+import { CardPaymentModal, type CardPaymentResult } from './card-payment-modal'
 
 interface Product {
   id: string
@@ -137,6 +139,11 @@ export function POSView() {
 
   // Insurance co-pay state
   const [insuranceCoPay, setInsuranceCoPay] = useState('0')
+
+  // Card payment state
+  const [showCardModal, setShowCardModal] = useState(false)
+  const [cardPaymentData, setCardPaymentData] = useState<CardPaymentResult | null>(null)
+  const [pendingCardTransactionId, setPendingCardTransactionId] = useState<string | null>(null)
 
   // PIN approval state
   const [pinDialog, setPinDialog] = useState<{ open: boolean; action: ApprovalAction; entityType: string; entityId?: string; title?: string; description?: string; onApproved: () => void }>({ open: false, action: 'VOID_TRANSACTION', entityType: '', onApproved: () => {} })
@@ -687,6 +694,177 @@ export function POSView() {
       return
     }
 
+    // For card payments, create transaction first then show card modal
+    if (paymentMethod === 'CREDIT_CARD' || paymentMethod === 'DEBIT_CARD') {
+      setIsProcessingPayment(true)
+      try {
+        const payload = {
+          customerId: selectedCustomer?.id || null,
+          items: cart.map((item: CartItem) => ({
+            productId: item.product.id,
+            productName: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.product.sellingPrice,
+            subtotal: item.product.sellingPrice * item.quantity,
+            requiresRx: item.product.requiresPrescription,
+            sellingUnit: item.product.sellingUnit || 'EA',
+            itemsPerUnit: item.product.itemsPerUnit,
+            barcode: (item.product as any).barcode || null,
+          })),
+          paymentMethod,
+          subtotal,
+          tax,
+          discount: 0,
+          total,
+          paymentAmount: total,
+        }
+
+        const res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { ...authHeaders() },
+          body: JSON.stringify(payload),
+        })
+
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Transaction failed'))
+        }
+
+        const transaction = await res.json()
+
+        // Show card payment modal
+        setPendingCardTransactionId(transaction.id)
+        setCardPaymentData(null)
+        setShowCardModal(true)
+        setIsProcessingPayment(false)
+        return // Will continue in handleCardPaymentComplete
+      } catch (err) {
+        addToast({
+          title: 'Payment Failed',
+          description: err instanceof Error ? err.message : 'Unknown error',
+          variant: 'destructive',
+          duration: 5000,
+        })
+        setIsProcessingPayment(false)
+        return
+      }
+    }
+
+    // Non-card payment flow (CASH, CREDIT, INSURANCE)
+    await processNonCardPayment()
+  }
+
+  /** Handle the completion of card payment modal */
+  const handleCardPaymentComplete = async (result: CardPaymentResult | undefined) => {
+    setShowCardModal(false)
+    const txnId = pendingCardTransactionId
+
+    if (!result || !txnId) {
+      // Card was declined or cancelled — void the transaction
+      if (txnId) {
+        try {
+          await fetch(`/api/transactions/${txnId}`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'void' }),
+          })
+          addToast({
+            title: 'Card Payment Cancelled',
+            description: 'Transaction has been voided',
+            variant: 'destructive',
+            duration: 3000,
+          })
+        } catch {
+          addToast({
+            title: 'Warning',
+            description: 'Card payment was cancelled but the transaction may need manual voiding',
+            variant: 'destructive',
+            duration: 5000,
+          })
+        }
+      }
+      setPendingCardTransactionId(null)
+      setCardPaymentData(null)
+      return
+    }
+
+    // Card payment successful — attach card data and finish
+    setIsProcessingPayment(true)
+    try {
+      // Fetch the transaction with items to build receipt
+      const txnRes = await fetch(`/api/transactions/${txnId}`, {
+        headers: { ...authHeaders() },
+      })
+      const transaction = txnRes.ok ? await txnRes.json() : null
+
+      // Auto-earn loyalty points
+      let ptsEarned = 0
+      if (selectedCustomer?.id && total > 0) {
+        ptsEarned = Math.round(total)
+        fetch('/api/loyalty', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: selectedCustomer.id,
+            points: ptsEarned,
+            action: 'EARNED',
+            description: `Purchase ${transaction?.transactionNo || txnId} (${ptsEarned} pts)`,
+            transactionId: txnId,
+          }),
+        }).catch(() => {})
+      }
+
+      // Attach card payment data to transaction for receipt
+      if (transaction) {
+        (transaction as any).cardPayment = {
+          cardLast4: result.cardLast4,
+          cardBrand: result.cardBrand,
+          cardBrandLabel: result.cardBrandLabel,
+          authCode: result.authCode,
+          refNumber: result.refNumber,
+          status: result.status,
+          approvalMessage: result.approvalMessage,
+        }
+      }
+
+      clearCart()
+      setSearchQuery('')
+      setProducts([])
+      setActiveCategory('')
+      setCustomerSearch('')
+      setCustomerOptions([])
+      setInteractionWarnings([])
+      setAmountTendered('')
+      addToast({
+        title: 'Card Payment Successful',
+        description: `${result.cardBrandLabel} ending ${result.cardLast4} • ${transaction?.transactionNo || 'Transaction completed'}${ptsEarned > 0 ? ` • +${ptsEarned} pts` : ''}`,
+        variant: 'success',
+        duration: 3000,
+      })
+
+      if (showReceiptModal && transaction) {
+        setReceiptTxn(transaction)
+      }
+      if (autoPrintReceipt) {
+        fetch('/api/hardware?action=receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transactionId: txnId,
+            hardwareType: 'receipt_printer',
+            details: { transactionNo: transaction?.transactionNo, total },
+          }),
+        }).catch(() => {})
+      }
+    } finally {
+      setIsProcessingPayment(false)
+      setPendingCardTransactionId(null)
+      setCardPaymentData(null)
+    }
+  }
+
+  /** Process non-card payments (CASH, CREDIT, INSURANCE) */
+  const processNonCardPayment = async () => {
     setIsProcessingPayment(true)
     try {
       const payload = {
@@ -1769,6 +1947,37 @@ export function POSView() {
                 </>
               )}
 
+              {/* Card Payment Info — shown when CREDIT_CARD or DEBIT_CARD is selected */}
+              {(paymentMethod === 'CREDIT_CARD' || paymentMethod === 'DEBIT_CARD') && total > 0 && (
+                <>
+                  <Separator />
+                  <div className="p-3 space-y-2">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                          {paymentMethod === 'CREDIT_CARD' ? 'Credit Card' : 'Debit Card'} Payment
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Amount</span>
+                        <span className="font-bold text-sm text-blue-700 dark:text-blue-400">{formatCurrency(total)}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Click &quot;Process Payment&quot; to enter card details. Card is validated via secure processing.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-1.5 px-1">
+                      <Lock className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                      <p className="text-[10px] text-muted-foreground">
+                        PCI-DSS compliant. Card number is validated and never stored.
+                        Only last 4 digits appear on your receipt.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <Separator />
 
               {/* Action Buttons */}
@@ -1860,6 +2069,16 @@ export function POSView() {
           onClose={() => setReceiptTxn(null)}
         />
       )}
+
+      {/* Card Payment Modal */}
+      <CardPaymentModal
+        open={showCardModal}
+        amount={total}
+        paymentMethod={paymentMethod === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'DEBIT_CARD'}
+        transactionId={pendingCardTransactionId}
+        onClose={handleCardPaymentComplete}
+        authHeaders={authHeaders}
+      />
 
       {/* Goods Return Dialog */}
       <NewReturnDialog
