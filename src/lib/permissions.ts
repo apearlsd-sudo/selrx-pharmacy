@@ -406,6 +406,38 @@ export const ROLE_METADATA: Record<string, { label: string; tier: PrivilegeTier;
   SECURITY_OFFICER:     { label: 'Security Officer',  tier: 'LEVEL_2', color: 'bg-red-100 text-red-700 border-red-200',               description: 'Security: audit logs, user activity monitoring' },
 }
 
+// ── Permission Helpers ──
+
+/** Parse a JSON-encoded permission string or comma-separated string into an array */
+export function parsePermissions(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((p: unknown) => typeof p === 'string') : []
+  } catch {
+    // Fallback: treat as comma-separated
+    return raw.split(',').map((s) => s.trim()).filter(Boolean)
+  }
+}
+
+/** Sanitize a permissions array: keep only valid keys */
+export function sanitizePermissions(perms: unknown[]): string[] {
+  const validSet = new Set<string>(ALL_PERMISSION_KEYS)
+  return Array.isArray(perms)
+    ? perms.filter((p): p is string => typeof p === 'string' && validSet.has(p))
+    : []
+}
+
+/** DEFAULT_ROLES alias for backward compat — maps ROLE_METADATA into array form */
+export const DEFAULT_ROLES = Object.entries(ROLE_METADATA).map(([name, meta]) => ({
+  name,
+  displayName: meta.label,
+  description: meta.description,
+  color: meta.color,
+  isSystem: true,
+  isDefault: name === 'CLERK',
+}))
+
 // ── Department Options ──
 export const DEPARTMENTS = [
   'Administration',

@@ -356,7 +356,9 @@ export async function GET(request: NextRequest) {
           ? { id: r.c_id, firstName: r.c_firstName, lastName: r.c_lastName }
           : null,
         items: pItemsMap[r.id as string] || [],
-        insuranceClaim: claimsMap[r.id as string] || null,        cardPayment: cardPaymentsMap[r.id as string] || null,        mobileMoneyPayment: momoPaymentsMap[r.id as string] || null,
+        insuranceClaim: claimsMap[r.id as string] || null,
+        cardPayment: cardPaymentsMap[r.id as string] || null,
+        mobileMoneyPayment: momoPaymentsMap[r.id as string] || null,
       }))
 
       // ---- 5. Top seller = first user by total sales ----

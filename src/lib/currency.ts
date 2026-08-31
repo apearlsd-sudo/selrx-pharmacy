@@ -149,6 +149,11 @@ export function currencySymbol(): string {
   return CURRENCIES[code].symbol
 }
 
+/** Type guard: check if a value is a valid CurrencyCode */
+export function isCurrencyCode(value: unknown): value is CurrencyCode {
+  return typeof value === 'string' && value in CURRENCIES
+}
+
 /**
  * Get the full CurrencyOption for the active currency.
  */
