@@ -1147,18 +1147,18 @@ export function ReportsView() {
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <TabsList className="flex-nowrap overflow-x-auto max-xl:h-7 p-0 rounded-none gap-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales" className={tabTriggerCls}>Sales</TabsTrigger>
-            <TabsTrigger value="user-sales" className={tabTriggerCls}>Users</TabsTrigger>
+            <TabsTrigger value="sales" className={tabTriggerCls}>Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className={tabTriggerCls}><span className="xl:hidden">Users</span><span className="hidden xl:inline">User Sales</span></TabsTrigger>
             <TabsTrigger value="inventory" className={tabTriggerCls}>Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions" className={tabTriggerCls}>Rx</TabsTrigger>
-            <TabsTrigger value="stocktake" className={tabTriggerCls}>Stocktake</TabsTrigger>
-            <TabsTrigger value="expired-goods" className={tabTriggerCls}>Expired</TabsTrigger>
-            <TabsTrigger value="product-activity" className={tabTriggerCls}>Activity</TabsTrigger>
-            <TabsTrigger value="shifts" className={tabTriggerCls}>Shifts</TabsTrigger>
-            <TabsTrigger value="staff-targets" className={tabTriggerCls}>Targets</TabsTrigger>
-            <TabsTrigger value="insurance-claims" className={tabTriggerCls}>Insurance</TabsTrigger>
-            <TabsTrigger value="financial" className={tabTriggerCls}>P&L</TabsTrigger>
-            <TabsTrigger value="controlled-substances" className={tabTriggerCls}>C.Substances</TabsTrigger>
+            <TabsTrigger value="prescriptions" className={tabTriggerCls}><span className="xl:hidden">Rx</span><span className="hidden xl:inline">Prescriptions</span></TabsTrigger>
+            <TabsTrigger value="stocktake" className={tabTriggerCls}><span className="xl:hidden">Stocktake</span><span className="hidden xl:inline">Stock Take</span></TabsTrigger>
+            <TabsTrigger value="expired-goods" className={tabTriggerCls}><span className="xl:hidden">Expired</span><span className="hidden xl:inline">Expired Goods</span></TabsTrigger>
+            <TabsTrigger value="product-activity" className={tabTriggerCls}><span className="xl:hidden">Activity</span><span className="hidden xl:inline">Product Activity</span></TabsTrigger>
+            <TabsTrigger value="shifts" className={tabTriggerCls}><span className="xl:hidden">Shifts</span><span className="hidden xl:inline">Shift Reports</span></TabsTrigger>
+            <TabsTrigger value="staff-targets" className={tabTriggerCls}><span className="xl:hidden">Targets</span><span className="hidden xl:inline">Staff Targets</span></TabsTrigger>
+            <TabsTrigger value="insurance-claims" className={tabTriggerCls}><span className="xl:hidden">Insurance</span><span className="hidden xl:inline">Insurance Claims</span></TabsTrigger>
+            <TabsTrigger value="financial" className={tabTriggerCls}><span className="xl:hidden">P&L</span><span className="hidden xl:inline">Financial P&L</span></TabsTrigger>
+            <TabsTrigger value="controlled-substances" className={tabTriggerCls}><span className="xl:hidden">C.Substances</span><span className="hidden xl:inline">Controlled Substances</span></TabsTrigger>
           </TabsList>
 
           {/* Sales Summary Tab */}
