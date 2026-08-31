@@ -312,53 +312,35 @@ export async function POST(req: NextRequest) {
         ],
       })
 
-      // Fetch the created return with JOINs for the response
-      const createdResult = await turso.execute({
-        sql: `SELECT r."id", r."returnNo", r."transactionId", r."transactionItemId",
-                    r."productId", r."productName", r."quantity", r."unitPrice",
-                    r."refundAmount", r."reason", r."reasonNote", r."customerId",
-                    r."customerName", r."userId", r."status", r."approvedById",
-                    r."approvedAt", r."refundMethod", r."refundProcessed", r."restocked",
-                    r."notes", r."createdAt", r."updatedAt",
-                    u."id" AS "userId_val", u."name" AS "userName", u."role" AS "userRole",
-                    t."transactionNo",
-                    p."id" AS "prodId", p."name" AS "prodName"
-             FROM "Return" r
-             LEFT JOIN "User" u ON u."id" = r."userId"
-             LEFT JOIN "Transaction" t ON t."id" = r."transactionId"
-             LEFT JOIN "Product" p ON p."id" = r."productId"
-             WHERE r."id" = ?`,
-        args: [id],
-      })
-
-      const row = toObjs(createdResult)[0]
+      // Build return record from inserted data (avoid post-INSERT SELECT which
+      // can silently return 0 rows due to Turso client quirks)
       const returnRecord = {
-        id: row.id,
-        returnNo: row.returnNo,
-        transactionId: row.transactionId,
-        transactionItemId: row.transactionItemId,
-        productId: row.productId,
-        productName: row.productName,
-        quantity: Number(row.quantity),
-        unitPrice: Number(row.unitPrice),
-        refundAmount: Number(row.refundAmount),
-        reason: row.reason,
-        reasonNote: row.reasonNote,
-        customerId: row.customerId,
-        customerName: row.customerName,
-        userId: row.userId,
-        status: row.status,
-        approvedById: row.approvedById,
-        approvedAt: row.approvedAt,
-        refundMethod: row.refundMethod,
-        refundProcessed: bool(row.refundProcessed),
-        restocked: bool(row.restocked),
-        notes: row.notes,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        user: row.userId_val ? { id: row.userId_val, name: row.userName, role: row.userRole } : null,
-        transaction: row.transactionNo ? { transactionNo: row.transactionNo } : null,
-        product: row.prodId ? { id: row.prodId, name: row.prodName } : null,
+        id,
+        returnNo,
+        transactionId,
+        transactionItemId,
+        productId,
+        productName,
+        quantity: qty,
+        unitPrice: price,
+        refundAmount: calcRefund,
+        reason,
+        reasonNote: reasonNote || null,
+        customerId: customerId || null,
+        customerName: customerName || null,
+        userId,
+        status: 'PENDING_APPROVAL',
+        approvedById: null,
+        approvedAt: null,
+        refundMethod: refundMethod || 'CASH',
+        refundProcessed: false,
+        restocked: false,
+        notes: null,
+        createdAt: now,
+        updatedAt: now,
+        user: null,
+        transaction: null,
+        product: null,
       }
 
       const { userId: auditUserId, ipAddress, userAgent } = getRequestContext(req)
