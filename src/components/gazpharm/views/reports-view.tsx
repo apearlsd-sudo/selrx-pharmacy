@@ -1138,7 +1138,7 @@ export function ReportsView() {
     return undefined
   })()
 
-  const tabTriggerCls = 'rounded-none text-[11px] px-2.5 py-1 hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full'
+  const tabTriggerCls = 'rounded-none !text-[10px] !px-2 !py-0.5 hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full'
 
   return (
     <div className="space-y-2 animate-fade-in">
@@ -1146,24 +1146,22 @@ export function ReportsView() {
 
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
-        <div>
-          <TabsList className="flex-wrap p-0 rounded-none gap-0 text-[11px]" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales" className={tabTriggerCls}>Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales" className={tabTriggerCls}>User Sales</TabsTrigger>
+        <TabsList className="flex-nowrap overflow-x-auto !h-7 p-0 rounded-none gap-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#a1d99b' }}>
+            <TabsTrigger value="sales" className={tabTriggerCls}>Sales</TabsTrigger>
+            <TabsTrigger value="user-sales" className={tabTriggerCls}>Users</TabsTrigger>
             <TabsTrigger value="inventory" className={tabTriggerCls}>Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions" className={tabTriggerCls}>Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake" className={tabTriggerCls}>Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods" className={tabTriggerCls}>Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity" className={tabTriggerCls}>Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts" className={tabTriggerCls}>Shift Reports</TabsTrigger>
-            <TabsTrigger value="staff-targets" className={tabTriggerCls}>Staff Targets</TabsTrigger>
-            <TabsTrigger value="insurance-claims" className={tabTriggerCls}>Insurance Claims</TabsTrigger>
-            <TabsTrigger value="financial" className={tabTriggerCls}>Financial P&L</TabsTrigger>
-            <TabsTrigger value="controlled-substances" className={tabTriggerCls}>Controlled Substances</TabsTrigger>
+            <TabsTrigger value="prescriptions" className={tabTriggerCls}>Rx</TabsTrigger>
+            <TabsTrigger value="stocktake" className={tabTriggerCls}>Stocktake</TabsTrigger>
+            <TabsTrigger value="expired-goods" className={tabTriggerCls}>Expired</TabsTrigger>
+            <TabsTrigger value="product-activity" className={tabTriggerCls}>Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className={tabTriggerCls}>Shifts</TabsTrigger>
+            <TabsTrigger value="staff-targets" className={tabTriggerCls}>Targets</TabsTrigger>
+            <TabsTrigger value="insurance-claims" className={tabTriggerCls}>Insurance</TabsTrigger>
+            <TabsTrigger value="financial" className={tabTriggerCls}>P&L</TabsTrigger>
+            <TabsTrigger value="controlled-substances" className={tabTriggerCls}>C.Substances</TabsTrigger>
           </TabsList>
-        </div>
 
-        {/* Sales Summary Tab */}
+          {/* Sales Summary Tab */}
         <TabsContent value="sales" className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
             <Card className="card-hover transition-all duration-200">
