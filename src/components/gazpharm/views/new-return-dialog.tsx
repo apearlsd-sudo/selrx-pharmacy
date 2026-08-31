@@ -180,6 +180,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
 
   const doSubmitReturn = async () => {
     if (!selectedItem || !returnReason || !user || !foundTx) return
+    const itemPrice = Number(selectedItem.unitPrice)
     setSubmitting(true)
     try {
       const customerName = foundTx.customer
@@ -216,7 +217,7 @@ export function NewReturnDialog({ open, onOpenChange, onReturnCreated }: NewRetu
         onOpenChange(false)
         onReturnCreated?.()
       } else {
-        addToast({ title: 'Failed to create return', description: data.error || 'Unknown error', variant: 'destructive' })
+        addToast({ title: 'Failed to create return', description: data.detail || data.error || 'Unknown error', variant: 'destructive' })
       }
     } catch (err) {
       console.error('Failed to create return:', err)
