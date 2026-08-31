@@ -1077,13 +1077,61 @@ export function ReportsView() {
     addToast({ title: 'Exported', description: 'User sales report exported as CSV', variant: 'success' })
   }, [userSalesData, addToast])
 
+  const dateFilter = (() => {
+    const cls = 'h-7 w-[130px] text-xs'
+    if (['sales', 'user-sales', 'prescriptions'].includes(activeTab)) {
+      return (
+        <div className="flex items-center gap-2">
+          <Label className="text-[11px] text-muted-foreground">From:</Label>
+          <DateInput value={dateFrom} onChange={(iso) => setDateFrom(iso)} className={cls} />
+          <Label className="text-[11px] text-muted-foreground">To:</Label>
+          <DateInput value={dateTo} onChange={(iso) => setDateTo(iso)} className={cls} />
+        </div>
+      )
+    }
+    if (activeTab === 'shifts') {
+      return (
+        <div className="flex items-center gap-2">
+          <Label className="text-[11px] text-muted-foreground">From:</Label>
+          <DateInput value={shiftFilterFrom} onChange={(iso) => setShiftFilterFrom(iso)} className={cls} />
+          <Label className="text-[11px] text-muted-foreground">To:</Label>
+          <DateInput value={shiftFilterTo} onChange={(iso) => setShiftFilterTo(iso)} className={cls} />
+        </div>
+      )
+    }
+    if (activeTab === 'staff-targets') {
+      return (
+        <div className="flex items-center gap-2">
+          <Label className="text-[11px] text-muted-foreground">From:</Label>
+          <DateInput value={targetDateFrom} onChange={(iso) => setTargetDateFrom(iso)} className={cls} />
+          <Label className="text-[11px] text-muted-foreground">To:</Label>
+          <DateInput value={targetDateTo} onChange={(iso) => setTargetDateTo(iso)} className={cls} />
+        </div>
+      )
+    }
+    if (activeTab === 'financial') {
+      return (
+        <div className="flex items-center gap-2">
+          <Label className="text-[11px] text-muted-foreground">From:</Label>
+          <DateInput value={finDateFrom} onChange={(iso) => setFinDateFrom(iso)} className={cls} />
+          <Label className="text-[11px] text-muted-foreground">To:</Label>
+          <DateInput value={finDateTo} onChange={(iso) => setFinDateTo(iso)} className={cls} />
+          <Button size="sm" variant="outline" className="h-7 px-2" onClick={fetchFinancialReport} disabled={finLoading}>
+            {finLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          </Button>
+        </div>
+      )
+    }
+    return undefined
+  })()
+
   return (
     <div className="space-y-3 animate-fade-in">
-      <PageHeader icon={BarChart3} title="Reports" description="Sales analytics, shift reports, and product activity" />
+      <PageHeader icon={BarChart3} title="Reports" description="Sales analytics, shift reports, and product activity" action={dateFilter} />
 
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div>
           <TabsList className="flex-wrap p-0 rounded-none gap-0" style={{ backgroundColor: '#a1d99b' }}>
             <TabsTrigger value="sales" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Sales Summary</TabsTrigger>
             <TabsTrigger value="user-sales" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">User Sales</TabsTrigger>
@@ -1098,14 +1146,6 @@ export function ReportsView() {
             <TabsTrigger value="financial" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Financial P&L</TabsTrigger>
             <TabsTrigger value="controlled-substances" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Controlled Substances</TabsTrigger>
           </TabsList>
-          <div className={['sales', 'user-sales', 'prescriptions'].includes(activeTab) ? 'flex items-center gap-2 flex-wrap' : 'hidden'}>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">From:</Label>
-              <DateInput value={dateFrom} onChange={(iso) => setDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
-              <Label className="text-xs">To:</Label>
-              <DateInput value={dateTo} onChange={(iso) => setDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80 focus:bg-white dark:bg-gray-900 dark:focus:bg-gray-900" />
-            </div>
-          </div>
         </div>
 
         {/* Sales Summary Tab */}
@@ -2288,39 +2328,28 @@ export function ReportsView() {
 
         {/* ── Shift Reports Tab ── */}
         <TabsContent value="shifts" className="space-y-4 relative block w-full">
-          {/* Shift-specific filters */}
-          <div className="flex flex-wrap items-end gap-3 border rounded-lg p-3 bg-muted/30">
-            <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Filter className="h-3.5 w-3.5" />
-              Shift Filters
-            </div>
-            <div className="flex-1 min-w-[130px]">
-              <Label className="text-[11px]">From</Label>
-              <DateInput value={shiftFilterFrom} onChange={(iso) => setShiftFilterFrom(iso)} className="h-8 text-xs" />
-            </div>
-            <div className="flex-1 min-w-[130px]">
-              <Label className="text-[11px]">To</Label>
-              <DateInput value={shiftFilterTo} onChange={(iso) => setShiftFilterTo(iso)} className="h-8 text-xs" />
-            </div>
-            {isSuperAdmin && shiftReport?.users && (
-              <div className="flex-1 min-w-[150px]">
-                <Label className="text-[11px]">User</Label>
-                <select
-                  value={shiftFilterUser}
-                  onChange={(e) => setShiftFilterUser(e.target.value)}
-                  className="w-full h-8 text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
-                >
-                  <option value="">All Users</option>
-                  {shiftReport.users.map((u: { id: string; name: string }) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+          {/* Shift-specific user filter */}
+          {isSuperAdmin && shiftReport?.users && (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <Filter className="h-3.5 w-3.5" />
+                Filter by User
               </div>
-            )}
-            <Button size="sm" variant="outline" onClick={fetchShiftReport} disabled={shiftLoading} className="h-8">
-              {shiftLoading ? 'Loading...' : 'Apply'}
-            </Button>
-          </div>
+              <select
+                value={shiftFilterUser}
+                onChange={(e) => setShiftFilterUser(e.target.value)}
+                className="h-8 text-xs border rounded-md px-2 bg-white dark:bg-gray-900"
+              >
+                <option value="">All Users</option>
+                {shiftReport.users.map((u: { id: string; name: string }) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+              <Button size="sm" variant="outline" onClick={fetchShiftReport} disabled={shiftLoading} className="h-8">
+                {shiftLoading ? 'Loading...' : 'Apply'}
+              </Button>
+            </div>
+          )}
 
           {shiftLoading && !shiftReport && (
             <div className="flex items-center justify-center py-12">
@@ -3181,10 +3210,6 @@ export function ReportsView() {
                   Staff Performance Targets
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs">From:</Label>
-                  <DateInput value={targetDateFrom} onChange={(iso) => setTargetDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
-                  <Label className="text-xs">To:</Label>
-                  <DateInput value={targetDateTo} onChange={(iso) => setTargetDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
                   {isSuperAdmin && (
                     <Button size="sm" onClick={() => setShowTargetDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
                       <Plus className="h-3.5 w-3.5 mr-1" />
@@ -3353,26 +3378,6 @@ export function ReportsView() {
 
         {/* Financial P&L Tab */}
         <TabsContent value="financial" className="space-y-4">
-        {/* Date range filter */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Label className="text-xs">From:</Label>
-              <DateInput value={finDateFrom} onChange={(iso) => setFinDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
-              <Label className="text-xs">To:</Label>
-              <DateInput value={finDateTo} onChange={(iso) => setFinDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50/50 border-gray-200 dark:border-gray-700/80" />
-              <Button size="sm" variant="outline" onClick={fetchFinancialReport} disabled={finLoading}>
-                {finLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              </Button>
-              {finData && (
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {finData.dateFrom} to {finData.dateTo}
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {finLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : finData ? (
