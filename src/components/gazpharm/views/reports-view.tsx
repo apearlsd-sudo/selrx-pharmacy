@@ -1109,6 +1109,19 @@ export function ReportsView() {
         </div>
       )
     }
+    if (activeTab === 'controlled-substances') {
+      return (
+        <div className="flex items-center gap-2">
+          <Label className="text-[11px] text-muted-foreground">From:</Label>
+          <DateInput value={csDateFrom} onChange={(iso) => setCsDateFrom(iso)} className={cls} />
+          <Label className="text-[11px] text-muted-foreground">To:</Label>
+          <DateInput value={csDateTo} onChange={(iso) => setCsDateTo(iso)} className={cls} />
+          <Button size="sm" variant="outline" className="h-7 px-2" onClick={fetchCsData}>
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </div>
+      )
+    }
     if (activeTab === 'financial') {
       return (
         <div className="flex items-center gap-2">
@@ -3527,19 +3540,6 @@ export function ReportsView() {
 
         {/* Controlled Substances Tab */}
         <TabsContent value="controlled-substances" className="space-y-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Label className="text-xs">From:</Label>
-              <DateInput value={csDateFrom} onChange={(iso) => setCsDateFrom(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/80" />
-              <Label className="text-xs">To:</Label>
-              <DateInput value={csDateTo} onChange={(iso) => setCsDateTo(iso)} className="h-8 w-36 text-xs bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/80" />
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={fetchCsData}>
-                <RefreshCw className="h-3 w-3 mr-1" /> Refresh
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Current Inventory */}
         <Card>
