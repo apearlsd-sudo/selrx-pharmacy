@@ -43,6 +43,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { NewReturnDialog } from './new-return-dialog'
+import { PinApprovalDialog } from '@/components/gazpharm/shared/pin-approval-dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -182,6 +183,14 @@ export function GoodsReturnView() {
   // State for active tab
   const [activeTab, setActiveTab] = useState('all')
 
+  // PIN dialog state for approve/reject/complete
+  const [pinDialog, setPinDialog] = useState<{
+    open: boolean
+    action: string
+    returnId: string
+    pendingAction: string
+  }>({ open: false, action: '', returnId: '', pendingAction: '' })
+
   // Fetch returns list
   const fetchReturns = useCallback(async () => {
     setLoading(true)
@@ -226,7 +235,33 @@ export function GoodsReturnView() {
 
 
 
-  // Action on return (approve, reject, complete, cancel)
+  // Request PIN before performing approve/reject/complete (cancel does not need PIN)
+  const requestPinAndPerform = (returnId: string, action: string) => {
+    if (!user) return
+    if (action === 'cancel') {
+      // Cancel does not require PIN
+      performAction(returnId, action)
+      return
+    }
+    const actionLabels: Record<string, string> = {
+      complete: 'Approve & Restock',
+      reject: 'Reject',
+    }
+    setPinDialog({
+      open: true,
+      action: 'REFUND_APPROVAL',
+      returnId,
+      pendingAction: action,
+    })
+  }
+
+  const actionLabels: Record<string, string> = {
+    complete: 'approved & restocked',
+    reject: 'rejected',
+    cancel: 'cancelled',
+  }
+
+  // Actual action execution (called after PIN approval or directly for cancel)
   const performAction = async (returnId: string, action: string) => {
     if (!user) return
     setActionLoading(true)
@@ -267,7 +302,14 @@ export function GoodsReturnView() {
     }
   }
 
-  // Pie chart data for reasons
+  // Pass pin-protected actions to the table
+  const handleTableAction = (id: string, action: string) => {
+    if (action === 'cancel') {
+      performAction(id, 'cancel')
+    } else {
+      requestPinAndPerform(id, action)
+    }
+  }
   const reasonChartData = summary.topReasons.map((r) => ({
     name: reasonLabel(r.reason),
     value: r._count.reason,
@@ -420,7 +462,7 @@ export function GoodsReturnView() {
             totalPages={totalPages}
             onPageChange={setPage}
             onViewDetail={(r) => { setDetailReturn(r); setDetailOpen(true) }}
-            onAction={performAction}
+            onAction={handleTableAction}
             actionLoading={actionLoading}
             userRole={user?.role || ''}
             userId={user?.id || ''}
@@ -435,7 +477,7 @@ export function GoodsReturnView() {
             totalPages={1}
             onPageChange={() => {}}
             onViewDetail={(r) => { setDetailReturn(r); setDetailOpen(true) }}
-            onAction={performAction}
+            onAction={handleTableAction}
             actionLoading={actionLoading}
             userRole={user?.role || ''}
             userId={user?.id || ''}
@@ -636,7 +678,7 @@ export function GoodsReturnView() {
                             <Button
                               size="sm"
                               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => performAction(detailReturn.id, 'complete')}
+                              onClick={() => requestPinAndPerform(detailReturn.id, 'complete')}
                               disabled={actionLoading}
                             >
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve & Restock
@@ -644,7 +686,7 @@ export function GoodsReturnView() {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => performAction(detailReturn.id, 'reject')}
+                              onClick={() => requestPinAndPerform(detailReturn.id, 'reject')}
                               disabled={actionLoading}
                             >
                               <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
@@ -666,7 +708,7 @@ export function GoodsReturnView() {
                         <Button
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => performAction(detailReturn.id, 'complete')}
+                          onClick={() => requestPinAndPerform(detailReturn.id, 'complete')}
                           disabled={actionLoading}
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Complete
@@ -688,6 +730,21 @@ export function GoodsReturnView() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* PIN Approval Dialog for approve/reject/complete */}
+      <PinApprovalDialog
+        open={pinDialog.open}
+        onClose={() => setPinDialog((p) => ({ ...p, open: false }))}
+        onApproved={() => {
+          performAction(pinDialog.returnId, pinDialog.pendingAction)
+          setPinDialog({ open: false, action: '', returnId: '', pendingAction: '' })
+        }}
+        action="REFUND_APPROVAL"
+        entityType='Return'
+        entityId={pinDialog.returnId}
+        title='Return Action Authorization'
+        description='Enter your personal return PIN (if set) or the supervisor password to authorize this return action.'
+      />
     </div>
   )
 }

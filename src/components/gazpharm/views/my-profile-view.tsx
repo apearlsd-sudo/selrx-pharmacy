@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { KeyRound, Loader2, User, Mail, Shield, Calendar, ArrowLeft } from 'lucide-react'
+import { KeyRound, Loader2, User, Mail, Shield, Calendar, ArrowLeft, Fingerprint, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -22,6 +22,15 @@ export function MyProfileView() {
   const [lastLogin, setLastLogin] = useState<string | null>(null)
   const [loginCount, setLoginCount] = useState<number | null>(null)
 
+  // PIN state
+  const [hasPin, setHasPin] = useState<boolean | null>(null)
+  const [pinPassword, setPinPassword] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
+  const [pinErrors, setPinErrors] = useState<Record<string, string>>({})
+  const [clearingPin, setClearingPin] = useState(false)
+
   const fetchLoginInfo = useCallback(async () => {
     if (!user?.id) return
     try {
@@ -34,7 +43,18 @@ export function MyProfileView() {
     } catch { /* ignore */ }
   }, [user?.id])
 
-  useEffect(() => { fetchLoginInfo() }, [fetchLoginInfo])
+  const fetchPinStatus = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const res = await fetch(`/api/users?action=profile`, { headers: { 'Content-Type': 'application/json', 'x-user-id': user.id, 'x-user-role': user.role || '' } })
+      if (res.ok) {
+        const data = await res.json()
+        setHasPin(!!data.hasPin)
+      }
+    } catch { /* ignore */ }
+  }, [user?.id, user?.role])
+
+  useEffect(() => { fetchLoginInfo(); fetchPinStatus() }, [fetchLoginInfo, fetchPinStatus])
 
   const initials = (user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
@@ -72,6 +92,72 @@ export function MyProfileView() {
       addToast({ title: 'Error', description: 'Network error while changing password', variant: 'destructive' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  function validatePin(): boolean {
+    const e: Record<string, string> = {}
+    if (!pinPassword) e.pinPassword = 'Current password is required'
+    if (!newPin) e.newPin = 'PIN is required'
+    else if (!/^[0-9]{4,8}$/.test(newPin)) e.newPin = 'PIN must be 4 to 8 digits'
+    if (!confirmPin) e.confirmPin = 'Please confirm your PIN'
+    else if (newPin !== confirmPin) e.confirmPin = 'PINs do not match'
+    setPinErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  async function handleSetPin() {
+    if (!validatePin()) return
+    setPinSaving(true)
+    try {
+      const res = await fetch('/api/users?action=manage-pin', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pinPassword, newPin }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        addToast({ title: 'PIN Setup Failed', description: data.error || 'Could not set PIN', variant: 'destructive' })
+        return
+      }
+      addToast({ title: 'PIN Set', description: 'Your return approval PIN has been set successfully', variant: 'success' })
+      setHasPin(true)
+      setPinPassword('')
+      setNewPin('')
+      setConfirmPin('')
+      setPinErrors({})
+    } catch {
+      addToast({ title: 'Error', description: 'Network error while setting PIN', variant: 'destructive' })
+    } finally {
+      setPinSaving(false)
+    }
+  }
+
+  async function handleClearPin() {
+    if (!pinPassword) {
+      setPinErrors({ pinPassword: 'Enter your password to clear PIN' })
+      return
+    }
+    setClearingPin(true)
+    try {
+      const res = await fetch('/api/users?action=manage-pin', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pinPassword, clearPin: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        addToast({ title: 'PIN Clear Failed', description: data.error || 'Could not clear PIN', variant: 'destructive' })
+        return
+      }
+      addToast({ title: 'PIN Cleared', description: 'Your return approval PIN has been removed', variant: 'success' })
+      setHasPin(false)
+      setPinPassword('')
+      setPinErrors({})
+    } catch {
+      addToast({ title: 'Error', description: 'Network error while clearing PIN', variant: 'destructive' })
+    } finally {
+      setClearingPin(false)
     }
   }
 
@@ -192,6 +278,101 @@ export function MyProfileView() {
             >
               {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Changing...</> : <><KeyRound className="h-3.5 w-3.5" /> Change Password</>}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Return Approval PIN Card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Fingerprint className="h-4 w-4 text-amber-500" />
+            Return Approval PIN
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Set a personal PIN to authorize goods return processing. If no PIN is set, the supervisor (admin) password will be required.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* PIN status indicator */}
+          <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${hasPin ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+            <Fingerprint className="h-3.5 w-3.5" />
+            <span className="font-medium">{hasPin ? 'PIN is set' : 'No PIN configured'}</span>
+            <span className="ml-auto">{hasPin ? 'You can use your PIN to approve returns' : 'Set a PIN to quickly approve returns without needing admin password'}</span>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Your Password</Label>
+            <Input
+              className="h-9 text-xs"
+              type="password"
+              value={pinPassword}
+              onChange={(e) => { setPinPassword(e.target.value); setPinErrors((prev) => ({ ...prev, pinPassword: '' })) }}
+              placeholder="Enter your current password"
+            />
+            {pinErrors.pinPassword && <p className="text-[11px] text-red-500 mt-1">{pinErrors.pinPassword}</p>}
+          </div>
+
+          {!hasPin && (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">New PIN (4-8 digits)</Label>
+                <Input
+                  className="h-9 text-xs"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={newPin}
+                  onChange={(e) => { setNewPin(e.target.value.replace(/[^0-9]/g, '')); setPinErrors((prev) => ({ ...prev, newPin: '' })) }}
+                  placeholder="e.g. 1234"
+                />
+                {pinErrors.newPin && <p className="text-[11px] text-red-500 mt-1">{pinErrors.newPin}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Confirm PIN</Label>
+                <Input
+                  className="h-9 text-xs"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={confirmPin}
+                  onChange={(e) => { setConfirmPin(e.target.value.replace(/[^0-9]/g, '')); setPinErrors((prev) => ({ ...prev, confirmPin: '' })) }}
+                  placeholder="Re-enter your PIN"
+                />
+                {pinErrors.confirmPin && <p className="text-[11px] text-red-500 mt-1">{pinErrors.confirmPin}</p>}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+                  disabled={pinSaving}
+                  onClick={handleSetPin}
+                >
+                  {pinSaving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Setting...</> : <><Fingerprint className="h-3.5 w-3.5" /> Set PIN</>}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {hasPin && (
+            <div className="flex justify-end pt-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-8 text-xs gap-1.5"
+                disabled={clearingPin}
+                onClick={handleClearPin}
+              >
+                {clearingPin ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5" /> Remove PIN</>}
+              </Button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-blue-50 dark:bg-blue-900/10 rounded-md p-2.5">
+            <Fingerprint className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+            <span>This PIN is used to authorize goods return approvals. Without a PIN, you will need a supervisor's password for return processing.</span>
           </div>
         </CardContent>
       </Card>

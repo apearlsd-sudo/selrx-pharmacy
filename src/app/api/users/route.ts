@@ -18,7 +18,7 @@ async function getUserColumns(): Promise<Set<string>> {
     // Local Prisma path — assume all columns exist
     _cachedColumns = new Set([
       'id','email','password','name','role','phone','licenseNumber',
-      'permissions','department','shift','hireDate','active',
+      'permissions','department','shift','hireDate','pinCode','active',
       'lastLogin','createdAt','updatedAt',
     ])
     return _cachedColumns
@@ -29,6 +29,17 @@ async function getUserColumns(): Promise<Set<string>> {
     console.error('[getUserColumns] PRAGMA table_info("User") returned 0 rows — table may not exist')
   }
   _cachedColumns = detected
+  // Self-heal: add pinCode column if missing
+  if (isTurso() && !detected.has('pincode')) {
+    try {
+      await turso.execute({ sql: `ALTER TABLE "User" ADD COLUMN "pinCode" TEXT`, args: [] })
+      console.log('[getUserColumns] Auto-added pinCode column to User table')
+      detected.add('pincode')
+      _cachedColumns = detected
+    } catch (e) {
+      console.warn('[getUserColumns] Could not add pinCode column:', e)
+    }
+  }
   return _cachedColumns
 }
 
@@ -41,7 +52,7 @@ async function existingCols(want: string[]): Promise<string> {
 // All columns we'd like to SELECT (in order)
 const FULL_COL_LIST = [
   'id','email','name','role','phone','licenseNumber',
-  'permissions','department','shift','hireDate','active',
+  'permissions','department','shift','hireDate','pinCode','active',
   'lastLogin','createdAt','updatedAt',
 ]
 
@@ -140,7 +151,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (isTurso()) {
-        const cols = await existingCols(['id','email','name','role','phone','licenseNumber','permissions','active','lastLogin','createdAt','updatedAt'])
+        const cols = await existingCols(['id','email','name','role','phone','licenseNumber','permissions','pinCode','active','lastLogin','createdAt','updatedAt'])
         const result = await turso.execute({
           sql: `SELECT ${cols} FROM "User" WHERE "id" = ?`,
           args: [userId],
@@ -151,14 +162,16 @@ export async function GET(request: NextRequest) {
             { status: 404 }
           )
         }
-        return NextResponse.json(rowToUser(result.rows[0] as Record<string, unknown>))
+        const profile = rowToUser(result.rows[0] as Record<string, unknown>)
+        profile.hasPin = !!(result.rows[0].pincode as string)
+        return NextResponse.json(profile)
       } else {
         const { db } = await import('@/lib/db')
         const user = await db.user.findUnique({
           where: { id: userId },
           select: {
             id: true, email: true, name: true, role: true, phone: true,
-            licenseNumber: true, permissions: true, active: true,
+            licenseNumber: true, permissions: true, pinCode: true, active: true,
             lastLogin: true, createdAt: true, updatedAt: true,
           },
         })
@@ -168,7 +181,8 @@ export async function GET(request: NextRequest) {
             { status: 404 }
           )
         }
-        return NextResponse.json(user)
+        const profile: Record<string, unknown> = { ...user, hasPin: !!user.pinCode }
+        return NextResponse.json(profile)
       }
     }
 
@@ -524,6 +538,85 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json(user)
       }
+    }
+
+    // PUT /api/users?action=manage-pin - Set or clear own PIN for goods-return approval
+    if (action === 'manage-pin') {
+      const userId = request.headers.get('x-user-id')
+      if (!userId) {
+        return NextResponse.json({ error: 'User ID required' }, { status: 400 })
+      }
+
+      const body = await request.json()
+      const { currentPassword, newPin, clearPin } = body as {
+        currentPassword?: string
+        newPin?: string
+        clearPin?: boolean
+      }
+
+      // To clear PIN, user must verify their password
+      if (clearPin) {
+        if (!currentPassword) {
+          return NextResponse.json({ error: 'Current password is required to clear PIN' }, { status: 400 })
+        }
+
+        if (isTurso()) {
+          const result = await turso.execute({ sql: `SELECT "password" FROM "User" WHERE "id" = ?`, args: [userId] })
+          if (result.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+          const { valid } = await verifyPassword(currentPassword, result.rows[0].password as string)
+          if (!valid) return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })
+          await turso.execute({ sql: `UPDATE "User" SET "pinCode" = NULL, "updatedAt" = ? WHERE "id" = ?`, args: [new Date().toISOString(), userId] })
+        } else {
+          const { db } = await import('@/lib/db')
+          const user = await db.user.findUnique({ where: { id: userId } })
+          if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+          const { valid } = await verifyPassword(currentPassword, user.password)
+          if (!valid) return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })
+          await db.user.update({ where: { id: userId }, data: { pinCode: null } })
+        }
+
+        const { userId: aUid, ipAddress, userAgent } = getRequestContext(request)
+        await writeAuditLog({ userId: aUid, action: 'PIN_CLEARED', category: 'user', entity: 'User', entityId: userId, ipAddress, userAgent }).catch(() => {})
+        return NextResponse.json({ success: true, hasPin: false, message: 'PIN cleared successfully' })
+      }
+
+      // To set/change PIN, user must verify their password
+      if (!newPin) {
+        return NextResponse.json({ error: 'PIN is required' }, { status: 400 })
+      }
+      if (!/^[0-9]{4,8}$/.test(newPin)) {
+        return NextResponse.json({ error: 'PIN must be 4 to 8 digits (numbers only)' }, { status: 400 })
+      }
+      if (!currentPassword) {
+        return NextResponse.json({ error: 'Current password is required to set a PIN' }, { status: 400 })
+      }
+
+      if (isTurso()) {
+        const allCols = await getUserColumns()
+        const result = await turso.execute({ sql: `SELECT "password" FROM "User" WHERE "id" = ?`, args: [userId] })
+        if (result.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        const { valid } = await verifyPassword(currentPassword, result.rows[0].password as string)
+        if (!valid) return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })
+        const hashedPin = await hashPassword(newPin)
+        const now = new Date().toISOString()
+        if (allCols.has('pincode')) {
+          await turso.execute({ sql: `UPDATE "User" SET "pinCode" = ?, "updatedAt" = ? WHERE "id" = ?`, args: [hashedPin, now, userId] })
+        } else {
+          return NextResponse.json({ error: 'PIN column not available in database' }, { status: 500 })
+        }
+      } else {
+        const { db } = await import('@/lib/db')
+        const user = await db.user.findUnique({ where: { id: userId } })
+        if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        const { valid } = await verifyPassword(currentPassword, user.password)
+        if (!valid) return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })
+        const hashedPin = await hashPassword(newPin)
+        await db.user.update({ where: { id: userId }, data: { pinCode: hashedPin } })
+      }
+
+      const { userId: aUid2, ipAddress, userAgent } = getRequestContext(request)
+      await writeAuditLog({ userId: aUid2, action: 'PIN_SET', category: 'user', entity: 'User', entityId: userId, ipAddress, userAgent }).catch(() => {})
+      return NextResponse.json({ success: true, hasPin: true, message: 'PIN set successfully' })
     }
 
     // PUT /api/users/[id] - Update user role/status (admin only)

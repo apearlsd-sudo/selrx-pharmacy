@@ -157,37 +157,78 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many PIN attempts. Please wait a minute.' }, { status: 429 })
     }
 
-    // Find SUPER_ADMIN user(s) to verify PIN against their password hash
-    let adminUser: { id: string; password: string; name: string } | null = null
+    // Resolve who approved: for REFUND_APPROVAL, try the requester's own PIN first
+    let approver: { id: string; password: string; name: string; pinCode?: string | null } | null = null
+    let approvalSource: 'user_pin' | 'admin_password' | null = null
 
-    if (isTurso()) {
-      const result = await turso.execute({
-        sql: `SELECT id, name, password FROM "User" WHERE role = 'SUPER_ADMIN' AND active = 1 LIMIT 1`,
-        args: [],
-      })
-      if (result.rows.length > 0) {
-        adminUser = {
-          id: result.rows[0].id as string,
-          name: result.rows[0].name as string,
-          password: (result.rows[0].password as string) || '',
+    // Step 1: For REFUND_APPROVAL, check if the requester has a user PIN set
+    if (action === 'REFUND_APPROVAL') {
+      if (isTurso()) {
+        const result = await turso.execute({
+          sql: `SELECT id, name, password, pinCode FROM "User" WHERE id = ? AND active = 1`,
+          args: [requesterId],
+        })
+        if (result.rows.length > 0) {
+          const row = result.rows[0]
+          approver = {
+            id: row.id as string,
+            name: row.name as string,
+            password: (row.password as string) || '',
+            pinCode: (row.pinCode as string) || null,
+          }
+        }
+      } else {
+        const { db } = await import('@/lib/db')
+        const user = await db.user.findUnique({ where: { id: requesterId } })
+        if (user && user.active) {
+          approver = { id: user.id, name: user.name, password: user.password || '', pinCode: user.pinCode }
         }
       }
-    } else {
-      const { db } = await import('@/lib/db')
-      const user = await db.user.findFirst({ where: { role: 'SUPER_ADMIN', active: true } })
-      if (user) {
-        adminUser = { id: user.id, name: user.name, password: user.password || '' }
+
+      // If the requester has a PIN set, verify against it
+      if (approver?.pinCode) {
+        const { valid } = await verifyPassword(pin.trim(), approver.pinCode)
+        if (valid) {
+          approvalSource = 'user_pin'
+        }
       }
     }
 
-    if (!adminUser) {
-      return NextResponse.json({ error: 'No SUPER_ADMIN account found. Cannot verify PIN.' }, { status: 403 })
+    // Step 2: If user PIN didn't match (or not a REFUND_APPROVAL), fall back to SUPER_ADMIN password
+    if (!approvalSource) {
+      if (isTurso()) {
+        const result = await turso.execute({
+          sql: `SELECT id, name, password FROM "User" WHERE role = 'SUPER_ADMIN' AND active = 1 LIMIT 1`,
+          args: [],
+        })
+        if (result.rows.length > 0) {
+          approver = {
+            id: result.rows[0].id as string,
+            name: result.rows[0].name as string,
+            password: (result.rows[0].password as string) || '',
+          }
+        }
+      } else {
+        const { db } = await import('@/lib/db')
+        const user = await db.user.findFirst({ where: { role: 'SUPER_ADMIN', active: true } })
+        if (user) {
+          approver = { id: user.id, name: user.name, password: user.password || '' }
+        }
+      }
+
+      if (!approver) {
+        return NextResponse.json({ error: 'No SUPER_ADMIN account found. Cannot verify PIN.' }, { status: 403 })
+      }
+
+      const { valid } = await verifyPassword(pin.trim(), approver.password)
+      if (!valid) {
+        return NextResponse.json({ error: 'Invalid PIN. Access denied.' }, { status: 403 })
+      }
+      approvalSource = 'admin_password'
     }
 
-    // Verify PIN against the admin's password hash
-    const { valid } = await verifyPassword(pin.trim(), adminUser.password)
-    if (!valid) {
-      return NextResponse.json({ error: 'Invalid PIN. Access denied.' }, { status: 403 })
+    if (!approver) {
+      return NextResponse.json({ error: 'No approver found.' }, { status: 403 })
     }
 
     // Create approval log
@@ -198,7 +239,7 @@ export async function POST(req: NextRequest) {
       await turso.execute({
         sql: `INSERT INTO "ApprovalLog" (id, action, "entityType", "entityId", "requesterId", "approverId", status, "createdAt")
               VALUES (?, ?, ?, ?, ?, ?, 'APPROVED', ?)`,
-        args: [id, action, entityType, entityId || null, requesterId, adminUser.id, now],
+        args: [id, action, entityType, entityId || null, requesterId, approver.id, now],
       })
     } else {
       const { db } = await import('@/lib/db')
@@ -208,7 +249,7 @@ export async function POST(req: NextRequest) {
           entityType,
           entityId: entityId || null,
           requesterId,
-          approverId: adminUser.id,
+          approverId: approver.id,
           status: 'APPROVED',
         },
       })
@@ -222,14 +263,14 @@ export async function POST(req: NextRequest) {
       category: 'general',
       entity: entityType,
       entityId: entityId || null,
-      details: { requesterId, approverId: adminUser.id },
+      details: { requesterId, approverId: approver.id, approvalSource },
       ipAddress,
       userAgent,
     }).catch(() => {})
 
     return NextResponse.json({
       success: true,
-      approval: { id, action, entityType, entityId, requesterId, approverId: adminUser.id, approverName: adminUser.name, status: 'APPROVED', createdAt: now },
+      approval: { id, action, entityType, entityId, requesterId, approverId: approver.id, approverName: approver.name, status: 'APPROVED', createdAt: now, approvalSource },
     })
   } catch (error) {
     console.error('[approvals] POST error:', error)

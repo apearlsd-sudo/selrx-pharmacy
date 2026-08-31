@@ -36,6 +36,7 @@ model User {
   department    String?  // Department assignment (e.g. Pharmacy, Front Desk, Finance)
   shift         String?  // Shift assignment (e.g. Morning, Afternoon, Night)
   hireDate      String?  // ISO date string for hire date
+  pinCode       String?  // bcrypt-hashed user PIN for goods-return approval
   active        Boolean  @default(true)
   lastLogin     DateTime?
   createdAt     DateTime @default(now())
