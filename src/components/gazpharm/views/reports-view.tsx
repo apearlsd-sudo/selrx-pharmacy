@@ -1138,7 +1138,7 @@ export function ReportsView() {
     return undefined
   })()
 
-  const tabTriggerCls = 'rounded-none text-[10px] px-1.5 py-0.5 xl:text-xs xl:px-2.5 xl:py-1 hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full whitespace-nowrap'
+  const tabTriggerCls = 'rounded-none max-xl:text-[10px] max-xl:px-1.5 max-xl:py-0.5 hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full whitespace-nowrap'
 
   return (
     <div className="space-y-2 animate-fade-in">
@@ -1146,7 +1146,7 @@ export function ReportsView() {
 
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
-        <TabsList className="flex-nowrap overflow-x-auto h-7 xl:h-auto p-0 rounded-none gap-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#a1d99b' }}>
+        <TabsList className="flex-nowrap overflow-x-auto max-xl:h-7 p-0 rounded-none gap-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#a1d99b' }}>
             <TabsTrigger value="sales" className={tabTriggerCls}>Sales</TabsTrigger>
             <TabsTrigger value="user-sales" className={tabTriggerCls}>Users</TabsTrigger>
             <TabsTrigger value="inventory" className={tabTriggerCls}>Inventory</TabsTrigger>
