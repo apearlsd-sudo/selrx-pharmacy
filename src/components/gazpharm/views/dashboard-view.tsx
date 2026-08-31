@@ -109,7 +109,7 @@ interface DashboardData {
   totalProducts?: number
 }
 
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency, currencySymbol } from '@/lib/currency'
 import { formatDateTime, formatDateWeekday } from '@/lib/date-utils'
 
 function formatDate(dateStr: string): string {
@@ -408,7 +408,7 @@ export function DashboardView() {
                           axisLine={false}
                         />
                         <YAxis
-                          tickFormatter={(v: number) => '$' + v}
+                          tickFormatter={(v: number) => currencySymbol() + v}
                           fontSize={11}
                           tickLine={false}
                           axisLine={false}

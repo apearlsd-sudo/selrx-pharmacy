@@ -40,7 +40,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAppStore } from '@/store/app-store'
 import { authHeaders } from '@/lib/auth-headers'
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency, currencySymbol } from '@/lib/currency'
 import { formatDate, formatDateTimeShort } from '@/lib/date-utils'
 import { format } from 'date-fns'
 import { PageHeader } from '@/components/gazpharm/shared/page-header'
@@ -1177,7 +1177,7 @@ export function ReportsView() {
                     <BarChart data={dailySales}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => currencySymbol() + v} />
                       <Tooltip formatter={(value: any) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                       <Bar dataKey="sales" fill="#059669" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -1357,7 +1357,7 @@ export function ReportsView() {
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart data={userSalesChartData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => currencySymbol() + v} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
                         <Tooltip formatter={(value: any) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                         <Bar dataKey="sales" radius={[0, 4, 4, 0]}>
@@ -1383,7 +1383,7 @@ export function ReportsView() {
                     <LineChart data={userDailyChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => currencySymbol() + v} />
                       <Tooltip formatter={(value: any, name: any) => name === 'sales' ? formatCurrency(value) : value} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '10px 14px' }} />
                       <Legend />
                       <Line type="monotone" dataKey="sales" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} />
