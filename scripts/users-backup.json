@@ -1,0 +1,30 @@
+[
+  {
+    "id": "cms1im8ac0000sla8s1tsqz4k",
+    "email": "edem@gmail.com",
+    "password": "Admin123",
+    "name": "Edem",
+    "role": "SUPER_ADMIN",
+    "phone": null,
+    "licenseNumber": null,
+    "permissions": "[\"dashboard\",\"pos\",\"inventory\",\"prescriptions\",\"customers\",\"users\",\"hardware\",\"reports\"]",
+    "active": true,
+    "lastLogin": null,
+    "createdAt": "2026-07-26T08:07:31.956Z",
+    "updatedAt": "2026-07-26T08:07:31.956Z"
+  },
+  {
+    "id": "cms1lyxlo0008slo4zl5ty17g",
+    "email": "meda@gmail.com",
+    "password": "meda123",
+    "name": "meda",
+    "role": "CLERK",
+    "phone": "",
+    "licenseNumber": "",
+    "permissions": "[\"customers\",\"pos\",\"hardware\"]",
+    "active": true,
+    "lastLogin": null,
+    "createdAt": "2026-07-26T09:41:23.484Z",
+    "updatedAt": "2026-07-26T09:41:23.484Z"
+  }
+]
