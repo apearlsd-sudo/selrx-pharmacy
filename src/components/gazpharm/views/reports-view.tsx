@@ -1138,26 +1138,28 @@ export function ReportsView() {
     return undefined
   })()
 
+  const tabTriggerCls = 'rounded-none text-[11px] px-2.5 py-1 hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full'
+
   return (
-    <div className="space-y-3 animate-fade-in">
-      <PageHeader icon={BarChart3} title="Reports" description="Sales analytics, shift reports, and product activity" action={dateFilter} />
+    <div className="space-y-2 animate-fade-in">
+      <PageHeader icon={BarChart3} title="Reports" description="Sales analytics, shift reports, and product activity" action={dateFilter} className="mb-2 gap-2" />
 
       {/* Report Type Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => startTransition(() => setActiveTab(val))}>
         <div>
-          <TabsList className="flex-wrap p-0 rounded-none gap-0" style={{ backgroundColor: '#a1d99b' }}>
-            <TabsTrigger value="sales" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Sales Summary</TabsTrigger>
-            <TabsTrigger value="user-sales" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">User Sales</TabsTrigger>
-            <TabsTrigger value="inventory" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Inventory</TabsTrigger>
-            <TabsTrigger value="prescriptions" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Prescriptions</TabsTrigger>
-            <TabsTrigger value="stocktake" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Stock Take</TabsTrigger>
-            <TabsTrigger value="expired-goods" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Expired Goods</TabsTrigger>
-            <TabsTrigger value="product-activity" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Product Activity</TabsTrigger>
-            <TabsTrigger value="shifts" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Shift Reports</TabsTrigger>
-            <TabsTrigger value="staff-targets" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Staff Targets</TabsTrigger>
-            <TabsTrigger value="insurance-claims" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Insurance Claims</TabsTrigger>
-            <TabsTrigger value="financial" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Financial P&L</TabsTrigger>
-            <TabsTrigger value="controlled-substances" className="rounded-none hover:bg-[#edf8e9] data-[state=active]:hover:bg-background transition-colors duration-[600ms] data-[state=active]:rounded-none data-[state=active]:h-full">Controlled Substances</TabsTrigger>
+          <TabsList className="flex-wrap p-0 rounded-none gap-0 text-[11px]" style={{ backgroundColor: '#a1d99b' }}>
+            <TabsTrigger value="sales" className={tabTriggerCls}>Sales Summary</TabsTrigger>
+            <TabsTrigger value="user-sales" className={tabTriggerCls}>User Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className={tabTriggerCls}>Inventory</TabsTrigger>
+            <TabsTrigger value="prescriptions" className={tabTriggerCls}>Prescriptions</TabsTrigger>
+            <TabsTrigger value="stocktake" className={tabTriggerCls}>Stock Take</TabsTrigger>
+            <TabsTrigger value="expired-goods" className={tabTriggerCls}>Expired Goods</TabsTrigger>
+            <TabsTrigger value="product-activity" className={tabTriggerCls}>Product Activity</TabsTrigger>
+            <TabsTrigger value="shifts" className={tabTriggerCls}>Shift Reports</TabsTrigger>
+            <TabsTrigger value="staff-targets" className={tabTriggerCls}>Staff Targets</TabsTrigger>
+            <TabsTrigger value="insurance-claims" className={tabTriggerCls}>Insurance Claims</TabsTrigger>
+            <TabsTrigger value="financial" className={tabTriggerCls}>Financial P&L</TabsTrigger>
+            <TabsTrigger value="controlled-substances" className={tabTriggerCls}>Controlled Substances</TabsTrigger>
           </TabsList>
         </div>
 

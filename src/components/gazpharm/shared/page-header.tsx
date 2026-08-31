@@ -5,11 +5,12 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  className?: string;
 }
 
-export function PageHeader({ icon: Icon, title, description, action }: PageHeaderProps) {
+export function PageHeader({ icon: Icon, title, description, action, className }: PageHeaderProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 animate-slide-down">
+    <div className={`flex flex-wrap items-center justify-between gap-3 mb-4 animate-slide-down ${className || ''}`}>
       <div className="flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
           <Icon className="h-4 w-4 text-emerald-600" />
