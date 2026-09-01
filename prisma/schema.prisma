@@ -719,8 +719,8 @@ enum MobileMoneyStatus {
 model MobileMoneyPayment {
   id              String              @id @default(cuid())
   transactionId   String              @unique
-  provider        String              // MTN_MOMO, VODAFONE_CASH, AIRTEL_MONEY, TIGO_CASH
-  providerLabel   String              // Display label: "MTN Mobile Money", "Vodafone Cash"
+  provider        String              // MTN_MOMO, TELECEL_CASH, AIRTEL_MONEY
+  providerLabel   String              // Display label: "MTN Mobile Money", "Telecel Cash", "AirtelTigo Money"
   phoneNumber     String              // Masked: 0XXX *** XXXX
   reference       String?             // Unique reference: MOMO-YYYYMMDD-XXXXXX
   status          MobileMoneyStatus   @default(PENDING)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import Image from 'next/image'
 import {
   Smartphone,
   X,
@@ -60,7 +61,11 @@ function ProviderBadge({ provider }: { provider: MobileMoneyProviderInfo }) {
         border: `1px solid ${provider.color}44`,
       }}
     >
-      <Signal className="h-3 w-3" />
+      {provider.logoUrl ? (
+        <Image src={provider.logoUrl} alt={provider.label} width={14} height={14} className="w-3.5 h-3.5 rounded-full" />
+      ) : (
+        <Signal className="h-3 w-3" />
+      )}
       {provider.label}
     </span>
   )
@@ -353,7 +358,7 @@ export function MobileMoneyModal({
               {/* Provider Selection */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Network Provider</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {providers.map((prov) => (
                     <button
                       key={prov.provider}
@@ -372,12 +377,22 @@ export function MobileMoneyModal({
                       }
                       disabled={isSubmitting}
                     >
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                        style={{ backgroundColor: prov.color }}
-                      >
-                        {prov.logoInitials.slice(0, 2)}
-                      </div>
+                      {prov.logoUrl ? (
+                        <Image
+                          src={prov.logoUrl}
+                          alt={prov.label}
+                          width={28}
+                          height={28}
+                          className="w-7 h-7 rounded-full shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                          style={{ backgroundColor: prov.color }}
+                        >
+                          {prov.logoInitials.slice(0, 2)}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="truncate" style={{ color: displayProvider?.provider === prov.provider ? prov.color : undefined }}>
                           {prov.label}

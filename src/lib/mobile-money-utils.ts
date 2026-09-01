@@ -14,9 +14,8 @@
 
 export type MobileMoneyProvider =
   | 'MTN_MOMO'
-  | 'VODAFONE_CASH'
+  | 'TELECEL_CASH'
   | 'AIRTEL_MONEY'
-  | 'TIGO_CASH'
   | 'UNKNOWN'
 
 export interface MobileMoneyProviderInfo {
@@ -24,6 +23,7 @@ export interface MobileMoneyProviderInfo {
   label: string
   color: string        // Brand color for UI theming
   logoInitials: string // Short text for logo placeholder
+  logoUrl: string      // Path to network logo image
   prefixPatterns: string[]  // Phone number prefixes
   shortcode: string    // USSD shortcode
 }
@@ -35,14 +35,16 @@ const PROVIDER_RULES: MobileMoneyProviderInfo[] = [
     label: 'MTN Mobile Money',
     color: '#FFC300',
     logoInitials: 'MTN',
+    logoUrl: '/logos/mtn-momo.svg',
     prefixPatterns: ['+23324', '+23325', '+23354', '+23355', '024', '025', '054', '055'],
     shortcode: '*170#',
   },
   {
-    provider: 'VODAFONE_CASH',
-    label: 'Vodafone Cash',
+    provider: 'TELECEL_CASH',
+    label: 'Telecel Cash',
     color: '#E60000',
-    logoInitials: 'VDF',
+    logoInitials: 'TCL',
+    logoUrl: '/logos/telecel-cash.svg',
     prefixPatterns: ['+23320', '+23350', '020', '050'],
     shortcode: '*110#',
   },
@@ -51,16 +53,9 @@ const PROVIDER_RULES: MobileMoneyProviderInfo[] = [
     label: 'AirtelTigo Money',
     color: '#ED1C24',
     logoInitials: 'ATM',
+    logoUrl: '/logos/airteltigo-money.svg',
     prefixPatterns: ['+23326', '+23327', '+23356', '+23357', '026', '027', '056', '057'],
     shortcode: '*500#',
-  },
-  {
-    provider: 'TIGO_CASH',
-    label: 'Tigo Cash',
-    color: '#00A651',
-    logoInitials: 'TGO',
-    prefixPatterns: ['+23327', '+23357', '027', '057'],
-    shortcode: '*100#',
   },
 ]
 
@@ -69,6 +64,7 @@ const DEFAULT_PROVIDER: MobileMoneyProviderInfo = {
   label: 'Mobile Money',
   color: '#6B7280',
   logoInitials: 'MM',
+  logoUrl: '',
   prefixPatterns: [],
   shortcode: '',
 }
@@ -171,7 +167,7 @@ export function validatePhoneNumber(phoneNumber: string): { valid: boolean; erro
   // Check if the provider can be detected
   const provider = detectProvider(clean)
   if (provider.provider === 'UNKNOWN') {
-    return { valid: false, error: 'Unrecognized mobile network. Use MTN, Vodafone, AirtelTigo, or Tigo number.', normalized: clean }
+    return { valid: false, error: 'Unrecognized mobile network. Use MTN, Telecel, or AirtelTigo number.', normalized: clean }
   }
 
   return { valid: true, error: '', normalized: clean }
