@@ -19,7 +19,7 @@ use tokio::sync::broadcast;
 const ALLOWED_TABLES: &[&str] = &[
     "Product", "Inventory", "Batch", "Customer", "User",
     "Transaction", "TransactionItem", "Return", "Prescription",
-    "Company", "Manufacturer", "Vendor", "Category",
+    "Company", "Manufacturer", "Vendor", "Category", "DosageForm",
     "StockTake", "StockTakeItem", "AuditLog", "ProductHistory",
     "HardwareLog", "Shift", "ShiftInventory", "Workstation",
     "_CategoryToProduct", "SystemRole",

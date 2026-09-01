@@ -50,6 +50,18 @@ const statusConfig = {
     bg: 'bg-gray-400/10',
     label: 'Offline',
   },
+  ws_connected: {
+    icon: Wifi,
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-500/10',
+    label: 'Live Sync',
+  },
+  discovering: {
+    icon: RefreshCw,
+    color: 'text-blue-500',
+    bg: 'bg-blue-500/10',
+    label: 'Scanning...',
+  },
 } as const
 
 export function SyncStatusIndicator() {
