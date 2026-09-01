@@ -740,3 +740,20 @@ Stage Summary:
 - All card processing attempts are audit logged
 - Card details appear on receipts and in sales history/transaction detail views
 - Build passes with zero errors
+
+---
+Task ID: 10-3
+Agent: Main Agent
+Task: Fix Hub startup panic — "no reactor running" when tokio::spawn called from Tauri sync setup thread
+
+Work Log:
+- Identified root cause: `sync_server::start_sync_server()` uses `tokio::spawn` internally (sync_server.rs:97) but is called from Tauri's `.setup()` closure (lib.rs:670) which runs on a synchronous thread with no Tokio runtime
+- Confirmed ws_server.rs:213 `tokio::spawn` is safe (runs inside axum handler context)
+- Confirmed tunnel.rs uses only `std::thread::spawn` (OS thread), no tokio dependency
+- Confirmed mdns_discovery.rs uses only `std::thread::spawn`, no tokio dependency
+- Fixed by wrapping the `start_sync_server` call in `tauri::async_runtime::spawn()` which schedules onto Tauri's built-in tokio runtime
+- Cloned `db` Arc before the `async move` block to avoid ownership conflict with later `db.offline_queue_purge()` call in setup
+
+Stage Summary:
+- Changed lib.rs:666-676 — `start_sync_server` now launched via `tauri::async_runtime::spawn` instead of direct call from setup thread
+- Hub device will no longer panic on startup; sync server + WebSocket will start correctly on port 3001
