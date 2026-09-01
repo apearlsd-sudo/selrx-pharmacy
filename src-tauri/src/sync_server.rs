@@ -269,6 +269,7 @@ async fn sync_push(
     let db = &state.db;
 
     let mut applied = 0;
+    let mut applied_ids: Vec<String> = Vec::new();
     let mut failed = 0;
     let mut errors: Vec<String> = Vec::new();
     let mut pushed_tables: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -285,18 +286,24 @@ async fn sync_push(
         };
 
         // Also validate column names in record.data to prevent SQL injection via column names
+        let mut columns_valid = true;
         if let Ok(data_map) = record.data.as_object() {
             for key in data_map.keys() {
                 if !key.chars().all(|c| c.is_alphanumeric() || c == '_') || key.is_empty() {
                     failed += 1;
                     errors.push(format!("Invalid column name: {}", key));
-                    continue;
+                    columns_valid = false;
+                    break;  // stop checking further keys
                 }
             }
         }
+        if !columns_valid {
+            continue;  // skip to next record
+        }
+
         pushed_tables.insert(safe_table.to_string());
 
-        match record.operation.as_str() {
+        let record_ok = match record.operation.as_str() {
             "INSERT" => {
                 if let Ok(data_map) = record.data.as_object() {
                     let keys: Vec<&String> = data_map.keys().collect();
@@ -322,13 +329,14 @@ async fn sync_push(
                     );
 
                     match db.execute(sql, values, String::new(), String::new(), String::new(), String::new()) {
-                        Ok(_) => applied += 1,
+                        Ok(_) => true,
                         Err(e) => {
                             failed += 1;
                             errors.push(format!("INSERT {} {}: {}", safe_table, record.record_id, e));
+                            false
                         }
                     }
-                }
+                } else { false }
             }
             "UPDATE" => {
                 if let Ok(data_map) = record.data.as_object() {
@@ -351,28 +359,36 @@ async fn sync_push(
                     );
 
                     match db.execute(sql, all_values, String::new(), String::new(), String::new(), String::new()) {
-                        Ok(_) => applied += 1,
+                        Ok(_) => true,
                         Err(e) => {
                             failed += 1;
                             errors.push(format!("UPDATE {} {}: {}", safe_table, record.record_id, e));
+                            false
                         }
                     }
-                }
+                } else { false }
             }
             "DELETE" => {
                 let sql = format!(r#"DELETE FROM "{}" WHERE id = ?"#, safe_table);
                 match db.execute(sql, vec![record.record_id.clone()], String::new(), String::new(), String::new(), String::new()) {
-                    Ok(_) => applied += 1,
+                    Ok(_) => true,
                     Err(e) => {
                         failed += 1;
                         errors.push(format!("DELETE {} {}: {}", safe_table, record.record_id, e));
+                        false
                     }
                 }
             }
             _ => {
                 failed += 1;
                 errors.push(format!("Unknown operation: {}", record.operation));
+                false
             }
+        };
+
+        if record_ok {
+            applied += 1;
+            applied_ids.push(record.record_id.clone());
         }
     }
 
@@ -388,6 +404,7 @@ async fn sync_push(
 
     Json(serde_json::json!({
         "applied": applied,
+        "applied_ids": applied_ids,
         "failed": failed,
         "errors": errors,
         "pushed_tables": pushed_tables.into_iter().collect::<Vec<_>>()

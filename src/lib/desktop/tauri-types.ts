@@ -32,6 +32,7 @@ export interface PullResponse {
 
 export interface PushResponse {
   applied: number
+  applied_ids?: string[]
   failed: number
   errors: string[]
   pushed_tables?: string[]

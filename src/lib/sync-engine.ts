@@ -150,9 +150,15 @@ export interface SyncInfo {
 // Public API
 // ===================================================================
 
-/** Start the periodic sync loop. No-op on web. */
+/** Start the periodic sync loop. No-op on web. Idempotent — safe to call multiple times. */
 export async function startSync(url?: string): Promise<void> {
   if (!isDesktop()) return
+
+  // If already running, stop first to prevent leaked timers / duplicate WS
+  if (syncTimer || wsConnection) {
+    console.log('[sync] startSync() called while already running — restarting')
+    stopSync()
+  }
 
   if (url) hubUrl = url
 
@@ -483,7 +489,10 @@ async function pushToHub(): Promise<void> {
   const result: PushResponse = await res.json()
 
   if (result.applied > 0) {
-    const appliedIds = toPush.slice(0, result.applied).map((e) => e.id)
+    // Use server-returned IDs when available (accurate), otherwise fall back to slice (legacy)
+    const appliedIds = (result.applied_ids && result.applied_ids.length > 0)
+      ? result.applied_ids
+      : toPush.slice(0, result.applied).map((e) => e.id)
     await markSynced(appliedIds)
   }
 
