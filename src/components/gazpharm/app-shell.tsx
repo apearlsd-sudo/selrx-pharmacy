@@ -804,17 +804,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
               if (targetView) {
                 store.setCurrentView(targetView)
               }
-              // Auto-start device sync on desktop (terminal mode)
-              if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-                try {
-                  const syncSettings = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
-                  if (syncSettings.deviceRole === 'terminal' && syncSettings.hubUrl) {
-                    import('@/lib/sync-engine').then(({ startSync }) => {
-                      startSync(syncSettings.hubUrl).catch(() => {})
-                    }).catch(() => {})
-                  }
-                } catch { /* sync not configured — ignore */ }
-              }
+              // Sync is initialized in a separate useEffect (independent of session)
               // Pre-fetch full inventory for offline use
               try {
                 fetch('/api/products?limit=1000', { headers: { Authorization: `Bearer ${savedToken}` } })
@@ -856,17 +846,7 @@ export default function AppShell({ initialBranding }: AppShellProps) {
                   }
                 }
                 if (targetView) store.setCurrentView(targetView)
-                // Auto-start device sync on desktop (terminal mode) even when offline
-                if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-                  try {
-                    const syncSettings = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
-                    if (syncSettings.deviceRole === 'terminal' && syncSettings.hubUrl) {
-                      import('@/lib/sync-engine').then(({ startSync }) => {
-                        startSync(syncSettings.hubUrl).catch(() => {})
-                      }).catch(() => {})
-                    }
-                  } catch { /* sync not configured — ignore */ }
-                }
+                // Sync is initialized in a separate useEffect (independent of session)
                 // Restore workstation
                 try {
                   const savedWsId = localStorage.getItem('selrx_workstation')
@@ -894,6 +874,104 @@ export default function AppShell({ initialBranding }: AppShellProps) {
       sessionRestored = true
       finish()
     }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Independent device sync initialization — runs regardless of session state
+  // This ensures devices auto-connect to the hub on app startup
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
+
+    let cancelled = false
+
+    const initDesktopSync = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const { startSync, onSyncStateChange, getSyncInfo } = await import('@/lib/sync-engine')
+
+        // Get device role from Rust side (source of truth)
+        const role: string = await invoke('get_device_role')
+        const isTerminal = role === 'Terminal'
+
+        // Get hub URL — check localStorage first, fall back to Rust-side persistence
+        let hubUrl = ''
+        try {
+          const ls = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+          hubUrl = ls.hubUrl || ''
+        } catch { /* ignore */ }
+
+        if (!hubUrl && isTerminal) {
+          // Fallback: check Rust-side persisted hub URL
+          try {
+            hubUrl = (await invoke('get_hub_url')) as string || ''
+            if (hubUrl) {
+              // Sync back to localStorage so future reads don't need Tauri invoke
+              try {
+                const existing = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+                existing.hubUrl = hubUrl
+                localStorage.setItem('selrx_sync_settings', JSON.stringify(existing))
+              } catch { /* ignore */ }
+            }
+          } catch (e) {
+            console.warn('[sync] Could not read Rust-side hub URL:', e)
+          }
+        }
+
+        if (!isTerminal || !hubUrl) {
+          // If terminal with no hub URL yet, auto-scan LAN for hubs
+          if (isTerminal && !hubUrl) {
+            console.log('[sync] No saved hub URL — scanning LAN for hubs...')
+            try {
+              const hubs: Array<{ ip: string; port: number; device_id: string }> =
+                await invoke('scan_for_hubs', { timeoutSecs: 3 })
+              if (hubs.length > 0 && !cancelled) {
+                const hub = hubs[0]
+                const url = `http://${hub.ip}:${hub.port}`
+                console.log(`[sync] Found hub at ${url} — auto-connecting`)
+                // Persist the discovered hub URL
+                try {
+                  await invoke('set_hub_url_persist', { url })
+                  const existing = JSON.parse(localStorage.getItem('selrx_sync_settings') || '{}')
+                  existing.hubUrl = url
+                  localStorage.setItem('selrx_sync_settings', JSON.stringify(existing))
+                } catch { /* ignore */ }
+                // Verify hub is reachable before starting sync
+                try {
+                  const resp = await fetch(`${url}/api/sync/health`, {
+                    signal: AbortSignal.timeout(3000),
+                  })
+                  if (resp.ok) {
+                    await startSync(url)
+                    console.log('[sync] Auto-connected to discovered hub')
+                  } else {
+                    console.warn('[sync] Hub health check failed')
+                  }
+                } catch (e) {
+                  console.warn('[sync] Could not reach discovered hub:', e)
+                }
+              } else if (hubs.length === 0) {
+                console.log('[sync] No hubs found on LAN')
+              }
+            } catch (e) {
+              console.warn('[sync] LAN scan failed:', e)
+            }
+          }
+          return
+        }
+
+        // Terminal with saved hub URL — start sync immediately
+        if (!cancelled) {
+          console.log(`[sync] Auto-starting sync with hub: ${hubUrl}`)
+          await startSync(hubUrl)
+          console.log('[sync] Sync engine started')
+        }
+      } catch (err) {
+        console.error('[sync] Auto-start failed:', err)
+      }
+    }
+
+    // Delay slightly to let Tauri fully initialize
+    const timer = setTimeout(initDesktopSync, 1500)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { theme, setTheme } = useTheme()

@@ -670,6 +670,12 @@ pub fn run() {
                 sync_server::start_sync_server(db.clone(), config);
                 println!("[gazpharm] Started as HUB (sync server + WebSocket on port 3001)");
 
+                // Notify frontend that hub is ready
+                let _ = app.emit("device-ready", serde_json::json!({
+                    "role": "Hub",
+                    "port": 3001,
+                }));
+
                 // Start mDNS discovery beacon so terminals can find us on LAN
                 let beacon_device_id = device_id.clone();
                 mdns_discovery::start_discovery_beacon(beacon_device_id, 3001);
@@ -679,6 +685,11 @@ pub fn run() {
                 let _ = db.offline_queue_purge();
             } else {
                 println!("[gazpharm] Started as TERMINAL");
+
+                // Notify frontend that terminal is ready
+                let _ = app.emit("device-ready", serde_json::json!({
+                    "role": "Terminal",
+                }));
 
                 // Purge old offline queue items on startup
                 let _ = db.offline_queue_purge();

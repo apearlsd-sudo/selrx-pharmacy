@@ -148,22 +148,18 @@ pub fn get_broadcaster(state: &Arc<WsState>) -> broadcast::Sender<String> {
 /// Verify sync secret from the WebSocket upgrade request.
 /// Reads the Authorization header or a `token` query param.
 fn verify_ws_auth(req: &axum::http::request::Parts) -> bool {
+    let expected = match std::env::var("SYNC_SECRET") {
+        Ok(s) if !s.is_empty() => s,
+        _ => return true, // No secret configured — allow all (matches HTTP behavior)
+    };
     // Try Authorization header first
     if let Some(auth) = req.headers.get("authorization").and_then(|v| v.to_str().ok()) {
-        let expected = match std::env::var("SYNC_SECRET") {
-            Ok(s) if !s.is_empty() => s,
-            _ => return false,
-        };
         return auth == format!("Bearer {}", expected);
     }
     // Fallback: token query parameter (for WebSocket clients that can't set headers)
     if let Some(query) = req.uri.query() {
         for pair in query.split('&') {
             if let Some(token) = pair.strip_prefix("token=") {
-                let expected = match std::env::var("SYNC_SECRET") {
-                    Ok(s) if !s.is_empty() => s,
-                    _ => return false,
-                };
                 return token == expected;
             }
         }
