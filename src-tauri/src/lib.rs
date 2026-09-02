@@ -671,7 +671,8 @@ pub fn run() {
                 // Must spawn on Tauri's async runtime — the setup hook runs on a
                 // synchronous thread with no Tokio reactor, so tokio::spawn inside
                 // start_sync_server would panic with "no reactor running".
-                tauri::async_runtime::spawn(async move {
+                let rt_handle = tauri::async_runtime::handle();
+                rt_handle.spawn(async move {
                     sync_server::start_sync_server(db_for_server, config);
                 });
                 println!("[gazpharm] Started as HUB (sync server + WebSocket on port 3001)");
