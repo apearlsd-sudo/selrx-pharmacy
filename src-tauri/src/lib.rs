@@ -668,12 +668,19 @@ pub fn run() {
                     port: 3001,
                     tunnel_url: tunnel_url.clone(),
                 };
-                // Must spawn on Tauri's async runtime — the setup hook runs on a
-                // synchronous thread with no Tokio reactor, so tokio::spawn inside
-                // start_sync_server would panic with "no reactor running".
-                let rt_handle = tauri::async_runtime::handle();
-                rt_handle.spawn(async move {
-                    sync_server::start_sync_server(db_for_server, config);
+                // The setup hook runs on a synchronous thread with no Tokio runtime.
+                // start_sync_server internally calls tokio::spawn, which requires a
+                // reactor context. Solution: launch a dedicated OS thread with its
+                // own multi-threaded Tokio runtime for the sync + WS server.
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Builder::new_multi_thread()
+                        .enable_all()
+                        .worker_threads(2)
+                        .build()
+                        .expect("Failed to create tokio runtime for sync server");
+                    rt.block_on(async move {
+                        sync_server::start_sync_server(db_for_server, config);
+                    });
                 });
                 println!("[gazpharm] Started as HUB (sync server + WebSocket on port 3001)");
 
